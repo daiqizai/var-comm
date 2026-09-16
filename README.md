@@ -6,6 +6,8 @@
 
 ## 当前结论 · 2026-09-16
 
+**本次新增：[一页研究定位](reports/research_positioning_one_page_20260916.md)** · [相关工作差异](reports/external_related_work_difference_20260916.md) · [三类图和失败后果数表](results/external_baselines/positioning_interim/README.md)。这是不等待HiFi的阶段版，不包含其全量胜负；保留工程取舍，不将现有证据包装成新增算法成功。
+
 - **新增外部非扩散实测**：SwinJSCC/ADJSCC、数字共同预算N4204/4498、完整计时、原尺寸重建和等预算拼图已发布。HiFi尚在运行，没有完整最终排名。
 - 同N4498下数字VAR的LPIPS较低，但Swin的PSNR更高、处理更快；是取舍，不是全面胜出。
 

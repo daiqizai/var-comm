@@ -2,6 +2,8 @@
 
 ## External baseline update
 
+The new [one-page interim positioning](../reports/research_positioning_one_page_20260916.md), [primary-work differences](../reports/external_related_work_difference_20260916.md) and [three tradeoff views/failure tables](../results/external_baselines/positioning_interim/README.md) advance the study without waiting for HiFi. The remaining ordinary error-resilient entropy control is an evidence gap, not a newly started experiment. Existing negative findings and all strong references remain unchanged.
+
 The completed non-diffusion author comparisons, new common-budget digital calibration/development, online costs and figures are now published. See the [report](../reports/external_baseline_non_diffusion_result_20260916.md) and [data/figures](../results/external_baselines/README.md).
 
 **HiFi-DiffCom is still running at this incremental release.** Its JSON is a dated snapshot, not final performance or live status. All four original strong references remain; no new training, architecture or holdout is started.

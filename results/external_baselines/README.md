@@ -1,5 +1,7 @@
 # 外部方法：非扩散阶段结果
 
+最新补充：[一页定位、等资源/资源/计算取舍图及失败后果复算](positioning_interim/README.md)。HiFi仍未完成，不进入阶段排名。
+
 **HiFi-DiffCom仍在运行，状态快照不是完成回执，不进入本次排名。**
 
 - [阶段报告](../../reports/external_baseline_non_diffusion_result_20260916.md)

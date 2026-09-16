@@ -9,4 +9,5 @@
 - The user-authorized external update includes preregistered reconstruction/comparison figures in `results/external_baselines/figures/`; panels can contain source references. This does not authorize standalone source files, datasets or raw pixel arrays.
 - `tools/reproduce_results.py` is CPU-only statistical reproduction. Do not describe it as image-metric recomputation or training reproduction.
 - Reports/configurations contain sanitized historical paths. Original and published hashes are separately recorded.
-- Do not force-push, bypass hooks or overwrite remote work. Commit/push only when explicitly authorized.
+- Do not force-push, bypass hooks or overwrite remote work. Create commits only within explicitly authorized tasks.
+- Standing user instruction: immediately push every authorized commit to its configured remote, verify remote inclusion and report any failure. Do not ask for separate push confirmation or mistake a local commit for a completed upload. This does not authorize automatic commits of unfinished/raw assets.
