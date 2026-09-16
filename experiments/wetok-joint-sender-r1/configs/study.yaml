@@ -1,0 +1,30 @@
+study: matched_joint_sender_receiver_continuation
+status: prepared_not_activated
+reference_experiment: wetok-innovation-r1
+reference_config_sha256: 121dfc465c5d49e25bb9f0a4789a0a2baa60b71449d0060b19047a85f408734f
+reference_training: WETOK-INNOVATION-R1-TRAINING
+required_control_updates: 5000
+variants: [single_pass, multiscale_no_history, multiscale_state_history]
+initialization: identical_single_parent_and_fresh_Adam_rules_as_frozen_TX_controls
+sole_training_factor: communication_Encoder_receives_gradients_and_updates
+unchanged_loss: {mse: 1.0, lpips: 0.01, bits: 0.01, state: 0.01}
+learning_rate: 0.0001
+gradient_clip: 1.0
+global_data_start: 7000
+effective_batch_size: 4
+micro_batch_size: 1
+first_updates: 1000
+planned_updates: 5000
+full_calibration_steps: [0, 1000, 2500, 5000]
+monitor_every: 500
+select_by: complete_calibration_mean_LPIPS_ties_earliest
+visual_models_frozen: true
+decoder_interface: continuous_mean
+channel: {complex_uses: 3060, header_uses: 0, data_uses: 3060, total_energy: 6120, average_complex_energy: 2.0}
+comparison_information: same_source_and_standard_noise_not_same_learned_waveform
+outputs:
+  preparation: WETOK-JOINT-SENDER-R1-PREPARATION
+  profile: WETOK-JOINT-SENDER-R1-PROFILE
+  training: WETOK-JOINT-SENDER-R1-TRAINING
+  evaluation: WETOK-JOINT-SENDER-R1-EVALUATION
+  analysis: WETOK-JOINT-SENDER-R1-ANALYSIS

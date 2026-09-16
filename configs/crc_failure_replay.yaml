@@ -1,0 +1,48 @@
+study: first_failed_candidate_image_only_replay
+registered_local_date: '2026-09-07'
+status: preregistered_before_retained_image_results
+input_run: outputs/VAR-PROGRESSIVE-CHANNEL-001
+input_completion_sha256: 215bb45225c6edfbf1af2d093db4fd723ede2260771305fb70bb35501dd1182f
+input_audit: outputs/VAR-PROGRESSIVE-CHANNEL-AUDIT-001/audit.json
+input_audit_sha256: b293fdefd8496213961bff5422575b3089fde772b53d5ed39a616fc09a74a757
+selfcheck: outputs/VAR-CRC-FAILURE-REPLAY-SELFCHECK-001/selfcheck.json
+snr_db: 7.0
+mode: 9
+target_count: 100
+noise_seeds: [2001, 2002, 2003]
+complex_uses: 3060
+grouped_arms: [group_ml, group_var, group_entropy]
+unchanged_control: whole_m9
+output_policies: [discard, retain, oracle_lpips]
+retention:
+  candidate: only_first_failed_block_already_decoded
+  reliable_state: never_modified
+  subsequent_channel_decoding: forbidden
+  header_failure: unchanged_fixed_gray_no_free_label
+  base_failure: retain_complete_legal_received_base_candidate_if_header_accepted
+  missing_or_invalid_candidate: unchanged_discard_output
+  entropy: complete_legal_actual_entropy_decoding_only_no_truth_repair
+  image_completion: frozen_no_CFG_argmax_rebuild_full_prefix_fresh_latent_and_KV
+oracle:
+  selection: minimum_per_transmission_LPIPS_of_discard_and_retain
+  tie_break: discard
+  other_metrics: same_LPIPS_selected_image_not_separate_metric_oracles
+  deployable: false
+bootstrap:
+  unit: source_image_after_averaging_same_three_noise_seeds
+  resamples: 10000
+  seed: 2026090704
+decision:
+  oracle_mean_worse_than_whole: stop_this_two_candidate_selector_for_fixed_m9
+  oracle_mean_not_worse_but_retain_worse: diagnostic_headroom_only
+  retain_mean_not_worse: inspect_equal_retention_ML_and_entropy_controls
+  significance: paired_CI_reported_no_unregistered_equivalence_margin
+scope:
+  development_only: true
+  training: false
+  new_FEC: false
+  new_noise: false
+  allocation_search: false
+  new_channel_candidates: false
+  new_formal_test_data: false
+output: outputs/VAR-CRC-FAILURE-REPLAY-001

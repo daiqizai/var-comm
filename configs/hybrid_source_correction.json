@@ -1,0 +1,71 @@
+{
+  "study": "HYBRID-SOURCE-CORRECTION-20260915",
+  "scope": "one_fixed_split_explicit_source_residual_with_two_fusion_controls",
+  "mode": 7,
+  "total_complex_uses": 3060,
+  "header_complex_uses": 68,
+  "digital_complex_uses": 1882,
+  "analog_complex_uses": 1110,
+  "symbol_energy": 2.0,
+  "total_energy": 6120.0,
+  "snrs_db": [1.0, 4.0, 7.0, 13.0, 19.0],
+  "primary_snrs_db": [1.0, 4.0, 7.0],
+  "calibration_seeds": [4101, 4102, 4103],
+  "development_seeds": [2001, 2002, 2003],
+  "arms": ["add", "snr_gain", "reliability_gain"],
+  "candidate_arm": "reliability_gain",
+  "model": {
+    "stage_channels": [32, 64, 96, 128],
+    "stage_blocks": [1, 1, 1, 1],
+    "condition_dim": 64,
+    "latent_channels": 10,
+    "gain_hidden": 16,
+    "legacy_backbone_sha256": "53a239171c1377098fcd9c46dd787c5b0cbf3a87218b093e291c6df358329a71"
+  },
+  "training": {
+    "sources": 20000,
+    "augmentations": "none_existing_center_crops_identical_between_arms",
+    "updates_per_arm": 10000,
+    "batch_size": 16,
+    "initialization_seed": 2026091501,
+    "data_seed": 2026091502,
+    "noise_seed": 2026091503,
+    "learning_rate": 0.0002,
+    "weight_decay": 0.0001,
+    "gradient_clip_norm": 1.0,
+    "mse_weight": 1.0,
+    "lpips_weight": 0.01,
+    "checkpoint_interval": 1000,
+    "calibration_interval": 1000,
+    "calibration_subset_sources": 100,
+    "full_calibration_steps": [5000, 10000],
+    "mixed_precision": "disabled",
+    "automatic_extensions": false
+  },
+  "selection": {
+    "primary_objective": "maximize_primary_mean_PSNR_subject_to_LPIPS_noninferiority_against_both_frozen_digital_adaptives",
+    "lpips_noninferiority_margin_absolute": 0.005,
+    "desired_psnr_gain_db": 0.5,
+    "margin_role": "predeclared_engineering_tolerance_not_an_application_threshold",
+    "eligible_checkpoint_steps": [5000, 10000],
+    "source": "full_1000_calibration_only",
+    "if_none_feasible": "minimum_maximum_LPIPS_constraint_violation_then_highest_PSNR_explicitly_infeasible",
+    "dino_used": false,
+    "bootstrap_unit": "source_image_after_averaging_original_three_noise_seeds",
+    "bootstrap_resamples": 10000,
+    "bootstrap_seed": 20260915
+  },
+  "failures": {
+    "header_rejected_or_mode_not_7": "fixed_gray_0p5_even_if_analog_received",
+    "body_CRC_failed": "retain_actual_complete_ML_token_candidate_and_expose_CRC_to_RX_only",
+    "CRC_false_acceptance": "retain_and_count_no_oracle_repair",
+    "nonfinite_training": "save_failure_receipt_and_stop_all_paired_arms"
+  },
+  "data_boundary": {
+    "training": "existing_20000_train_center_crops",
+    "calibration": "existing_1000_calibration",
+    "development": "original_100_development",
+    "used_1000_holdout": "historical_reference_only_no_new_tuning_or_independence_claim",
+    "new_holdout_access": false
+  }
+}

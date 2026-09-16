@@ -1,0 +1,78 @@
+study: wetok_native_A0_A1_matched
+registered_date: '2026-09-12'
+brief: next_scale_communication_research_brief_v2.md
+brief_sha256: 27648fbc73485deb74a0695f3f7840bd01c561c1b0b4f6f67284fefcfb6d2e3f
+arms: [single_pass, multiscale_no_history, multiscale_conditioned]
+source:
+  native_shape: [32, 16, 16]
+  groups: 4
+  group_bits: 8
+  raw_bits: 8192
+  decoder_interface: exact_native_signs_with_identity_ST_backward
+  class_or_caption: none
+channel:
+  complex_uses: 3060
+  header_uses: 0
+  data_uses: 3060
+  average_complex_energy: 2.0
+  total_energy: 6120.0
+  real_noise_variance: inverse_gamma
+  CSI: shared_nominal_SNR_no_RX_noise_or_feedback
+  snrs_db: [1.0, 4.0, 7.0, 13.0, 19.0]
+model:
+  width: 192
+  heads: 6
+  encoder_layers: 2
+  receiver_layers: 2
+  channel_positions: 153
+  channel_features: 40
+  scales: [4, 8, 16]
+training:
+  effective_batch_size: 4
+  micro_batch_size: 1
+  representation_updates: 2000
+  first_milestone_updates: 5000
+  milestone_stride: 5000
+  milestones_are_not_total_budget_caps: true
+  initialization_seed: 2026091210
+  order_seed: 2026091211
+  channel_seed: 2026091212
+  representation_learning_rate: 0.0003
+  image_learning_rate: 0.0001
+  minimum_learning_rate: 0.000001
+  weight_decay: 0.0001
+  betas: [0.9, 0.99]
+  gradient_clip: 1.0
+  representation_weights: {mse: 0.0, lpips: 0.0, bits: 1.0, state: 0.1}
+  joint_weights: {mse: 1.0, lpips: 0.01, bits: 0.01, state: 0.01}
+  precision: fp32
+  teacher_history: false
+  autosave_every: 250
+calibration:
+  source_images: 1000
+  monitor_images: 100
+  monitor_every_updates: 1000
+  monitor_subset_seed: 2026091213
+  noise_seed: 2026091214
+  full_at_representation_end_and_milestones: true
+  primary: mean_LPIPS_over_1_4_7_13_19_dB
+  selection: minimum_full_calibration_LPIPS_ties_earliest
+  no_warmup_fallback: true
+  PSNR: report_all_SNRs_and_flag_drops_over_0p2_dB_vs_A0_not_filter_away_comparators
+  DINO_in_loss_or_selection: false
+evaluation:
+  population: original_100_development_only
+  snrs_db: [1.0, 4.0, 5.0, 6.0, 7.0, 13.0, 19.0]
+  noise_seeds: [2001, 2002, 2003]
+  primary_snrs_db: [1.0, 4.0, 7.0]
+  metrics: [psnr_db, ssim, lpips_alex, dino_cosine]
+  severe_distortion: LPIPS_minus_native_clean_LPIPS_at_least_0p15
+  bootstrap_resamples: 10000
+  bootstrap_seed: 2026091215
+  controls: [native_WeTok_reference_not_a_wireless_method, wetok_8PSK_FEC, digital_m8, digital_adaptive, perceptual_deepjscc]
+outputs:
+  cache: WETOK-NATIVE-CACHE-20260912
+  profile: WETOK-COMM-A0A1-20260912-PROFILE
+  training: WETOK-COMM-A0A1-20260912-TRAINING
+  evaluation: WETOK-COMM-A0A1-20260912-EVALUATION
+  analysis: WETOK-COMM-A0A1-20260912-ANALYSIS

@@ -1,0 +1,42 @@
+study: matched_four_arm_joint_training_sufficiency
+endpoint_audit: WETOK-JOINT-SUFFICIENCY-R2-PREPARATION/endpoint_audit.json
+endpoint_audit_sha256: 8c826b50cccf30d1ffd4a6c779486d2b8467c340644590030709487e14426933
+variants: [single_pass, multiscale_state_history, full_grid_state_history, full_grid_innovation]
+origins: {single_pass: joint, multiscale_state_history: joint, full_grid_state_history: grid, full_grid_innovation: grid}
+initial_total_updates: 5000
+planned_total_updates: 10000
+new_full_steps: [7500, 10000]
+inherited_full_steps: [0, 1000, 2500, 5000]
+global_data_offset: 7000
+initial_global_data_step: 12000
+monitor_every: 500
+effective_batch_size: 4
+micro_batch_size: 1
+learning_rate: 0.0001
+gradient_clip: 1.0
+optimizer_reset: false
+unchanged_loss: {mse: 1.0, lpips: 0.01, bits: 0.01, state: 0.01}
+decoder_interface: continuous_mean
+visual_models_frozen: true
+select_by: complete_calibration_mean_LPIPS_ties_earliest
+channel: {complex_uses: 3060, header_uses: 0, data_uses: 3060, total_energy: 6120, average_complex_energy: 2.0}
+required_completed_results:
+  joint_quality:
+    path: WETOK-JOINT-SENDER-R1-EVALUATION/step_0005000/completion.json
+    sha256: afc6ba54cdbe85ed122df22e3e041f31522a53b85f9a823a159e6e66fa899199
+  joint_analysis:
+    path: WETOK-JOINT-SENDER-R1-ANALYSIS/development_0005000/completion.json
+    sha256: e2ba7b9a03d143d088d691c3c4db1aebc8ec49a22f270a8bdb3861d96563dc2f
+  grid_quality:
+    path: WETOK-JOINT-GRID-CONTROLS-R1-EVALUATION/quality_0005000/completion.json
+    sha256: 050167f2148f4a3cee5c8a963e8c887f0724fc6a03e13e552d3b1e9a7047c736
+  grid_analysis:
+    path: WETOK-JOINT-GRID-CONTROLS-R1-ANALYSIS/quality_0005000/completion.json
+    sha256: 60b53d5763a74c2006f31b3bbfd127fe5ed63f75eadaf1c9bef05d430891f46e
+  grid_timing:
+    path: WETOK-JOINT-GRID-CONTROLS-R1-EVALUATION/timing_0005000/completion.json
+    sha256: a427883b676909fb732a05408f7f77a5c8e4b76dc8835e29c9af2a1f94b9a46b
+outputs:
+  preparation: WETOK-JOINT-SUFFICIENCY-R2-PREPARATION
+  training: WETOK-JOINT-SUFFICIENCY-R2-TRAINING
+  analysis: WETOK-JOINT-SUFFICIENCY-R2-ANALYSIS

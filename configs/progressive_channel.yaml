@@ -1,0 +1,81 @@
+study: next_scale_source_prior_real_prefix_protocol
+registered_local_date: '2026-09-07'
+status: preregistered_before_group_calibration_and_target_results
+prior_run: outputs/VAR-NEXT-SCALE-PRIOR-DIAG-001
+prior_completion_sha256: b743badfbf3f2ddc4c61a79e561a03969d124e813c65447048dacf452706014a
+single_scale_run: outputs/VAR-SINGLE-SCALE-CHANNEL-001
+single_scale_completion_sha256: b3bf3b2817e74174382b3f3b879276d5c554ca6de47efbc507e4f71ec2b91909
+single_scale_audit: outputs/VAR-SINGLE-SCALE-CHANNEL-AUDIT-001/audit.json
+single_scale_audit_sha256: 398093317667c262406786ffbe45eeba8faaafc85d0e96916c53562f2b246c52
+protocol_selfcheck: outputs/VAR-PROGRESSIVE-SELFCHECK-001/selfcheck.json
+model_config: configs/next_scale_prior_diagnostic.yaml
+quality:
+  dino_source: /workspace/projects/VAR-MAP-GATE0/third_party/dinov2
+  dino_checkpoint: /workspace/projects/CAP-VPR/artifacts/checkpoints/dinov2/dinov2_vits14_pretrain.pth
+  dino_checkpoint_sha256: b938bf1bc15cd2ec0feacfe3a1bb553fe8ea9ca46a7e1d8d00217f29aef60cd9
+  alexnet_checkpoint: /workspace/workspace/home/torch/hub/checkpoints/alexnet-owt-7be5be79.pth
+  alexnet_checkpoint_sha256: 7be5be791159472b1fbf3c69796f7cb30dca7ad8466c2df70058c37116cdee02
+population:
+  targets: existing_100_development_only
+  calibration: 20_half_bin_spaced_entries_from_disjoint_existing_frequency_fit_role
+  calibration_count: 20
+  no_new_test_access: true
+calibration:
+  base_uses_candidates: [720, 792, 864]
+  noise_seeds: [3001, 3002, 3003]
+  criterion: highest_mean_correct_protocol_accepted_prefix_token_count
+  tie_break: smallest_base_uses
+  independent_selection_per_snr_and_family: [group_var, group_entropy]
+  matched_ml_and_static: use_VAR_selected_same_allocation
+  quality_tuning: forbidden
+snr_db: [1.0, 4.0, 7.0, 13.0, 19.0]
+noise_seeds: [2001, 2002, 2003]
+arms: [group_ml, group_static, group_var, group_entropy, whole_m7, whole_m8, whole_m9, whole_adaptive]
+adaptive_modes: {'1.0': 7, '4.0': 8, '7.0': 9, '13.0': 9, '19.0': 9}
+protocol:
+  total_complex_uses: 3060
+  complex_symbol_energy: 2.0
+  FEC: terminated_K7_171_133_half_bin_rate_matching
+  CRC: bitwise_CCITT_FALSE_16_bits_for_each_source_packet
+  tail_bits_per_codeblock: 6
+  group_raw_header: class10_mode2_CRC16_tail6_rate_one_quarter_68_uses
+  group_entropy_header: class10_mode2_three_lengths12_CRC16_tail6_rate_one_quarter_140_uses
+  group_header_modes: fixed_m9_only
+  whole_body: 2992_uses_for_raw_tokens_CRC16_tail6
+  base_payload: r1_to_r6_1092_bits
+  fine_payloads: [768, 1200, 2028]
+  remaining_fine_allocation_weights: [790, 1222, 2050]
+  entropy: actual_32_bit_arithmetic_coder_24_bit_positive_frequency_CDF
+  entropy_CRC: checksum_of_reconstructed_raw_source_bits_not_compressed_bits
+  entropy_raw_fallback: signal_zero_length_if_arithmetic_stream_not_shorter
+  feedback_ARQ: none_all_3060_symbols_sent_even_if_decoding_stops
+  mode_and_allocation: scheme_publicly_fixed_SNR_known_identically_at_both_ends
+  header_failure_output: constant_RGB_half_no_class_or_source_access
+  grouped_failure_output: argmax_VAR_suffix_from_last_protocol_accepted_prefix
+  whole_failure_output: preserve_existing_unverified_ML_prefix_for_image_only_no_further_channel_decoding
+  completion: identical_no_CFG_argmax_full_ten_scale_schedule
+  trusted_state: only_CRC_accepted_received_source_scales
+  probability_cache: keyed_only_by_actual_prefix_tokens_and_decoded_class
+  cache_cost_caveat: experimental_compute_reuse_not_free_online_TX_RX_shared_memory
+gate:
+  primary_snr_db: [4.0, 7.0]
+  minimum_relative_lpips_reduction: 0.01
+  require_lpips_delta_ci_upper_negative: true
+  maximum_psnr_drop_db: 0.2
+  maximum_dino_drop: 0.005
+  maximum_observed_VAR_false_acceptances: 0
+  mechanism_control: group_ml
+  system_controls: [whole_adaptive, group_entropy]
+  interpretation: development_prototype_not_novelty_or_unseen_test_claim
+bootstrap:
+  unit: image_after_averaging_three_noise_seeds_and_registered_SNRs
+  resamples: 10000
+  seed: 2026090704
+scope:
+  training: false
+  neural_resource_allocator: false
+  new_test_set: false
+  claim_optimal_FEC_or_packetization: false
+outputs:
+  smoke: outputs/VAR-PROGRESSIVE-CHANNEL-SMOKE-001
+  full: outputs/VAR-PROGRESSIVE-CHANNEL-001

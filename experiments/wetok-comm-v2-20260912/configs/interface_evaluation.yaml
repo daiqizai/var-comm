@@ -1,0 +1,15 @@
+study_config: configs/interface_study.yaml
+reference_evaluation: WETOK-COMM-A0A1-20260912-EVALUATION/step_0005000
+reference_receipt_sha256: d3e2387b1617600e9a4e5d8b15563d6ba435d099bc9ea695734d6f675b4520cf
+population: original_100_development_only
+source_images: 100
+reference_images: read_only_external_archive_no_large_copy
+new_images: lossless_float32_npz
+continuous_interface: decode_receiver_features_without_sign_projection
+selection: require_completed_full_calibration_review_before_development
+reference_metric_tolerances: {psnr_db: 0.0001, ssim: 0.00001, lpips: 0.00001, dino: 0.00001}
+timing:
+  new_models: current_host_complete_online_TX_and_RX
+  reference_models: retain_historical_values_separately_not_a_latency_ranking
+  other_GPU_workloads: refuse_to_start
+evaluation_does_not_select_or_train: true

@@ -1,0 +1,39 @@
+population: original_100_development_only
+source_images: 100
+required_total_updates: 10000
+new_method: r3__full_grid_prediction_features
+matched_vector_control: r2__full_grid_innovation
+new_quality_models: 1
+reference_methods: 22
+all_methods: 23
+main_rows: 48300
+new_main_rows: 2100
+noiseless_rows: 1600
+support_rows: 600
+primary_snrs_db: [1.0, 4.0, 7.0]
+all_snrs_db: [1.0, 4.0, 5.0, 6.0, 7.0, 13.0, 19.0]
+reference_quality: WETOK-JOINT-SUFFICIENCY-R2-EVALUATION/quality_0010000
+reference_quality_sha256: 677c96ec08a6434814245eb755b090d7eb4e15361e79a4f9133d087b0c58e835
+reference_analysis_sha256: cd423f0df6cf8a0ab044c53d3a1c83660906ea574ade1144e95267d5c223ede3
+comparison_pairs: 22
+paired_intervals: 1056
+support_paired_intervals: 288
+new_support_paired_intervals: 18
+quality_latency_policy: no_current_latency_separate_fixed_subset_measurement
+shared_quality_requires_explicit_flag: true
+shared_start_free_GiB: 8.0
+shared_minimum_free_GiB_between_sources: 2.0
+pytorch_allocator_limit_GiB: 8.0
+native_metric_tolerances: {psnr_db: 0.0001, ssim: 0.00001, lpips: 0.00001, dino: 0.00001}
+timing_source_indices: [0, 3, 6, 10, 13, 16, 19, 22, 26, 29, 32, 35, 38, 42, 45, 48, 51, 54, 57, 61, 64, 67, 70, 73, 77, 80, 83, 86, 89, 93, 96, 99]
+timing_snrs_db: [1.0, 4.0, 7.0, 13.0, 19.0]
+timing_noise_seed: 2001
+timing_models: 16
+timing_rows: 2560
+timing_comparison_pairs: 15
+timing_paired_intervals: 105
+outputs:
+  preparation: WETOK-REENCODING-VECTOR-CONTROL-R3-EVALUATION-PREPARATION
+  quality: WETOK-REENCODING-VECTOR-CONTROL-R3-EVALUATION/quality_0010000
+  quality_analysis: WETOK-REENCODING-VECTOR-CONTROL-R3-ANALYSIS/quality_0010000
+  timing: WETOK-REENCODING-VECTOR-CONTROL-R3-EVALUATION/timing_0010000

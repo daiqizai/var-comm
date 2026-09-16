@@ -1,0 +1,74 @@
+study: whole_frame_finite_prefix_last_scale_prior
+registered_local_date: '2026-09-07'
+status: preregistered_before_new_target_channel_results
+input_run: outputs/VAR-PROGRESSIVE-CHANNEL-001
+input_completion_sha256: 215bb45225c6edfbf1af2d093db4fd723ede2260771305fb70bb35501dd1182f
+input_audit: outputs/VAR-PROGRESSIVE-CHANNEL-AUDIT-001/audit.json
+input_audit_sha256: b293fdefd8496213961bff5422575b3089fde772b53d5ed39a616fc09a74a757
+list_selfcheck: outputs/VAR-WHOLE-LIST-SELFCHECK-001/selfcheck.json
+neural_selfcheck: outputs/VAR-WHOLE-PRIOR-SELFCHECK-001/selfcheck.json
+snr_db: [4.0, 5.0, 6.0, 7.0]
+noise_seeds: [2001, 2002, 2003]
+target_count: 100
+development_only: true
+adaptive_modes: {'4.0': 8, '5.0': 8, '6.0': 9, '7.0': 9}
+arms: [whole_m8, whole_m9_ml, whole_m9_list65, whole_m9_list_time, whole_m9_hyp_uniform, whole_m9_var, whole_adaptive, whole_adaptive_var]
+protocol:
+  total_complex_uses: 3060
+  header_uses: 68
+  body_uses: 2992
+  m9_payload_bits: 5088
+  prefix_payload_bits: 3060
+  prefix_mother_boundary: 6120
+  body_information_bits: 5110
+  CRC_bits: 16
+  tail_bits: 6
+  trigger: accepted_m9_header_and_failed_whole_body_CRC
+  acceptance: CRC_bits_decoded_on_the_candidate_path_not_resynthesized
+  fallback: original_ML_output_unchanged
+search:
+  distinct_prefixes: 4
+  candidates_per_prefix: 16
+  count_control_candidates: 65
+  time_control_seconds: 0.5
+  time_control_max_candidates: 4096
+  maximum_heap_nodes: 8000000
+  VAR_primary_has_no_time_deadline: true
+  time_control_clock: native_setup_enumeration_and_CRC_atomic_step_may_overrun
+  time_control_role: fixed_more_generous_allowance_not_claim_equal_elapsed_time
+  prefix_ranking: full_channel_best_completion_cost_for_each_distinct_prefix
+  conditional_list: exact_order_within_each_fixed_prefix_probability_table
+  global_search: finite_prefix_approximation_not_global_MAP
+prior:
+  score: full_frame_channel_cost_minus_log_p_prefix_minus_sum_log_q9
+  temperature: 1.0
+  CFG: false
+  top_k_or_p: false
+  batch_hypotheses: true
+  query_every_failed_transmission: true
+  cross_transmission_probability_reuse: forbidden
+gate:
+  primary_snr_db: [5.0, 6.0]
+  minimum_relative_lpips_gain: 0.01
+  require_lpips_CI_upper_negative: true
+  maximum_psnr_drop_db: 0.2
+  maximum_dino_drop: 0.005
+  maximum_new_VAR_false_acceptances: 0
+  mechanism_controls: [whole_m9_list65, whole_m9_list_time, whole_m9_hyp_uniform]
+  adaptive_comparison: whole_adaptive_var_minus_whole_adaptive
+  stronger_time_control_claim_requires: no_unresolved_time_or_heap_capacity_disadvantage
+quality_target:
+  maximum_lpips: 0.15
+  minimum_psnr_db: 20.5
+  minimum_dino_cosine: 0.90
+  interpretation: lowest_tested_integer_SNR_meeting_all_three_mean_thresholds_no_interpolation
+bootstrap:
+  unit: image_after_averaging_three_noise_seeds_and_registered_primary_SNRs
+  resamples: 10000
+  seed: 2026090708
+entropy_control:
+  preserve_existing_results: true
+  full_frame_entropy_reorganization: not_implemented_in_this_receiver_only_prototype
+  no_overall_superiority_claim_without_strong_entropy_comparison: true
+outputs:
+  full: outputs/VAR-WHOLE-FRAME-PRIOR-001

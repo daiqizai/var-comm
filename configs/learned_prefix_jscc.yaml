@@ -1,0 +1,97 @@
+study: global_prefix_JSCC_parallel_vs_next_scale
+registered_local_date: '2026-09-07'
+status: authorized_training_not_a_no_training_gate
+variants: [parallel, next_scale]
+prefix_scales: 8
+source_tokens: 255
+embedding_dimension: 32
+data_cache: outputs/VAR-PREFIX-TRAINING-DATA-001
+model_config: configs/next_scale_prior_diagnostic.yaml
+quality_config: configs/progressive_channel.yaml
+model:
+  width: 128
+  layers: 2
+  channel_positions: 187
+  source_input: frozen_codebook_embeddings_only
+  encoder: dense_global_mixing_plus_trainable_transformer_residual
+  encoder_CSI: false
+  decoder_CSI_and_received_class: true
+  parameter_matching: identical_trainable_modules_no_unused_padding
+  parallel_context: channel_backprojection_logits_and_features_only
+  next_scale_context: own_previous_state_and_frozen_VAR_full_probability
+  logit_fusion: learned_per_position_gate_conditioned_on_received_features_and_uncertainty
+  token_selection: exact_forward_argmax_with_biased_softmax_embedding_ST_gradient
+  suffix_selection: same_argmax_ST_for_scales_9_and_10
+  frozen: [VQ_encoder, codebook, quantizer_scale_mapping, VAR, image_decoder, LPIPS]
+protocol:
+  header_complex_uses: 68
+  learned_data_complex_uses: 2992
+  total_complex_uses: 3060
+  mean_complex_symbol_power: 2.0
+  real_noise_variance: inverse_gamma
+  data_FEC_or_CRC: none
+  header: unchanged_class10_mode2_CRC16_tail6_rate_matched
+  usable_header: CRC_accepted_class_in_range_and_mode8
+  header_failure: fixed_RGB_half_no_free_class
+  TX_normalization: global_per_image_mean_real_square_one_no_power_scalar_sent_to_RX
+training:
+  train_images: 20000
+  calibration_images: 1000
+  epochs: 2
+  effective_batch_size: 4
+  micro_batch_size: 2
+  learning_rate: 0.0003
+  minimum_learning_rate: 0.00003
+  weight_decay: 0.0001
+  betas: [0.9, 0.99]
+  gradient_clip: 1.0
+  precision: fp32
+  dropout: 0.0
+  snrs_db: [1.0, 4.0, 7.0, 13.0, 19.0]
+  sampling: uniform_per_image
+  horizontal_flip: true_frozen_retokenized_view
+  initialization_seed: 2026090710
+  order_seed: 2026090711
+  channel_seed: 2026090712
+  teacher_seed: 2026090713
+  teacher_probability: linear_one_to_zero_over_first_40_percent_of_updates_then_zero
+  image_branch_context: always_own_predictions_even_during_teacher_warmup
+  image_mse_weight: 1.0
+  image_lpips_weight: 0.01
+  token_ce_weight: 0.001
+  DINO_loss_or_selection: forbidden
+  run_full_budget_regardless_of_untrained_or_first_epoch_quality: true
+selection:
+  population: independent_calibration_1000
+  snrs_db: [1.0, 4.0, 7.0, 13.0, 19.0]
+  noise_seed: 2026090714
+  objective: mean_image_MSE_plus_0p01_LPIPS_excluding_token_CE_and_DINO
+  candidates: [epoch1, epoch2]
+  receiver_history: own_estimates_only
+evaluation:
+  population: original_100_development_only
+  snrs_db: [1.0, 4.0, 5.0, 6.0, 7.0, 13.0, 19.0]
+  noise_seeds: [2001, 2002, 2003]
+  metrics: [psnr_db, lpips_alex, dino_cosine, token_accuracy]
+  primary_snr_db: [1.0, 4.0, 7.0]
+  controls: [digital_m8, digital_adaptive, perceptual_deepjscc]
+  original_mode_thresholds: [2.5, 5.5]
+  source_message_ablation: fixed_derangement_at_7dB_seed2001_after_main_evaluation
+  bootstrap_resamples: 10000
+  bootstrap_seed: 2026090715
+  unit: source_image_after_averaging_noise_and_registered_SNRs
+deepjscc:
+  checkpoint: /workspace/projects/channel-adaptive-semantic-drift-controlled-diffusion-jscc/outputs/train/EXP-DEEPJSCC3060-IMAGENET20K-PERCEPTUAL-SWEEP-001/lpips_0p01/checkpoints/best.pt
+  checkpoint_sha256: 5ddd236b765b0b388a2368d918b74b72b5ad14103e5586a2219c0c84087b531f
+  initialization_checkpoint: /workspace/projects/channel-adaptive-semantic-drift-controlled-diffusion-jscc/outputs/train/EXP-S33C-M8-EXACT-MASKED-JSCC-FP32-001/checkpoints/best.pt
+  initialization_sha256: ae2a275e08a9654a5be1aeaa11ec4b545ea048a351e7d5156b296b5cadea75d3
+  source: local_trained_perceptual_DeepJSCC_not_claim_official_paper_replication
+  training_history: COCO_pretraining_then_same_ImageNet20k_2epochs_MSE_plus_0p01_LPIPS
+  data_complex_uses: 3060
+  header: none_no_class_or_mode_used
+  class_condition: none
+  noise: manually_enforced_standard_complex_AWGN_not_legacy_half_variance_transmit_method
+outputs:
+  selfcheck: outputs/VAR-PREFIX-JSCC-GRADIENT-001
+  training: outputs/VAR-PREFIX-JSCC-TRAIN-001
+  evaluation: outputs/VAR-PREFIX-JSCC-EVAL-001

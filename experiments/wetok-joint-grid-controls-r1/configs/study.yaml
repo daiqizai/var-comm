@@ -1,0 +1,28 @@
+study: joint_grid_structure_controls
+activation_requires_completed_original_joint_analysis_and_explicit_local_decision: true
+reference_joint_config_sha256: 725f7b5e11533e99c0258e0267bc756f052d4bb88b5850e811d8e1905ba7096f
+required_joint_milestone_sha256: b218c5447cd1fbb317454254921acd737a76ae2fe088191f164449b186868694
+variants: [full_grid_state_history, full_grid_innovation]
+geometry: [204, 30]
+initialization: original_7000_single_parent_not_any_5000_continuation_endpoint
+unchanged_loss: {mse: 1.0, lpips: 0.01, bits: 0.01, state: 0.01}
+learning_rate: 0.0001
+gradient_clip: 1.0
+global_data_start: 7000
+effective_batch_size: 4
+micro_batch_size: 1
+first_updates: 1000
+planned_updates: 5000
+full_calibration_steps: [0, 1000, 2500, 5000]
+monitor_every: 500
+select_by: complete_calibration_mean_LPIPS_ties_earliest
+visual_models_frozen: true
+decoder_interface: continuous_mean
+channel: {complex_uses: 3060, header_uses: 0, data_uses: 3060, total_energy: 6120, average_complex_energy: 2.0}
+comparison_information: same_source_and_standard_noise_not_same_learned_waveform
+outputs:
+  preparation: WETOK-JOINT-GRID-CONTROLS-R1-PREPARATION
+  profile: WETOK-JOINT-GRID-CONTROLS-R1-PROFILE
+  training: WETOK-JOINT-GRID-CONTROLS-R1-TRAINING
+  evaluation: WETOK-JOINT-GRID-CONTROLS-R1-EVALUATION
+  analysis: WETOK-JOINT-GRID-CONTROLS-R1-ANALYSIS

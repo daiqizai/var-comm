@@ -1,0 +1,92 @@
+{
+  "status": "PAIR_TRAINING_CALIBRATION_COMPLETE",
+  "new_updates_per_arm": 20000,
+  "shared_parameter_updates": 30000,
+  "parameter_counts": {
+    "unconditioned": 1648125,
+    "conditioned": 1648125
+  },
+  "stopping": {
+    "stop": true,
+    "reason": "budget_cap",
+    "new_updates_per_arm": 20000,
+    "consecutive_both_stalls": 0,
+    "intervals": [
+      {
+        "from": 0,
+        "to": 5000,
+        "arms": {
+          "unconditioned": {
+            "progress": true,
+            "LPIPS_gain": 0.003657578036189074,
+            "PSNR_gain": 0.0880828807618883
+          },
+          "conditioned": {
+            "progress": false,
+            "LPIPS_gain": -0.005990763502816354,
+            "PSNR_gain": 0.35290815607706705
+          }
+        },
+        "consecutive_both_stalls": 0
+      },
+      {
+        "from": 5000,
+        "to": 10000,
+        "arms": {
+          "unconditioned": {
+            "progress": true,
+            "LPIPS_gain": 0.0014435954901079462,
+            "PSNR_gain": 0.051696879280935804
+          },
+          "conditioned": {
+            "progress": true,
+            "LPIPS_gain": 0.005672318107552005,
+            "PSNR_gain": 0.1142117837270078
+          }
+        },
+        "consecutive_both_stalls": 0
+      },
+      {
+        "from": 10000,
+        "to": 15000,
+        "arms": {
+          "unconditioned": {
+            "progress": false,
+            "LPIPS_gain": 0.0008376431332694223,
+            "PSNR_gain": 0.02019702551099911
+          },
+          "conditioned": {
+            "progress": true,
+            "LPIPS_gain": 0.0004014778646329875,
+            "PSNR_gain": 0.06905729240841296
+          }
+        },
+        "consecutive_both_stalls": 0
+      },
+      {
+        "from": 15000,
+        "to": 20000,
+        "arms": {
+          "unconditioned": {
+            "progress": true,
+            "LPIPS_gain": 0.00177166811459592,
+            "PSNR_gain": 0.06181305535634607
+          },
+          "conditioned": {
+            "progress": true,
+            "LPIPS_gain": 0.001365856990218156,
+            "PSNR_gain": 0.03882466782464178
+          }
+        },
+        "consecutive_both_stalls": 0
+      }
+    ],
+    "cap_is_not_convergence_proof": true
+  },
+  "session_seconds_including_calibration": 8176.267806404998,
+  "GPU_hours_this_session": 2.2711855018188847,
+  "peak_allocated_bytes": 4813513216,
+  "mechanism_or_system_success_proven": false,
+  "new_holdout_accessed": false,
+  "finished_at": "2026-09-16T01:21:45.903463+08:00"
+}

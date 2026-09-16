@@ -1,0 +1,71 @@
+{
+  "study": "HYBRID-WEIGHT-CLOSURE-20260916",
+  "base_config": "configs/hybrid_base_conditioning.json",
+  "base_run": "outputs/HYBRID-BASE-CONDITIONING-20260915",
+  "lambdas": [0.01, 0.03, 0.1],
+  "variants": ["unconditioned", "conditioned"],
+  "trained_lambdas": [0.03, 0.1],
+  "reuse_lambda_0p01_only_after_audit": true,
+  "new_updates_each_operating_arm": 20000,
+  "shared_parameter_total_updates": 30000,
+  "source_draw_matches_original_0p01": true,
+  "calibration_full_steps": [0, 5000, 10000, 15000, 20000],
+  "calibration_subset_interval": 1000,
+  "calibration_subset_sources": 100,
+  "early_stop": "only_engineering_failure_no_performance_based_budget_change",
+  "checkpoint_selection": {
+    "population": "original_full_1000_calibration",
+    "region": "primary_1_4_7",
+    "eligible_steps": [5000, 10000, 15000, 20000],
+    "objective": "mean_MSE_plus_arm_lambda_times_mean_LPIPS",
+    "tie_break": "earlier_new_step",
+    "PSNR_guard": null,
+    "DINO_used": false,
+    "historical_report_not_rewritten": true
+  },
+  "matched_operating_points": {
+    "selection_population": "calibration_only_freeze_before_development",
+    "regions": ["primary", "mechanism"],
+    "LPIPS_absolute_tolerance": 0.005,
+    "PSNR_absolute_tolerance_db": 0.1,
+    "LPIPS_match_control": "highest_calibration_PSNR_among_actual_unconditioned_points_within_tolerance_then_closest_LPIPS_then_smaller_lambda",
+    "PSNR_match_control": "lowest_calibration_LPIPS_among_actual_unconditioned_points_within_tolerance_then_closest_PSNR_then_smaller_lambda",
+    "minimum_practical_PSNR_gain_db": 0.1,
+    "minimum_practical_LPIPS_gain": 0.002,
+    "no_match_action": "report_coverage_insufficient_no_interpolated_achieved_point",
+    "DINO_used_for_matching": false
+  },
+  "time_sharing": {
+    "p_means": "probability_of_DeepJSCC_each_frame",
+    "digital_candidates": ["raw_adaptive", "arithmetic_adaptive"],
+    "ratio_fitting": "calibration_mean_metrics_only",
+    "ratios": ["match_each_hybrid_primary_LPIPS", "match_each_hybrid_primary_PSNR", "original_system_joint_LPIPS_budget"],
+    "ratio_same_across_all_SNRs": true,
+    "selector": "hypothetical_preshared_PRNG_seed_and_frame_counter_independent_of_content_and_noise",
+    "one_system_per_frame": true,
+    "expected_metrics_from_per_frame_results": true,
+    "actual_deployment_evaluated": false,
+    "extra_model_residency_loading_switching_costs_measured": false,
+    "online_signaling": "not_used_in_reference_would_have_to_be_charged_if_added"
+  },
+  "system": {
+    "primary_snrs_db": [1.0, 4.0, 7.0],
+    "mechanism_snrs_db": [7.0, 13.0, 19.0],
+    "all_snrs_db": [1.0, 4.0, 7.0, 13.0, 19.0],
+    "total_complex_uses": 3060,
+    "total_energy": 6120,
+    "LPIPS_noninferiority_margin": 0.005,
+    "original_PSNR_gain_target_db": 0.5,
+    "source_paired_bootstrap_resamples": 10000,
+    "bootstrap_seed": 20260916,
+    "DINO_role": "report_only_not_training_selection_or_ratio_fit"
+  },
+  "closure": {
+    "no_automatic_lambda_expansion": true,
+    "no_new_structure_or_resource_search": true,
+    "no_new_final_holdout": true,
+    "if_useful_points": "retain_few_calibration_frozen_actual_points_verify_recent_technical_differences_before_independent_validation",
+    "if_no_useful_points": "end_current_fixed_m7_hybrid_route_with_scope_limit_then_write_CSI_uncertainty_topic_report_only",
+    "new_topic_training": false
+  }
+}

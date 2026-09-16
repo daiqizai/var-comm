@@ -1,0 +1,42 @@
+study: wetok_global_symbol_geometry_matched
+registered_local_date: '2026-09-13'
+timezone: Asia/Shanghai
+base_config: configs/study.yaml
+interface_config: configs/interface_study.yaml
+interface: continuous_mean
+variants: [single_pass, multiscale_no_history, multiscale_conditioned]
+control_geometry: [153, 40]
+candidate_geometry: [204, 30]
+control_qualification: WETOK-GEOMETRY-CONTROL-QUALIFICATION-20260913/qualification.json
+control_qualification_sha256: 707aacc6cc104cdac28c4ca2f6641f560c29cac19480c7e584fd969576ea9208
+control_training: WETOK-COMM-INTERFACE-20260912-TRAINING
+control_milestone: milestones/additional_0005000.json
+control_milestone_sha256: 09b93f5a09218d0cbc728d75da735ddc37f45c29072f58c089c70187bad3b4f5
+control_evaluation: WETOK-COMM-INTERFACE-20260912-EVALUATION/additional_0005000
+control_evaluation_receipt_sha256: 2858e2aad9539532eae96d29745374556e8912787e86c853c92e98769e647af9
+training:
+  representation_updates: 2000
+  planned_image_updates: 5000
+  first_total_milestone: 3000
+  initialization_cpu_threads: 8
+  micro_batch_size: 1
+  effective_batch_size: 4
+  representation_learning_rate: 0.0003
+  image_learning_rate: 0.0001
+  reset_Adam_after_representation: true
+  representation_weights: {mse: 0.0, lpips: 0.0, bits: 1.0, state: 0.1}
+  image_weights: {mse: 1.0, lpips: 0.01, bits: 0.01, state: 0.01}
+  autosave_every: 100
+  gradient_clip: 1.0
+calibration:
+  full_image_steps: [0, 1000, 2500, 5000]
+  monitor_every_image_updates: 500
+  monitor_representation_at: [1000]
+  selection: minimum_full_calibration_LPIPS_ties_earliest
+  same_sources_noise_as_controls: true
+  DINO_in_loss_or_selection: false
+outputs:
+  profile: WETOK-GEOMETRY-20260913-PROFILE
+  training: WETOK-GEOMETRY-20260913-TRAINING
+  evaluation: WETOK-GEOMETRY-20260913-EVALUATION
+  analysis: WETOK-GEOMETRY-20260913-ANALYSIS

@@ -1,0 +1,68 @@
+study: matched_continuation_vs_two_stage_prefix_recovery
+registered_local_date: '2026-09-08'
+status: authorized_by_user
+base_config: configs/learned_prefix_jscc.yaml
+protocol: reports/prefix_refinement_protocol_2026-09-08.md
+starting_training: outputs/VAR-PREFIX-JSCC-TRAIN-001
+starting_training_receipt_sha256: 04659564185491863ecb5e3fd773e0541521575b43b951d905d6b8896e9349bf
+starting_checkpoint: next_scale/checkpoints/epoch_02.pt
+starting_checkpoint_sha256: 4af01e2a2fc048f5fcd27d1b5747d885b13b0c1e22baa33594dfcd0df8f8f659
+starting_resume_sha256: 89fa576564ddac911da811747135ebd8a4a5a9bd0bc2bad186f563d372fec4c3
+starting_step: 10000
+branches: [continuation, two_stage]
+training:
+  additional_updates: 10000
+  prefix_only_updates: 2000
+  effective_batch_size: 4
+  micro_batch_size: 2
+  learning_rate: 0.00003
+  gradient_clip: 1.0
+  teacher_probability: 0.0
+  data_epoch_indices: [2, 3]
+  channel_order_rule: original_order_and_channel_seeds_plus_data_epoch_index
+  optimizer: clone_same_saved_AdamW_moments_and_step_no_reset_at_stage_transition
+  precision: fp32
+  continuation_weights: {mse: 1.0, lpips: 0.01, token_ce: 0.001, state: 0.0}
+  prefix_weights: {mse: 0.0, lpips: 0.0, token_ce: 1.0, state: 0.1}
+  joint_weights: {mse: 1.0, lpips: 0.01, token_ce: 0.01, state: 0.01}
+  state_target: cumulative_fhat_after_each_of_the_eight_source_prefix_scales
+  state_normalization: existing_training_embedding_std_per_channel
+  state_reduction: element_mean_per_scale_then_equal_mean_over_eight_scales
+  state_and_CE_header_failure: zero_loss_but_keep_sample_in_batch_denominator
+  image_header_failure: original_constant_gray_and_loss_retained
+  gradient_monitor_steps: [0, 2000]
+  gradient_monitor_seed: 2026090801
+  gradient_monitor_parameters: all_communication_encoder_and_reader_parameters
+  gradient_monitor_rule: shared_fixed_training_pair_unweighted_and_weighted_norms_no_retuning
+  autosave_every: 250
+selection:
+  population: original_independent_calibration_1000
+  snrs_db: [1.0, 4.0, 7.0, 13.0, 19.0]
+  noise_seed: 2026090714
+  every_updates: 1000
+  include_step_zero: true
+  primary: minimum_mean_LPIPS_over_five_SNRs
+  psnr_guard_db: 0.2
+  psnr_guard: each_SNR_mean_per_image_PSNR_at_least_common_step0_minus_guard
+  tie_rule: earliest_step_for_identical_mean_LPIPS
+  DINO_loss_or_selection: forbidden
+  always_finish_full_budget: true
+evaluation:
+  population: original_100_development_only
+  snrs_db: [1.0, 4.0, 5.0, 6.0, 7.0, 13.0, 19.0]
+  noise_seeds: [2001, 2002, 2003]
+  primary_snr_db: [1.0, 4.0, 7.0]
+  controls: [starting_next_scale, digital_m8, digital_adaptive]
+  old_evaluation: outputs/VAR-PREFIX-JSCC-EVAL-001
+  old_evaluation_receipt_sha256: 4b21e10d28a1bd9c730081b5879ca8501f234c58e66395f34d8c14e9b7520d68
+  bootstrap_seed: 2026090715
+  bootstrap_resamples: 10000
+  statistical_unit: source_image_after_averaging_noise_and_registered_SNRs
+execution:
+  minimum_free_GPU_MiB: 11000
+  GPU_wait_poll_seconds: 60
+  never_stop_other_processes: true
+outputs:
+  training: outputs/VAR-PREFIX-REFINEMENT-TRAIN-001
+  evaluation: outputs/VAR-PREFIX-REFINEMENT-EVAL-001
+  analysis: outputs/VAR-PREFIX-REFINEMENT-ANALYSIS-001

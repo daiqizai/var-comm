@@ -1,0 +1,40 @@
+study: wetok_native_bit_preservation_matched_continuation
+registered_date: '2026-09-12'
+base_config: configs/study.yaml
+parent_training: WETOK-COMM-A0A1-20260912-TRAINING
+parent_milestone: milestones/step_0005000.json
+parent_milestone_sha256: 1cde1f5a125013eff8eb08aa35b1b6bb36ec45179bd6e2fea7c0274d36704892
+parent_optimizer_checkpoint: milestones/step_0005000_optimizer.pt
+parent_optimizer_checkpoint_sha256: 9e9223a62e54b092ff84f1c68236cbdb156b64659c77bdfac71e8f81dbbf8746
+parent_step: 5000
+variants: [single_pass, multiscale_no_history, multiscale_conditioned]
+recipes:
+  joint_original: {mse: 1.0, lpips: 0.01, bits: 0.01, state: 0.01}
+  bit_support: {mse: 1.0, lpips: 0.01, bits: 1.0, state: 0.01}
+training:
+  first_additional_milestone: 5000
+  milestone_is_not_total_research_limit: true
+  learning_rate: 0.0001
+  optimizer: deep_copy_same_parent_Adam_state_within_each_variant_pair
+  effective_batch_size: 4
+  micro_batch_size: 1
+  gradient_clip: 1.0
+  global_data_steps: [5000, 10000]
+  no_model_or_physical_change: true
+calibration:
+  full_additional_steps: [0, 2500, 5000]
+  monitoring_every_additional_updates: 1000
+  full_sources: 1000
+  monitor_sources: 100
+  same_noise_as_parent: true
+  objective: minimum_full_LPIPS_over_five_SNRs_ties_earliest
+  starting_candidate: actual_shared_parent_step5000_not_the_old_best_step2000
+  no_failed_fallback_comparator: true
+evaluation:
+  original_100_development_only: true
+  preserve_old_selected_step2000_as_separate_reference: true
+  comparisons: [bit_support_vs_joint_original_within_each_variant, conditioned_vs_no_history_within_each_recipe]
+outputs:
+  training: WETOK-COMM-BIT-SUPPORT-20260912-TRAINING
+  evaluation: WETOK-COMM-BIT-SUPPORT-20260912-EVALUATION
+  analysis: WETOK-COMM-BIT-SUPPORT-20260912-ANALYSIS

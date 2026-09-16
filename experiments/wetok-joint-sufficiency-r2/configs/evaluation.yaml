@@ -1,0 +1,34 @@
+population: original_100_development_only
+source_images: 100
+required_total_updates: 10000
+new_quality_models: 4
+reference_methods: 18
+all_methods: 22
+main_rows: 46200
+new_main_rows: 8400
+noiseless_rows: 1500
+support_rows: 600
+primary_snrs_db: [1.0, 4.0, 7.0]
+all_snrs_db: [1.0, 4.0, 5.0, 6.0, 7.0, 13.0, 19.0]
+reference_quality: WETOK-JOINT-GRID-CONTROLS-R1-EVALUATION/quality_0005000
+reference_quality_sha256: 050167f2148f4a3cee5c8a963e8c887f0724fc6a03e13e552d3b1e9a7047c736
+reference_analysis_sha256: 60b53d5763a74c2006f31b3bbfd127fe5ed63f75eadaf1c9bef05d430891f46e
+comparison_pairs: 78
+paired_intervals: 3744
+support_paired_intervals: 270
+quality_latency_policy: no_current_latency_separate_fixed_subset_measurement
+shared_quality_requires_explicit_flag: true
+shared_start_free_GiB: 8.0
+shared_minimum_free_GiB_between_sources: 2.0
+pytorch_allocator_limit_GiB: 8.0
+native_metric_tolerances: {psnr_db: 0.0001, ssim: 0.00001, lpips: 0.00001, dino: 0.00001}
+timing_source_indices: [0, 3, 6, 10, 13, 16, 19, 22, 26, 29, 32, 35, 38, 42, 45, 48, 51, 54, 57, 61, 64, 67, 70, 73, 77, 80, 83, 86, 89, 93, 96, 99]
+timing_snrs_db: [1.0, 4.0, 7.0, 13.0, 19.0]
+timing_noise_seed: 2001
+timing_models: 15
+timing_rows: 2400
+outputs:
+  preparation: WETOK-JOINT-SUFFICIENCY-R2-EVALUATION-PREPARATION
+  quality: WETOK-JOINT-SUFFICIENCY-R2-EVALUATION/quality_0010000
+  quality_analysis: WETOK-JOINT-SUFFICIENCY-R2-ANALYSIS/quality_0010000
+  timing: WETOK-JOINT-SUFFICIENCY-R2-EVALUATION/timing_0010000

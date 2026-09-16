@@ -1,0 +1,32 @@
+study: matched_full_grid_prediction_vector_control
+variant: full_grid_prediction_features
+control_variant: full_grid_innovation
+initialization: original_7000_single_parent_and_zero_fusion_fresh_Adam0
+geometry: [204, 30]
+new_parameter_seed: 2026091313
+global_data_offset: 7000
+planned_total_updates: 10000
+full_calibration_steps: [0, 1000, 2500, 5000, 7500, 10000]
+monitor_every: 500
+effective_batch_size: 4
+micro_batch_size: 1
+learning_rate: 0.0001
+gradient_clip: 1.0
+unchanged_loss: {mse: 1.0, lpips: 0.01, bits: 0.01, state: 0.01}
+decoder_interface: continuous_mean
+visual_models_frozen: true
+select_by: complete_calibration_mean_LPIPS_ties_earliest
+channel: {complex_uses: 3060, header_uses: 0, data_uses: 3060, total_energy: 6120, average_complex_energy: 2.0}
+fusion_vector: reencoded_own_continuous_hypothesis
+gate: unchanged_SNR_stage_and_residual_energy
+expected_communication_parameters: 2933775
+reference_results:
+  quality: {path: WETOK-JOINT-SUFFICIENCY-R2-EVALUATION/quality_0010000/completion.json, sha256: 677c96ec08a6434814245eb755b090d7eb4e15361e79a4f9133d087b0c58e835, status: R2_QUALITY_COMPLETE}
+  analysis: {path: WETOK-JOINT-SUFFICIENCY-R2-ANALYSIS/quality_0010000/completion.json, sha256: cd423f0df6cf8a0ab044c53d3a1c83660906ea574ade1144e95267d5c223ede3, status: R2_QUALITY_ANALYSIS_COMPLETE_NOT_RESEARCH_COMPLETE}
+  timing: {path: WETOK-JOINT-SUFFICIENCY-R2-EVALUATION/timing_0010000/completion.json, sha256: b246c627915c03b5922cf848e8e46f48315ea3ff9cfe7cb42577794de86e243c, status: R2_TIMING_COMPLETE}
+outputs:
+  preparation: WETOK-REENCODING-VECTOR-CONTROL-R3-PREPARATION
+  profile: WETOK-REENCODING-VECTOR-CONTROL-R3-PROFILE
+  training: WETOK-REENCODING-VECTOR-CONTROL-R3-TRAINING
+  analysis: WETOK-REENCODING-VECTOR-CONTROL-R3-ANALYSIS
+  evaluation: WETOK-REENCODING-VECTOR-CONTROL-R3-EVALUATION

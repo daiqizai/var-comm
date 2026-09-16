@@ -1,0 +1,36 @@
+study: wetok_receiver_interface_and_gradient_control
+registered_date: '2026-09-12'
+base_config: configs/study.yaml
+parent_training: WETOK-COMM-A0A1-20260912-TRAINING
+parent_milestone_sha256: 1cde1f5a125013eff8eb08aa35b1b6bb36ec45179bd6e2fea7c0274d36704892
+parent_step: 2000
+parent_checkpoints:
+  single_pass: 0d097cb3a3ccb7823ae8afb30f4b0eee518fe7314b55ed4c2576256462fcbd0c
+  multiscale_no_history: 395f05ffcdb5cf1a9dafb2fb99f3b96905a090346dfe46a56c11de371e9a034c
+  multiscale_conditioned: 31356c7693938322d77de7fe0ead80d3e5f4828687131eaaa4eeef73dce9672a
+interfaces: [hard_identity, hard_bounded, continuous_mean]
+variants: [single_pass, multiscale_no_history, multiscale_conditioned]
+weights: {mse: 1.0, lpips: 0.01, bits: 0.01, state: 0.01}
+training:
+  optimizer: identical_fresh_AdamW_per_interface_within_variant_no_invented_parent_moments
+  learning_rate: 0.0001
+  effective_batch_size: 4
+  micro_batch_size: 1
+  gradient_clip: 1.0
+  autosave_every: 100
+  first_additional_milestone: 1000
+  intended_additional_updates_before_review: 5000
+  milestone_is_not_total_research_limit: true
+calibration:
+  full_additional_steps: [0, 1000, 2500, 5000]
+  monitor_every_updates: 500
+  monitoring_sources: 100
+  full_sources: 1000
+  selection: minimum_full_calibration_LPIPS_ties_earliest
+  PSNR: report_all_and_flag_drop_over_0p2_dB_vs_matched_single_pass
+  DINO_in_loss_or_selection: false
+outputs:
+  profile: WETOK-COMM-INTERFACE-20260912-PROFILE
+  training: WETOK-COMM-INTERFACE-20260912-TRAINING
+  evaluation: WETOK-COMM-INTERFACE-20260912-EVALUATION
+  analysis: WETOK-COMM-INTERFACE-20260912-ANALYSIS

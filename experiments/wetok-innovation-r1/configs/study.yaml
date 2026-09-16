@@ -1,0 +1,44 @@
+study: fixed_transmitter_multiscale_receiver_innovation
+parent_experiment: wetok-comm-v2-20260912
+parent_training: WETOK-GEOMETRY-20260913-TRAINING
+parent_milestone: milestones/total_0007000.json
+parent_milestone_sha256: 70e6e78dc2767b693c6218ccadd1dfca9f1e266b08c49fd32757fcf19e4799d9
+parent_model: single_pass/checkpoints/image_0005000.pt
+parent_model_sha256: bc34fdaa9609b55fafbb01a225716744fd75d48a97639c4be2a8909438ab3fb5
+parent_variant: single_pass
+encoder: same_frozen_parent_for_all_arms
+variants: [single_pass, multiscale_no_history, multiscale_state_history, multiscale_prediction_features, multiscale_innovation, full_grid_innovation]
+geometry: [204, 30]
+scales: [4, 8, 16]
+full_grid_scales: [16, 16, 16]
+fusion:
+  projection: zero_initialized_Linear32_to_receiver_width
+  gate_inputs: [nominal_snr_div20, stage_index_div2, log1p_residual_power_over_expected_noise]
+  gate_hidden: 16
+  gate_initial_bias: -2.0
+  detach_ratio_for_gate: true
+  ratio_maximum: 10000.0
+  source_hypothesis: base_mean_plus_upsampled_previous_minus_pooled_base_mean_clamped_minus1_plus1
+training:
+  optimizer: identical_fresh_AdamW_all_receivers
+  learning_rate: 0.0001
+  weights: {mse: 1.0, lpips: 0.01, bits: 0.01, state: 0.01}
+  effective_batch_size: 4
+  micro_batch_size: 1
+  gradient_clip: 1.0
+  first_milestone: 1000
+  planned_updates: 5000
+  global_data_start: 7000
+  new_parameter_seed: 2026091313
+  autosave_every: 100
+calibration:
+  full_steps: [0, 1000, 2500, 5000]
+  monitor_every: 500
+  selection: minimum_full_calibration_LPIPS_ties_earliest
+  same_original_calibration_sources_noise: true
+  DINO_in_loss_or_selection: false
+outputs:
+  profile: WETOK-INNOVATION-R1-PROFILE
+  training: WETOK-INNOVATION-R1-TRAINING
+  evaluation: WETOK-INNOVATION-R1-EVALUATION
+  analysis: WETOK-INNOVATION-R1-ANALYSIS

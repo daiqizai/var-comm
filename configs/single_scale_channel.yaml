@@ -1,0 +1,62 @@
+study: next_scale_token_prior_channel_decoding
+registered_local_date: '2026-09-07'
+status: preregistered_before_target_channel_results
+stage: single_scale_oracle_prefix_diagnostic
+prior_run: outputs/VAR-NEXT-SCALE-PRIOR-DIAG-001
+prior_completion_sha256: b743badfbf3f2ddc4c61a79e561a03969d124e813c65447048dacf452706014a
+selfcheck: outputs/VAR-SCALE-CHANNEL-SELFCHECK-002/selfcheck.json
+target_scale: 9
+target_count: 100
+token_count: 169
+phy:
+  information_token_bits: 2028
+  crc_bits: 16
+  crc: CCITT_FALSE_bitwise_no_padding_init_FFFF_poly_1021
+  tail_bits: 6
+  zero_initial_state: true
+  zero_final_state: true
+  mother_generators_octal: ['171', '133']
+  mother_coded_bits: 4100
+  transmitted_coded_bits: 2448
+  complex_uses: 1224
+  modulation: QPSK_IQ_plus_minus_one
+  complex_symbol_energy: 2.0
+  snr_definition: Es_over_complex_noise_power
+  real_noise_variance: one_over_linear_snr
+  rate_matching: deterministic_half_bin_puncturing
+  source_prior_coefficient: 1.0
+  likelihood: minus_sum_y_times_symbol_over_real_noise_variance
+  crc_role: single_MAP_candidate_post_detection_not_search_constraint
+arms: [uniform, static_scale_frequency, true_source_prefix, bit_marginal_true, same_class_other_prefix]
+primary_controls: [uniform, static_scale_frequency]
+snr_db: [4.0, 7.0, 10.0]
+noise_seeds: [1001, 1002, 1003, 1004, 1005]
+noise_stream: sha256_image_id_and_seed_PCG64_same_normal_across_SNR
+workers: 8
+bootstrap:
+  seed: 2026090702
+  resamples: 10000
+  unit: image_after_averaging_all_noise_trials_and_registered_SNRs
+gate:
+  primary_snr_db: [4.0, 7.0]
+  minimum_absolute_accepted_source_recovery_gain_over_each_control: 0.05
+  require_paired_ci_lower_positive: true
+  high_snr_guard_db: 10.0
+  maximum_high_snr_recovery_drop: 0.02
+  maximum_observed_VAR_crc_false_acceptances: 0
+  pass_means: proceed_to_real_prefix_grouped_3060_use_protocol
+  fail_means: stop_this_decoder_configuration_not_VAR_communication
+scope:
+  true_prefix: oracle_capability_condition_not_free_protocol_information
+  class: same_shared_ground_truth_condition_for_VAR_arms
+  identical_transmitter_FEC_waveform_observation_between_arms: true
+  identical_exact_token_search_between_arms: true
+  native_bit_viterbi: score_equivalence_and_cost_reference_every_frame
+  generated_context_for_channel_decoding: forbidden
+  channel_parameter_tuning_on_targets: false
+  entropy_coding_control: subsequent_system_stage_not_same_waveform_mechanism_arm
+  neural_training: false
+  new_test_images: false
+outputs:
+  smoke: outputs/VAR-SINGLE-SCALE-CHANNEL-SMOKE-001
+  full: outputs/VAR-SINGLE-SCALE-CHANNEL-001
