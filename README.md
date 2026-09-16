@@ -6,6 +6,11 @@
 
 ## 当前结论 · 2026-09-16
 
+- **新增外部非扩散实测**：SwinJSCC/ADJSCC、数字共同预算N4204/4498、完整计时、原尺寸重建和等预算拼图已发布。HiFi尚在运行，没有完整最终排名。
+- 同N4498下数字VAR的LPIPS较低，但Swin的PSNR更高、处理更快；是取舍，不是全面胜出。
+
+最新入口：[阶段报告](reports/external_baseline_non_diffusion_result_20260916.md) · [全部数据和图](results/external_baselines/README.md)
+
 - **数字VAR自适应**仍是重要的系统参考；实际整帧算术编码＋FEC、可靠性/图像质量模式选择都保留。
 - **条件读取确实有结构作用**：固定m7混合接收器中，lambda=0.03在相近LPIPS下，相对同训练机会控制提高0.5440 dB PSNR（主区间1/4/7 dB）。
 - **当前固定m7混合主线结束**：三权重、两结构收尾后，仍未达到原联合系统要求。不自动追加网络、资源分配或loss搜索。
@@ -13,7 +18,7 @@
 
 详细结论：[三权重收敛报告](reports/hybrid_weight_closure_convergence_20260916.md) · [研究状态](docs/RESEARCH_STATUS.md)
 
-### 最新主区间结果
+### 历史主区间结果：固定混合收尾
 
 原100张development图，1/4/7 dB，每图三个噪声；所有失败计入；每帧3060 complex uses、归一化总能量6120。
 
@@ -58,6 +63,7 @@ python -m pip install -r requirements-results.txt
 python tools/check_release.py
 python -m unittest discover -s tests -v
 python tools/reproduce_results.py
+python tools/reproduce_external_results.py
 python scripts/check_mode_policies.py
 ```
 
@@ -70,6 +76,8 @@ python scripts/check_mode_policies.py
 配置中的`/workspace/...`是脱敏占位路径，不是承诺clone后即可训练。请先读[复现说明](docs/REPRODUCIBILITY.md)；迁移时不能伪造新校准/新holdout，也不能直接改旧哈希绕过审计。
 
 ## 推荐阅读顺序
+
+新增：[外部方法阶段报告](reports/external_baseline_non_diffusion_result_20260916.md)。下列历史收敛结论仍保留，不因新结果改写。
 
 1. [当前固定混合路线为何结束](reports/hybrid_weight_closure_convergence_20260916.md)
 2. [数字VAR及实际整帧熵编码的收敛结果](reports/communication_convergence_final_20260915.md)

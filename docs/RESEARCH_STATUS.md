@@ -1,5 +1,15 @@
 # Research status: 2026-09-16
 
+## External baseline update
+
+The completed non-diffusion author comparisons, new common-budget digital calibration/development, online costs and figures are now published. See the [report](../reports/external_baseline_non_diffusion_result_20260916.md) and [data/figures](../results/external_baselines/README.md).
+
+**HiFi-DiffCom is still running at this incremental release.** Its JSON is a dated snapshot, not final performance or live status. All four original strong references remain; no new training, architecture or holdout is started.
+
+## Historical first-release status
+
+The following original conclusions and queue statements describe the first release; the current execution status is the external-baseline update above.
+
 本仓库记录VAR/next-scale在有限资源图像通信中的研究，而不是把历史目录中的diffusion名称当成当前主线。
 
 | 研究问题 / 路线 | 当前证据 | 当前决定 |

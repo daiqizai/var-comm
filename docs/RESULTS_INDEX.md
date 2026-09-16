@@ -32,3 +32,10 @@
 - `results/progressive_digital/`：固定预算数字逐尺度系统参考。
 
 上述都是选择性公开结果，不是完整历史输出目录。每个文件的原始相对路径与原始SHA可在`release_manifest.json`追溯。历史报告中的其他绝对路径仅是审计线索，不保证该资产已上传。
+# External baseline update
+
+[External results](../results/external_baselines/README.md): 25,500 completed development/protocol/reference rows, 18,000 calibration candidate rows, 119 summaries, 1,624 paired metric intervals and 1,920 complete TX/RX timing pairs. Author-assumed and paid-information protocols remain separate.
+
+The user-requested curated figures include 120 PNG files: 24 comparison panels and 96 individual reconstructions; 12 panels use exactly N4498. Standalone source images, raw datasets and pixel arrays are excluded. HiFi is not ranked before completion. Large CSVs are partitioned without changing scientific cells; provenance is in the release manifest.
+
+The index below preserves the original historical release.

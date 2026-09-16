@@ -50,3 +50,10 @@ GPU脚本、协议中的`outputs/`引用和历史哈希属于当时完整工作�
 | einops | 0.8.1 |
 
 完整图像处理时间不包括空口、排队、模型加载、类别获取或CSI估计。理想共享名义SNR与发送端已知真实类别仍是原系统假设，不因迁移而消失。
+## External baseline release addendum
+
+`python tools/reproduce_external_results.py` uses CSV and NumPy only to recompute 119 summaries and 1,624 paired metric intervals from 25,500 published rows, and verifies frozen mode selection from 18,000 calibration rows. It does not read pixels, models or GPUs.
+
+The selected comparison/reconstruction PNGs are user-requested research illustrations; panels contain source references, but standalone source files, datasets and raw arrays are not distributed. HiFi has only a dated running snapshot here. Original and published hashes, plus CSV partition selectors, are recorded separately.
+
+The author models use an isolated torch1.12.1+cu116 environment. The torch2.11 table below describes the original digital/metric path, not the author Swin SA/RA runtime. Full GPU replay still needs licensed data, public weights, pinned upstream code and historical dependencies.

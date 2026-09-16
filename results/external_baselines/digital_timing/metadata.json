@@ -1,0 +1,29 @@
+{
+  "GPU": "NVIDIA GeForce RTX 4090 D, 610.43.02, 2154 MiB, 7 %, 66, 90.25 W, 2520 MHz, 10251 MHz",
+  "FP32_TF32_disabled": true,
+  "batch": 1,
+  "endpoints": "CPU_source_pixels_to_complete_CPU_waveform;CPU_received_waveform_to_CPU_RGB",
+  "excludes": [
+    "loading",
+    "file_IO",
+    "metrics",
+    "airtime",
+    "queueing",
+    "class_acquisition",
+    "CSI_estimation"
+  ],
+  "resident_models": [
+    "frozen_VAE",
+    "frozen_VAR"
+  ],
+  "parameters": {
+    "vae": 108948355,
+    "var": 310283520
+  },
+  "no_RX_or_TX_encoding_cache": true,
+  "bindings": {
+    "/workspace/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/scripts/time_digital_budgets.py": "008d2e985b96552e613ca2246fe768ccab176bbfb34ee37b9b9fc338a74f76ed",
+    "/workspace/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/configs/digital_common_budget.json": "1e484e5870bfa71c9a434507fd2ad836acc4e8142d34362e42af6a1104b2c29e",
+    "/workspace/projects/VAR_COMM/outputs/EXTERNAL-BASELINE-POSITIONING-20260916/digital_development_001/per_frame.csv": "65bedaf952158d27eec65ed1c763f8b9440d19de31aecc6c0bacc0d733cebdb7"
+  }
+}

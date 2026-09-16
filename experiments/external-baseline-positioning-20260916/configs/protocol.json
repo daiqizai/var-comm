@@ -1,0 +1,79 @@
+{
+  "study": "EXTERNAL-BASELINE-POSITIONING-20260916",
+  "training_allowed": false,
+  "new_holdout_allowed": false,
+  "upstream": {
+    "swinjscc": {"repository": "semcomm/SwinJSCC", "commit": "a6d0e6da53548976acbe9317839a077ef31f190f"},
+    "diffcom": {"repository": "wsxtyrdd/diffcom", "commit": "a8cc4d63304f5bb514d69576e689ff2412510161"}
+  },
+  "checkpoints": {
+    "SwinJSCC_w_SAandRA_AWGN_HRimage_cbr_psnr_snr.model": "eaa56bc7ba82c2d145afced4b54f563253e7e9c59dba2f868076ee8a0066887c",
+    "ADJSCC_C=2.pth.tar": "c29d7610eb7b2e475a5ff029d16f0031fc43ac89f316d461b154cef993753c54",
+    "ADJSCC_C=4.pth.tar": "53c9620f0a9d02c729bffc254693cb73189ab1373c9fc5df135bc3e2e9ee98d6",
+    "ADJSCC_C=6.pth.tar": "755b2077c6bd689d310e9514308b35da88c7ec707e20723b8321e8e24209890f",
+    "256x256_diffusion_uncond.pt": "a37c32fffd316cd494cf3f35b339936debdc1576dad13fe57c42399a5dbc78b1"
+  },
+  "inputs": {
+    "height": 256,
+    "width": 256,
+    "channels": 3,
+    "calibration_indices": [0,125,250,375,500,625,750,999],
+    "digital_mode_calibration_indices": "100 fixed linspace indices within original 1000 calibration sources",
+    "development_sources": 100,
+    "snrs_db": [1,4,7,13,19],
+    "primary_snrs_db": [1,4,7],
+    "high_snrs_db": [13,19],
+    "noise_seeds": [2001,2002,2003],
+    "calibration_noise_seeds": [4101,4102,4103],
+    "preprocessing": "reuse exact original uint8 RGB source pixels and verify SHA"
+  },
+  "author_workpoints": {
+    "swin_model": "SwinJSCC_w/_SAandRA",
+    "swin_size": "base",
+    "swin_rates": [32,64,96],
+    "adjscc_channels": [2,4,6],
+    "hifi_channels": [2],
+    "hifi_diffusion_model": "256x256_diffusion_uncond",
+    "hifi_sampler": "author DDPM, adaptive t_start, N=1, 1000 nominal diffusion grid",
+    "hifi_learning_rate": 1.0,
+    "hifi_zeta": 0.25,
+    "hifi_gamma": 0.25,
+    "hifi_sampling_seed": 23,
+    "hifi_seed_rule": "fixed author seed+1, never image-quality selected",
+    "author_qualification_snr_db": 10,
+    "no_untrained_N3060_mask": true
+  },
+  "common_physics": {
+    "mean_complex_symbol_energy": 2,
+    "real_noise_variance": "1 / linear_SNR",
+    "metadata_after_data": true,
+    "same_ADJSCC_and_HiFi_data_observation": true,
+    "interleaver": "pre-shared deterministic numerical frame counter; never source filename or image contents",
+    "bare_ADJSCC_extra_header": 0,
+    "HiFi_required_side_info": "actual float32 encoder normalization power",
+    "Swin_required_side_info": "actual float32 encoder normalization power and compact combinatorial rank of source-dependent channel mask",
+    "metadata_PHY": "existing CRC16, tail6, K7 convolutional mother code and repeat-2 header; QPSK",
+    "metadata_failure_rule": "retain a legal decoded hard candidate even if CRC rejects; invalid Swin fields yield fixed gray; invalid HiFi power yields same-observation ADJSCC output",
+    "noisy_metadata_truth_used_by_receiver": false,
+    "native_author_metadata_assumptions_not_equal_budget_deployments": true,
+    "required_low_resource_digital_budgets": [4204,4498],
+    "digital_candidate_prefixes": [7,8,9],
+    "digital_calibration_rule": "existing quality rule with original BLER comparator and 0.25dB PSNR guard; DINO unused"
+  },
+  "evaluation": {
+    "metrics": ["PSNR","SSIM","LPIPS","DINO"],
+    "SSIM": "pytorch_msssim.ssim 1.0.0, RGB float32, data_range1, win11 sigma1.5",
+    "sampling_selection_on_development": false,
+    "bootstrap_unit": "source image after averaging noise",
+    "bootstrap_resamples": 10000,
+    "bootstrap_seed": 20260916,
+    "preview_indices": [0,25,50,75],
+    "preview_noise_seed": 2001,
+    "DINO_role": "report only; prior project exposure disclosed",
+    "batch_size": 1,
+    "precision": "FP32, TF32 disabled",
+    "timing_endpoints": "TX CPU source pixels to CPU ready waveform; RX CPU observation to CPU final RGB",
+    "timing_excludes": ["model loading","source-file I/O","metric computation","airtime","queueing","class acquisition","CSI estimation"],
+    "generation_iteration_count_is_recorded_per_frame": true
+  }
+}

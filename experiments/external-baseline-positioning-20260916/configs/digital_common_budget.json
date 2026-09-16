@@ -1,0 +1,22 @@
+{
+  "budgets": [4204, 4498],
+  "families": ["raw", "arithmetic"],
+  "modes": [7, 8, 9],
+  "snrs_db": [1, 4, 7, 13, 19],
+  "calibration_indices": "numpy.rint(numpy.linspace(0,999,100)).astype(int)",
+  "calibration_seeds": [4101, 4102, 4103],
+  "development_indices": "range(100)",
+  "development_seeds": [2001, 2002, 2003],
+  "policy": "original choose_modes; BLER target0.10; LPIPS with0.25dB PSNR guard",
+  "development_policy": "each family quality action frozen on calibration first",
+  "mean_complex_energy": 2,
+  "raw_header_uses": 68,
+  "arithmetic_header_uses": 94,
+  "failure_rule": "original gray for rejected header; retain actual decoded source candidate including failed body CRC",
+  "cache_rule": "exact identical observable receiver arguments only; cached quality is not online timing",
+  "new_training": false,
+  "new_holdout": false,
+  "timing_source_indices": "numpy.rint(numpy.linspace(0,99,32)).astype(int)",
+  "timing_noise_seed": 2001,
+  "timing_repeats": 3
+}
