@@ -1,5 +1,11 @@
 # Research status: 2026-09-16
 
+## 2026-09-18: continuous latent enhancement development evaluation
+
+The m8 digital base plus 512/1024 continuous-latent enhancement checkpoints completed a fixed-mode development matrix. Quality gains over same-resource fixed raw m8/Dc do not establish gains over calibrated adaptive or feasible full-scale digital systems. Publication review found redundant work in the timing endpoints; timing results are retained as diagnostics, not a speed ranking. The original per-SNR chart selected source 0 rather than the population mean; the public chart is corrected from the unchanged per-source CSV. See the [publication review](../results/latent_enhancement/PUBLICATION_REVIEW.md). No new training or holdout evaluation was performed.
+
+See [the development report](../reports/latent_enhancement_development_result_20260918.md) and [public result tables and figures](../results/latent_enhancement/README.md).
+
 ## External baseline update
 
 The new [one-page interim positioning](../reports/research_positioning_one_page_20260916.md), [primary-work differences](../reports/external_related_work_difference_20260916.md) and [three tradeoff views/failure tables](../results/external_baselines/positioning_interim/README.md) advance the study without waiting for HiFi. The remaining ordinary error-resilient entropy control is an evidence gap, not a newly started experiment. Existing negative findings and all strong references remain unchanged.

@@ -1,5 +1,7 @@
 # Public research snapshot
 
+- Latent-enhancement A/B training is closed by user decision. Archived launch scripts do not authorize resuming it. Read `results/latent_enhancement/PUBLICATION_REVIEW.md`: timing is diagnostic-only and calibrated adaptive/full-scale digital comparisons remain incomplete. Preserve the archived numbers and distinguish fixed-mode findings from system claims.
+
 - Read `README.md`, `docs/RESEARCH_STATUS.md` and `docs/REPRODUCIBILITY.md` first.
 - Keep the focus on image communication under explicit channel-use, energy and receiver-information constraints.
 - The fixed-m7 hybrid study is closed. Historical launch instructions do not authorize new training, architecture search or new holdout access.

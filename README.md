@@ -1,5 +1,13 @@
 # VAR-Comm：有限资源下的图像通信研究
 
+## 最新：m8连续latent增强development结果（2026-09-18）
+
+原m8数字基础层追加512/1024连续latent观测的固定模式development矩阵已测：100张图、5个SNR、3个噪声、41个方法。512/1024在4 dB及以上相对同资源固定raw m8/Dc有PSNR/LPIPS增量；1 dB仍受数字基础失败限制。新增预算的校准自适应/可行全尺度数字对照仍缺失，不能推广为完整系统胜出。原计时含冗余调用，仅作诊断，不能支持速度排名；详见[发布复核补注](results/latent_enhancement/PUBLICATION_REVIEW.md)。
+
+- [正式development报告](reports/latent_enhancement_development_result_20260918.md)
+- [公开汇总表与图](results/latent_enhancement/README.md)
+- [训练收口记录](reports/latent_enhancement_stage_B_training_closure_20260918.md)
+
 围绕 **VAR / next-scale 表示在图像通信中的作用**，研究有限信道次数、总能量和明确接收信息约束下的传输与恢复。
 
 这是可追溯的研究快照，不是已经定稿的论文或“全面超过DeepJSCC”的声明。仓库保留有效机制、强对照、负结果和停止决定，不把代理指标改善等同于系统成功。

@@ -1,0 +1,20 @@
+{
+  "study": "VAR-LATENT-ENHANCEMENT-20260918-ONLINE-TIMING",
+  "parent_evaluation": "development_eval_v1",
+  "timing_sources": [0, 11, 22, 33, 44, 55, 66, 77, 88, 99],
+  "snrs_db": [1, 4, 7, 13, 19],
+  "noise_seeds": [2001],
+  "methods": [
+    "m8_D0", "m8_Dc_only", "m8_receiver_only_refiner", "m8_plus_latent_512", "m8_plus_latent_1024",
+    "raw_N3060_m8_Dc", "arithmetic_N3060_m8_Dc", "raw_N3060_m9_Dc", "arithmetic_N3060_m9_Dc",
+    "raw_N3572_m8_Dc", "arithmetic_N3572_m8_Dc", "raw_N4084_m8_Dc", "arithmetic_N4084_m8_Dc"
+  ],
+  "warmup": "one_unrecorded_source_and_snr_before_timing",
+  "endpoints": {
+    "TX": "source_RGB_to_transmitted_waveform;includes_visual_encoder_tokenization_VAR_base_completion_and_source_coding",
+    "RX": "received_waveform_to_final_RGB;includes_PHY_decode_VAR_suffix_completion_and_D0_or_Dc",
+    "excluded": ["model_loading", "channel_propagation", "metric_calculation", "disk_IO", "queueing"]
+  },
+  "hardware": "single_authorized_GPU0;FP32_no_TF32;batch1;torch_synchronize_at_endpoint_boundaries",
+  "no_holdout": true
+}
