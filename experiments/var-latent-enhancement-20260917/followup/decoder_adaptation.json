@@ -1,0 +1,18 @@
+{
+  "study": "VAR-LATENT-ENHANCEMENT-FOLLOWUP-DECODER-ADAPT-20260918",
+  "base_arm": "enhancement1024",
+  "base_update": 40000,
+  "base_decoder_stage_A_update": 38000,
+  "branches": ["communication_continuation_Dc_frozen", "communication_plus_Dc_adaptation"],
+  "fixed_resource": {"header": 68, "digital_data": 2992, "continuous": 1024, "N": 4084, "E": 8168},
+  "loss": "MSE[0,1] + 0.1*LPIPS[-1,1] + 0.01*normalized_latent_MSE",
+  "communication_optimizer": "restore_selected_1024_checkpoint_AdamW_state;learning_rate_2e-4;weight_decay_1e-4",
+  "decoder_optimizer": {"type": "AdamW", "learning_rate": 0.000001, "weight_decay": 0},
+  "updates": {"minimum": 5000, "maximum": 10000, "full_calibration_interval": 2500, "subset_calibration_interval": 500, "checkpoint_interval": 500},
+  "stopping": "both_branches_same_updates;three_full_calibration_plateau_checks_or_10000_safety_cap;cap_not_convergence_claim",
+  "data": "original20k_train_1k_calibration_actual_RX_cache;no_spatial_augmentation;same_order_SNR_digital_status_and_continuous_noise",
+  "selection": "minimum_full_calibration_image_plus_0.01_normalized_latent_loss_per_branch;DINO_not_used",
+  "diagnostic_decoder_inputs": ["F", "Fq", "Fb_TX"],
+  "no_new_holdout": true,
+  "no_new_backbone_or_loss": true
+}
