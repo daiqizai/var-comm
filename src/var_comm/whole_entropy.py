@@ -7,7 +7,7 @@ import hashlib
 import numpy as np
 import torch
 
-from .entropy import FULL, HALF, QUARTER, TOTAL, probability_cdf
+from .entropy import FULL, HALF, QUARTER, TOTAL, probability_cdf, validate_cdf, validate_bits
 from .next_scale_prior import PATCH_NUMS
 from .progressive import complete_image, split_prefix
 from .scale_channel import binary, bits_to_indices, channel_evidence, crc_accepts, decode_map, encode_packet, indices_to_bits, rate_match_indices
@@ -29,8 +29,20 @@ class ArithmeticEncoder:
         self.pending = 0
 
     def encode(self, tokens, cdf):
-        values = np.asarray(tokens, dtype=np.int64)
-        if cdf.shape != (len(values), 4097) or np.any(values < 0) or np.any(values >= 4096):
+        raw_values = np.asarray(tokens)
+        if raw_values.ndim != 1:
+            raise ValueError("invalid arithmetic token/table layout")
+        if not np.issubdtype(raw_values.dtype, np.integer):
+            try:
+                numeric = raw_values.astype(np.float64)
+            except (TypeError, ValueError, OverflowError) as error:
+                raise ValueError("invalid arithmetic token/table layout") from error
+            if not np.isfinite(numeric).all() or not np.equal(numeric, np.floor(numeric)).all():
+                raise ValueError("invalid arithmetic token/table layout")
+            raw_values = numeric
+        values = raw_values.astype(np.int64, copy=False)
+        cdf = validate_cdf(cdf, rows=len(values))
+        if np.any(values < 0) or np.any(values >= 4096):
             raise ValueError("invalid arithmetic token/table layout")
         for token, cumulative in zip(values, cdf):
             interval = self.high - self.low + 1
@@ -59,7 +71,7 @@ class ArithmeticEncoder:
 
 class ArithmeticDecoder:
     def __init__(self, bits):
-        self.bits = binary(bits)
+        self.bits = validate_bits(bits, name="arithmetic bitstream")
         self.position = 0
         self.low, self.high, self.value = 0, FULL - 1, 0
         for offset in range(32):
@@ -71,8 +83,7 @@ class ArithmeticDecoder:
         return value
 
     def decode(self, cdf):
-        if cdf.ndim != 2 or cdf.shape[1] != 4097:
-            raise ValueError("invalid arithmetic probability table")
+        cdf = validate_cdf(cdf)
         tokens = []
         for cumulative in cdf:
             interval = self.high - self.low + 1
@@ -155,10 +166,12 @@ class VarScaleStream:
         self.hidden = None
 
     @torch.no_grad()
-    def render_suffix(self):
+    def render_suffix(self, render=True):
         while self.scale < len(PATCH_NUMS):
             chosen = self.logits()[0].argmax(dim=-1).cpu().numpy()
             self.advance(chosen)
+        if not render:
+            return None
         return self.vae.fhat_to_img(self.latent).clamp(-1, 1).add(1).mul(.5)[0].cpu().numpy()
 
     def __exit__(self, error_type, error, trace):
@@ -253,27 +266,31 @@ def payload_key(phy):
 
 
 @torch.no_grad()
-def decode_source(phy, vae, var, device, render=True):
+def decode_source(phy, vae, var, device, render=True, return_latent=False):
     if phy["label"] is None:
         return {"prefix": [], "image": np.full((3, 256, 256), .5, dtype=np.float32) if render else None,
-                "source_complete": False, "arithmetic_padding_reads": 0, "source_error": "header_failure"}
+                "latent": None, "source_complete": False, "arithmetic_padding_reads": 0, "source_error": "header_failure"}
     mode, label = phy["mode"], phy["label"]
     if phy["header"]["length_field"] == 0:
         prefix = split_prefix(bits_to_indices(phy["payload"]), mode)
         image = complete_image(vae, var, prefix, label, device) if render else None
-        return {"prefix": prefix, "image": image, "source_complete": True, "arithmetic_padding_reads": 0, "source_error": ""}
-    decoder, prefix, error, image = ArithmeticDecoder(phy["payload"]), [], "", None
+        return {"prefix": prefix, "image": image, "latent": None, "source_complete": True, "arithmetic_padding_reads": 0, "source_error": ""}
+    decoder, prefix, error, image, latent = ArithmeticDecoder(phy["payload"]), [], "", None, None
     try:
         with VarScaleStream(vae, var, label, device) as stream:
             for scale in range(mode):
                 tokens = decoder.decode(probability_cdf(stream.log_probs()))
                 prefix.append(tokens)
                 stream.advance(tokens)
-            if render:
-                image = stream.render_suffix()
+            if render or return_latent:
+                generated = stream.render_suffix(render=render)
+                latent = stream.latent
+                if render:
+                    image = generated
     except ValueError as failure:
         error = str(failure)
         if render:
             image = complete_image(vae, var, prefix, label, device)
-    return {"prefix": prefix, "image": image, "source_complete": len(prefix) == mode and not error,
+    return {"prefix": prefix, "image": image, "latent": latent if return_latent else None,
+            "source_complete": len(prefix) == mode and not error,
             "arithmetic_padding_reads": max(0, decoder.position - len(decoder.bits)), "source_error": error}

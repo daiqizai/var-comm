@@ -12,7 +12,7 @@ from .progressive import decode_header, header_bits
 from .scale_channel import encode_packet
 from .study import sha256
 
-LEGACY = Path('/workspace/projects/channel-adaptive-semantic-drift-controlled-diffusion-jscc')
+LEGACY = Path('/home/liulu/projects/channel-adaptive-semantic-drift-controlled-diffusion-jscc')
 IMAGE_CACHE = LEGACY / 'outputs/cache/CACHE-VAR-DECODER-FT-IMAGENET20K-CAL1K-001'
 MANIFEST_SHA = '49f344e8cf72960b7c164af96e05c203e24f4ae1cbfb8be9f3f02f8842b8e8b8'
 

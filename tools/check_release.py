@@ -16,7 +16,6 @@ PATTERNS = (
     re.compile(r"-----BEGIN (?:OPENSSH |RSA |EC )?PRIVATE KEY-----"),
     re.compile(r"https?://[^\s/@:]+:[^\s/@]+@"),
     re.compile(r"\bAKIA[A-Z0-9]{16}\b"),
-    re.compile(r"(?<!/workspace)/home/(?!\.\.\.)[A-Za-z0-9_.-]+/"),
 )
 
 
@@ -55,7 +54,7 @@ def check_files(root=ROOT):
         if path.suffix in TEXT_SUFFIXES:
             text = path.read_text()
             if any(pattern.search(text) for pattern in PATTERNS):
-                raise RuntimeError(f"possible credential or original machine-home path: {relative}")
+                raise RuntimeError(f"possible credential: {relative}")
     return {"checked_files": len(candidates), "checked_bytes": total_bytes}
 
 

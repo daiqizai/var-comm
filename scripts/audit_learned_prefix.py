@@ -64,7 +64,7 @@ def main():
         codecs[name] = model.eval().requires_grad_(False)
         assert state_sha256(model) == receipt['frozen_before'][name]
         assert torch.equal(model.codebook, vae.quantize.embedding.weight)
-    sys.path.insert(0, str(LEGACY / 'src'))
+    sys.path.insert(0, str(ROOT / 'src'))
     from cadsd_jscc.exact_budget_strong_jscc import build_exact_budget_model
     deep = build_exact_budget_model(torch.load(config['deepjscc']['initialization_checkpoint'], map_location='cpu', weights_only=False))
     deep.load_state_dict(torch.load(config['deepjscc']['checkpoint'], map_location='cpu', weights_only=False)['model'])

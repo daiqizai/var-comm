@@ -1,0 +1,20 @@
+{
+  "study": "VAR-LATENT-ENHANCEMENT-MECHANISM-PREDICTOR-INNOVATION-20260920-v2",
+  "version": "v2",
+  "budget": {"N": 4084, "E": 8168, "base_mode": 8, "enhancement_uses": 1024},
+  "branches": ["original_residual_control", "predicted_innovation_candidate"],
+  "shared_predictor": "frozen selected receiver-only refiner P(Fb) with canonical status [header=1,crc=1,mode=8] and nominal SNR",
+  "tx_conditions": "both branches receive (Fb_TX,P(Fb_TX)); control encodes F-Fb_TX; candidate encodes F-P(Fb_TX)",
+  "rx_start": "both branches receive from P(Fb_RX); actual rx_status remains a downstream receiver observable",
+  "updates": {"minimum": 5000, "maximum": 10000, "full_calibration_interval": 1000, "checkpoint_interval": 500},
+  "microbatch_size": 4,
+  "predictor_nominal_snr_db": 13,
+  "relative_improvement": 0.001,
+  "plateau_checks": 3,
+  "data_seed": 2026091921,
+  "channel_seed": 2026091922,
+  "new_holdout": false,
+  "freeze": ["VAE", "VAR", "D0", "selected_Dc", "predictor_P"],
+  "forbidden": ["true_F_at_RX", "true_residual_at_RX", "BER_positions", "free_feedback", "strict_false_weight_loading"],
+  "old_exploration": "outputs/VAR-LATENT-ENHANCEMENT-20260917/followup/predictor_innovation_v1"
+}

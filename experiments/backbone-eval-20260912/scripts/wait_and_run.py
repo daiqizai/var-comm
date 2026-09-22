@@ -31,7 +31,7 @@ from typing import Any
 PROJECT = Path(__file__).resolve().parents[3]
 OUTPUT_ROOT = PROJECT / "outputs"
 DEFAULT_BLOCKER_STATUS = (
-    "/workspace/projects/var-next-scale-comm/outputs/"
+    "/home/liulu/projects/var-next-scale-comm/outputs/"
     "VAR-TOKEN-BACKBONE-20260911-PIPELINE/status.json"
 )
 TERMINAL_BLOCKER_STATES = {"ALL_STAGES_COMPLETE", "STOPPED_NOT_COMPLETE"}

@@ -26,7 +26,11 @@ def load_deep_support():
     config = yaml.safe_load((EXPERIMENT / 'configs/deep_support.yaml').read_text())
     if config['actual_to_condition_snr'] != {5.: 4., 6.: 7.} or config['physical_complex_uses'] != 3060:
         raise ValueError('fixed support policy or physical budget changed')
-    verify_sources(config['source_hashes'])
+    
+    for relative, expected in config['source_hashes'].items():
+        local = PROJECT / 'src' / 'cadsd_jscc' / Path(relative).name
+        if sha256(local) != expected:
+            raise RuntimeError(f'frozen local dependency changed: {local}')
     for name in ('initializer', 'checkpoint'):
         if sha256(WORKSPACE / config[name]) != config[name + '_sha256']:
             raise RuntimeError('frozen Deep weights changed')
@@ -45,7 +49,7 @@ def legacy_model_hash(model):
 
 class FrozenDeepSupport:
     def __init__(self, config, device):
-        source = (WORKSPACE / config['source_root']).resolve()
+        source = (PROJECT / 'src').resolve()
         loaded = sys.modules.get('cadsd_jscc')
         if loaded is not None and Path(loaded.__file__).resolve() != source / 'cadsd_jscc/__init__.py':
             raise RuntimeError('another cadsd_jscc package would shadow the frozen baseline')

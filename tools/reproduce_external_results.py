@@ -3,6 +3,7 @@
 
 import argparse
 import csv
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -55,7 +56,15 @@ def check_calibration(directory=RESULTS):
             raise RuntimeError("calibration is incomplete or duplicated")
         if any(int(row["complex_uses"]) != budget or row["population"] != "calibration" for row in rows):
             raise RuntimeError("calibration budget/population mix")
-        actions, family, _primary = fit_actions(summarize_candidates(rows), config)
+        # Historical CSVs predate decoder identity columns. Bind this replay
+        # to its exact archive bytes; do not invent a verified model SHA.
+        if {row["protocol"] for row in rows} != {"common_paid_information"}:
+            raise RuntimeError("calibration protocol mix")
+        archive_sha = hashlib.sha256((directory / "calibration/digital_per_frame" / f"{budget}.csv").read_bytes()).hexdigest()
+        context = {"budget": budget, "renderer": "historical_archive_only",
+                   "decoder_sha": "UNRECORDED:archive:" + archive_sha,
+                   "protocol_id": "common_paid_information"}
+        actions, family, _primary = fit_actions(summarize_candidates(rows, context=context), config, context=context)
         previous = policies["budgets"][str(budget)]
         if actions != previous["actions"] or family != previous["calibration_global_family"]:
             raise RuntimeError("calibration does not reproduce frozen actions")

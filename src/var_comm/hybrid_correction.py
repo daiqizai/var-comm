@@ -103,7 +103,7 @@ class ResidualLink(nn.Module):
         super().__init__()
         if arm not in ("add", "snr_gain", "reliability_gain"):
             raise ValueError("unregistered fusion arm")
-        legacy = Path('/workspace/projects/channel-adaptive-semantic-drift-controlled-diffusion-jscc/src')
+        legacy = Path(__file__).resolve().parents[1]
         source = legacy / 'cadsd_jscc/strong_jscc.py'
         if hashlib.sha256(source.read_bytes()).hexdigest() != specification["legacy_backbone_sha256"]:
             raise RuntimeError("read-only residual building blocks changed")

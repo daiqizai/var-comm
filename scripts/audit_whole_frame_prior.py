@@ -135,7 +135,7 @@ def audit(run, output, config, receipt):
     vae, var = load_models(model_config["paths"], device)
     models = {"vae": vae, "var": var, "lpips": perceptual, "dino": dino}
     require({name: state_sha256(model) for name, model in models.items()} == receipt["frozen_before"], "independent model fingerprint mismatch")
-    sys.path.insert(0, "/workspace/projects/channel-adaptive-semantic-drift-controlled-diffusion-jscc/src")
+    sys.path.insert(0, str(ROOT / "src"))
     from cadsd_jscc.var_prefix_consistency import complete_received_prefix
 
     maximum_metrics = np.zeros(3)

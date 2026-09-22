@@ -1,0 +1,13 @@
+# Stage A execution registration
+
+This supplements the v1 configuration before any retained optimizer updates. It does not change a loss, model, power, digital mode or resource allocation.
+
+- Each logical batch of16 is shuffled into exactly8 F,4 Fq and4 interpolated inputs. Independent uniform alpha values and source order use separate checkpointed generators. No spatial augmentation is introduced.
+- Calibration subset: the100 positions `floor(arange(100)*1000/100)`, chosen without looking at image quality. Full calibration contains all original1000 sources. All alpha values are drawn once with the registered calibration seed, then reused by every checkpoint.
+- Full calibration reports per-source MSE, PSNR and LPIPS for F, Fq, interpolation and Fb_TX. D0(F) and D0(Fq) are also directly measured at initialization. DINO is absent from optimizer and checkpoint selection.
+- Selection uses the registered50/25/25 image utility, not the Fb_TX diagnostic. Stopping monitors image utility plus each recorded branch's PSNR and LPIPS; improvement in any monitored curve prevents the three-check plateau stop. A safety-cap termination is not a convergence claim.
+- Full calibration and checkpoints include the untrained copy at step0. A selected step0 cannot trigger communication training. The selected Dc(F) versus frozen D0(Fq) comparison has source-image paired intervals. Improvement in image utility and either PSNR or LPIPS is required for proceeding; any degradation in the other metric remains visible.
+- Training prefix tokens are pinned to the original unflipped cache. Calibration uses the original single-image official tokenizer, matching the full-frame digital calibration implementation. Retokenization differences from the earlier batched training cache are counted, not concealed. Full Fq follows the actual official ten-scale mapping of F; base tokens are stored separately.
+- No old FP16 fhat is used as an exact latent. Cache completion, statistics and image bindings are checked before training. Interrupted attempts and logs remain; only complete checkpoints are resumable, including Adam/order/mixture/global RNG state.
+- GPU0 only. At a safe update boundary, another GPU process causes an atomic checkpoint and process exit to release memory. The launcher retries only this resource-yield code, not general failures or explicit interruptions. No foreign process is signaled.
+- Qualification's single optimizer update is discarded and uses training pixels only. It is not counted as retained training, a calibration result, or evidence of useful reconstruction.

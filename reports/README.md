@@ -39,7 +39,7 @@
 这些历史报告中的 `outputs/...`、`configs/...`、`scripts/...` 等路径相对于原工作区：
 
 ```text
-/workspace/projects/channel-adaptive-semantic-drift-controlled-diffusion-jscc/
+/home/liulu/projects/channel-adaptive-semantic-drift-controlled-diffusion-jscc/
 ```
 
 这些命令不是新项目的运行入口；直接执行可能写回旧目录。

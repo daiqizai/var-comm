@@ -1,0 +1,20 @@
+# Stage B: conditional automatic continuation
+
+This independent implementation does not edit the running stage-A source/configuration or any historical experiment. The original experiment JSON remains the authority for all loss weights, physical resources, optimizer, logical/microbatch sizes and update/calibration limits.
+
+## Registered execution details
+
+- Train the512/1024 additional-symbol arms and the receiver-only refiner with the same selected frozen Dc. Each global update gives all three arms the same source indices, SNR and actual digital realization. No arm receives more updates. Logical batch16, microbatch4, FP32/no-TF32, original image loss plus0.01 normalized latent supervision remain unchanged.
+- The finite digital training pool contains two fixed, actually decoded AWGN realizations at each of five SNRs for each of the original20k sources. This is a disclosed finite noise pool, not freshly decoded digital noise at every update. Continuous noise is fresh per source/update, independently seeded from digital noise;512 uses the prefix of the1024 standard-normal stream. All failures remain. No augmentation is introduced.
+- Full calibration uses all1000 original sources × five SNRs × three original noises. Subset calibration uses100 equally spaced source indices selected without quality access, with the same SNR/noise grid. Checkpoints are selected separately by the original registered total loss; DINO is excluded. The three arms continue together while any arm has a relevant improvement; all stop at the existing safety cap if necessary, without claiming convergence.
+- TX is a width64 three-residual-block convolutional map from normalized `(F-Fb_TX,Fb_TX)` to exact4/8-channel16×16 coordinates (dimensions derived from the measured latent shape). Its added waveform alone is normalized. RX combines observation features, actual Fb_RX and nominal SNR/header-CRC/body-CRC/received-mode features, then predicts a zero-initialized latent correction. The control shares the base/conditioning/trunk/head structure but has no observation stem or TX. Parameter counts are measured, not assumed equal.
+- Rx inputs never include F, residual, Fb_TX, true error positions or TX normalization factors. F appears only in TX and training targets. Header rejection gives the original gray image; the masked latent loss is averaged over the complete batch rather than removing failures. Accepted wrong header fields are followed exactly. Body CRC failure retains the actual decoded candidate.
+- Digital receive latents may reuse an existing exact completion only when received label and all received prefix tokens are identical. This is deterministic memoization, not error correction or receiver truth access. Cache hits do not waive online VAR costs. The qualification explicitly re-renders actual low/high-SNR candidates through the original implementation.
+
+## Automatic handoff and safety
+
+The separate B controller first waits for the actual stage-A completion receipt. It checks eligibility, selected checkpoint SHA, original source/configuration bindings and training-only statistics, then freezes that selection in a B receipt. It does not choose a newer checkpoint or use development quality. A negative qualification ends automatic continuation with a recorded reason.
+
+CPU PHY preparation may run while A occupies GPU0, using two CPU workers only. GPU qualification and actual latent rendering wait until the stage-A worker has released GPU0. Then the original-protocol/gradient/power checks run, receive caches complete, and paired B training starts. No GPU job is killed, no shared environment is modified and HiFi remains paused. Only resource-yield exit75 is retried. Numerical/implementation failures stop and preserve evidence instead of being interpreted as scientific negatives.
+
+This queue covers B training and its calibration, not completion of the entire scientific study. Development evaluation, same-budget raw/arithmetic digital competitors, same-Dc controls and complete TX/RX timing remain required before any communication-efficiency claim. Perfect-F stage-A references are not wireless results.

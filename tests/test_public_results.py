@@ -13,7 +13,8 @@ from reproduce_results import RESULTS, aggregate, assemble_rows, expected_value,
 class PublicResultsTests(unittest.TestCase):
     def test_manifest_keeps_original_and_published_hashes(self):
         manifest = check_manifest()
-        self.assertFalse(manifest["source_artifacts_modified"])
+        self.assertEqual(manifest["management_mode"], "single_project_worktree")
+        self.assertTrue(manifest["source_artifacts_modified"])
         self.assertFalse(manifest["model_weights_dataset_pixels_paper_PDFs_and_credentials_included"])
         self.assertTrue(all(row["source_sha256"] and row["published_sha256"] for row in manifest["files"]))
 

@@ -304,7 +304,7 @@ def main():
         require(max_interval_error < 2e-5, "paired source-image quality interval mismatch")
         model_config = yaml.safe_load((ROOT / config["model_config"]).read_text())
         vae, var = load_models(model_config["paths"], device)
-        legacy_source = Path('/workspace/projects/channel-adaptive-semantic-drift-controlled-diffusion-jscc/src')
+        legacy_source = ROOT / 'src'
         sys.path.insert(0, str(legacy_source))
         from cadsd_jscc.var_prefix_consistency import complete_received_prefix
         max_legacy_error = 0.0

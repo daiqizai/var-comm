@@ -6,16 +6,42 @@ import numpy as np
 
 
 RULES = ("reliability", "quality", "goodput")
+CONTEXT_FIELDS = ("budget", "renderer", "decoder_sha", "protocol_id")
 
 
-def summarize_candidates(rows):
+def _context(row, explicit=None):
+    """Return the experiment identity used for one policy row.
+
+    Policy candidates from different budgets, renderers, decoders, or
+    protocols must never share a group.  An explicit context is useful for
+    callers that keep the identity beside (rather than inside) a row, but it
+    is still checked against any fields present on the row.
+    """
+    if explicit is not None:
+        if not isinstance(explicit, dict) or any(field not in explicit for field in CONTEXT_FIELDS):
+            raise ValueError(f"context must provide {', '.join(CONTEXT_FIELDS)}")
+        expected = tuple(explicit[field] for field in CONTEXT_FIELDS)
+    else:
+        missing = [field for field in CONTEXT_FIELDS if field not in row]
+        if missing:
+            raise ValueError(f"policy row missing experiment context: {', '.join(missing)}")
+        expected = tuple(row[field] for field in CONTEXT_FIELDS)
+    for field, value in zip(CONTEXT_FIELDS, expected):
+        if field in row and row[field] != value:
+            raise ValueError(f"row context differs from requested {field}")
+    return expected
+
+
+def summarize_candidates(rows, *, context=None):
     groups = defaultdict(list)
     for row in rows:
         if row["population"] != "calibration":
             raise ValueError("mode fitting may only use calibration rows")
-        groups[row["family"], float(row["snr_db"]), int(row["mode"])].append(row)
+        identity = _context(row, context)
+        groups[identity, row["family"], float(row["snr_db"]), int(row["mode"])].append(row)
     result = []
-    for (family, snr, mode), selected in sorted(groups.items()):
+    for (identity, family, snr, mode), selected in sorted(
+            groups.items(), key=lambda item: (tuple(str(value) for value in item[0][0]), item[0][1], item[0][2], item[0][3])):
         payloads = {int(row["raw_payload_bits"]) for row in selected}
         if len(payloads) != 1:
             raise ValueError("a mode changed its original source payload")
@@ -25,7 +51,7 @@ def summarize_candidates(rows):
         accepted_header = np.array([bool(int(row["header_accepted"])) for row in selected])
         accepted_body = np.array([bool(int(row["body_crc_accepted"])) for row in selected])
         raw_bits = next(iter(payloads))
-        result.append({"family": family, "snr_db": snr, "mode": mode, "frames": len(selected),
+        result.append({**dict(zip(CONTEXT_FIELDS, identity)), "family": family, "snr_db": snr, "mode": mode, "frames": len(selected),
             "source_images": len({row["image_id"] for row in selected}), "raw_payload_bits": raw_bits,
             "accepted_correct_probability": float(success.mean()), "source_packet_BLER": float(1 - success.mean()),
             "source_index_goodput": float(raw_bits * success.mean()), "psnr_db": float(psnr.mean()), "lpips": float(lpips.mean()),
@@ -55,8 +81,18 @@ def choose_modes(candidates, bler_target=.10, psnr_drop=.25, tie_tolerance=1e-12
     return {"reliability": int(reliable["mode"]), "quality": int(quality["mode"]), "goodput": int(goodput["mode"])}
 
 
-def fit_actions(summary, config):
-    lookup = {(row["family"], float(row["snr_db"]), int(row["mode"])): row for row in summary}
+def fit_actions(summary, config, *, context=None):
+    if not summary:
+        raise ValueError("cannot fit policy actions from an empty summary")
+    identities = {_context(row, context) for row in summary}
+    if len(identities) != 1:
+        raise ValueError("mode fitting cannot combine multiple experiment contexts")
+    lookup = {}
+    for row in summary:
+        key = (row["family"], float(row["snr_db"]), int(row["mode"]))
+        if key in lookup:
+            raise ValueError(f"duplicate policy candidate for {key}")
+        lookup[key] = row
     actions = {family: {rule: {} for rule in RULES} for family in config["coding_families"]}
     for family in config["coding_families"]:
         for snr in config["snrs_db"]:

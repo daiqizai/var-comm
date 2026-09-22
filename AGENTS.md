@@ -1,15 +1,15 @@
-# Public research snapshot
+# VAR_COMM collaboration rules
 
-- Latent-enhancement A/B training is closed by user decision. Archived launch scripts do not authorize resuming it. Read `results/latent_enhancement/PUBLICATION_REVIEW.md`: timing is diagnostic-only and calibrated adaptive/full-scale digital comparisons remain incomplete. Preserve the archived numbers and distinguish fixed-mode findings from system claims.
+## Single Git worktree (2026-09-23)
 
-- Read `README.md`, `docs/RESEARCH_STATUS.md` and `docs/REPRODUCIBILITY.md` first.
-- Keep the focus on image communication under explicit channel-use, energy and receiver-information constraints.
-- The fixed-m7 hybrid study is closed. Historical launch instructions do not authorize new training, architecture search or new holdout access.
-- Preserve negative results and distinguish mechanism evidence from system gains.
-- Do not change published CSV values, frozen model choices or selection probabilities to improve a conclusion.
-- Raw source/image data, model/optimizer checkpoints, secrets and third-party vendor trees are not publication content.
-- The user-authorized external update includes preregistered reconstruction/comparison figures in `results/external_baselines/figures/`; panels can contain source references. This does not authorize standalone source files, datasets or raw pixel arrays.
-- `tools/reproduce_results.py` is CPU-only statistical reproduction. Do not describe it as image-metric recomputation or training reproduction.
-- Reports/configurations contain sanitized historical paths. Original and published hashes are separately recorded.
-- Do not force-push, bypass hooks or overwrite remote work. Create commits only within explicitly authorized tasks.
-- Standing user instruction: immediately push every authorized commit to its configured remote, verify remote inclusion and report any failure. Do not ask for separate push confirmation or mistake a local commit for a completed upload. This does not authorize automatic commits of unfinished/raw assets.
+- The directory containing this file is the actual project root and the only daily Git worktree. Run, test, edit, commit and push here to `daiqizai/var-comm`, branch `main`.
+- `publish/var-comm` is an ignored historical backup. Never import code from it, copy daily changes to it, or require a publication/export step before committing. Do not delete it during this migration.
+- Preserve remote history; inspect remote changes before a normal push. No force push, hard reset, clean, or moving `.git`. Use the existing local SSH configuration; never commit credentials.
+- Explicitly stage reviewed source, configuration, scripts, tests, tools, reports and lightweight results. Data, weights, tensors, environments, build/cache files and local backups stay untracked. JSON/CSV/figures are not excluded wholesale.
+- Run `python tools/verify_repository.py` and `python tools/run_cpu_checks.py` from the root before committing. The latter records synthetic CPU engineering tests, not real image quality.
+- Read README.md, RESEARCH_STATUS.md, PROGRESS.md and EXPERIMENTS.md. Older instructions in docs/history are evidence, not live launch authorization.
+- Preserve A/B checkpoints, old experiments, failures, source snapshots and historical numerical results. Do not retrain A/B, create methods or claim all repair issues are solved as part of repository migration.
+- No source hot-editing under an active affected task: first save/pause only this user's work at a safe checkpoint. Do not affect other users or shared GPU settings.
+- RX cannot use unsent targets, hidden TX state, oracle errors or free side information. Keep registered N/E, PHY, losses, data, noise, frozen choices and train/calibration/development boundaries.
+- Do not treat old synthetic probe PASS or completion labels as real-weight acceptance. GPU/model/data-dependent work not executed is NOT_RUN.
+- Push every authorized commit normally, verify the remote SHA, and report failures honestly. Repository visibility and access stay unchanged.

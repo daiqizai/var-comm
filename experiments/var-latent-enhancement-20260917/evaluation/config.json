@@ -1,0 +1,48 @@
+{
+  "study": "VAR-LATENT-ENHANCEMENT-20260918-DEVELOPMENT-EVAL",
+  "parent_study": "VAR-LATENT-ENHANCEMENT-20260917",
+  "population": "original100_development",
+  "snrs_db": [1, 4, 7, 13, 19],
+  "noise_seeds": [2001, 2002, 2003],
+  "new_holdout": false,
+  "methods": {
+    "latent": [
+      {"name": "m8_D0", "family": "digital_base", "N": 3060, "E": 6120, "renderer": "D0"},
+      {"name": "m8_Dc_only", "family": "decoder_only", "N": 3060, "E": 6120, "renderer": "Dc"},
+      {"name": "m8_receiver_only_refiner", "family": "receiver_only_refiner", "N": 3060, "E": 6120, "renderer": "Dc"},
+      {"name": "m8_plus_latent_512", "family": "continuous_enhancement", "N": 3572, "E": 7144, "renderer": "Dc"},
+      {"name": "m8_plus_latent_1024", "family": "continuous_enhancement", "N": 4084, "E": 8168, "renderer": "Dc"}
+    ],
+    "digital": {
+      "families": ["raw", "arithmetic"],
+      "budgets": [3060, 3572, 4084],
+      "modes": [7, 8, 9],
+      "renderers": ["D0", "Dc"]
+    }
+  },
+  "resource_ledger": {
+    "raw_header_uses": 68,
+    "arithmetic_header_uses": 94,
+    "mean_complex_symbol_energy": 2,
+    "real_noise_variance": "1/linear_SNR",
+    "raw_data_uses": "N-68",
+    "arithmetic_data_uses": "N-94",
+    "concatenated_waveform_renormalization": false
+  },
+  "failure_rules": {
+    "header_failure": "gray_RGB_0.5_no_free_class",
+    "raw_crc_failure": "retain_actual_decoded_prefix_candidate",
+    "arithmetic_crc_failure": "retain_actual_decoded_payload_and_completed_scales;no_truth_repair",
+    "all_transmissions_in_quality_statistics": true
+  },
+  "metrics": ["psnr_db", "lpips_alex", "dino_cosine"],
+  "aggregation": "average_three_noise_realizations_per_source_then_source_image_paired_statistics",
+  "selection": "no_development_mode_selection;report_all_fixed_modes",
+  "online_cost": "separate_followup_timing_on_registered_development_subset",
+  "checkpoint_bindings": {
+    "stage_A_Dc": "stage_A_v1/selected.json",
+    "enhancement512": "stage_B_v1/training/selected_enhancement512.json",
+    "enhancement1024": "stage_B_v1/training/selected_enhancement1024.json",
+    "receiver_only_refiner": "stage_B_v1/training/selected_receiver_only_refiner.json"
+  }
+}

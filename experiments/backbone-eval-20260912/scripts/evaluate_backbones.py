@@ -26,8 +26,8 @@ from typing import Any
 HERE = Path(__file__).resolve().parent
 EXPERIMENT = HERE.parent
 PROJECT = EXPERIMENT.parents[1]
-HISTORICAL = Path('/workspace/projects/channel-adaptive-semantic-drift-controlled-diffusion-jscc')
-VAR_ROOT = Path('/workspace/projects/VAR-MAP-GATE0')
+HISTORICAL = Path('/home/liulu/projects/channel-adaptive-semantic-drift-controlled-diffusion-jscc')
+VAR_ROOT = Path('/home/liulu/projects/VAR-MAP-GATE0')
 MANIFEST_SHA = '33d2a4f13eb97bb1d47fca25df04d9ca4b7ebf0fdcefe7d9497c5a6e4830c243'
 OLD_PATCHES = (1, 2, 3, 4, 5, 6, 8, 10, 13, 16)
 METRICS = ('psnr_db', 'ssim', 'lpips_alex', 'dino_cosine')
@@ -43,7 +43,7 @@ DEFAULTS = {
     'fidelity_checkpoint': str(HISTORICAL / 'outputs/train/EXP-VAR-DECODER-ONLY-M89-001/checkpoints/best.pt'),
     'fidelity_checkpoint_sha256': '7b79b4b96f0b13ba5f77cf3cd4038ac1f0fe216e2b516e6a3a3ba57fb20d2802',
     'dino_source': str(VAR_ROOT / 'third_party/dinov2'),
-    'dino_checkpoint': '/workspace/projects/CAP-VPR/artifacts/checkpoints/dinov2/dinov2_vits14_pretrain.pth',
+    'dino_checkpoint': '/home/liulu/projects/CAP-VPR/artifacts/checkpoints/dinov2/dinov2_vits14_pretrain.pth',
     'dino_checkpoint_sha256': 'b938bf1bc15cd2ec0feacfe3a1bb553fe8ea9ca46a7e1d8d00217f29aef60cd9',
     'output_root': str(EXPERIMENT / 'outputs'),
     'device': 'cuda:0', 'cpu_threads': 2, 'warmup_images': 1,
@@ -147,7 +147,7 @@ def tensor_digest(tensor) -> str:
 
 
 def load_historical(config: dict):
-    source = Path(config['historical_source'])
+    source = PROJECT
     sys.path.insert(0, str(source / 'src'))
     from cadsd_jscc import var_decoder_tuning as utilities
     path = source / 'scripts/evaluate_var_decoder_only.py'

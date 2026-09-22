@@ -1,0 +1,13 @@
+{
+  "study": "VAR-LATENT-ENHANCEMENT-MECHANISM-PREDICTOR-INNOVATION-20260919",
+  "budget": {"N": 4084, "E": 8168, "base_mode": 8, "base_data_uses": 2992, "enhancement_uses": 1024},
+  "predictor": "frozen_selected_receiver_only_refiner_as_latent_P;nominal_TX_status_and_actual_RX_status",
+  "branches": ["original_residual_control", "predicted_innovation_candidate"],
+  "loss": "MSE + 0.1*LPIPS + 0.01*normalized_latent_loss",
+  "updates": {"minimum": 5000, "maximum": 5000, "full_calibration_interval": 2500, "checkpoint_interval": 500},
+  "data": "original20k_train_1k_calibration_actual_RX_cache;paired_source_SNR_status_and_continuous_noise",
+  "freeze": ["VAE", "quant_conv", "quantizer", "codebook", "VAR", "D0", "selected_Dc", "predictor_P"],
+  "forbidden": ["true_F_at_RX", "true_residual_at_RX", "BER_positions", "per_image_gain", "free_feedback"],
+  "new_holdout": false,
+  "DINO_used_for_selection": false
+}

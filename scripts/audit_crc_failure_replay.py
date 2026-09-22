@@ -93,7 +93,7 @@ def audit(run, output, config, receipt):
     vae, var = load_models(model_config["paths"], device)
     models = {"vae": vae, "var": var, "lpips": perceptual, "dino": dino}
     require({name: state_sha256(model) for name, model in models.items()} == parent["frozen_before"], "independently loaded models differ")
-    legacy_source = Path("/workspace/projects/channel-adaptive-semantic-drift-controlled-diffusion-jscc/src")
+    legacy_source = ROOT / "src"
     sys.path.insert(0, str(legacy_source))
     from cadsd_jscc.var_prefix_consistency import complete_received_prefix
 

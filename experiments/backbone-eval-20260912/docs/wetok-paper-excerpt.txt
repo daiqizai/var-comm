@@ -1,0 +1,9 @@
+Source: https://arxiv.org/html/2508.05599v1
+Author paper table3, factual extraction (not a local test result):
+- Dataset: ImageNet 50k validation, evaluated at256x256.
+- WeTok training/evaluation row: 2D token grid16x16, downsample16, input256x256, implicit vocabulary2^32, rFID0.61, PSNR24.50dB, codebook usage100%.
+- This same table separately lists WeTok32x32/downsample8/2^32 with29.69dB: it is NOT the selected budget.
+- The adjacent table4 describes general-domain pretrained variants. Do not substitute those checkpoints for the ImageNet-specific selected model.
+- Our specified public ImageNet/downsample16 config realizes32bits/site as four8-bit groups, not one trainable2^32 lookup table.
+- A paper score does not establish an improvement on our fixed100 development images or under our preprocessing/metrics.
+Direct author HTML fetched successfully; v2 request timed out, so this extract is explicitly fromv1, not claimed latest.

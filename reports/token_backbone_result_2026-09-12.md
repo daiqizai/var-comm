@@ -56,7 +56,7 @@ LPIPS描述性相对改善约0.67%，不能把跨0的区间包装成明确增益
 
 ## 原始产物
 
-相对`/workspace/projects/var-next-scale-comm`：
+相对`/home/liulu/projects/var-next-scale-comm`：
 - 冻结原始报告及图表：`outputs/VAR-TOKEN-BACKBONE-20260911-ANALYSIS/report.md`、`development.png`、`calibration.png`。
 - 完整均值/配对/交互/数字m8逐点差：同目录`primary.csv`、`summary.csv`、`paired.csv`、`interaction.csv`、`fixed_m8_gap.csv`。
 - 逐帧质量及重建输出：`outputs/VAR-TOKEN-BACKBONE-20260911-EVALUATION/`。

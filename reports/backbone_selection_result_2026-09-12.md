@@ -1,6 +1,6 @@
 # 运行产物位置 / Artifact location
 
-`/workspace/projects/VAR_COMM/outputs/ei-liulu-xqvar-eval-20260912-v1/analysis`
+`/home/liulu/projects/VAR_COMM/outputs/ei-liulu-xqvar-eval-20260912-v1/analysis`
 
 下列CSV与图片文件名均相对于上述分析目录。
 

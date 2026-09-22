@@ -127,15 +127,22 @@ def model_forward(model, batch):
 
 
 @torch.no_grad()
-def evaluate(models, population, indices, config, renderer, perceptual, device, dino=None, image_callback=None):
+def evaluate(models, population, indices, config, renderer, perceptual, device, dino=None,
+             image_callback=None, *, population_role):
+    """Evaluate one explicitly named population; image output is orthogonal.
+
+    ``image_callback`` only controls optional rendering side effects.  It must
+    never select calibration versus development seeds or alter the protocol.
+    """
     from .quality import dino_features
 
     previous_modes = {arm: model.training for arm, model in models.items()}
     for model in models.values():
         model.eval()
     rows = []
-    role = "development" if image_callback is not None else "calibration"
-    seeds = config[role + "_seeds"]
+    if population_role not in ("calibration", "development"):
+        raise ValueError("population_role must be explicitly calibration or development")
+    seeds = config[population_role + "_seeds"]
     batch_size = config["training"]["batch_size"]
     items = [(int(index), float(snr), int(seed)) for index in indices for snr in config["snrs_db"] for seed in seeds]
     try:
@@ -158,7 +165,7 @@ def evaluate(models, population, indices, config, renderer, perceptual, device, 
                 if torch.max(torch.abs(energies - 2220)) > 0.01:
                     raise RuntimeError("analog energy escaped the registered total")
                 for local, event in enumerate(batch["events"]):
-                    row = {**event, "seed": repeated_seeds[local], "arm": arm,
+                    row = {**event, "population": population_role, "seed": repeated_seeds[local], "arm": arm,
                            "mse": float(mse[local]), "psnr_db": float(-10 * mse[local].clamp_min(1e-12).log10()),
                            "lpips": float(lpips[local]), "gain_mean": float(gain[local].mean()),
                            "complex_uses": 3060, "total_energy": 3900 + float(energies[local])}

@@ -37,7 +37,7 @@ def main():
     torch.backends.cudnn.allow_tf32 = False
     torch.backends.cudnn.benchmark = False
     device = torch.device('cuda:0')
-    sys.path.insert(0, str(LEGACY / 'src'))
+    sys.path.insert(0, str(ROOT / 'src'))
     from cadsd_jscc.exact_budget_strong_jscc import build_exact_budget_model
     initial = torch.load(config['deepjscc']['initialization_checkpoint'], map_location='cpu', weights_only=False)
     model = build_exact_budget_model(initial)

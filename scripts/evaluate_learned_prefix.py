@@ -107,7 +107,7 @@ def main():
         codec = build_codec(config, vae, variant, device)
         codec.load_state_dict(state['model'], strict=True)
         codecs[variant] = codec.eval().requires_grad_(False)
-    sys.path.insert(0, str(LEGACY / 'src'))
+    sys.path.insert(0, str(ROOT / 'src'))
     from cadsd_jscc.exact_budget_strong_jscc import build_exact_budget_model
     for key in ('checkpoint', 'initialization_checkpoint'):
         expected = config['deepjscc']['checkpoint_sha256' if key == 'checkpoint' else 'initialization_sha256']

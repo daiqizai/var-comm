@@ -37,7 +37,7 @@ GPU：四臂hard图像均与原接收算法像素差0；image/state梯度到E/D�
 
 ## 查看与恢复
 
-以下相对`/workspace/projects/var-next-scale-comm`：
+以下相对`/home/liulu/projects/var-next-scale-comm`：
 - 实时阶段：`outputs/VAR-TOKEN-BACKBONE-20260911-PIPELINE/status.json`。
 - 阶段日志：同目录`train.log`、`evaluate.log`、`analyze.log`，首次失败和新启动按时间保留。
 - 四臂共同断点：`outputs/VAR-TOKEN-BACKBONE-20260911-TRAINING-R2/resume.pt`；首步和每250步持久化，恢复时不能单独推进某臂。

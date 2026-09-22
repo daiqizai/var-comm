@@ -40,7 +40,7 @@ B主区间相对固定数字m8的LPIPS仍差+0.023552，95% CI [+0.018548,+0.028
 
 ## 文件位置
 
-以下路径相对于`/workspace/projects/var-next-scale-comm`：
+以下路径相对于`/home/liulu/projects/var-next-scale-comm`：
 - 完整报告：`reports/prefix_refinement_remote_result.md`。
 - 对照曲线及CSV：`outputs/VAR-M8-LOCAL-20260911-ANALYSIS/`，含development、完整/子集calibration、scale_diagnostics图。
 - 七SNR逐帧、汇总和配对区间：`outputs/VAR-M8-LOCAL-20260911-EVALUATION/`。

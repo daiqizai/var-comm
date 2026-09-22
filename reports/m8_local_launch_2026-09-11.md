@@ -3,7 +3,7 @@
 ## 授权与范围
 
 用户明确说“我本机的显卡空出来了，可以开始了”。此次只启动已准备的固定m8配对实验，不启动全尺度、功率分配、parallel重训或旧工作区的暂停队列。
-代码/输出在`/workspace/projects/var-next-scale-comm`；原模型、数据和历史结果只读复用，没有租卡、下载权重或访问新正式test。
+代码/输出在`/home/liulu/projects/var-next-scale-comm`；原模型、数据和历史结果只读复用，没有租卡、下载权重或访问新正式test。
 
 ## 冻结设置
 

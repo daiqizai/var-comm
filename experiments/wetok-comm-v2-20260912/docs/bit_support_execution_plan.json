@@ -1,0 +1,68 @@
+{
+  "plan_only": true,
+  "parent_step": 5000,
+  "additional_milestone": 5000,
+  "arms": {
+    "joint_original__single_pass": {
+      "variant": "single_pass",
+      "recipe": "joint_original",
+      "weights": {
+        "mse": 1.0,
+        "lpips": 0.01,
+        "bits": 0.01,
+        "state": 0.01
+      }
+    },
+    "bit_support__single_pass": {
+      "variant": "single_pass",
+      "recipe": "bit_support",
+      "weights": {
+        "mse": 1.0,
+        "lpips": 0.01,
+        "bits": 1.0,
+        "state": 0.01
+      }
+    },
+    "joint_original__multiscale_no_history": {
+      "variant": "multiscale_no_history",
+      "recipe": "joint_original",
+      "weights": {
+        "mse": 1.0,
+        "lpips": 0.01,
+        "bits": 0.01,
+        "state": 0.01
+      }
+    },
+    "bit_support__multiscale_no_history": {
+      "variant": "multiscale_no_history",
+      "recipe": "bit_support",
+      "weights": {
+        "mse": 1.0,
+        "lpips": 0.01,
+        "bits": 1.0,
+        "state": 0.01
+      }
+    },
+    "joint_original__multiscale_conditioned": {
+      "variant": "multiscale_conditioned",
+      "recipe": "joint_original",
+      "weights": {
+        "mse": 1.0,
+        "lpips": 0.01,
+        "bits": 0.01,
+        "state": 0.01
+      }
+    },
+    "bit_support__multiscale_conditioned": {
+      "variant": "multiscale_conditioned",
+      "recipe": "bit_support",
+      "weights": {
+        "mse": 1.0,
+        "lpips": 0.01,
+        "bits": 1.0,
+        "state": 0.01
+      }
+    }
+  },
+  "only_changed_loss": "bits_BCE_0p01_to_1"
+}
