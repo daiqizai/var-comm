@@ -1,6 +1,6 @@
 # VAR_COMM consolidated repair — 2026-09-22
 
-The merged repair task was applied to the actual work tree `/home/liulu/projects/VAR_COMM`; the publication checkout was synchronized separately. The pre-repair source/config/results snapshot is retained under `_codex_sync/repair_20260922_pre/`. The attached `source_export_002` archive is treated as evidence, not as an overlay.
+The merged repair task was applied to the actual work tree `VAR_COMM_WORKTREE`; the publication checkout was synchronized separately. The pre-repair source/config/results snapshot is retained under `_codex_sync/repair_20260922_pre/`. The attached `source_export_002` archive is treated as evidence, not as an overlay.
 
 ## Implementation status
 
