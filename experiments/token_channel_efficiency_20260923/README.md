@@ -71,3 +71,23 @@ same source/SNR/seed objects, bootstrap source images10000 times and retain all
 quality targets and unmet outcomes. Publish actual resource curves, minimum tested
 N, failure/energy distributions, fixed samples with permitted data, and lineage.
 Do not publish weights, source pixels, tokens, bitstreams or large tensor caches.
+
+## Shared online execution follow-up
+
+`token_efficiency.execution` now provides actual online TX/channel/RX for both
+new continuous budgets and versioned digital cells. `execute` times CPU endpoints
+using the same `transmit`, `apply_channel` and `receive` functions used for
+quality; channel noise is applied once outside RX timing. Continuous TX does not
+read class/token/VAR state. Arithmetic RX preserves legal partial candidates
+after body failure, and reuses the actual decoding stream latent rather than
+repeating a second VAR completion. Full m10 raw uses cumulative quantized latent.
+The selected-budget loader checks selected step, arm, N, registration and actual
+checkpoint SHA; it does not assume step10000.
+
+Five synthetic interface/selected-loader tests accompany this module. The real
+calibration-only entry `python -m token_efficiency.qualify_execution` is NOT_RUN
+until its acceptance receipt exists in `outputs/TOKEN-CHANNEL-EFFICIENCY-20260923/
+execution_qualification_v1/`. It must run with GPU0 free before the new digital
+quality grid; do not start it alongside the existing coordinator's GPU child.
+Selected trained continuous models require replay qualification again at evaluation.
+These modules are additive and do not alter the running cache or coordinator.
