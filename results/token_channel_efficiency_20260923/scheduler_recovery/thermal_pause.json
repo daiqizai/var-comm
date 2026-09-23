@@ -1,0 +1,84 @@
+{
+  "time": 1790179100.7865367,
+  "coordinator_status": {
+    "status": "RUNNING",
+    "pid": 850954,
+    "time": 1790177782.4631813,
+    "retired_short_prefix_controller": 724491,
+    "new_holdout": false,
+    "content_selector": false,
+    "stage": 5,
+    "command": [
+      "token_efficiency.budget_train",
+      "--N",
+      "2048"
+    ],
+    "child_pid": 851003,
+    "log": "/home/liulu/projects/VAR_COMM/outputs/TOKEN-CHANNEL-EFFICIENCY-20260923/logs/05_budget_train_1790177782.log"
+  },
+  "controller": {
+    "pid": 850954,
+    "cmdline": "python3 -u -m token_efficiency.coordinator_v2 ",
+    "start_ticks": "82592857",
+    "state": "S"
+  },
+  "child": {
+    "pid": 851003,
+    "cmdline": "/usr/bin/python3 -u -m token_efficiency.budget_train --N 2048 ",
+    "start_ticks": "82593835",
+    "state": "R"
+  },
+  "training_status": {
+    "status": "TRAINING",
+    "pid": 851003,
+    "state": {
+      "step": 8700,
+      "updates": {
+        "P2048": 8700
+      },
+      "selection": {
+        "P2048": {
+          "step": 7500,
+          "utility": 0.03151540155597031
+        }
+      },
+      "last_full": 7500,
+      "training_seconds": 3483.5421888828278,
+      "calibration_seconds": 700.1455466747284
+    },
+    "hardware": {
+      "temperature": 83,
+      "hardware_thermal_slowdown": "Not Active",
+      "consecutive_hot": 0,
+      "time": 1790179084.5585139
+    }
+  },
+  "observations": [
+    {
+      "time": 1790179056.8091507,
+      "temperature": 83,
+      "sw_thermal": "Active",
+      "hw_thermal": "Not Active"
+    },
+    {
+      "time": 1790179066.8370194,
+      "temperature": 84,
+      "sw_thermal": "Active",
+      "hw_thermal": "Not Active"
+    },
+    {
+      "time": 1790179076.8664584,
+      "temperature": 86,
+      "sw_thermal": "Not Active",
+      "hw_thermal": "Not Active"
+    }
+  ],
+  "cause": "three consecutive hot samples; old Safety omitted software thermal throttle",
+  "safe_checkpoint": {
+    "path": "/home/liulu/projects/VAR_COMM/outputs/TOKEN-CHANNEL-EFFICIENCY-20260923/training/P2048_seed2026092304/checkpoints/step_08740_safe_pause.pt",
+    "sha256": "c0bbc466dd6386ecf26ab3b3c5aa1fbb3907d9788d18b651e4b253092e2f19ac",
+    "step": 8740,
+    "reason": "safe_pause"
+  },
+  "safe_checkpoint_verified": true
+}
