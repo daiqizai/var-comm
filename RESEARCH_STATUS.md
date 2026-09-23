@@ -1,3 +1,5 @@
+> 2026-09-24 N4084 actual replay continuation implemented:6 legacy methods, real24-check gate before9000 frames/600 timings, serially after the existing reference metric worker. GPU acceptance/results are NOT_RUN until actual receipts. See reports/token_efficiency_n4084_replay_queue_20260924.md.
+
 > 2026-09-24 historical N4084 provenance:7 methods/10500 original rows and300 original timing consistency records verified; source pixels, selected hashes and frozen-policy lineage checked. Current full PHY/metric/timing compatibility remains pending. See reports/token_efficiency_n4084_reference_audit_20260924.md.
 
 > 2026-09-24 P2048: real initial20k complete, all135000 calibration rows and selected SHA verified. Both final calibration intervals support a10k extension after the existing P3060 initial run. Development/timing and full merged delivery remain pending. See reports/token_efficiency_P2048_20k_20260924.md.
