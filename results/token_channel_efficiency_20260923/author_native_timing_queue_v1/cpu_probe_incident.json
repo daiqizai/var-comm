@@ -1,0 +1,13 @@
+{
+  "time": 1790193774.8160815,
+  "status": "PROBE_EXITED_SAFE_CHECKPOINT_RETAINED",
+  "probe_pid": 1014791,
+  "issue": "Explicit CPU model constructor initialized CUDA in pinned upstream code; training rejected foreign process and saved step11280",
+  "checkpoint_verified": true,
+  "training_or_quality_forward_in_probe": false,
+  "action": "retain evidence; mask CUDA on subsequent CPU checks; no bound training changes or hardware settings",
+  "root_cause": "SwinJSCC/net/encoder.py:137 update_mask unconditionally calls attn_mask.cuda(), reached from SwinAuthor CPU constructor",
+  "recovered_step": 11300,
+  "recovery_verified": true,
+  "cpu_check_resolution": "CUDA_VISIBLE_DEVICES empty before torch import; Swin checkpoint CPU read only, three ADJSCC strict CPU model loads; no upstream code changes"
+}
