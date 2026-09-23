@@ -1,3 +1,5 @@
+> 2026-09-24 P2048: real initial20k complete, all135000 calibration rows and selected SHA verified. Both final calibration intervals support a10k extension after the existing P3060 initial run. Development/timing and full merged delivery remain pending. See reports/token_efficiency_P2048_20k_20260924.md.
+
 > 2026-09-23 scheduler recovery: original C controller is RETIRED_VERIFIED after a blocked m6 launch, with failure evidence preserved and no m6 training. Detached coordinator_v2 resumed P2048 from verified step5967 and advanced beyond6000. Never SIGCONT the old PID. See reports/token_efficiency_scheduler_recovery_20260923.md. A is complete; B1/B2/C remain pending.
 
 > 2026-09-23 source A COMPLETE: actual source streams/roundtrips and20 representation paths for1000 calibration+100 original development sources, calibrated quality targets frozen before development. Full source report: reports/token_channel_efficiency_20260923_source_A.md. P2048/P3060 real-device qualification passed; P2048 is training. B1/B2 communication matrices and merged short-prefix C remain incomplete; no new holdout.

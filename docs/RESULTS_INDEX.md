@@ -48,3 +48,5 @@
 The user-requested curated figures include 120 PNG files: 24 comparison panels and 96 individual reconstructions; 12 panels use exactly N4498. Standalone source images, raw datasets and pixel arrays are excluded. HiFi is not ranked before completion. Large CSVs are partitioned without changing scientific cells; provenance is in the release manifest.
 
 The index below preserves the original historical release.
+
+- 2026-09-24 P2048 initial20k: `results/token_channel_efficiency_20260923/budget_milestones/P2048_seed2026092304_20k/`; real calibration/selected lineage, not convergence or completed development. Report: `reports/token_efficiency_P2048_20k_20260924.md`.
