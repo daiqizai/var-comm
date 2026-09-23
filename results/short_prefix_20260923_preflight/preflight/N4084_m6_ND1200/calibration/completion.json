@@ -1,0 +1,64 @@
+{
+  "status": "REAL_PHY_AND_LATENT_CACHE_COMPLETE",
+  "sources": 100,
+  "frames": 1500,
+  "scope": {
+    "ledger": {
+      "m": 6,
+      "N": 4084,
+      "E": 8168,
+      "NH": 68,
+      "ND": 1200,
+      "NA": 2816,
+      "protocol_id": "short-prefix-v1"
+    },
+    "precision": {
+      "matmul_tf32": false,
+      "cudnn_tf32": false,
+      "deterministic_algorithms": true,
+      "cudnn_deterministic": true,
+      "cudnn_benchmark": false
+    },
+    "model_paths": {
+      "var_source": "/home/liulu/projects/VAR-MAP-GATE0/third_party/VAR",
+      "vae_checkpoint": "/home/liulu/projects/VAR-MAP-GATE0/checkpoints/vae_ch160v4096z32.pth",
+      "vae_checkpoint_sha256": "7c3ec27ae28a3f87055e83211ea8cc8558bd1985d7b51742d074fb4c2fcf186c",
+      "var_checkpoint": "/home/liulu/projects/VAR-MAP-GATE0/checkpoints/var_d16.pth",
+      "var_checkpoint_sha256": "4f6151aad91c94e03e224dd7358d8389fa05301c0c291279566998efb54b0ecb",
+      "development_manifest": "/home/liulu/projects/VAR-MAP-GATE0/results/vae_reconstruction/imagenet100_m6_to_m10_rate_sweep/selected_samples.json",
+      "development_manifest_sha256": "33d2a4f13eb97bb1d47fca25df04d9ca4b7ebf0fdcefe7d9497c5a6e4830c243",
+      "split_manifest": "/home/liulu/projects/VAR-MAP-GATE0/manifests/split_manifest.json",
+      "split_manifest_sha256": "576ffc8db4d9ced560af66e55c185fcd2d1a078b9ffa9315b372ea15f2532959"
+    },
+    "decoder_state_sha256": "bf1d64bf8ff7eeda416032daa2ada1654fb37de2553235e85d364211ddfefad1",
+    "role": "calibration",
+    "snrs_db": [
+      1,
+      4,
+      7,
+      13,
+      19
+    ],
+    "seeds": [
+      4101,
+      4102,
+      4103
+    ],
+    "noise": {
+      "variance_per_real_coordinate": "10**(-snr_db/10)",
+      "digital_namespace": "SHORT-PREFIX-v1/N{N}/m{m}/ND{ND}/digital|image_id",
+      "continuous_namespace": "SHORT-PREFIX-v1/N{N}/m{m}/NA{NA}/continuous|image_id",
+      "VP_pair": "same source,SNR,seed,shape,standard_noise; different learned waveforms allowed"
+    },
+    "allowed_modes": [
+      6
+    ],
+    "cache_schema": "source/SNR/noise, F/B_TX/B_RX/G_RX float32, actual decoded class/status"
+  },
+  "hashes": {
+    "shard_0000.pt": "00cd5c395fb8f349c1fcf4cdf86bee6f604d43432ec2366d108b5a830019f703"
+  },
+  "registration_sha256": "904905a31be48dfed510f23b72719fe6dc0d13bb3a477a99f59a704498d06f3c",
+  "seconds": 43.16392970085144,
+  "synthetic": false
+}

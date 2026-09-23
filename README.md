@@ -3,6 +3,10 @@
 The actual project root is now the sole Git worktree for `daiqizai/var-comm`.
 Edit, run, test, commit and push here. `publish/var-comm` is retained locally as an ignored historical backup; no source-copy or separate publication workflow is required.
 
+## Current authorized study
+
+[Short-prefix protocol and execution](experiments/var-short-prefix-hybrid-20260923/README.md): real preflight/qualification complete; full training and later evaluation stages pending.
+
 ## Completed review and bounded study
 
 - [Phase1 repairs and affected real-weight results](reports/review_20260923_phase1.md).

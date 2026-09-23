@@ -1,0 +1,181 @@
+{
+  "study": "SHORT-PREFIX-20260923",
+  "version": "short-prefix-v1",
+  "baseline_commit": "cf70b314d596fa09508496af66e0366509517952",
+  "main_N": 4084,
+  "main_E": 8168,
+  "header_uses": 68,
+  "mode_codes": {
+    "6": 0,
+    "7": 1,
+    "8": 2
+  },
+  "digital_data_uses": {
+    "6": 1200,
+    "7": 1968,
+    "8": 2992
+  },
+  "first_arms": {
+    "H6-V": {
+      "m": 6,
+      "family": "VAR"
+    },
+    "H6-P": {
+      "m": 6,
+      "family": "PREFIX"
+    },
+    "H7-V": {
+      "m": 7,
+      "family": "VAR"
+    },
+    "H7-P": {
+      "m": 7,
+      "family": "PREFIX"
+    },
+    "H8-V": {
+      "m": 8,
+      "family": "VAR"
+    }
+  },
+  "snrs_db": [
+    1,
+    4,
+    7,
+    13,
+    19
+  ],
+  "primary_snrs_db": [
+    1,
+    4,
+    7
+  ],
+  "high_snrs_db": [
+    13,
+    19
+  ],
+  "data": {
+    "train": 20000,
+    "calibration": 1000,
+    "development": 100,
+    "final_new_test": 500
+  },
+  "calibration_seeds": [
+    4101,
+    4102,
+    4103
+  ],
+  "development_seeds": [
+    2001,
+    2002,
+    2003
+  ],
+  "training_base_seeds": [
+    2026091721,
+    2026091722
+  ],
+  "initialization_seed": 2026092304,
+  "data_seed": 2026092305,
+  "channel_seed": 2026092306,
+  "learning_rate": 0.0002,
+  "weight_decay": 0.0001,
+  "batch_size": 16,
+  "microbatch_size": 4,
+  "gradient_clip": 1.0,
+  "updates": 20000,
+  "checkpoint_interval": 500,
+  "full_calibration_interval": 2500,
+  "loss": {
+    "mse": 1.0,
+    "lpips": 0.1,
+    "normalized_latent": 0.01,
+    "hybrid_latent_header_mask": true
+  },
+  "model": {
+    "width": 64,
+    "blocks": 3,
+    "class_embedding_width": 16,
+    "latent_shape": [
+      32,
+      16,
+      16
+    ]
+  },
+  "precision": {
+    "matmul_tf32": false,
+    "cudnn_tf32": false,
+    "deterministic_algorithms": true,
+    "cudnn_deterministic": true,
+    "cudnn_benchmark": false
+  },
+  "noise": {
+    "variance_per_real_coordinate": "10**(-snr_db/10)",
+    "digital_namespace": "SHORT-PREFIX-v1/N{N}/m{m}/ND{ND}/digital|image_id",
+    "continuous_namespace": "SHORT-PREFIX-v1/N{N}/m{m}/NA{NA}/continuous|image_id",
+    "VP_pair": "same source,SNR,seed,shape,standard_noise; different learned waveforms allowed"
+  },
+  "fixed_mode_rx": "pre-shared singleton allowed-mode set; a CRC-valid different mode is illegal and scored as header erasure; no TX mode input at RX",
+  "adaptive_mode_rx": "pre-shared family; decoded legal mode selects ND/NA and receiver; wrong accepted dispatch retained, never repaired using TX truth",
+  "header_failure": "RGB0.5, latent loss masked, image loss and all resources retained",
+  "body_failure": "keep hard decoded prefix",
+  "tx_assumptions": [
+    "true class known at TX and transmitted through header",
+    "nominal SNR ideally shared"
+  ],
+  "selection": "minimum complete 1000-source five-SNR three-noise mean training utility; no development selection",
+  "extension_rule": {
+    "pairwise_new_updates": 10000,
+    "criterion": "both last full-calibration intervals at 15000->17500->20000 improve utility by >=0.2% for at least one arm; extend its V/P pair together; reassess each 10k using calibration only"
+  },
+  "budget3060": {
+    "E": 6120,
+    "digital_data_uses": {
+      "6": 1200,
+      "7": 1968
+    },
+    "select_m": "minimum full-calibration primary1/4/7 U_image of H6-V/H7-V; tie lower m",
+    "pure": "train exact6120 real coordinates from initialization"
+  },
+  "backup_protection": {
+    "m6_ND": 1456,
+    "m7_ND": 2224,
+    "maximum_extra_points": 1,
+    "automatic_launch": false
+  },
+  "policy": {
+    "stage": "after main models frozen",
+    "actions": [
+      "H6-V",
+      "H7-V",
+      "H8-V"
+    ],
+    "calibration_split": "even source indices tune, odd validate, registered before codec training",
+    "fitting_sources": "first2000 source IDs in original train order",
+    "diagnostic": "rotate 2-noise selection / 1-noise scoring, 3 folds",
+    "gate": "cross-noise relative U_image improvement over SNR table >=1% and at least2 actions selected on >=5% of source/SNR keys; otherwise skip predictor",
+    "model": "ridge, standardized TX-only features, alpha grid[0.1,1,10,100]"
+  },
+  "repeats": {
+    "additional_training_seeds": [
+      2026092404,
+      2026092504
+    ],
+    "scope": "final candidate and direct mechanism controls after first-seed calibration decision"
+  },
+  "new_test": "select500 only after network/protocol/policy freeze; exclude all known communication train/cal/dev/historical holdout image identities; no pretraining-overlap claim",
+  "safety": {
+    "gpu": 0,
+    "thermal_pause": "hardware thermal slowdown on three consecutive 10-update observations; or >=86C on three; safe paired-update checkpoint; no device setting changes"
+  },
+  "deliverables": [
+    "protocol",
+    "training and selected SHA",
+    "full source/SNR/noise rows",
+    "source-paired intervals",
+    "training-seed variation",
+    "quality-SNR/N/time and calibration figures",
+    "fixed examples including failures",
+    "issue/stage status",
+    "report",
+    "push SHA"
+  ]
+}
