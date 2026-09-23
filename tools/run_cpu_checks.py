@@ -24,7 +24,7 @@ def main():
                "cadsd_jscc.exact_budget_strong_jscc", "latent_enhancement.latent",
                "latent_enhancement_b.train", "latent_enhancement_eval.deployment",
                "latent_followup.policy_development", "latent_mechanisms.predictor_innovation", "latent_research.models", "latent_research.train", "latent_research.evaluate",
-               "latent_research.digital_requalify", "latent_research.system_policy", "short_prefix.protocol", "short_prefix.models", "short_prefix.train", "short_prefix.execution", "token_efficiency.source", "token_efficiency.phy", "token_efficiency.models", "token_efficiency.budget_train", "token_efficiency.coordinator", "token_efficiency.execution", "token_efficiency.qualify_execution", "token_efficiency.statistics", "token_efficiency.publish_source", "token_efficiency.retired_gate", "token_efficiency.coordinator_v2", "token_efficiency.thermal_guard"]
+               "latent_research.digital_requalify", "latent_research.system_policy", "short_prefix.protocol", "short_prefix.models", "short_prefix.train", "short_prefix.execution", "token_efficiency.source", "token_efficiency.phy", "token_efficiency.models", "token_efficiency.budget_train", "token_efficiency.coordinator", "token_efficiency.execution", "token_efficiency.qualify_execution", "token_efficiency.statistics", "token_efficiency.publish_source", "token_efficiency.retired_gate", "token_efficiency.coordinator_v2", "token_efficiency.thermal_guard", "token_efficiency.benchmark_microbatch", "token_efficiency.microbatch_runtime", "token_efficiency.budget_train_microbatch", "token_efficiency.coordinator_v3", "token_efficiency.thermal_guard_v2"]
     probe = """import importlib,json,sys
 from pathlib import Path
 root=Path(sys.argv[1]).resolve()

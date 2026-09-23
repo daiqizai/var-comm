@@ -1,0 +1,168 @@
+{
+  "status": "REAL_MICROBATCH_BENCHMARK_COMPLETE",
+  "identity_sha256": "ba09c994a210a88260dfaf3371d3f5bf915cca0f0d03dc140d837f5a60d213d6",
+  "equivalence": [
+    {
+      "microbatch": 4,
+      "loss_max_abs": 0.0,
+      "gradient_relative_l2": 0.0,
+      "parameter_update_relative_l2": 0.0,
+      "peak_allocated_bytes": 5878572544,
+      "pass": true
+    },
+    {
+      "microbatch": 8,
+      "loss_max_abs": 7.450580596923828e-09,
+      "gradient_relative_l2": 0.00016835694259498268,
+      "parameter_update_relative_l2": 0.00011173328675795346,
+      "peak_allocated_bytes": 11379116544,
+      "pass": true
+    },
+    {
+      "microbatch": 16,
+      "loss_max_abs": 1.1175870895385742e-08,
+      "gradient_relative_l2": 1.3083328667562455e-05,
+      "parameter_update_relative_l2": 2.0687051801360212e-05,
+      "peak_allocated_bytes": 22384466944,
+      "pass": true
+    }
+  ],
+  "trials": [
+    {
+      "microbatch": 4,
+      "seconds_per_update": 0.3943651978974231,
+      "images_per_second": 40.57153137575214,
+      "peak_allocated_bytes": 5869135360,
+      "peak_reserved_bytes": 6090129408,
+      "thermal_before": {
+        "temperature": 57,
+        "hardware_thermal_slowdown": false,
+        "software_thermal_slowdown": false,
+        "time": 1790179599.6317616
+      },
+      "thermal_after": {
+        "temperature": 64,
+        "hardware_thermal_slowdown": false,
+        "software_thermal_slowdown": false,
+        "time": 1790179604.8990607
+      }
+    },
+    {
+      "microbatch": 8,
+      "seconds_per_update": 0.38118488719919696,
+      "images_per_second": 41.974381821803,
+      "peak_allocated_bytes": 11379116544,
+      "peak_reserved_bytes": 11689525248,
+      "thermal_before": {
+        "temperature": 64,
+        "hardware_thermal_slowdown": false,
+        "software_thermal_slowdown": false,
+        "time": 1790179604.99519
+      },
+      "thermal_after": {
+        "temperature": 64,
+        "hardware_thermal_slowdown": false,
+        "software_thermal_slowdown": false,
+        "time": 1790179609.9828713
+      }
+    },
+    {
+      "microbatch": 16,
+      "seconds_per_update": 0.3781357300002128,
+      "images_per_second": 42.312848880985136,
+      "peak_allocated_bytes": 22384466944,
+      "peak_reserved_bytes": 22980591616,
+      "thermal_before": {
+        "temperature": 56,
+        "hardware_thermal_slowdown": false,
+        "software_thermal_slowdown": false,
+        "time": 1790179610.1047504
+      },
+      "thermal_after": {
+        "temperature": 64,
+        "hardware_thermal_slowdown": false,
+        "software_thermal_slowdown": false,
+        "time": 1790179615.1091743
+      }
+    },
+    {
+      "microbatch": 16,
+      "seconds_per_update": 0.3787255396018736,
+      "images_per_second": 42.246952811314564,
+      "peak_allocated_bytes": 22384466944,
+      "peak_reserved_bytes": 22980591616,
+      "thermal_before": {
+        "temperature": 64,
+        "hardware_thermal_slowdown": false,
+        "software_thermal_slowdown": false,
+        "time": 1790179615.2717712
+      },
+      "thermal_after": {
+        "temperature": 66,
+        "hardware_thermal_slowdown": false,
+        "software_thermal_slowdown": false,
+        "time": 1790179620.3481646
+      }
+    },
+    {
+      "microbatch": 8,
+      "seconds_per_update": 0.38155039029661564,
+      "images_per_second": 41.93417280365424,
+      "peak_allocated_bytes": 11379116544,
+      "peak_reserved_bytes": 11689525248,
+      "thermal_before": {
+        "temperature": 66,
+        "hardware_thermal_slowdown": false,
+        "software_thermal_slowdown": false,
+        "time": 1790179620.5107286
+      },
+      "thermal_after": {
+        "temperature": 66,
+        "hardware_thermal_slowdown": false,
+        "software_thermal_slowdown": false,
+        "time": 1790179625.6088004
+      }
+    },
+    {
+      "microbatch": 4,
+      "seconds_per_update": 0.3946735313977115,
+      "images_per_second": 40.539835401013605,
+      "peak_allocated_bytes": 5869135360,
+      "peak_reserved_bytes": 6090129408,
+      "thermal_before": {
+        "temperature": 66,
+        "hardware_thermal_slowdown": false,
+        "software_thermal_slowdown": false,
+        "time": 1790179625.7309408
+      },
+      "thermal_after": {
+        "temperature": 67,
+        "hardware_thermal_slowdown": false,
+        "software_thermal_slowdown": false,
+        "time": 1790179630.9485655
+      }
+    }
+  ],
+  "summary": {
+    "4": {
+      "seconds_per_update": 0.3945193646475673,
+      "peak_allocated_bytes": 5869135360,
+      "equivalence_pass": true
+    },
+    "8": {
+      "seconds_per_update": 0.3813676387479063,
+      "peak_allocated_bytes": 11379116544,
+      "equivalence_pass": true
+    },
+    "16": {
+      "seconds_per_update": 0.3784306348010432,
+      "peak_allocated_bytes": 22384466944,
+      "equivalence_pass": true
+    }
+  },
+  "recommended_microbatch": 4,
+  "decision": "at least5% lower update time and numerical tolerance pass; effective batch16 unchanged",
+  "synthetic": false,
+  "formal_quality_metrics": false,
+  "training_checkpoints_modified": false
+}

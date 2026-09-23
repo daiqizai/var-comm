@@ -28,3 +28,19 @@ settings, training code, batch, precision, loss or optimizer. Process identity
 and checkpoint SHA are verified; unknown failures do not automatically retry.
 For a requested pause, stop the verified thermal supervisor so it cannot resume
 the budget queue. Do not independently launch a second coordinator.
+
+## Latest authorized memory utilization change (2026-09-24 local)
+
+User explicitly requested increased GPU memory utilization. P2048 now uses the
+versioned microbatch8-v1 runtime, effective batch16 unchanged; P3060 remains on
+its original execution until separately qualified. Actual benchmark showed only
+about3.4% throughput improvement; no large acceleration is claimed. FP32/TF32,
+loss, data order, total updates and hardware settings are unchanged. Floating
+point accumulation differs slightly, so do not claim the old trajectory is bitwise
+identical. The initial migration checkpoint is step8862 with recorded SHA.
+Latest launch: scripts/run_budgets_microbatch_guard.sh, thermal_guard_v2 ->
+coordinator_v3 -> budget_train_microbatch for P2048. Inspect thermal_guard_v2/status.json,
+coordinator_identity_v3.json and per-checkpoint execution_identity. Do not start
+the old guard/controller alongside it. Old registrations/checkpoints/receipts are
+historical and immutable; the runtime extension records actual microbatch, code,
+benchmark and migration identity. Selected loading verifies this extra lineage.

@@ -119,6 +119,8 @@ def load_selected_budget(selected_path,scale,device):
     if rec.get('registration_sha256')!=regsha or rec.get('N')!=registration['N']:raise RuntimeError('selected registration/budget mismatch')
     verify_snapshot(registration['bindings'])
     checkpoint=checked_checkpoint(rec,ROOT);state=torch.load(checkpoint,map_location='cpu',weights_only=True)
+    from .microbatch_runtime import verify_selected_execution
+    verify_selected_execution(rec,state)
     if state['registration_sha256']!=regsha or state['state']['step']!=rec['step']:raise RuntimeError('selected checkpoint identity/step')
     name=f"P{registration['N']}"
     if rec['arm_key']!=name or state['state']['updates'][name]!=rec['total_updates']:raise RuntimeError('selected arm/update count')
