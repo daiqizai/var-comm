@@ -9,6 +9,7 @@ from latent_enhancement_b.data import MatchedPopulation
 from latent_enhancement_b.model import build_arms,latent_errors,render_received
 from latent_enhancement.training import PairedOrder
 from var_comm.next_scale_prior import load_models,state_sha256
+from latent_followup.run_identity import checked_checkpoint, register_run, load_resume
 
 PROJECT=Path(__file__).resolve().parents[5];VAR_COMM=PROJECT;EXP=VAR_COMM/'experiments/var-latent-enhancement-20260917';ROOT=VAR_COMM/'outputs/VAR-LATENT-ENHANCEMENT-20260917';CONFIG=EXP/'followup/decoder_adaptation.json';OUT=ROOT/'followup/decoder_adaptation_v1'
 
@@ -51,16 +52,17 @@ def main():
  p=argparse.ArgumentParser();p.add_argument('--output',default=str(OUT));args=p.parse_args();out=Path(args.output);out.mkdir(parents=True,exist_ok=True);config=read_json(CONFIG)
  torch.set_num_threads(6);torch.set_num_interop_threads(2);torch.backends.cuda.matmul.allow_tf32=False;torch.backends.cudnn.allow_tf32=False
  device=torch.device('cuda:0');vae,var=load_models(model_paths(),device);del var;torch.cuda.empty_cache();gate=load_gate();scale=scale_statistics(device);perceptual=perceptual_model(device);train=MatchedPopulation('train');cal=MatchedPopulation('calibration');recipe=settings()['stage_B'];
- selected=read_json(ROOT/'stage_B_v1/training/selected_enhancement1024.json');checkpoint=Path(selected['checkpoint']);base_state=torch.load(checkpoint,map_location='cpu',weights_only=True);arms=build_arms(train.shape,scale,recipe).to(device);arms.load_state_dict(base_state['arms'],strict=True);control=arms['enhancement1024'].train();adapt=copy.deepcopy(control).train();
+ selected=read_json(ROOT/'stage_B_v1/training/selected_enhancement1024.json');checkpoint=checked_checkpoint(selected,VAR_COMM);base_state=torch.load(checkpoint,map_location='cpu',weights_only=True);arms=build_arms(train.shape,scale,recipe).to(device);arms.load_state_dict(base_state['arms'],strict=True);control=arms['enhancement1024'].train();adapt=copy.deepcopy(control).train();
  frozen=__import__('latent_enhancement_b.common',fromlist=['load_decoder']).load_decoder(vae,device);decoder_control=frozen.eval().requires_grad_(False);decoder_adapt=copy.deepcopy(frozen).train().requires_grad_(True)
  # Optimizer state contains mutable tensor objects.  Deep-copy it for each
  # arm so restoring one branch cannot alias moments/steps in the other.
  opt_control=torch.optim.AdamW(control.parameters(),lr=recipe['learning_rate'],weight_decay=recipe['weight_decay']);opt_control.load_state_dict(copy.deepcopy(base_state['optimizers']['enhancement1024']));opt_adapt=torch.optim.AdamW(adapt.parameters(),lr=recipe['learning_rate'],weight_decay=recipe['weight_decay']);opt_adapt.load_state_dict(copy.deepcopy(base_state['optimizers']['enhancement1024']));opt_dc=torch.optim.AdamW(decoder_adapt.parameters(),lr=config['decoder_optimizer']['learning_rate'],weight_decay=config['decoder_optimizer']['weight_decay'])
  order=PairedOrder(len(train),recipe['data_seed']);channel_rng=torch.Generator().manual_seed(recipe['channel_seed']);state={'step':0,'last_full':-1,'selection':{'communication_continuation_Dc_frozen':{'step':0,'utility':None},'communication_plus_Dc_adaptation':{'step':0,'utility':None}},'plateau':{'communication_continuation_Dc_frozen':0,'communication_plus_Dc_adaptation':0},'update_seconds':0.0,'calibration_seconds':0.0,'calibration_calls':0}
+ registration_sha=register_run(out,CONFIG,[ROOT/'stage_B_v1/training/selected_enhancement1024.json'])
  if (out/'latest.json').exists():
-  latest=read_json(out/'latest.json');saved=torch.load(latest['path'],map_location='cpu',weights_only=True);control.load_state_dict(saved['control']);adapt.load_state_dict(saved['adapt']);decoder_adapt.load_state_dict(saved['decoder_adapt']);opt_control.load_state_dict(copy.deepcopy(saved['opt_control']));opt_adapt.load_state_dict(copy.deepcopy(saved['opt_adapt']));opt_dc.load_state_dict(copy.deepcopy(saved['opt_dc']));order.load_state_dict(saved['order']);channel_rng.set_state(saved['channel_rng']);state=saved['state'];state.setdefault('calibration_calls',0);state.setdefault('calibration_seconds',0.0)
+  latest=read_json(out/'latest.json');saved=load_resume(latest,VAR_COMM,registration_sha);control.load_state_dict(saved['control']);adapt.load_state_dict(saved['adapt']);decoder_adapt.load_state_dict(saved['decoder_adapt']);opt_control.load_state_dict(copy.deepcopy(saved['opt_control']));opt_adapt.load_state_dict(copy.deepcopy(saved['opt_adapt']));opt_dc.load_state_dict(copy.deepcopy(saved['opt_dc']));order.load_state_dict(saved['order']);channel_rng.set_state(saved['channel_rng']);torch.set_rng_state(saved['torch_rng']);torch.cuda.set_rng_state_all(saved['cuda_rng']);state=saved['state'];state.setdefault('calibration_calls',0);state.setdefault('calibration_seconds',0.0)
  def checkpoint(reason):
-  path=out/'checkpoints'/f"step_{state['step']:05d}.pt";save_torch(path,{'control':control.state_dict(),'adapt':adapt.state_dict(),'decoder_adapt':decoder_adapt.state_dict(),'opt_control':opt_control.state_dict(),'opt_adapt':opt_adapt.state_dict(),'opt_dc':opt_dc.state_dict(),'order':order.state_dict(),'channel_rng':channel_rng.get_state(),'state':state,'selected_stageB_sha256':selected['checkpoint_sha256']});atomic_json(out/'latest.json',{'path':str(path),'sha256':digest(path),'step':state['step'],'reason':reason,'state':state})
+  path=out/'checkpoints'/f"step_{state['step']:05d}.pt";save_torch(path,{'registration_sha256':registration_sha,'control':control.state_dict(),'adapt':adapt.state_dict(),'decoder_adapt':decoder_adapt.state_dict(),'opt_control':opt_control.state_dict(),'opt_adapt':opt_adapt.state_dict(),'opt_dc':opt_dc.state_dict(),'order':order.state_dict(),'channel_rng':channel_rng.get_state(),'torch_rng':torch.get_rng_state(),'cuda_rng':torch.cuda.get_rng_state_all(),'state':state,'selected_stageB_sha256':selected['checkpoint_sha256']});atomic_json(out/'latest.json',{'path':str(path),'sha256':digest(path),'step':state['step'],'reason':reason,'state':state})
  def full_calibration():
   nonlocal state
   calibration_start=time.perf_counter()
@@ -70,6 +72,9 @@ def main():
    if old is None or utility<old:state['selection'][name]={'step':state['step'],'utility':utility}
   state['last_full']=state['step'];state['calibration_calls']=int(state.get('calibration_calls',0))+1;state['calibration_seconds']+=time.perf_counter()-calibration_start;checkpoint('full_calibration')
  if state['step']==0: atomic_json(out/'diagnostics_step0.json',{'frozen_Dc':decoder_diagnostics(decoder_control,cal,device,perceptual),'adapt_Dc_initial':decoder_diagnostics(decoder_adapt,cal,device,perceptual)})
+ stop_requested=[False]
+ def request_stop(*_):stop_requested[0]=True
+ signal.signal(signal.SIGTERM,request_stop);signal.signal(signal.SIGINT,request_stop)
  while state['step']<config['updates']['maximum'] and not all(state['step']>=config['updates']['minimum'] and v>=3 for v in state['plateau'].values()):
   control.train();adapt.train();decoder_adapt.train()
   indices=order.next(recipe['logical_batch_size']);sni=torch.randint(len(train.snrs),(len(indices),),generator=channel_rng);noi=torch.randint(len(train.seeds),(len(indices),),generator=channel_rng);eseed=torch.full_like(indices,recipe['channel_seed']+state['step']);batch=train.batch(indices,sni,noi,eseed,device);t=time.perf_counter();
@@ -86,6 +91,8 @@ def main():
   for start in range(0,len(indices),recipe['microbatch_size']):
    sl=slice(start,min(start+recipe['microbatch_size'],len(indices)));part={k:v[sl] for k,v in batch.items()};latent,_=adapt.receive_training_sample(part['F'],part['Fb_TX'],part['Fb_RX'],part['snr_db'],part['rx_status'],part['standard_noise']);pred=render_received(decoder_adapt,latent,part['rx_status']);mse,lp=image_losses(pred,part['target'],perceptual);aux=latent_errors(latent,part['F'],scale,part['rx_status']);((mse+.1*lp+.01*aux).sum()/len(indices)).backward()
   torch.nn.utils.clip_grad_norm_(decoder_adapt.parameters(),1);opt_dc.step();state['step']+=1;state['update_seconds']+=time.perf_counter()-t
+  if stop_requested[0]:
+   checkpoint('safe_boundary_pause');atomic_json(out/'status.json',{'status':'PAUSED_AT_PAIRED_UPDATE','step':state['step']});return
   if state['step']%config['updates']['full_calibration_interval']==0:full_calibration()
   elif state['step']%config['updates']['checkpoint_interval']==0:checkpoint('regular')
  if state['last_full']!=state['step']:full_calibration()

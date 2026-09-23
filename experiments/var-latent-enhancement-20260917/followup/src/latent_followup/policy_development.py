@@ -1,5 +1,5 @@
 from __future__ import annotations
-import csv,json
+import argparse,csv,json
 from pathlib import Path
 import numpy as np
 from var_comm.study import paired_interval
@@ -71,7 +71,26 @@ def _aggregate_source_snr(rows):
    row[name]=_mean_metric(values,name)
   result.append(row)
  return result
+def align_complete_rows(left,right):
+ def indexed(rows):
+  result={}
+  for row in rows:
+   key=(_source_key(row),_snr_key(row),_seed_key(row),_preprocess_key(row))
+   if key in result:raise RuntimeError(f'duplicate complete pairing key: {key}')
+   result[key]=row
+  return result
+ a,b=indexed(left),indexed(right)
+ if not a or set(a)!=set(b):raise RuntimeError('paired seed/preprocessing/source/SNR identities differ')
+ for key in a:
+  for field in ('image_id','source_pixels_sha256'):
+   if a[key].get(field) and b[key].get(field) and a[key][field]!=b[key][field]:raise RuntimeError('paired image identity differs')
+ keys=sorted(a)
+ return [a[k] for k in keys],[b[k] for k in keys]
+
 def main():
+ global OUT
+ parser=argparse.ArgumentParser();parser.add_argument('--output',required=True);OUT=Path(parser.parse_args().output)
+ if OUT.exists():raise RuntimeError('use a new statistics output directory')
  policies=json.loads(POLICY.read_text());fixed=read(FIXED/'per_frame.csv');out=OUT;out.mkdir(parents=True,exist_ok=True);selected=[]
  for family in ('raw','arithmetic'):
   for budget in (3572,4084):
@@ -88,21 +107,14 @@ def main():
      selected.extend(rows)
  write(OUT/'per_frame.csv',selected)
  # Preserve source/SNR/seed/preprocessing dimensions before averaging seeds.
- source_seed={}
+ groups={}
  for row in selected:
-  key=(row['family'],int(row['N']),row['renderer'],row['policy'],_source_key(row),_snr_key(row),_seed_key(row),_preprocess_key(row))
-  source_seed.setdefault(key,[]).append(row)
- source_snr={}
- for key,values in source_seed.items():
-  family,budget,renderer,rule,source,snr,seed,preprocess=key
-  source_snr.setdefault((family,budget,renderer,rule,source,snr,preprocess),[]).append(values[0] if len(values)==1 else {**values[0],**{name:_mean_metric(values,name) for name in ('psnr_db','lpips_alex','dino_cosine')}})
+  key=(row['family'],int(row['N']),row['renderer'],row['policy'])
+  groups.setdefault(key,[]).append(row)
  summary=[]
- for key,values in sorted(source_snr.items()):
-  family,budget,renderer,rule,source,snr,preprocess=key
-  if len(values)!=3: raise RuntimeError(f'incomplete selected seed dimension for {family}/{budget}/{renderer}/{rule}/{source}/{snr}: {len(values)}')
-  summary.append({'family':family,'budget':budget,'renderer':renderer,'policy':rule,'source_index':source,'snr_db':snr,
-                  'preprocessing_id':preprocess,'seed_count':len(values),'seed_keys':','.join(sorted(str(_seed_key(r)) for r in values)),
-                  'psnr_db':_mean_metric(values,'psnr_db'),'lpips_alex':_mean_metric(values,'lpips_alex'),'dino_cosine':_mean_metric(values,'dino_cosine'),'selected_mode':values[0]['selected_mode']})
+ for (family,budget,renderer,rule),values in sorted(groups.items()):
+  for row in _aggregate_source_snr(values):
+   summary.append({**row,'family':family,'budget':budget,'renderer':renderer,'policy':rule})
  write(OUT/'per_source_snr.csv',summary)
  overall=[]
  for family in ('raw','arithmetic'):
@@ -116,15 +128,12 @@ def main():
  pairs=[]
  for row in overall:
   b='m8_plus_latent_512' if row['budget']==3572 else 'm8_plus_latent_1024'; fixed_b=[r for r in fixed if r['method']==b]
-  a=np.array([[float(x['psnr_db']),float(x['lpips_alex']),float(x['dino_cosine'])] for x in summary if x['family']==row['family'] and int(x['budget'])==row['budget'] and x['renderer']==row['renderer'] and x['policy']==row['policy']])
-  bsummary=_aggregate_source_snr(fixed_b)
-  bvals={(int(x['source_index']),float(x['snr_db']),str(x.get('preprocessing_id',''))):x for x in bsummary}
-  expected_preprocess=sorted({str(x.get('preprocessing_id','')) for x in bsummary})
-  if len(expected_preprocess)!=1: raise RuntimeError(f'fixed reference mixes preprocessing identities: {expected_preprocess}')
-  preprocess=expected_preprocess[0]
-  bv=np.array([[float(bvals[(i,s,preprocess)]['psnr_db']),float(bvals[(i,s,preprocess)]['lpips_alex']),float(bvals[(i,s,preprocess)]['dino_cosine'])] for i in range(100) for s in [1,4,7,13,19]])
-  # a is source x snr; same order from sorted summary
-  av=np.array([[float(x['psnr_db']),float(x['lpips_alex']),float(x['dino_cosine'])] for x in sorted([z for z in summary if z['family']==row['family'] and int(z['budget'])==row['budget'] and z['renderer']==row['renderer'] and z['policy']==row['policy']],key=lambda z:(int(z['source_index']),float(z['snr_db'])))])
+  selected_rows=groups[row['family'],row['budget'],row['renderer'],row['policy']]
+  left,right=align_complete_rows(selected_rows,fixed_b)
+  asummary,bsummary=_aggregate_source_snr(left),_aggregate_source_snr(right)
+  if [(x['source_index'],x['snr_db'],x['preprocessing_id'],x['seed_keys']) for x in asummary]!=[(x['source_index'],x['snr_db'],x['preprocessing_id'],x['seed_keys']) for x in bsummary]:raise RuntimeError('aggregated pairing identity changed')
+  av=np.array([[x[k] for k in ('psnr_db','lpips_alex','dino_cosine')] for x in asummary])
+  bv=np.array([[x[k] for k in ('psnr_db','lpips_alex','dino_cosine')] for x in bsummary])
   row2=dict(row)
   for j,name in enumerate(('delta_psnr','delta_lpips','delta_dino')):row2[name]=paired_interval((av[:,j]-bv[:,j]).reshape(100,5).mean(1),2026091800+j,10000)
   pairs.append(row2)

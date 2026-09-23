@@ -211,51 +211,85 @@ def fit_scalar_w(target, correction, valid=None, *, clip=(-4.0, 4.0)):
     if not torch.isfinite(value):
         raise FloatingPointError("nonfinite pooled W estimate")
     return float(value.clamp(float(clip[0]), float(clip[1])))
+def correction_coordinates(estimate, base_projection, control_ok, method):
+    if method not in ('source','residual'): raise ValueError('unknown projection method')
+    delta=estimate-base_projection if method=='source' else estimate
+    # Mask the complete innovation, including subtraction of the RX base.
+    return torch.where(control_ok[:,None],delta,torch.zeros_like(delta))
+
+def validate_coverage(rows, sources, snrs, seeds):
+    keys=[(int(r['source_index']),r['method'],float(r['snr_db']),int(r['seed'])) for r in rows]
+    expected={(i,m,float(s),int(n)) for i in range(sources) for m in ('source','residual') for s in snrs for n in seeds}
+    if len(keys)!=len(set(keys)) or set(keys)!=expected:raise RuntimeError('incomplete or duplicate linear evaluation coverage')
+
 def write_rows(path,rows):
- path=Path(path);path.parent.mkdir(parents=True,exist_ok=True);fields=list(dict.fromkeys(k for r in rows for k in r))
- with path.open('w',newline='') as h:
-  w=csv.DictWriter(h,fieldnames=fields);w.writeheader();w.writerows(rows)
+    path=Path(path);path.parent.mkdir(parents=True,exist_ok=True);tmp=path.with_suffix('.tmp')
+    with tmp.open('w',newline='') as h:
+        w=csv.DictWriter(h,fieldnames=list(rows[0]));w.writeheader();w.writerows(rows)
+    tmp.replace(path)
+
 def main():
- protocol = load_protocol_config()
- p=argparse.ArgumentParser();p.add_argument('--output',default=str(ROOT/'followup/linear_measurement_v1'));args=p.parse_args();out=Path(args.output);out.mkdir(parents=True,exist_ok=True);device=torch.device('cuda:0');
- torch.manual_seed(2026091901);A,_=torch.linalg.qr(torch.randn(8192,protocol['measurement_dim']),mode='reduced');torch.save(A,out/'A.pt');A=A.to(device)
- vae,var=load_models(model_paths(),device);decoder=load_decoder(vae,device);train=MatchedPopulation('train');cal=MatchedPopulation('calibration');targets=load_targets();quality=yaml.safe_load((VAR/'configs/progressive_channel.yaml').read_text())['quality'];lp,dino,_=load_quality_models(quality,device)
- training_norms=[]
- with torch.no_grad():
-  for start in range(0,len(train),256):
-   values=train.source.values['F'][start:start + 256].reshape(-1,8192).to(device)
-   base=train.source.values['Fb_TX'][start:start + 256].reshape(-1,8192).to(device)
-   training_norms.append(torch.linalg.vector_norm(torch.cat((values@A,(values-base)@A),dim=0),dim=1).cpu())
- protocol['norm_log_min'], protocol['norm_log_max'] = fit_training_norm_range(torch.cat(training_norms))
- # Per-frame energy is part of the transmitted signal.  The old implementation
- # used a global mean scale (and even took the norm along the sample axis).
- W={str(s):{'source':[0.0,0.0],'residual':[0.0,0.0]} for s in protocol['snrs_db']}
- with torch.no_grad():
-  for start in range(0,1000,4):
-   ids=torch.arange(start,min(start+4,1000));f=cal.source.values['F'][ids].reshape(len(ids),8192).to(device);fbtx=cal.source.values['Fb_TX'][ids].reshape(len(ids),8192).to(device)
-   for si,snr in enumerate(protocol['snrs_db']):
-    for ni,seed in enumerate(protocol['noise_seeds']):
-     batch=cal.batch(ids,torch.full((len(ids),),si,dtype=torch.long),torch.full((len(ids),),ni,dtype=torch.long),[seed]*len(ids),device);fbrx=batch['Fb_RX'].reshape(len(ids),8192);status=batch['rx_status'][:,0]>0.5;noise=batch['standard_noise'];
-     if not status.any():continue
-    for method,vec in [('source',f),('residual',f-fbtx)]:
-      measurement=vec@A;signal,observed,_=transmit_projection(measurement,noise,snr,protocol=protocol);received=receive_projection(observed,snr,protocol=protocol);estimate=received['measurement'];valid=status & received['control_ok'];delta_coord=estimate-(fbrx@A if method=='source' else torch.zeros_like(estimate));delta=delta_coord@A.T;target=f-fbrx;num=(target[valid]*delta[valid]).sum();den=delta[valid].square().sum();W[str(snr)][method][0]+=float(num);W[str(snr)][method][1]+=float(den)
- W={snr:{m:(float(np.clip(v[0]/max(v[1],1e-8),protocol['w_clip'][0],protocol['w_clip'][1]))) for m,v in d.items()} for snr,d in W.items()};(out/'projection.json').write_text(json.dumps({'A_shape':[8192,protocol['measurement_dim']],'seed':2026091901,'W':W,'W_clip':protocol['w_clip'],'base_uses':protocol['base_uses'],'total_uses':protocol['total_uses'],'norm_side_information_bits':protocol['norm_bits'],'norm_log_min':protocol['norm_log_min'],'norm_log_max':protocol['norm_log_max'],'control_uses':protocol['control_uses'],'measurement_uses':protocol['measurement_uses'],'enhancement_uses':ENHANCEMENT_USES,'per_frame_energy':True,'side_information_over_channel':True,'A_column_orthonormal':True},indent=2))
- rows=[]
- for done,r in enumerate(targets):
-  image=torch.from_numpy(r['pixels'][None].astype(np.float32)/127.5-1).to(device);label=int(r['target']['class_index']);source=split_prefix(r['tokens'],10)
-  with torch.no_grad():f=vae.quant_conv(vae.encoder(image))[0].reshape(8192);fbtx=complete_latent(vae,var,source[:8],label,device)[0].reshape(8192)
-  for snr in protocol['snrs_db']:
-   for seed in protocol['noise_seeds']:
-    base,_=raw_transmit_budget(source,label,8,protocol['base_uses']);received=base+seeded_noise(r['target']['image_id'],seed,base.shape)/np.sqrt(10**(snr/10));phy=raw_receive_budget(received,snr,protocol['base_uses'])
-    if phy['label'] is None: fbrx=torch.zeros_like(fbtx);status=0
-    else:fbrx=complete_latent(vae,var,phy['prefix'],phy['label'],device)[0].reshape(8192);status=1
-    noise=torch.as_tensor(enhancement_noise(r['target']['image_id'],seed,1024),device=device,dtype=torch.float32).unsqueeze(0)
-    for method,vec in [('source',f),('residual',f-fbtx)]:
-      measurement=vec.reshape(1,-1)@A;signal,observed,_=transmit_projection(measurement,noise,snr,protocol=protocol);received=receive_projection(observed,snr,protocol=protocol);estimate=received['measurement'];delta=estimate-(fbrx.reshape(1,-1)@A if method=='source' else torch.zeros((1,protocol['measurement_dim']),device=device));latent=(fbrx+W[str(snr)][method]*(delta@A.T)).reshape(1,32,16,16);img=decoder(latent)[0].cpu().numpy() if status else np.full((3,256,256),.5,np.float32);rows.append({'method':method,'source_index':done,'image_id':r['target']['image_id'],'snr_db':snr,'seed':seed,'N':protocol['total_uses'],'E':2*protocol['total_uses'],'header_ok':status,'body_crc_ok':int(phy.get('body_crc_accepted',False)),'norm_control_ok':bool(received['control_ok'][0]),'norm_code':int(received['norm_code'][0]),'image':img})
-  if done%10==0:print('linear',done+1,flush=True)
- final=[]
- for source_index in range(100):
-  subset=[r for r in rows if r['source_index']==source_index];images=[r['image'] for r in subset];target=targets[source_index]['pixels'].astype(np.float32)/255.;q,_,_=quality_metrics(target,images,lp,dino,device)
-  for row,metric in zip(subset,q):row.pop('image');row.update(metric);final.append(row)
-  write_rows(out/'per_frame.csv',final);(out/'completion.json').write_text(json.dumps({'status':'LINEAR_MEASUREMENT_DEVELOPMENT_COMPLETE','rows':len(final),'sources':100,'new_holdout_used':False,'A_column_orthonormal':True,'control_uses':protocol['control_uses'],'measurement_uses':protocol['measurement_uses']},indent=2));print('complete',len(final))
+    from latent_enhancement.runtime import configure, write_json, digest, snapshot, require_available
+    configure(); require_available(); protocol=load_protocol_config()
+    p=argparse.ArgumentParser();p.add_argument('--output',required=True);p.add_argument('--sources',type=int,default=100);p.add_argument('--calibration-sources',type=int,default=1000);p.add_argument('--projection-from');args=p.parse_args()
+    out=Path(args.output);out.mkdir(parents=True,exist_ok=False);device=torch.device('cuda:0')
+    identity={'source_snapshot':snapshot([__file__,EXP/'mechanisms/linear_measurement_config.json']), 'sources':args.sources,'calibration_sources':args.calibration_sources,'GPU':'real_weights'}
+    write_json(out/'registration.json',identity)
+    if args.projection_from:A=torch.load(args.projection_from,map_location='cpu',weights_only=True)
+    else:
+        torch.manual_seed(2026091901);A,_=torch.linalg.qr(torch.randn(8192,protocol['measurement_dim']),mode='reduced')
+    if A.shape!=(8192,protocol['measurement_dim']) or not torch.allclose(A.T@A,torch.eye(protocol['measurement_dim']),atol=2e-5):raise RuntimeError('invalid orthonormal projection')
+    torch.save(A,out/'A.pt');A=A.to(device)
+    vae,var=load_models(model_paths(),device);decoder=load_decoder(vae,device);train=MatchedPopulation('train');cal=MatchedPopulation('calibration');targets=load_targets()[:args.sources]
+    quality=yaml.safe_load((VAR/'configs/progressive_channel.yaml').read_text())['quality'];lp,dino,_=load_quality_models(quality,device)
+    norms=[]
+    with torch.no_grad():
+        for start in range(0,len(train),256):
+            f=train.source.values['F'][start:start+256].reshape(-1,8192).to(device);b=train.source.values['Fb_TX'][start:start+256].reshape(-1,8192).to(device)
+            norms.append(torch.linalg.vector_norm(torch.cat((f@A,(f-b)@A)),dim=1).cpu())
+    protocol['norm_log_min'],protocol['norm_log_max']=fit_training_norm_range(torch.cat(norms));del train
+    totals={str(s):{m:{'num':0.,'den':0.,'frames':0,'valid_control_frames':0,'seeds':set(),'sources':set()} for m in ('source','residual')} for s in protocol['snrs_db']}
+    with torch.no_grad():
+        for start in range(0,args.calibration_sources,4):
+            ids=torch.arange(start,min(start+4,args.calibration_sources));f=cal.source.values['F'][ids].reshape(len(ids),8192).to(device);tx=cal.source.values['Fb_TX'][ids].reshape(len(ids),8192).to(device)
+            for si,snr in enumerate(protocol['snrs_db']):
+                for ni,seed in enumerate(protocol['noise_seeds']):
+                    batch=cal.batch(ids,torch.full_like(ids,si),torch.full_like(ids,ni),[seed]*len(ids),device);rx=batch['Fb_RX'].reshape(len(ids),8192);valid_header=batch['rx_status'][:,0]>.5
+                    for method,vec in [('source',f),('residual',f-tx)]:
+                        _,observed,_=transmit_projection(vec@A,batch['standard_noise'],snr,protocol=protocol);r=receive_projection(observed,snr,protocol=protocol)
+                        delta=correction_coordinates(r['measurement'],rx@A,r['control_ok'],method);valid=valid_header & r['control_ok'];target=(f-rx)@A
+                        t=totals[str(snr)][method];t['num']+=float((target[valid].double()*delta[valid].double()).sum());t['den']+=float(delta[valid].double().square().sum());t['frames']+=len(ids);t['valid_control_frames']+=int(valid.sum());t['seeds'].add(seed);t['sources'].update(ids.tolist())
+            if start%100==0:print('linear calibration',start,flush=True)
+    W={}
+    for snr,methods in totals.items():
+        W[snr]={}
+        for method,t in methods.items():
+            assert t['frames']==args.calibration_sources*len(protocol['noise_seeds'])
+            assert t['seeds']==set(protocol['noise_seeds'])
+            t['seeds']=sorted(t['seeds']);t['sources']=sorted(t['sources'])
+            W[snr][method]=float(np.clip(t['num']/max(t['den'],1e-8),*protocol['w_clip']))
+    write_json(out/'projection.json',{'protocol':protocol,'A_sha256':digest(out/'A.pt'),'W':W,'fit_coverage':totals,'training_norm_range_sources':20000})
+    del cal
+    final=[]
+    with torch.no_grad():
+        for i,r in enumerate(targets):
+            image=torch.from_numpy(r['pixels'][None].astype(np.float32)/127.5-1).to(device);label=int(r['target']['class_index']);source=split_prefix(r['tokens'],10)
+            f=vae.quant_conv(vae.encoder(image))[0].reshape(8192);tx=complete_latent(vae,var,source[:8],label,device)[0].reshape(8192);records=[];images=[]
+            base,_=raw_transmit_budget(source,label,8,protocol['base_uses'])
+            for snr in protocol['snrs_db']:
+                for seed in protocol['noise_seeds']:
+                    observation=base+seeded_noise(r['target']['image_id'],seed,base.shape)/np.sqrt(10**(snr/10));phy=raw_receive_budget(observation,snr,protocol['base_uses']);ok=phy['label'] is not None
+                    rx=complete_latent(vae,var,phy['prefix'],phy['label'],device)[0].reshape(8192) if ok else torch.zeros_like(tx)
+                    noise=torch.as_tensor(enhancement_noise(r['target']['image_id'],seed,1024),device=device,dtype=torch.float32).unsqueeze(0)
+                    for method,vec in [('source',f),('residual',f-tx)]:
+                        wave,y,_=transmit_projection(vec[None]@A,noise,snr,protocol=protocol);received=receive_projection(y,snr,protocol=protocol)
+                        delta=correction_coordinates(received['measurement'],rx[None]@A,received['control_ok'],method)
+                        latent=(rx+W[str(snr)][method]*(delta@A.T)).reshape(1,32,16,16)
+                        img=decoder(latent)[0].cpu().numpy() if ok else np.full((3,256,256),.5,np.float32)
+                        images.append(img);records.append({'method':method,'source_index':i,'image_id':r['target']['image_id'],'snr_db':snr,'seed':seed,'N':protocol['total_uses'],'E':2*protocol['total_uses'],'header_ok':int(ok),'body_crc_ok':int(phy.get('body_crc_accepted',False)),'norm_control_ok':bool(received['control_ok'][0]),'norm_code':int(received['norm_code'][0]),'enhancement_energy':float(wave.square().sum())})
+            metrics,_,_=quality_metrics(r['pixels'].astype(np.float32)/255.,images,lp,dino,device)
+            final.extend({**row,**q} for row,q in zip(records,metrics));write_rows(out/'partial.csv',final);write_json(out/'status.json',{'status':'RUNNING','sources_done':i+1,'expected_sources':len(targets),'rows':len(final)})
+            print('linear development',i+1,flush=True)
+    validate_coverage(final,len(targets),protocol['snrs_db'],protocol['noise_seeds']);write_rows(out/'per_frame.csv',final)
+    write_json(out/'completion.json',{'status':'LINEAR_MEASUREMENT_DEVELOPMENT_COMPLETE' if args.sources==100 and args.calibration_sources==1000 else 'REAL_WEIGHT_SMOKE_COMPLETE','rows':len(final),'sources':len(targets),'calibration_sources':args.calibration_sources,'registration_sha256':digest(out/'registration.json'),'per_frame_sha256':digest(out/'per_frame.csv'),'new_holdout_used':False,'control_uses':32,'measurement_uses':992})
 if __name__=='__main__':main()
