@@ -91,3 +91,31 @@ execution_qualification_v1/`. It must run with GPU0 free before the new digital
 quality grid; do not start it alongside the existing coordinator's GPU child.
 Selected trained continuous models require replay qualification again at evaluation.
 These modules are additive and do not alter the running cache or coordinator.
+
+## Strict frame statistics follow-up
+
+`token_efficiency.statistics.FrameTable` requires the external frozen source/RGB
+identity map, SNRs, noise seeds and explicit eligible method roster. It rejects
+missing or duplicate frames, nonfinite values, changed run/model/protocol/noise
+context, wrong preprocessing, noninteger resource ledgers and false energy claims.
+Unencodable candidates belong in the separate candidate-status ledger and cannot
+be represented by dropping selected images. All actual failure frames remain.
+
+Main means and paired intervals share one validated data object: noise means per
+source/SNR, then source means;10000 source bootstrap resamples. Metadata records
+both method contexts and makes no claim that equal seed numbers imply identical
+observations across waveform lengths or namespaces. Training-seed variation is
+not included in these intervals.16QAM actual E distributions stay separate.
+
+Digital policies minimize calibration MSE+0.1LPIPS for each family/N/SNR/MCS/energy
+constraint, with deterministic method-name ties and DINO report-only. A policy may
+select an entire qualified protocol version per pre-shared cell; it cannot splice
+per-source protocols for free. `context_sha256` binds shared model/Dc/PHY/numerical
+configuration and must remain the same between calibration and development;
+`run_id`, population/preprocessing and actual seed grids bind each evaluated run.
+Development never selects the digital mode. Continuous candidates must be the
+actual calibration-selected checkpoints, one per tested N. Minimum-N tables use
+only measured budgets, retain every frozen target, negative savings and explicit
+not-reached cases. Mean target attainment and per-frame joint success are distinct.
+The14 added tests are synthetic statistics tests, not scientific results. No
+quality/resource conclusion is complete until the real frame grids pass this gate.
