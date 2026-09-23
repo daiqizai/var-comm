@@ -1,0 +1,153 @@
+{
+  "status": "REAL_N3060_SELECTED_MODELS_CPU_STRICT_LOAD_AND_HISTORICAL_STATE_IDENTITY_PASS",
+  "models": {
+    "vae": "6830fc533a34d52c8f765a7b212782a5b5ef6138992099e8a817ce920fe6fe2b",
+    "var": "b82cb0855b24e1d0d8d0aacebbb2d2d6728c2dcc6509b667dfa697c9330347d5",
+    "deep": "d904fd077cec2321cdad4ba2f360e0dee61e679235620ee55744d7d5385cbbaa",
+    "native": "c60073c44903485c488433008317f84db06711e4940efb5549d1e82b6689cdaf",
+    "r3__full_grid_prediction_features": "17def43b09dd8fd603df2965801a0febd04afdc39705e41cc72b50b55a0e3965"
+  },
+  "selected": {
+    "step": 10000,
+    "scope": "full",
+    "source_images": 1000,
+    "checkpoint": "/home/liulu/projects/VAR_COMM/outputs/WETOK-REENCODING-VECTOR-CONTROL-R3-TRAINING/checkpoints/step_0010000.pt",
+    "checkpoint_sha256": "667abc43639c09b0f0c465bc3bf669117ff727095ffdb7e563f6dad71c11ab3e",
+    "psnr_db": 21.80322350648316,
+    "lpips": 0.17223177528660744,
+    "ssim": 0.6054687808543444,
+    "bits_BCE": 0.22374897499177604,
+    "state_error": 0.04364853573236614,
+    "bit_error_rate": 0.0945703125,
+    "feature_mse": 0.2732898455805145,
+    "state_error_4": 0.022158518219646067,
+    "state_error_8": 0.06513855325980111,
+    "feature_gate_1": 0.933747056043148,
+    "feature_gate_2": 0.968811696612835,
+    "residual_noise_ratio_1": 2.4398669210195543,
+    "residual_noise_ratio_2": 1.035250579893589,
+    "encoder_sha256": "c6a164853837744a1c2622411b1b8438fca0f4826b820ae7ab550add30d1c375",
+    "communication_parameters": 2933775,
+    "optimized_parameters": 2933775,
+    "selected_encoder_differs_from_parent": true
+  },
+  "GPU_forward": "NOT_RUN",
+  "CUDA_initialized": false,
+  "synthetic": false,
+  "runtime": {
+    "python": "/home/liulu/projects/VAR_COMM/experiments/backbone-eval-20260912/.venv/bin/python",
+    "torch": "2.11.0+cu128",
+    "einops": "0.8.1"
+  },
+  "loaded_root_modules": {
+    "tools.n3060_reference_execution": {
+      "path": "tools/n3060_reference_execution.py",
+      "sha256": "8965af1b135c2c31da8fc52b382e5c1ecc8a5ff292e9b9c065a3b305e2259d47"
+    },
+    "var_comm": {
+      "path": "src/var_comm/__init__.py",
+      "sha256": "c808deaa8398e26a5f437d96c06b3ab5d0f9111daf0e541409ab6f8a0a146a42"
+    },
+    "var_comm.next_scale_prior": {
+      "path": "src/var_comm/next_scale_prior.py",
+      "sha256": "568217086c94ee7607abc256415d705a11702ffcaaed9c79ca04d5e9a62da562"
+    },
+    "var_comm.entropy": {
+      "path": "src/var_comm/entropy.py",
+      "sha256": "f3adf956fba05d60e687472fa153e0bf684119ef6c8885a75fe4ea21962b2b2b"
+    },
+    "var_comm.scale_channel": {
+      "path": "src/var_comm/scale_channel.py",
+      "sha256": "35cae80a94d3997584342b6e4566a6cff53cf4914ca4745a59b0a9bba48c8145"
+    },
+    "var_comm.progressive": {
+      "path": "src/var_comm/progressive.py",
+      "sha256": "61821ad63d3b4cad2476f1d074ec3901a6b61c488d93db57bcebfda089a16ed9"
+    },
+    "var_comm.study": {
+      "path": "src/var_comm/study.py",
+      "sha256": "289e340c214a04d9bf2ffadd6c93fcbb77c11306f687624aa3dd358ec38d748e"
+    },
+    "var_comm.online_timing": {
+      "path": "src/var_comm/online_timing.py",
+      "sha256": "2704ab691d5f5bf29abde69daf0a1e901ee256b6a92a3a893e6debf7da05ad19"
+    },
+    "var_comm.frozen_timing_adapters": {
+      "path": "src/var_comm/frozen_timing_adapters.py",
+      "sha256": "e15bebd5354e97125af07e15efd226e3dad4363d60733426f9cbcb6b89f6b3e6"
+    },
+    "wetok_comm": {
+      "path": "experiments/wetok-comm-v2-20260912/src/wetok_comm/__init__.py",
+      "sha256": "00dfc01f45d461daf3b5d87bbf56107c11ed7d11ddcf19bc2047ecff50bfaced"
+    },
+    "wetok_comm.common": {
+      "path": "experiments/wetok-comm-v2-20260912/src/wetok_comm/common.py",
+      "sha256": "3f1be11678055af3d2b9f2afc4d594ad8a9586682c731ed6e433049cde8e822e"
+    },
+    "wetok_comm.deep_support": {
+      "path": "experiments/wetok-comm-v2-20260912/src/wetok_comm/deep_support.py",
+      "sha256": "fc9f3318133b47ad5240f0ef5b9716e496c72b320c5e19aab7bb625bfdb22574"
+    },
+    "wetok_comm.native": {
+      "path": "experiments/wetok-comm-v2-20260912/src/wetok_comm/native.py",
+      "sha256": "30d2739c8c1d212db87a374dfc965da8f9d148bd7ef05ee80d02cb9d52b33948"
+    },
+    "vector_control": {
+      "path": "experiments/wetok-reencoding-vector-control-r3/src/vector_control/__init__.py",
+      "sha256": "121d0e7d1de2b65e3ae65ce0e8b2ae546b8641cb1890f8e522807806b4c24839"
+    },
+    "wetok_comm.model": {
+      "path": "experiments/wetok-comm-v2-20260912/src/wetok_comm/model.py",
+      "sha256": "3b1078c57929d27089916a8b7ce0477d2a861e5b2945f33eb3b2064d812a5b2f"
+    },
+    "wetok_comm.objective": {
+      "path": "experiments/wetok-comm-v2-20260912/src/wetok_comm/objective.py",
+      "sha256": "8acc5491dc56563fabd82c682a57204981c1a3a8518a6266f98233e258d3a0ca"
+    },
+    "wetok_comm.training": {
+      "path": "experiments/wetok-comm-v2-20260912/src/wetok_comm/training.py",
+      "sha256": "6bbf1828b816482ffc1ffecf687a1820e5360e71ee4bd96af1736b757345feff"
+    },
+    "wetok_comm.interface_study": {
+      "path": "experiments/wetok-comm-v2-20260912/src/wetok_comm/interface_study.py",
+      "sha256": "21fb64ff7e23f2ca41a342a8635f473afc9571a5164e37be06e6d2ad26d5cdbe"
+    },
+    "wetok_comm.geometry_candidate": {
+      "path": "experiments/wetok-comm-v2-20260912/src/wetok_comm/geometry_candidate.py",
+      "sha256": "d6b9221a6db2caa0d7ad614af5d49c2ff3ba24fba35fe30e412917f9f35695f9"
+    },
+    "wetok_comm.interface_evaluation": {
+      "path": "experiments/wetok-comm-v2-20260912/src/wetok_comm/interface_evaluation.py",
+      "sha256": "79a2ce72e9368939c322af9c54af3bcf997dac233751f2f28d3e78f5cf416b68"
+    },
+    "wetok_comm.evaluation": {
+      "path": "experiments/wetok-comm-v2-20260912/src/wetok_comm/evaluation.py",
+      "sha256": "2724a3d6a13f8e10f2da6d278601a7fc371a3599451490fe2094edebeae4b82c"
+    },
+    "vector_control.model": {
+      "path": "experiments/wetok-reencoding-vector-control-r3/src/vector_control/model.py",
+      "sha256": "b908426150219fcc07fd06da06ae9bd504cb25fe7f1850d58a9fc588c317c290"
+    },
+    "vector_control.common": {
+      "path": "experiments/wetok-reencoding-vector-control-r3/src/vector_control/common.py",
+      "sha256": "648666f87ece6c9e02717a644f8627ad72e81822680aae1c430c15b17c92493b"
+    },
+    "vector_control.evaluation": {
+      "path": "experiments/wetok-reencoding-vector-control-r3/src/vector_control/evaluation.py",
+      "sha256": "dacdd67a74d1bdd22da6e410dd075f4d4f9ee430c730d011ade5246e68e23972"
+    },
+    "cadsd_jscc": {
+      "path": "src/cadsd_jscc/__init__.py",
+      "sha256": "f31575711d8dd52836a06892033b9ae1dffe7b1c2f757fa5c75808497af5c6ba"
+    },
+    "cadsd_jscc.strong_jscc": {
+      "path": "src/cadsd_jscc/strong_jscc.py",
+      "sha256": "53a239171c1377098fcd9c46dd787c5b0cbf3a87218b093e291c6df358329a71"
+    },
+    "cadsd_jscc.exact_budget_strong_jscc": {
+      "path": "src/cadsd_jscc/exact_budget_strong_jscc.py",
+      "sha256": "f3adc9167430535b60e899c282e85fb8575924600ea8f60f27daf92edf6003fd"
+    }
+  },
+  "check_tool_sha256": "7cab3ea1bcfec0eedd4f22605084d1ecfa30ae242dd143509c647a41abe7ac12"
+}
