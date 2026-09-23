@@ -692,3 +692,5 @@ cell约束修正的主消融LPIPS相对改善仅0.64%/0.92%，不如简单prefix
 后续若需要全新正式测试，先核对各项目历史曝光记录。
 本轮另有100张同类donor作为development曝光；旧manifest虽标为test，也不能再声称未见。
 第一关没有访问ImageNetV2/CLIC/Kodak的新测试图像。
+
+2026-09-24: P3060 initial20k and135,000 calibration rows verified; selected20k. Both budget milestones are complete; the existing delivery_chain has begun P2048 calibration-driven30k extension. P3060 also satisfies the initial extension criterion but awaits its serialized decision. Full evaluation/delivery remains pending. See [P3060 milestone](reports/token_efficiency_P3060_20k_20260924.md).

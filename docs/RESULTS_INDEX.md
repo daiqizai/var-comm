@@ -54,3 +54,5 @@ The index below preserves the original historical release.
 - 2026-09-24 N4084 historical provenance: `results/token_channel_efficiency_20260923/n4084_reference_audit_v1/audit.json`; seven methods,10500 real rows and300 original timing checks. Current full PHY/metric/timing compatibility remains pending. See `reports/token_efficiency_n4084_reference_audit_20260924.md`.
 
 - 2026-09-24 author PHY receipt audit: `results/token_channel_efficiency_20260923/author_phy_audit_v1/`;9000 paid frames/noise hashes/resource identities verified. Fresh native parity and uniform timing remain pending. See `reports/token_efficiency_author_phy_audit_20260924.md`.
+
+2026-09-24: P3060 initial20k and135,000 calibration rows verified; selected20k. Both budget milestones are complete; the existing delivery_chain has begun P2048 calibration-driven30k extension. P3060 also satisfies the initial extension criterion but awaits its serialized decision. Full evaluation/delivery remains pending. See [P3060 milestone](../reports/token_efficiency_P3060_20k_20260924.md).
