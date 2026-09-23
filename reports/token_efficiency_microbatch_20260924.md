@@ -40,3 +40,11 @@ Launch uses run_budgets_microbatch_guard.sh -> thermal_guard_v2 -> coordinator_v
 Both thermal flags are checked, with the same safe pause/cooldown policy. Earlier
 thermal/controller evidence remains available. No power/clock/fan changes were made.
 Evidence: results/token_channel_efficiency_20260923/microbatch/.
+
+Actual continuation acceptance: the new trainer advanced beyond9100 updates and
+saved step09000_regular_microbatch8-v1.pt. The checkpoint execution_identity and
+source bindings were verified. Observed GPU memory was12558MiB of24564MiB
+(about51%),95% utilization,67C and neither thermal flag active. This is a snapshot,
+not a guarantee of sustained thermals. The thermal guard remains active.
+Implementation23adfe779fb5e1e548ff852cb83aed4a2816b3f3 was normally pushed and
+independently fetched;147 CPU tests and repository/release/fsck checks passed.
