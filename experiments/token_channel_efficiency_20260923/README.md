@@ -1,0 +1,73 @@
+# Token/channel efficiency supplement (2026-09-23)
+
+User-authorized scope is the verbatim [supplement](EXPERIMENT_SUPPLEMENT_PLAN.md).
+This is an extension of the registered short-prefix study, not a second copy of
+its m6/m7 experiments. Latest priority is A -> B1 -> B2 -> merged C. No new
+holdout or content selector is authorized in this round; this supersedes the
+older future500-test/selector launch instructions without rewriting their evidence.
+
+## Implemented milestone and live scheduling
+
+- A: actual integer raw/arithmetic streams m6--m10, independent autoregressive
+  token roundtrip, D0/Dc x F/Fq and m6--m9 cumulative/VAR source reconstruction.
+  Source references have no finite-channel N. Calibration and development stay
+  separate. Three joint PSNR/LPIPS targets are frozen from complete calibration
+  before any new development access. Actual bitstreams remain local; only
+  source lengths, hashes, receipts and measurements are publishable.
+- B1: fresh budget-specific P2048/P3060 output heads and masks, actual N from
+  step0, existing shared loss/update/calibration implementation, frozen Dc,
+  full calibration every2500 and checkpoint every500 through the initial20k
+  milestone. P3060 is the single shared baseline for C. Existing P4084 10k
+  remains valid only under its original identity; no renamed/truncated model.
+- B2 engineering support: versioned paid3-bit mode header (70 raw/96 arithmetic
+  QPSK uses), actual mother FEC and rate matching,16QAM Gray mapping and Gaussian
+  mixture soft demodulation with the decoder's half-LLR convention. Actual
+ 16QAM E varies by frame; its tables must be separate from per-frame2N.
+
+Twenty new CPU engineering regressions pass. They use synthetic inputs and
+are not quality measurements. Real-weight acceptance and formal source/budget
+runs are NOT_RUN until their individual completion receipts exist.
+The coordinator runs real2-source calibration qualification first, then full A,
+then real-device budget qualification, then P2048/P3060 training. Any exception
+stops dependent work. The complete digital quality/evaluation grid, online timing,
+calibration-driven continuation, B2 results and combined statistics are still
+NOT_RUN; they require subsequent implementation/qualification and monitoring.
+Reaching this queue's final20k milestone is not completion of the supplement.
+
+The original short-prefix controller is intentionally held before its first m6
+training command. Its existing m6 train-cache child continues unchanged to a
+complete, hash-checked cache. The independent coordinator checks PID start time,
+command, controller stopped state, cache identity and GPU ownership before
+running A/B. It does not modify active dependencies or resume C prematurely.
+After B1/B2 delivery, the monitor must verify the stored process identity and
+send SIGCONT to that held controller; never start a duplicate short-prefix queue.
+If the old process no longer exists, inspect durable original stage receipts and
+its source binding before an explicit recovery. Do not signal a recycled PID.
+
+## Execution and receipts
+
+From the sole repository root:
+
+```bash
+bash experiments/token_channel_efficiency_20260923/scripts/run_source_and_budgets.sh
+```
+
+Use this once or after inspecting a stopped/failed coordinator; it takes a
+process lock. Runtime entry is
+`outputs/TOKEN-CHANNEL-EFFICIENCY-20260923/status.json`, with
+`scheduling_gate.json`, stage receipts, registration hashes, logs and checkpoints.
+The previous queue remains `outputs/SHORT-PREFIX-20260923/status.json`.
+Run only on authorized GPU0. Foreign work or sustained thermal throttling causes
+waiting/safe pause; hardware settings are unchanged.
+
+## Remaining acceptance and output
+
+After actual source A, publish source_codec_per_image.csv,
+source_codec_summary.csv, payload_ledger.csv and frozen quality_targets.json.
+For B1/B2, implement common real online TX/channel/RX for quality and timing,
+verify legacy-cell reuse identities, calibrate policies then evaluate original
+100 development only. Keep all failures and explicit unencodable cells. Aggregate
+same source/SNR/seed objects, bootstrap source images10000 times and retain all
+quality targets and unmet outcomes. Publish actual resource curves, minimum tested
+N, failure/energy distributions, fixed samples with permitted data, and lineage.
+Do not publish weights, source pixels, tokens, bitstreams or large tensor caches.

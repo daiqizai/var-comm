@@ -1,0 +1,142 @@
+{
+  "study": "TOKEN-CHANNEL-EFFICIENCY-20260923",
+  "version": "v1",
+  "base_commit": "52f51040b894d5a287c3aea6d13e03e60d72ff9d",
+  "order": [
+    "A",
+    "B1",
+    "B2",
+    "C_merged_short_prefix"
+  ],
+  "new_holdout": false,
+  "content_selector": false,
+  "budgets": [
+    2048,
+    3060,
+    4084
+  ],
+  "target_E": "QPSK and continuous per-frame2N;16QAM fixed constellation only expected2N, report actualE distribution separately",
+  "snrs_db": [
+    1,
+    4,
+    7,
+    13,
+    19
+  ],
+  "calibration_seeds": [
+    4101,
+    4102,
+    4103
+  ],
+  "development_seeds": [
+    2001,
+    2002,
+    2003
+  ],
+  "data": {
+    "train": 20000,
+    "calibration": 1000,
+    "development": 100
+  },
+  "precision": {
+    "matmul_tf32": false,
+    "cudnn_tf32": false,
+    "cudnn_deterministic": true,
+    "deterministic_algorithms": true
+  },
+  "source_modes": [
+    6,
+    7,
+    8,
+    9,
+    10
+  ],
+  "source_stage": {
+    "tokenizer": "official ten-scale schedule unchanged",
+    "stream": "actual integer ArithmeticEncoder/Decoder with independent autoregressive RX probabilities; retain raw fallback",
+    "noiseless_quality": "D0/Dc x F/Fq plusm6-9 cumulative/VAR complete; no finite-channel N assigned",
+    "output_order": "calibration first, freeze targets, then original development"
+  },
+  "quality_targets_rule": {
+    "source": "calibration Dc Fq, Dc VAR_m8, Dc prefix_m6",
+    "levels": [
+      "high",
+      "balanced",
+      "coarse"
+    ],
+    "construction": "for each registered reference use median across calibration images of PSNR as minimum and LPIPS as maximum; publish actualvalues and basis; preserve all levels even if not reachable in measuredchannel grid",
+    "freeze": "before any new development result read"
+  },
+  "new_digital_protocol": {
+    "id": "token-efficiency-digital-v1",
+    "mode_bits": 3,
+    "mode_map": {
+      "6": 0,
+      "7": 1,
+      "8": 2,
+      "9": 3,
+      "10": 4
+    },
+    "class_bits": 10,
+    "length_bits_arithmetic": 13,
+    "raw_header_uses": 70,
+    "arithmetic_header_uses": 96,
+    "crc_bits": 16,
+    "tail_bits": 6,
+    "mother_code": "unchanged K7 171/133",
+    "rate_matching": "unchanged integer midpoint map; require informationbits<=transmitted slots; noiseless acceptance required",
+    "raw_capacity": "unencodable cells marked and excluded before channel, no truncated source",
+    "arith_overflow": "choose largest mode <= requested with actual selected payload+22 <= codedslots, transmit actualfallback mode in paid header; if none fits score registered erasure without free retries",
+    "fixed_MCS": "pre-shared per cell; QPSK header always decoded first",
+    "MCS": [
+      "QPSK",
+      "16QAM"
+    ],
+    "qam_scaling": "Cartesian Gray {-3,-1,+1,+3}/sqrt(5); no per-image normalization or free gain",
+    "overflow_erasure": "reserved3-bitmode7, actual paid header, fullN fixed all-zero coded-bit constellation body if no source candidate fits; RX gray; no retry"
+  },
+  "continuous": {
+    "budgets_new": [
+      2048,
+      3060
+    ],
+    "updates": 20000,
+    "batch_size": 16,
+    "microbatch_size": 4,
+    "learning_rate": 0.0002,
+    "weight_decay": 0.0001,
+    "gradient_clip": 1,
+    "full_calibration_interval": 2500,
+    "checkpoint_interval": 500,
+    "loss": "MSE+.1LPIPS+.01normalized latent",
+    "selection": "minimum full1k x5SNR x3seed utility; DINO report-only",
+    "initialization": "fresh seeded budget-specific outputs from step0; no test-time truncation ofP4084",
+    "share_P3060_with_short_prefix": true,
+    "retain_old_P4084_10k": true
+  },
+  "fixed_examples": {
+    "development_indices": [
+      0,
+      11,
+      22,
+      33,
+      44,
+      55,
+      66,
+      77,
+      88,
+      99
+    ],
+    "seed": 2001,
+    "retain_failures": true
+  },
+  "noise": "length/MCS/protocol/segment namespace explicitly recorded; one AWGN perwaveform, variance10**(-SNR/10) perrealcoordinate",
+  "statistics": "source/SNR average3noise then source mean; source-paired bootstrap10000; perframe jointPSNR/LPIPS success separate; nointerpolation ofminimumN",
+  "phase_states": {
+    "A": "IMPLEMENTING",
+    "B1": "NOT_RUN",
+    "B2": "NOT_RUN_DEPENDS_ON_B1",
+    "C": "EXISTING_QUEUE_COORDINATED_NO_DUPLICATE"
+  },
+  "runtime_status": "outputs/TOKEN-CHANNEL-EFFICIENCY-20260923/status.json"
+}

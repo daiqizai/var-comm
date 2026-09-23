@@ -13,3 +13,15 @@
 - RX cannot use unsent targets, hidden TX state, oracle errors or free side information. Keep registered N/E, PHY, losses, data, noise, frozen choices and train/calibration/development boundaries.
 - Do not treat old synthetic probe PASS or completion labels as real-weight acceptance. GPU/model/data-dependent work not executed is NOT_RUN.
 - Push every authorized commit normally, verify the remote SHA, and report failures honestly. Repository visibility and access stay unchanged.
+
+## Latest experimental scope (2026-09-23 supplement)
+
+- Follow experiments/token_channel_efficiency_20260923/EXPERIMENT_SUPPLEMENT_PLAN.md
+  together with its README and protocol. A -> B1 -> B2 -> merged short-prefix C.
+- This round defers new holdout and content selectors, overriding older launch
+  plans for a500-source new test. No original A/B retraining.
+- Check outputs/TOKEN-CHANNEL-EFFICIENCY-20260923/scheduling_gate.json and both
+  queues before action. The original controller may be intentionally SIGSTOP-held
+  while its cache child continues. Never duplicate it or hot-edit its bindings.
+- P3060 is shared across studies. Actual real receipts, not code presence or CPU
+  synthetic tests, determine stage completion. Follow pending stages to delivery.

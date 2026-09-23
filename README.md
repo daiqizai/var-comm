@@ -5,6 +5,13 @@ Edit, run, test, commit and push here. `publish/var-comm` is retained locally as
 
 ## Current authorized study
 
+[Token/channel efficiency supplement](experiments/token_channel_efficiency_20260923/README.md)
+adds source-codec accounting, P2048/P3060 and real16QAM. A/B now precede unstarted
+short-prefix training; the active cache finishes unchanged. New holdout and
+content selectors are deferred. Runtime receipts distinguish implemented code
+from NOT_RUN real experiments.
+
+
 [Short-prefix protocol and execution](experiments/var-short-prefix-hybrid-20260923/README.md): real preflight/qualification complete; full training and later evaluation stages pending.
 
 ## Completed review and bounded study
