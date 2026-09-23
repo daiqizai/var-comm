@@ -1,3 +1,5 @@
+> 2026-09-24 Swin/ADJSCC:9000 actual paid-frame PHY receipts/noise hashes/resources verified. Qualification/development adapter revision differs; not a confirmed quality error, but fresh native parity and uniform timing remain required. Pinned torch1.12.1 runtime is available. See reports/token_efficiency_author_phy_audit_20260924.md.
+
 > 2026-09-24 N4084 actual replay continuation implemented:6 legacy methods, real24-check gate before9000 frames/600 timings, serially after the existing reference metric worker. GPU acceptance/results are NOT_RUN until actual receipts. See reports/token_efficiency_n4084_replay_queue_20260924.md.
 
 > 2026-09-24 historical N4084 provenance:7 methods/10500 original rows and300 original timing consistency records verified; source pixels, selected hashes and frozen-policy lineage checked. Current full PHY/metric/timing compatibility remains pending. See reports/token_efficiency_n4084_reference_audit_20260924.md.
