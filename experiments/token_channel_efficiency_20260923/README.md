@@ -24,9 +24,13 @@ older future500-test/selector launch instructions without rewriting their eviden
   mixture soft demodulation with the decoder's half-LLR convention. Actual
  16QAM E varies by frame; its tables must be separate from per-frame2N.
 
-Twenty new CPU engineering regressions pass. They use synthetic inputs and
-are not quality measurements. Real-weight acceptance and formal source/budget
-runs are NOT_RUN until their individual completion receipts exist.
+Initial CPU engineering regressions used synthetic inputs and are not quality
+measurements. Experiment A is now complete for1000 calibration and100 original
+development sources; see reports/token_channel_efficiency_20260923_source_A.md
+and results/token_channel_efficiency_20260923/source_{calibration,development}.
+Quality targets are frozen and committed. Real-device gradient/energy/optimizer/
+resume qualification passed for P2048/P3060; budget training remains ongoing.
+Later stages are complete only when their actual receipts exist.
 The coordinator runs real2-source calibration qualification first, then full A,
 then real-device budget qualification, then P2048/P3060 training. Any exception
 stops dependent work. The complete digital quality/evaluation grid, online timing,
