@@ -25,3 +25,5 @@
 Source fixes and focused validation are recorded in `reports/repair_consolidated_20260922.md`. Historical quality conclusions remain valid only where their original receipts and scope are complete. See `results/repair_consolidated/issue_status.json` for per-issue status; blocked and partial entries are not presented as completed scientific results.
 
 2026-09-24: P3060 initial20k and135,000 calibration rows verified; selected20k. Both budget milestones are complete; the existing delivery_chain has begun P2048 calibration-driven30k extension. P3060 also satisfies the initial extension criterion but awaits its serialized decision. Full evaluation/delivery remains pending. See [P3060 milestone](reports/token_efficiency_P3060_20k_20260924.md).
+
+2026-09-24: P2048 completed30k and stopped by the registered calibration rule (last interval0.186047%<0.2%); selected30k. All195,000 calibration rows checked,60,000 new rows published. The existing scheduler has started P3060 until30k. Development/quality/timing and whole-study delivery remain pending. See [30k milestone](reports/token_efficiency_P2048_30k_20260924.md).
