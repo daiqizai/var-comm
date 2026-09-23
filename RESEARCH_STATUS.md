@@ -1,3 +1,5 @@
+> 2026-09-24 historical N4084 provenance:7 methods/10500 original rows and300 original timing consistency records verified; source pixels, selected hashes and frozen-policy lineage checked. Current full PHY/metric/timing compatibility remains pending. See reports/token_efficiency_n4084_reference_audit_20260924.md.
+
 > 2026-09-24 P2048: real initial20k complete, all135000 calibration rows and selected SHA verified. Both final calibration intervals support a10k extension after the existing P3060 initial run. Development/timing and full merged delivery remain pending. See reports/token_efficiency_P2048_20k_20260924.md.
 
 > 2026-09-23 scheduler recovery: original C controller is RETIRED_VERIFIED after a blocked m6 launch, with failure evidence preserved and no m6 training. Detached coordinator_v2 resumed P2048 from verified step5967 and advanced beyond6000. Never SIGCONT the old PID. See reports/token_efficiency_scheduler_recovery_20260923.md. A is complete; B1/B2/C remain pending.

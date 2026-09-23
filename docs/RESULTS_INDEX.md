@@ -50,3 +50,5 @@ The user-requested curated figures include 120 PNG files: 24 comparison panels a
 The index below preserves the original historical release.
 
 - 2026-09-24 P2048 initial20k: `results/token_channel_efficiency_20260923/budget_milestones/P2048_seed2026092304_20k/`; real calibration/selected lineage, not convergence or completed development. Report: `reports/token_efficiency_P2048_20k_20260924.md`.
+
+- 2026-09-24 N4084 historical provenance: `results/token_channel_efficiency_20260923/n4084_reference_audit_v1/audit.json`; seven methods,10500 real rows and300 original timing checks. Current full PHY/metric/timing compatibility remains pending. See `reports/token_efficiency_n4084_reference_audit_20260924.md`.
