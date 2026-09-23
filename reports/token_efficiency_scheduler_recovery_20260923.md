@@ -34,3 +34,18 @@ Existing actual-device gradient/optimizer/resume qualification is rerun by the
 unchanged trainer before restoration; restored real training must advance beyond
 5967 before recovery is reported complete. B1/B2 are still incomplete. C is not
 restarted until A/B delivery and an explicit durable release decision.
+
+## Actual recovery acceptance
+
+The successor was launched with `start_new_session=True`. Its session ID equals
+its verified controller PID, and the training child belongs to that session.
+P2048 restored the recorded step5967 safe checkpoint and advanced beyond6000;
+the latest checkpoint and selected step5000 hashes, active source bindings and
+predecessor lock were verified. The actual-device populated-optimizer isolation
+and bitwise-resume probe passed again; discarded probes do not train the model.
+See results/token_channel_efficiency_20260923/scheduler_recovery/resume_acceptance.json.
+
+Recovery implementation commit `a4bb6e8172ca774ea1edafe7d80c5d8ffca80f97`
+was normally pushed and independently fetched from origin. All135 CPU tests,
+repository/release validation and git fsck passed in that checkout without object
+alternates. This verifies scheduling recovery, not B1/B2 quality completion.

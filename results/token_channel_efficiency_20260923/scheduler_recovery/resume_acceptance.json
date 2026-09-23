@@ -1,0 +1,60 @@
+{
+  "status": "REAL_P2048_RESUME_VERIFIED",
+  "time": 1790177886.577704,
+  "head": "a4bb6e8172ca774ea1edafe7d80c5d8ffca80f97",
+  "synthetic": false,
+  "resume_from": {
+    "path": "/home/liulu/projects/VAR_COMM/outputs/TOKEN-CHANNEL-EFFICIENCY-20260923/training/P2048_seed2026092304/checkpoints/step_05967_safe_pause.pt",
+    "sha256": "7f5e657de2a2d03ecf01dfd1178c23ba83962594270a32ebf79208a0b8401258",
+    "step": 5967,
+    "reason": "safe_pause"
+  },
+  "observed_step": 6100,
+  "latest": {
+    "path": "/home/liulu/projects/VAR_COMM/outputs/TOKEN-CHANNEL-EFFICIENCY-20260923/training/P2048_seed2026092304/checkpoints/step_06000_regular.pt",
+    "sha256": "e87d4d8e863856dad575e48dadc270a733d88484f4f136f57458e214957d3653",
+    "step": 6000,
+    "reason": "regular"
+  },
+  "selected": {
+    "step": 5000,
+    "utility": 0.03280507332530493,
+    "checkpoint": "/home/liulu/projects/VAR_COMM/outputs/TOKEN-CHANNEL-EFFICIENCY-20260923/training/P2048_seed2026092304/checkpoints/step_05000_calibrated.pt",
+    "checkpoint_sha256": "b53f9063f742eddb90cca7f57463e62b7d4478dce1dcd22b9ed0e7790ec6484e",
+    "arm_key": "P2048",
+    "registration_sha256": "f653a6ae8d75398ccfd02465d92a9cce218a8928a1c3548a39db7524c81f5f09",
+    "total_updates": 5000,
+    "parent_updates": 0,
+    "N": 2048
+  },
+  "controller": {
+    "pid": 850954,
+    "cmdline": "python3 -u -m token_efficiency.coordinator_v2 ",
+    "start_ticks": "82592857",
+    "state": "S"
+  },
+  "trainer": {
+    "pid": 851003,
+    "cmdline": "/usr/bin/python3 -u -m token_efficiency.budget_train --N 2048 ",
+    "start_ticks": "82593835",
+    "state": "R"
+  },
+  "detached_session": 850954,
+  "predecessor_lock_held": true,
+  "retirement_receipt_sha256": "722d15f01fc522981978b37ff610e4745819255c59bbb0fd792d9b161162d965",
+  "real_device_qualification": {
+    "status": "REAL_GPU_GRADIENT_ENERGY_POPULATED_OPTIMIZER_ISOLATION_AND_BITWISE_RESUME_PASS",
+    "arms": [
+      "A",
+      "B"
+    ],
+    "decoder_sha256": "bf1d64bf8ff7eeda416032daa2ada1654fb37de2553235e85d364211ddfefad1",
+    "probe_updates_discarded": true,
+    "synthetic": false
+  },
+  "source_bindings_verified": true,
+  "remote_checkout_cpu_tests": 135,
+  "remote_checkout_log_sha256": "7830ccff476335f413a9e65fabc89d014d7f96dfd8d999f909787441ce01a388",
+  "new_quality_evaluation_performed": false,
+  "remaining": "complete low-budget milestone and calibration decision; B1/B2 quality/timing and merged C remain pending"
+}
