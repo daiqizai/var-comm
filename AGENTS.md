@@ -25,3 +25,17 @@
   while its cache child continues. Never duplicate it or hot-edit its bindings.
 - P3060 is shared across studies. Actual real receipts, not code presence or CPU
   synthetic tests, determine stage completion. Follow pending stages to delivery.
+
+## Scheduling recovery (2026-09-23, latest)
+
+The old short-prefix controller exited after its stopped state was lost following
+SSH disconnection. Its attempted m6 launch was rejected before model loading by
+GPU ownership checks; no m6 checkpoint exists. The predecessor is now explicitly
+RETIRED_VERIFIED in scheduling_gate.json, with immutable evidence and hashes.
+Do not SIGCONT its old PID. Use token_efficiency.coordinator_v2 and
+scripts/run_budgets_after_retirement.sh for the supplemental budget queue.
+The successor holds the original controller's process lock and validates retirement
+and source/cache evidence. P2048 resumes its verified step5967 safe checkpoint.
+After actual A/B delivery, a separately verified detached launch of the unchanged
+original queue may requalify and reuse caches. Until then C stays file-gated,
+not suspended as a live SSH-associated process. Never edit active dependencies.

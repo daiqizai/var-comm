@@ -9,3 +9,8 @@ Reuse actual legacy protocols/results only under verified identity. New m6/m10
 headers and16QAM are separately versioned. Source bits are not complex channel
 uses.16QAM fixed constellation scaling has average rather than per-frame energy.
 Use GPU0 only, no hardware setting changes, root Git only, preserve all evidence.
+
+Latest recovery: predecessor is RETIRED_VERIFIED, not a live SIGSTOP process.
+Use coordinator_v2/run_budgets_after_retirement.sh. Validate retirement evidence
+and acquire the original controller lock. Never signal old PIDs. Relaunch C only
+after A/B delivery, with source/checkpoint/cache verification and detached session.

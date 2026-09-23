@@ -38,22 +38,23 @@ calibration-driven continuation, B2 results and combined statistics are still
 NOT_RUN; they require subsequent implementation/qualification and monitoring.
 Reaching this queue's final20k milestone is not completion of the supplement.
 
-The original short-prefix controller is intentionally held before its first m6
-training command. Its existing m6 train-cache child continues unchanged to a
-complete, hash-checked cache. The independent coordinator checks PID start time,
-command, controller stopped state, cache identity and GPU ownership before
-running A/B. It does not modify active dependencies or resume C prematurely.
-After B1/B2 delivery, the monitor must verify the stored process identity and
-send SIGCONT to that held controller; never start a duplicate short-prefix queue.
-If the old process no longer exists, inspect durable original stage receipts and
-its source binding before an explicit recovery. Do not signal a recycled PID.
+The predecessor controller is now RETIRED_VERIFIED: after SSH disconnection its
+stopped state was lost and the attempted m6 training was rejected at the GPU
+ownership guard before model loading. No m6 weights were trained. The original
+failed status/log and source/cache identities are preserved. A live SIGSTOP is
+not used as a persistent scheduling gate anymore. The v2 successor verifies the
+retirement receipt and completed cache, holds the original controller's process
+lock, and resumes P2048 from its exact safe checkpoint at step5967. It must not
+signal the retired PID. See reports/token_efficiency_scheduler_recovery_20260923.md.
+After A/B delivery, requalify/reuse the unchanged original C queue in a detached
+session, only after checking the durable release gate and current processes.
 
 ## Execution and receipts
 
 From the sole repository root:
 
 ```bash
-bash experiments/token_channel_efficiency_20260923/scripts/run_source_and_budgets.sh
+bash experiments/token_channel_efficiency_20260923/scripts/run_budgets_after_retirement.sh
 ```
 
 Use this once or after inspecting a stopped/failed coordinator; it takes a

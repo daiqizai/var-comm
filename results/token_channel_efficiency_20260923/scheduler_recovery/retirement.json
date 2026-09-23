@@ -1,0 +1,23 @@
+{
+  "status": "VERIFIED_PREDECESSOR_EXITED_WITHOUT_M6_TRAINING",
+  "time": 1790177316.8805058,
+  "held_controller_pid": 724491,
+  "held_controller_start_ticks": "81391809",
+  "short_prefix_release_allowed": false,
+  "observed_cause": "after SSH closure original stopped controller resumed, attempted stage6, failed before model loading at foreign-GPU guard; exact signal delivery not logged",
+  "impact": "no m6 checkpoint or optimizer updates; P2048 preserved at paired safe checkpoint",
+  "P2048_resume": {
+    "path": "/home/liulu/projects/VAR_COMM/outputs/TOKEN-CHANNEL-EFFICIENCY-20260923/training/P2048_seed2026092304/checkpoints/step_05967_safe_pause.pt",
+    "sha256": "7f5e657de2a2d03ecf01dfd1178c23ba83962594270a32ebf79208a0b8401258",
+    "step": 5967,
+    "reason": "safe_pause"
+  },
+  "evidence_bindings": {
+    "/home/liulu/projects/VAR_COMM/outputs/SHORT-PREFIX-20260923/status.json": "c55bd74ac9ca82e2a387f8a7264d417b992656adf15e60485c9a4e73d758dc19",
+    "/home/liulu/projects/VAR_COMM/outputs/SHORT-PREFIX-20260923/logs/queue_06_1790176524574987759.log": "551893f2263c1454e4ad1c7f656ddab2013dbf118937f740de18c9a146e9c33b",
+    "/home/liulu/projects/VAR_COMM/outputs/SHORT-PREFIX-20260923/queue_identity.json": "e3981ed24a94d82dbba55a92996e47de270c8f166074de8d2bff00304f267674",
+    "/home/liulu/projects/VAR_COMM/outputs/SHORT-PREFIX-20260923/cache/N4084_m6_ND1200/train/completion.json": "06c6c9a795802e54868c7adf7b83246b2fd84a0a4ef331c662ab22ba3371e6fb",
+    "/home/liulu/projects/VAR_COMM/outputs/TOKEN-CHANNEL-EFFICIENCY-20260923/recovery/controller_retirement_1790177146/before_pause.json": "fed314ef4d6d173d5051fc12a5ef501ad7aaccac83e316a6c4be7142e737de7c"
+  },
+  "future_C": "only after A/B delivery; launch unchanged original queue under detached session, requalify and reuse verified caches; never SIGCONT recycled PID"
+}
