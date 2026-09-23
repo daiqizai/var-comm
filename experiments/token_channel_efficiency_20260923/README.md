@@ -154,3 +154,36 @@ coordinator_identity_v3.json and per-checkpoint execution_identity. Do not start
 the old guard/controller alongside it. Old registrations/checkpoints/receipts are
 historical and immutable; the runtime extension records actual microbatch, code,
 benchmark and migration identity. Selected loading verifies this extra lineage.
+
+## Automatic delivery continuation (2026-09-24)
+
+`scripts/run_delivery_chain.sh` is the detached continuation after the already
+running `thermal_guard_v2` budget queue. Do not start another budget coordinator.
+Its entry is `outputs/TOKEN-CHANNEL-EFFICIENCY-20260923/delivery_chain_v1/status.json`.
+A nonblocking process lock and PID/start_ticks/cmdline checks guard every launch.
+It waits for both real20k receipts and the old supervisor to exit before GPU work.
+Calibration-only10k extensions continue while both last2500-step intervals improve
+by at least0.2%. Shared actual-weight acceptance gates all new digital evaluations.
+QPSK/16QAM calibration policies freeze before their development runs;16QAM energy
+remains separate. Selected continuous evaluation uses the same TX/channel/RX as
+online timings. Source cells have immutable scope/hash seals and retain failures.
+
+The C continuation preserves the original registered model/train/cache engines,
+adds safe signal/thermal handling around the original cache, and records a new
+runtime identity. It does not run the retired controller. The stage order and
+original source bindings remain checked. It completes the first matrix, paired
+calibration extensions, calibration-selected N3060 pair, and two more seeds for
+the selected short-prefix candidate, its Prefix control, H8-V and P4084. P3060 is
+shared with B. Real N3060 cache/online/clean-RX qualification precedes training.
+Selected quality and timings, source bootstrap, separate training-seed variation,
+received B/C no-enhancement outputs and cross-noise calibration diagnostics follow.
+New holdout and learned selectors stay deferred.
+
+This is an execution queue, not a claim that future results exist. Formal GPU
+acceptance/evaluations still require real completion receipts. Historical external
+reference compatibility and any required reevaluation remain an explicit delivery
+item; C_report reports this as pending rather than declaring the whole study done.
+After real results, review/publish light artifacts, verify exact remote SHA in an
+independent checkout, then close the monitor. Never stop monitoring at first20k or
+at a B1/B2-only report. Source images/reconstructions remain server-local; only
+reconstruction paths/hashes, scientific plots and numerical rows are publishable.

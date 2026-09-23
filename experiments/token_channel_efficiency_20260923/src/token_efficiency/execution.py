@@ -47,20 +47,35 @@ def source_pixels(pixels):
     return pixels
 
 @torch.no_grad()
+def prepare_digital(pixels,true_class,family,vae,var,device):
+    """TX-only source computation reusable by offline quality, never RX or timing."""
+    pixels=source_pixels(pixels)
+    if family not in ('raw','arithmetic'):raise ValueError('digital family')
+    F=vae.quant_conv(vae.encoder(torch.as_tensor(pixels[None],device=device,dtype=torch.float32)/127.5-1))
+    scales=[v[0].cpu().numpy() for v in vae.quantize.f_to_idxBl_or_fhat(F,to_fhat=False)]
+    if family=='raw':return {m:{'raw':indices_to_bits(np.concatenate(scales[:m]))} for m in range(6,11)}
+    return encode_all(vae,var,scales,true_class,device)
+
+def transmit_prepared(encoded,true_class,cell):
+    """Same paid PHY for cached source computation and complete online TX."""
+    if cell.family not in ('raw','arithmetic'):raise ValueError('digital cell')
+    wave,ledger=phy.transmit(encoded,true_class,cell.m,cell.N,cell.family,cell.mcs)
+    ledger['N_continuous']=0
+    if wave.shape!=(cell.N,2) or not np.isfinite(wave).all():raise ValueError('complete finite TX waveform')
+    if cell.mcs=='QPSK' and not np.isclose(ledger['E'],2*cell.N,rtol=1e-5,atol=.02):raise RuntimeError('actual energy constraint')
+    return wave,ledger
+
+@torch.no_grad()
 def transmit(pixels,true_class,cell,vae,var,device,model=None):
     pixels=source_pixels(pixels)
-    F=vae.quant_conv(vae.encoder(torch.as_tensor(pixels[None],device=device,dtype=torch.float32)/127.5-1))
     if cell.family=='continuous':
+        F=vae.quant_conv(vae.encoder(torch.as_tensor(pixels[None],device=device,dtype=torch.float32)/127.5-1))
         if model is None or model.uses!=cell.N:raise ValueError('model trained at exact N required')
         wave=model.transmit(F)[0].cpu().numpy()
         ledger={'protocol':f'VAR-CONTINUOUS-{cell.N}','N':cell.N,'N_header':0,'N_data':0,'N_continuous':cell.N,'E':float(np.sum(wave.astype(np.float64)**2)),'energy_constraint':'per_frame_2N','m_requested':None,'m_actual':None,'mcs':'continuous','payload_bits':None,'source_overflow_erasure':False}
     else:
-        tokens=vae.quantize.f_to_idxBl_or_fhat(F,to_fhat=False)
-        scales=[v[0].cpu().numpy() for v in tokens]
-        if cell.family=='raw':encoded={cell.m:{'raw':indices_to_bits(np.concatenate(scales[:cell.m]))}}
-        else:encoded=encode_all(vae,var,scales,true_class,device)
-        wave,ledger=phy.transmit(encoded,true_class,cell.m,cell.N,cell.family,cell.mcs)
-        ledger['N_continuous']=0
+        encoded=prepare_digital(pixels,true_class,cell.family,vae,var,device)
+        wave,ledger=transmit_prepared(encoded,true_class,cell)
     if wave.shape!=(cell.N,2) or not np.isfinite(wave).all():raise ValueError('complete finite TX waveform')
     if cell.family=='continuous' or cell.mcs=='QPSK':
         if not np.isclose(ledger['E'],2*cell.N,rtol=1e-5,atol=.02):raise RuntimeError('actual energy differs from registered constraint')

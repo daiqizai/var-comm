@@ -13,7 +13,7 @@ from var_comm.prefix_training_data import read_image_population
 from short_prefix.common import identity_files
 from .common import ROOT,OUT,CONFIG,read,register,configure_runtime,Safety
 from .models import BudgetContinuous
-from .execution import Cell,execute,receive,transmit,apply_channel,load_selected_budget
+from .execution import Cell,execute,receive,transmit,apply_channel,load_selected_budget,prepare_digital,transmit_prepared
 from .codec import cumulative
 
 def main():
@@ -57,6 +57,9 @@ def main():
                         if family=='raw' and 12*sum(len(x) for x in source[:mode])+22>slots:
                             rows.append({'cell':cell.name,'status':'UNENCODABLE_LENGTH_CONSTRAINT','synthetic':False});continue
                         wave,ledger=transmit(record['pixels'],record['class_index'],cell,vae,var,device)
+                        prepared=prepare_digital(record['pixels'],record['class_index'],family,vae,var,device)
+                        cached_wave,cached_ledger=transmit_prepared(prepared,record['class_index'],cell)
+                        np.testing.assert_array_equal(wave,cached_wave);assert ledger==cached_ledger
                         clean,event=receive(wave,19,cell,vae,var,decoder,device)
                         if ledger['source_overflow_erasure']:
                             assert not event['header_ok'];np.testing.assert_array_equal(clean,np.full_like(clean,.5))

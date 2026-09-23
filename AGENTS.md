@@ -69,3 +69,19 @@ coordinator_identity_v3.json and per-checkpoint execution_identity. Do not start
 the old guard/controller alongside it. Old registrations/checkpoints/receipts are
 historical and immutable; the runtime extension records actual microbatch, code,
 benchmark and migration identity. Selected loading verifies this extra lineage.
+
+## Full authorized continuation (2026-09-24)
+
+The user requests execution of all currently authorized experiments, including
+calibration, evaluation and delivery. Inspect the registered delivery_chain_v1
+status as well as thermal_guard_v2. Its detached entry is
+experiments/token_channel_efficiency_20260923/scripts/run_delivery_chain.sh.
+It waits for the existing budget supervisor, then owns all remaining GPU stages.
+Never duplicate either process or hot-edit its bound source. C now uses the
+versioned C_first_matrix/C_followups orchestrators with original model/train
+engines and a signal-aware C_cache adapter; never resume the retired controller.
+Keep scope: no new holdout, no learned selector, no original A/B retraining.
+A source-informed calibration diagnostic is not a deployable content selector.
+Historical reference compatibility/necessary reevaluation and final reviewed
+publication/independent remote checkout remain required after the real grids.
+An execution milestone with pending items is not complete study delivery.

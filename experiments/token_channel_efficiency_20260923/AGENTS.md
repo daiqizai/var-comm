@@ -44,3 +44,12 @@ coordinator_identity_v3.json and per-checkpoint execution_identity. Do not start
 the old guard/controller alongside it. Old registrations/checkpoints/receipts are
 historical and immutable; the runtime extension records actual microbatch, code,
 benchmark and migration identity. Selected loading verifies this extra lineage.
+
+Latest automatic continuation: inspect delivery_chain_v1/status.json. It waits
+for thermal_guard_v2 to finish both initial budget milestones, then serially
+performs calibration-based extensions, actual-weight qualification, B1/B2 and C.
+C_first_matrix/C_followups reuse original train/model functions; C_cache adds
+signal-aware thermal pause handling without changing cache mathematics. The
+retired controller stays retired. Do not launch legacy controllers alongside
+this chain. Source bindings prohibit hot edits. Historical reference identity
+review/required reevaluation and final verified publication remain delivery items.
