@@ -3,7 +3,7 @@ from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parent
-SELF_PACKAGES = {"var_comm", "cadsd_jscc", "latent_enhancement", "latent_enhancement_b", "latent_enhancement_eval", "latent_followup", "latent_mechanisms", "latent_enhancement_timing", "wetok_comm", "joint_sender"}
+SELF_PACKAGES = {"var_comm", "cadsd_jscc", "latent_enhancement", "latent_enhancement_b", "latent_enhancement_eval", "latent_followup", "latent_mechanisms", "latent_enhancement_timing", "wetok_comm", "joint_sender", "latent_research"}
 
 def pytest_sessionfinish(session, exitstatus):
     foreign = []

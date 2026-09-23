@@ -1,0 +1,7 @@
+#!/bin/bash
+set -e
+while kill -0 452227 2>/dev/null; do sleep 10; done
+test -f outputs/VAR-LATENT-ENHANCEMENT-20260917/followup/research_20260923_training_v3/completion.json
+python3 -m latent_research.evaluate --training outputs/VAR-LATENT-ENHANCEMENT-20260917/followup/research_20260923_training_v3 --output outputs/VAR-LATENT-ENHANCEMENT-20260917/followup/research_20260923_evaluation > _migration_backup/review_20260923/research_evaluation.log 2>&1
+python3 -m latent_research.system_policy --output outputs/VAR-LATENT-ENHANCEMENT-20260917/followup/research_20260923_system_policy > _migration_backup/review_20260923/system_policy.log 2>&1
+python3 -m latent_mechanisms.linear_measurement --output outputs/VAR-LATENT-ENHANCEMENT-20260917/followup/research_20260923_pca_evaluation --projection-from outputs/VAR-LATENT-ENHANCEMENT-20260917/followup/research_20260923_pca_basis/A.pt > _migration_backup/review_20260923/pca_evaluation.log 2>&1

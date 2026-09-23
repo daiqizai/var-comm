@@ -1,0 +1,61 @@
+{
+  "status": "FROZEN_ON_CALIBRATION_ONLY",
+  "actions": {
+    "1.0": "m8_plus_latent_512_fold_N4084",
+    "4.0": "m8_plus_latent_1024",
+    "7.0": "m8_plus_latent_1024",
+    "13.0": "m8_plus_latent_1024",
+    "19.0": "m8_plus_latent_1024"
+  },
+  "criterion": "per-frame MSE+0.1LPIPS mean",
+  "N": 4084,
+  "E": 8168,
+  "decoder_state_sha256": "bf1d64bf8ff7eeda416032daa2ada1654fb37de2553235e85d364211ddfefad1",
+  "candidates": [
+    "arithmetic_N4084_m7_Dc",
+    "arithmetic_N4084_m8_Dc",
+    "arithmetic_N4084_m9_Dc",
+    "m8_plus_latent_1024",
+    "m8_plus_latent_512_fold_N4084",
+    "raw_N4084_m7_Dc",
+    "raw_N4084_m8_Dc",
+    "raw_N4084_m9_Dc"
+  ],
+  "selected_arms": {
+    "enhancement512": {
+      "step": 30000,
+      "utility": 0.03179998950246283,
+      "arm": "enhancement512",
+      "checkpoint": "/home/liulu/projects/VAR_COMM/outputs/VAR-LATENT-ENHANCEMENT-20260917/stage_B_v1/training/checkpoints/update_0030000_1789679922482669992.pt",
+      "checkpoint_sha256": "61cd0238bf8b9ad11dced490cc1b068798b485ea73577af088592d46952f479e",
+      "all_arms_trained_updates_at_checkpoint": 30000
+    },
+    "enhancement1024": {
+      "step": 40000,
+      "utility": 0.027573387272870637,
+      "arm": "enhancement1024",
+      "checkpoint": "/home/liulu/projects/VAR_COMM/outputs/VAR-LATENT-ENHANCEMENT-20260917/stage_B_v1/training/checkpoints/update_0040000_1789692896225946392.pt",
+      "checkpoint_sha256": "5efe5716de098ecfb8c1484dd07535868f1685a76557d3b2462f20a5e98793b0",
+      "all_arms_trained_updates_at_checkpoint": 40000
+    }
+  },
+  "precision": {
+    "matmul_tf32": false,
+    "cudnn_tf32": false
+  },
+  "digital_calibration_sha256": "6ed6041f80dd400f3854e9193ddcb0077b94a342882e1570b10f8874bd411324",
+  "calibration_sha256": "0169138ccd50acadfa88b655775d5df4a984321f7f2b1791697d1ab4939b920d",
+  "lookup_not_a_novel_resource_algorithm": true,
+  "source_snapshot": {
+    "/home/liulu/projects/VAR_COMM/experiments/var-latent-enhancement-20260917/configs/experiment.json": "6921186881ad124549df04bf0be9f0ee660063d00f0107c67ca4f966240d2412",
+    "/home/liulu/projects/VAR_COMM/experiments/var-latent-enhancement-20260917/src/latent_enhancement/__init__.py": "fc5c009b11f1a92dd3d36a28b2c40cad5eb74545d9efde0f504cdad44ceb419d",
+    "/home/liulu/projects/VAR_COMM/experiments/var-latent-enhancement-20260917/src/latent_enhancement/cache.py": "9711f43050687a39f04bd3a73aef6d05de03d588ab114c7381ed9e8ddb7d3fbd",
+    "/home/liulu/projects/VAR_COMM/experiments/var-latent-enhancement-20260917/src/latent_enhancement/latent.py": "d556732b86cb83499c8912a2412a8858f599e1ddd58f28418a0f1889d2b705a1",
+    "/home/liulu/projects/VAR_COMM/experiments/var-latent-enhancement-20260917/src/latent_enhancement/pipeline.py": "8c861be19e8aff8f6805c229ea5ab5dfed60d8a4b48376d1a4745f0861a22823",
+    "/home/liulu/projects/VAR_COMM/experiments/var-latent-enhancement-20260917/src/latent_enhancement/qualify.py": "c7ec01d1eb2ae9edb4d44de0e7bb8715b13e1db799670b44155c8d8c785612c2",
+    "/home/liulu/projects/VAR_COMM/experiments/var-latent-enhancement-20260917/src/latent_enhancement/runtime.py": "0c3e9e65b4e1a402865b77904c2aa74d2de5384d81e0a8a31278a8943f84c71f",
+    "/home/liulu/projects/VAR_COMM/experiments/var-latent-enhancement-20260917/src/latent_enhancement/stage_a.py": "dc8f3e7fb169d02585502922a031e39d43a783dd4704454955d48a43b8321b3c",
+    "/home/liulu/projects/VAR_COMM/experiments/var-latent-enhancement-20260917/src/latent_enhancement/training.py": "fc3e59b48f7c5dda01d29f7a7f6ab7fddd0b339b4168a93a86badcec9b9012fb",
+    "/home/liulu/projects/VAR_COMM/experiments/var-latent-enhancement-20260917/research/src/latent_research/system_policy.py": "3ea3c8c28bf6bafdf6b3f616e472fcac336ff2a05ba0f7d591be9db28011920d"
+  }
+}

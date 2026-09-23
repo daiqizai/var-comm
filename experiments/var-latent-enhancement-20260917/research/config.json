@@ -1,0 +1,57 @@
+{
+  "run_id": "research_20260923_v3",
+  "data": {
+    "train": 20000,
+    "calibration": 1000,
+    "development": 100,
+    "new_holdout": false
+  },
+  "pure": {
+    "N": 4084,
+    "E": 8168,
+    "updates": 10000,
+    "mask": "fixed first 8168 of 8192 learned coordinates, trained with this exact mask from initialization",
+    "TX": "F only",
+    "RX": "observation and nominal SNR only"
+  },
+  "paired": {
+    "updates": 5000,
+    "parent": "selected_enhancement1024",
+    "optimizer": "fresh AdamW for both equally; no transformed historical moments",
+    "light_TX": "F and true m8 cumulative latent, official ten-scale mapping",
+    "control_TX": "original F-Fb_TX and Fb_TX",
+    "RX": "actual Fb_RX, observation, nominal SNR and received status",
+    "N": 4084,
+    "E": 8168
+  },
+  "batch_size": 16,
+  "microbatch_size": 4,
+  "full_calibration_interval": 2500,
+  "checkpoint_interval": 500,
+  "selection": "minimum full calibration MSE+0.1LPIPS+0.01normalized_latent; pure includes every sample, hybrid latent masked only on header failure",
+  "learning_rate": 0.0002,
+  "weight_decay": 0.0001,
+  "data_seed": 2026092301,
+  "channel_seed": 2026092302,
+  "initialization_seed": 2026092303,
+  "snrs_db": [
+    1,
+    4,
+    7,
+    13,
+    19
+  ],
+  "calibration_seeds": [
+    4101,
+    4102,
+    4103
+  ],
+  "development_seeds": [
+    2001,
+    2002,
+    2003
+  ],
+  "stop": "registered finite opportunity, not convergence proof; no extension based on development results",
+  "decoder": "frozen selected stageA Dc; original visual encoder/tokenizer and VAR unchanged",
+  "deterministic_algorithms": true
+}

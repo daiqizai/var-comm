@@ -1,3 +1,12 @@
+## 20260923 review and research update
+
+- Current bounded-study results: ../results/review_20260923_phase2/, with complete source/SNR/seed pairing, selected model/Decoder/numerical-protocol identities and actual GPU receipts.
+- Phase1 source repairs, predictor/linear requalification and timing remain documented at ../reports/review_20260923_phase1.md.
+- Current N4084/Dc digital calibration and adaptive comparison use the explicit strict-precision version. Earlier digital adaptive development values were numerically reproduced; they are not broadly discarded. Historical TF32 calibration is preserved with its original scope.
+- Folded512 is freshly re-evaluated at strict precision; older allocation_v1 remains historical evidence.
+- Historical adapted-Decoder rows are separate context, not newly qualified same-Dc controls. New holdout, m10 and full adapted-Decoder digital adaptation are NOT_RUN in this bounded study.
+- Exact historical impact: ../results/review_20260923_phase2/historical_impact.json. Per-item completion and exclusions: ../results/review_20260923_phase2/issue_status.json.
+
 # 结果、图表与原始产物映射
 
 ## 最新：固定混合三权重收尾

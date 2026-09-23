@@ -10,7 +10,7 @@ import numpy as np
 import torch
 import yaml
 
-from latent_enhancement.runtime import digest, model_paths, settings
+from latent_enhancement.runtime import configure, digest, model_paths, settings
 from latent_enhancement_b.common import load_decoder
 from latent_enhancement_eval.runner import (
     arithmetic_receive_budget, arithmetic_transmit_budget, raw_receive_budget,
@@ -116,7 +116,8 @@ def clean_render(phy, family, renderer, vae, var, decoder, device, cache):
     return image, item
 
 
-def evaluate_source(record, vae, var, decoder, perceptual, device, budget, seeds, snrs):
+def evaluate_source(record, vae, var, decoder, perceptual, device, budget, seeds, snrs, renderers=("D0","Dc"), dino=None):
+    if not renderers or any(r not in ("D0","Dc") for r in renderers):raise ValueError("invalid renderers")
     source, label = record["source"], record["label"]
     payloads = encode_prefixes(vae, var, source, label, device, modes=(7, 8, 9))
     prepared = {}
@@ -129,7 +130,7 @@ def evaluate_source(record, vae, var, decoder, perceptual, device, budget, seeds
     candidate_cache = {}
     for family in ("raw", "arithmetic"):
         for mode in (7,8,9):
-            for renderer in ("D0","Dc"):
+            for renderer in renderers:
                 images[family,budget,mode,renderer] = []
     for snr in snrs:
         for seed in seeds:
@@ -138,13 +139,13 @@ def evaluate_source(record, vae, var, decoder, perceptual, device, budget, seeds
                     signal, ledger = prepared[family,mode]
                     received = signal + seeded_noise(record["image_id"], seed, signal.shape) / np.sqrt(10 ** (snr/10))
                     phy = raw_receive_budget(received,snr,budget) if family == "raw" else arithmetic_receive_budget(received,snr,budget)
-                    base_image, candidate = clean_render(phy, family, "D0", vae, var, decoder, device, candidate_cache)
+                    base_image, candidate = clean_render(phy, family, renderers[0], vae, var, decoder, device, candidate_cache)
                     actual_prefix = candidate.get("prefix", [])
                     correct = bool(phy["header"]["accepted"] and phy.get("body_crc_accepted",False) and
                                    phy["label"] == label and phy["mode"] == mode and len(actual_prefix)==mode and
                                    all(np.array_equal(g,t) for g,t in zip(actual_prefix,source[:mode])))
-                    for renderer in ("D0","Dc"):
-                        image = base_image if renderer == "D0" else clean_render(phy,family,renderer,vae,var,decoder,device,cache=candidate_cache)[0]
+                    for renderer in renderers:
+                        image = base_image if renderer == renderers[0] else clean_render(phy,family,renderer,vae,var,decoder,device,cache=candidate_cache)[0]
                         images[family,budget,mode,renderer].append(image)
                         rows.append({"population":"calibration","image_index":record["index"],"image_id":record["image_id"],
                                      "family":family,"budget":budget,"mode":mode,"renderer":renderer,"snr_db":float(snr),"seed":int(seed),
@@ -153,8 +154,12 @@ def evaluate_source(record, vae, var, decoder, perceptual, device, budget, seeds
                                      "accepted_correct":int(correct),"source_complete":int(candidate["source_complete"])})
     for family in ("raw","arithmetic"):
         for mode in (7,8,9):
-            for renderer in ("D0","Dc"):
+            for renderer in renderers:
                 values=metric_rows(images[family,budget,mode,renderer],record["source_rgb"],perceptual,device)
+                if dino is not None:
+                    from var_comm.quality import quality_metrics
+                    actual,_,_=quality_metrics(record["source_rgb"],images[family,budget,mode,renderer],perceptual,dino,device)
+                    values=[{"psnr_db":r["psnr_db"],"lpips":r["lpips_alex"],"dino_cosine":r["dino_cosine"]} for r in actual]
                 offset=0
                 for row in rows:
                     if row["family"]==family and row["mode"]==mode and row["renderer"]==renderer:
@@ -201,6 +206,7 @@ def freeze_policies(summary, config):
 def main():
     parser=argparse.ArgumentParser(); parser.add_argument("--output",default=str(OUT)); parser.add_argument("--max-sources",type=int); args=parser.parse_args()
     config=read_json(CONFIG); output=Path(args.output); output.mkdir(parents=True,exist_ok=True)
+    configure()
     device=torch.device("cuda:0");
     if not torch.cuda.is_available(): raise RuntimeError("GPU required")
     vae,var=load_models(model_paths(),device); decoder=load_decoder(vae,device)

@@ -10,3 +10,7 @@
 - All inference returns original D0 when enhancement is disabled. Header rejection uses original gray fallback, with all resources charged. Body CRC failure retains the originally allowed candidate. No GT output selection.
 - Original20k train/1k calibration/100 development and noises only. DINO is report-only, no new holdout. Preserve raw/arithmetic digital competitors at exact total budgets, same-Dc controls, oldm9/N3060, R3/Deep/external natural-rate references.
 - GPU0 only when available. Do not stop other authorized tasks, alter shared environments, overwrite checkpoints/results or modify old experiments. Pause this task's HiFi workers/resumers with provenance. Every authorized Git commit must be pushed and verified.
+
+## User-authorized post-review research (2026-09-23)
+
+`research/` adds a separate pure continuous N4084/E8168 control and a matched light-TX versus full-TX pair. These are explicit exceptions to the original enhancement-budget-only scope above; original A/B models and rules remain unchanged. See research/config.json and reports/research_20260923_protocol.md. Do not reinterpret old checkpoints as trained at the new pure budget. Commit phase1 repair/results first; commit phase2 source/results separately after actual acceptance.

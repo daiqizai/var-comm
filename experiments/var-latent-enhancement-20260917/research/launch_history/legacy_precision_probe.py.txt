@@ -1,0 +1,8 @@
+import torch
+import latent_research.system_policy as policy
+original=policy.configure
+def legacy():
+    original()
+    torch.backends.cudnn.allow_tf32=True
+policy.configure=legacy
+policy.main()

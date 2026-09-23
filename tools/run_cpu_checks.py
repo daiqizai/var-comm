@@ -9,7 +9,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 EXP = ROOT / "experiments/var-latent-enhancement-20260917"
-SOURCE_DIRS = [ROOT / "src", EXP / "src", *[EXP / n / "src" for n in ("phase_b", "evaluation", "followup", "mechanisms", "timing")]]
+SOURCE_DIRS = [ROOT / "src", EXP / "src", *[EXP / n / "src" for n in ("phase_b", "evaluation", "followup", "mechanisms", "timing", "research")]]
 
 def main():
     # Replace inherited PYTHONPATH. Installed third-party dependencies may use
@@ -20,7 +20,8 @@ def main():
     modules = ["var_comm.entropy", "var_comm.hybrid_training", "cadsd_jscc.strong_jscc",
                "cadsd_jscc.exact_budget_strong_jscc", "latent_enhancement.latent",
                "latent_enhancement_b.train", "latent_enhancement_eval.deployment",
-               "latent_followup.policy_development", "latent_mechanisms.predictor_innovation"]
+               "latent_followup.policy_development", "latent_mechanisms.predictor_innovation", "latent_research.models", "latent_research.train", "latent_research.evaluate",
+               "latent_research.digital_requalify", "latent_research.system_policy"]
     probe = """import importlib,json,sys
 from pathlib import Path
 root=Path(sys.argv[1]).resolve()
@@ -33,7 +34,7 @@ print(json.dumps({'module_files':result,'GPU':'NOT_RUN'},indent=2))
 """
     subprocess.run([sys.executable, "-c", probe, str(ROOT), json.dumps(modules)],cwd=ROOT,env=env,check=True)
     suites = ["tests", *[str((EXP/n).relative_to(ROOT)) for n in
-               ("tests", "phase_b/tests", "evaluation/tests", "followup/tests", "mechanisms/tests")]]
+               ("tests", "phase_b/tests", "evaluation/tests", "followup/tests", "mechanisms/tests", "research/tests")]]
     return subprocess.run([sys.executable,"-m","pytest","-q",*suites],cwd=ROOT,env=env).returncode
 
 if __name__ == "__main__":

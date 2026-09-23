@@ -1,0 +1,121 @@
+{
+  "actions": {
+    "raw": {
+      "4084": {
+        "Dc": {
+          "1.0": {
+            "reliability": 7,
+            "quality": 8,
+            "goodput": 7
+          },
+          "4.0": {
+            "reliability": 8,
+            "quality": 9,
+            "goodput": 8
+          },
+          "7.0": {
+            "reliability": 9,
+            "quality": 9,
+            "goodput": 9
+          },
+          "13.0": {
+            "reliability": 9,
+            "quality": 9,
+            "goodput": 9
+          },
+          "19.0": {
+            "reliability": 9,
+            "quality": 9,
+            "goodput": 9
+          }
+        }
+      }
+    },
+    "arithmetic": {
+      "4084": {
+        "Dc": {
+          "1.0": {
+            "reliability": 7,
+            "quality": 8,
+            "goodput": 8
+          },
+          "4.0": {
+            "reliability": 9,
+            "quality": 9,
+            "goodput": 9
+          },
+          "7.0": {
+            "reliability": 9,
+            "quality": 9,
+            "goodput": 9
+          },
+          "13.0": {
+            "reliability": 9,
+            "quality": 9,
+            "goodput": 9
+          },
+          "19.0": {
+            "reliability": 9,
+            "quality": 9,
+            "goodput": 9
+          }
+        }
+      }
+    }
+  },
+  "calibration_sha256": "6ed6041f80dd400f3854e9193ddcb0077b94a342882e1570b10f8874bd411324",
+  "rule_config": {
+    "study": "VAR-LATENT-ENHANCEMENT-FOLLOWUP-20260918",
+    "parent_commit": "401320c6edb3e887d9d43cd7cbd8bcb34edf592b",
+    "population": {
+      "calibration_sources": 1000,
+      "development_sources": 100
+    },
+    "snrs_db": [
+      1,
+      4,
+      7,
+      13,
+      19
+    ],
+    "noise_seeds": {
+      "calibration": [
+        4101,
+        4102,
+        4103
+      ],
+      "development": [
+        2001,
+        2002,
+        2003
+      ]
+    },
+    "budgets": [
+      4084
+    ],
+    "families": [
+      "raw",
+      "arithmetic"
+    ],
+    "modes": [
+      7,
+      8,
+      9
+    ],
+    "renderers": [
+      "Dc"
+    ],
+    "policy_rules": [
+      "reliability",
+      "quality",
+      "goodput"
+    ],
+    "reliability_BLER_target": 0.1,
+    "quality_PSNR_guard_db": 0.25,
+    "selection_observable": "nominal_shared_SNR_only",
+    "m10": "excluded_current_header_legal_mode_domain_is_7_8_9;no_truncation_or_free_mode",
+    "failures": "retain_all_header_body_and_incomplete_candidates",
+    "new_holdout": false,
+    "DINO_used_for_selection": false
+  }
+}

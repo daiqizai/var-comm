@@ -9,8 +9,16 @@ def write_csv(path,rows):
         w=csv.DictWriter(h,fieldnames=list(rows[0]));w.writeheader();w.writerows(rows)
 def summarize(path,output):
     path=Path(path);output=Path(output);output.mkdir(parents=True,exist_ok=True)
-    rows=list(csv.DictReader(path.open()));groups={};keys=set();scopes={}
+    rows=list(csv.DictReader(path.open()));groups={};keys=set();scopes={};image_ids={};contexts={}
     for r in rows:
+        identity=r.get('image_id')
+        source=int(r['source_index'])
+        if identity:
+            if source in image_ids and image_ids[source]!=identity:raise RuntimeError('source index maps to different images')
+            image_ids[source]=identity
+        context=tuple(r.get(k,'') for k in ('N','E','decoder_sha256','protocol_id','checkpoint_sha256','model_context_sha256'))
+        if r['method'] in contexts and contexts[r['method']]!=context:raise RuntimeError('one method mixes protocol/model/decoder scopes')
+        contexts[r['method']]=context
         key=(r['method'],int(r['source_index']),float(r['snr_db']),int(r.get('seed',r.get('noise_seed'))))
         if key in keys:raise RuntimeError('duplicate complete sample key')
         keys.add(key);groups.setdefault(key[:3],[]).append(r)
