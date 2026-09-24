@@ -1,0 +1,36 @@
+{
+  "status": "FROZEN_FROM_CALIBRATION_BEFORE_NEW_DEVELOPMENT",
+  "rule": {
+    "source": "calibration Dc Fq, Dc VAR_m8, Dc prefix_m6",
+    "levels": [
+      "high",
+      "balanced",
+      "coarse"
+    ],
+    "construction": "for each registered reference use median across calibration images of PSNR as minimum and LPIPS as maximum; publish actualvalues and basis; preserve all levels even if not reachable in measuredchannel grid",
+    "freeze": "before any new development result read"
+  },
+  "source_csv_sha256": "c38b668c54ff8ce1aa143afd4c91711c3a3b1cda81058c490810ce4392b037a5",
+  "targets": {
+    "high": {
+      "reference": "Dc_Fq",
+      "psnr_min": 22.983491897583008,
+      "lpips_max": 0.09431766718626022,
+      "calibration_sources": 1000
+    },
+    "balanced": {
+      "reference": "Dc_VAR_m8",
+      "psnr_min": 19.905312538146973,
+      "lpips_max": 0.16185232996940613,
+      "calibration_sources": 1000
+    },
+    "coarse": {
+      "reference": "Dc_prefix_m6",
+      "psnr_min": 15.768170356750488,
+      "lpips_max": 0.56598299741745,
+      "calibration_sources": 1000
+    }
+  },
+  "keep_unreachable_targets": true,
+  "finite_channel_quality_claim": false
+}
