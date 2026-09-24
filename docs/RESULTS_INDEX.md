@@ -58,3 +58,5 @@ The index below preserves the original historical release.
 2026-09-24: P3060 initial20k and135,000 calibration rows verified; selected20k. Both budget milestones are complete; the existing delivery_chain has begun P2048 calibration-driven30k extension. P3060 also satisfies the initial extension criterion but awaits its serialized decision. Full evaluation/delivery remains pending. See [P3060 milestone](../reports/token_efficiency_P3060_20k_20260924.md).
 
 2026-09-24: P2048 completed30k and stopped by the registered calibration rule (last interval0.186047%<0.2%); selected30k. All195,000 calibration rows checked,60,000 new rows published. The existing scheduler has started P3060 until30k. Development/quality/timing and whole-study delivery remain pending. See [30k milestone](../reports/token_efficiency_P2048_30k_20260924.md).
+
+- [P3060 30k calibration milestone and 40k continuation](../reports/token_efficiency_P3060_30k_20260924.md): actual calibration and lineage verified; later quality/timing still pending.
