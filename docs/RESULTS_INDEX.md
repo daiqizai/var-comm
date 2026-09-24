@@ -60,3 +60,5 @@ The index below preserves the original historical release.
 2026-09-24: P2048 completed30k and stopped by the registered calibration rule (last interval0.186047%<0.2%); selected30k. All195,000 calibration rows checked,60,000 new rows published. The existing scheduler has started P3060 until30k. Development/quality/timing and whole-study delivery remain pending. See [30k milestone](../reports/token_efficiency_P2048_30k_20260924.md).
 
 - [P3060 30k calibration milestone and 40k continuation](../reports/token_efficiency_P3060_30k_20260924.md): actual calibration and lineage verified; later quality/timing still pending.
+
+- [P3060 40k stop and real shared execution acceptance](../reports/token_efficiency_P3060_40k_and_shared_acceptance_20260924.md): selected 37.5k, 255,000 calibration records checked; QPSK full calibration running; full quality delivery pending.
