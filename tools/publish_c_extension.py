@@ -114,7 +114,7 @@ def checkpoint_identity(path, step, regsha, arms):
     return result
 
 
-def collect(group, until, audit_only=False):
+def collect(group, until, audit_only=False, recover_finalized_boundary=False):
     check(os.environ.get('CUDA_VISIBLE_DEVICES') == '', 'CUDA must be masked before CPU audit')
     check(until >= 30000 and until % 10000 == 0, '10k extension boundary after initial 20k')
     arms = arms_for(group)
@@ -156,6 +156,7 @@ def collect(group, until, audit_only=False):
     files = {'training/registration.json':regpath, 'scheduler/readiness.json':ready}
     stagepath = OUT/'delivery_chain_v1/stages'/f'C_N4084_{run}_until{until}.json'
     done = None
+    terminal_evidence = None
     if stagepath.exists():
         stage = read(stagepath)
         expected = ['short_prefix.train','--group',group,'--seed',str(SEED),'--until',str(until)]
@@ -164,6 +165,10 @@ def collect(group, until, audit_only=False):
         files.update({'training/stage.json':stagepath,
                       'training/completion_snapshot.json':Path(stage['snapshot']),
                       'training/final_attempt_launch.json':Path(stage['attempt'])/'launch.json'})
+    if done is None and recover_finalized_boundary:
+        from tools.audit_c_terminal_boundary import finalized_evidence
+        done, terminal_evidence, recovered_files = finalized_evidence(src, group, SEED, until, arms, regsha)
+        files.update(recovered_files)
     check(audit_only or done is not None, 'real completed stage required before publication')
     start = 10000 if group == 'pure' else 0
     steps = []
@@ -246,7 +251,8 @@ def collect(group, until, audit_only=False):
         terminal = checkpoint_identity(src/'checkpoints'/f'step_{until:05d}.pt',until,regsha,arms)
         check(terminal['state'] == done['state'], 'terminal payload/completion state')
     audit = dict(status='C_EXTENSION_CPU_PREPARATION' if audit_only else 'REAL_C_EXTENSION_CALIBRATION_VERIFIED',
-                 synthetic=False, complete_stage=done is not None, group=group, until=until,
+                 synthetic=False, complete_stage=stagepath.exists(), terminal_artifacts_verified=done is not None,
+                 terminal_evidence=terminal_evidence, group=group, until=until,
                  training_seed=SEED, N=4084, calibration_steps=steps, calibration_rows=total,
                  new_calibration_rows=len(source_means)*15000*len(arms), arms=arms,
                  selected=done['selected'] if done else None, parent_checkpoint=parent,
@@ -268,12 +274,16 @@ def collect(group, until, audit_only=False):
         write(output,audit)
         print('PREPARATION_ONLY',output,total)
         return audit
+    if terminal_evidence:
+        audit['status'] = 'REAL_C_EXTENSION_CALIBRATION_VERIFIED_STAGE_RECEIPT_MISSING'
     check(len(source_means) == 4, 'exactly four new full calibrations per 10k')
     target.mkdir(parents=True)
     for name,p in files.items():
         dst = target/name
         dst.parent.mkdir(parents=True,exist_ok=True)
         shutil.copyfile(p,dst)
+    if terminal_evidence:
+        write(target/'terminal_evidence.json',terminal_evidence)
     write(target/'references.json',references)
     write(target/'selected.json',done['selected'])
     ledger = read(initial/'resource_ledger.json')
@@ -314,8 +324,10 @@ def main():
     parser.add_argument('--group',required=True,choices=('m6','m7','m8','pure'))
     parser.add_argument('--until',required=True,type=int)
     parser.add_argument('--audit-only',action='store_true')
+    parser.add_argument('--recover-finalized-boundary',action='store_true',
+                        help='Independently capture finalized artifacts after a documented thermal receipt gap; no scheduler exit code is inferred')
     a=parser.parse_args()
-    collect(a.group,a.until,a.audit_only)
+    collect(a.group,a.until,a.audit_only,a.recover_finalized_boundary)
 
 
 if __name__=='__main__':
