@@ -1,0 +1,107 @@
+{
+  "scope": {
+    "ledger": {
+      "m": 7,
+      "N": 4084,
+      "E": 8168,
+      "NH": 68,
+      "ND": 1968,
+      "NA": 2048,
+      "protocol_id": "short-prefix-v1"
+    },
+    "precision": {
+      "matmul_tf32": false,
+      "cudnn_tf32": false,
+      "deterministic_algorithms": true,
+      "cudnn_deterministic": true,
+      "cudnn_benchmark": false
+    },
+    "model_paths": {
+      "var_source": "/home/liulu/projects/VAR-MAP-GATE0/third_party/VAR",
+      "vae_checkpoint": "/home/liulu/projects/VAR-MAP-GATE0/checkpoints/vae_ch160v4096z32.pth",
+      "vae_checkpoint_sha256": "7c3ec27ae28a3f87055e83211ea8cc8558bd1985d7b51742d074fb4c2fcf186c",
+      "var_checkpoint": "/home/liulu/projects/VAR-MAP-GATE0/checkpoints/var_d16.pth",
+      "var_checkpoint_sha256": "4f6151aad91c94e03e224dd7358d8389fa05301c0c291279566998efb54b0ecb",
+      "development_manifest": "/home/liulu/projects/VAR-MAP-GATE0/results/vae_reconstruction/imagenet100_m6_to_m10_rate_sweep/selected_samples.json",
+      "development_manifest_sha256": "33d2a4f13eb97bb1d47fca25df04d9ca4b7ebf0fdcefe7d9497c5a6e4830c243",
+      "split_manifest": "/home/liulu/projects/VAR-MAP-GATE0/manifests/split_manifest.json",
+      "split_manifest_sha256": "576ffc8db4d9ced560af66e55c185fcd2d1a078b9ffa9315b372ea15f2532959"
+    },
+    "decoder_state_sha256": "bf1d64bf8ff7eeda416032daa2ada1654fb37de2553235e85d364211ddfefad1",
+    "role": "calibration",
+    "snrs_db": [
+      1,
+      4,
+      7,
+      13,
+      19
+    ],
+    "seeds": [
+      4101,
+      4102,
+      4103
+    ],
+    "noise": {
+      "variance_per_real_coordinate": "10**(-snr_db/10)",
+      "digital_namespace": "SHORT-PREFIX-v1/N{N}/m{m}/ND{ND}/digital|image_id",
+      "continuous_namespace": "SHORT-PREFIX-v1/N{N}/m{m}/NA{NA}/continuous|image_id",
+      "VP_pair": "same source,SNR,seed,shape,standard_noise; different learned waveforms allowed"
+    },
+    "allowed_modes": [
+      7
+    ],
+    "cache_schema": "source/SNR/noise, F/B_TX/B_RX/G_RX float32, actual decoded class/status"
+  },
+  "bindings": {
+    "/home/liulu/projects/VAR_COMM/experiments/var-short-prefix-hybrid-20260923/protocol.json": "2f66d63be52d3eb7e64d5d617f14a3a094747163b8e267104db91231ea846dac",
+    "/home/liulu/projects/VAR_COMM/outputs/VAR-LATENT-ENHANCEMENT-20260917/stage_B_v2_repaired_20260921/decoder_gate.json": "b892e539dd7f2584a9ba0b04151cc36b03864087ce9d6ddddfa152bda67e99f4",
+    "/home/liulu/projects/VAR_COMM/outputs/VAR-LATENT-ENHANCEMENT-20260917/cache_v1/training_statistics.json": "f12ae7e5fc4a9aee0c164727f830f07da87fa166f2f1ff2ee1fb66dfb75efcc9",
+    "/home/liulu/projects/VAR_COMM/configs/next_scale_prior_diagnostic.yaml": "410eecb0e5c94b144b34b97a4d805f9f867f7d4f39b6697fbcfbd27e60c39033",
+    "/home/liulu/projects/VAR_COMM/configs/progressive_channel.yaml": "5be930411365fbbe5d1e8989ae371f639bb45e63e428125fe94d1eb72af2254a",
+    "/home/liulu/projects/VAR_COMM/experiments/var-short-prefix-hybrid-20260923/src/short_prefix/common.py": "cbcc4d98dc25e5ad47080e3c74219c8623ee3eb2d486bf53e7a7eb1cf61d49af",
+    "/home/liulu/projects/VAR_COMM/experiments/var-short-prefix-hybrid-20260923/src/short_prefix/protocol.py": "7e7c279bfd8f9a13dc317851f89c94fa4dba846257472a6c322efeee5c622e54",
+    "/home/liulu/projects/VAR_COMM/experiments/var-short-prefix-hybrid-20260923/src/short_prefix/models.py": "b96515330facea697973e718191100bd749502468b85abcff048aa4f01934679",
+    "/home/liulu/projects/VAR_COMM/src/var_comm/base_conditioning.py": "bcddb899b13d6a04be647ddb4a92e89000d1733e3af4d6091af64ec4447f3bb0",
+    "/home/liulu/projects/VAR_COMM/src/var_comm/study.py": "289e340c214a04d9bf2ffadd6c93fcbb77c11306f687624aa3dd358ec38d748e",
+    "/home/liulu/projects/VAR_COMM/src/var_comm/hybrid_training.py": "84c658997f6a8017e900579605445c550d0b739e4abf475b005aa0bbd0c81ef0",
+    "/home/liulu/projects/VAR_COMM/src/var_comm/whole_list.py": "ff8f21875909507886787b218c2e7461e5a7dd2242f83c4773fdced89b994a1c",
+    "/home/liulu/projects/VAR_COMM/src/var_comm/scale_channel.py": "35cae80a94d3997584342b6e4566a6cff53cf4914ca4745a59b0a9bba48c8145",
+    "/home/liulu/projects/VAR_COMM/src/var_comm/hybrid_correction.py": "2862c62a955222d812a5f8361e9eee73252eb2df6642194c85c57b6e862f02a0",
+    "/home/liulu/projects/VAR_COMM/src/var_comm/learned_prefix.py": "b076fb769eb1307597bee3fd57cf708472f57129a1d2200a0f75c49f801fc082",
+    "/home/liulu/projects/VAR_COMM/src/var_comm/weight_closure.py": "84d48dd7247d74d74a934e507f6a9ef3718172ba5087d5ffe8c9e2bf3177fc24",
+    "/home/liulu/projects/VAR_COMM/src/var_comm/whole_entropy.py": "5d08d2f8c218f0bdf5b6d2a8ca7b3aa729baa75e274531afbfd8f31c95b24a5b",
+    "/home/liulu/projects/VAR_COMM/src/var_comm/entropy.py": "f3adf956fba05d60e687472fa153e0bf684119ef6c8885a75fe4ea21962b2b2b",
+    "/home/liulu/projects/VAR_COMM/src/var_comm/mode_policies.py": "b5f5a00de7f0e3eee2f80958619e2e7a203e4bee5d02b607d672ca0581629f4b",
+    "/home/liulu/projects/VAR_COMM/src/var_comm/__init__.py": "c808deaa8398e26a5f437d96c06b3ab5d0f9111daf0e541409ab6f8a0a146a42",
+    "/home/liulu/projects/VAR_COMM/src/var_comm/online_timing.py": "2704ab691d5f5bf29abde69daf0a1e901ee256b6a92a3a893e6debf7da05ad19",
+    "/home/liulu/projects/VAR_COMM/src/var_comm/frozen_timing_adapters.py": "e15bebd5354e97125af07e15efd226e3dad4363d60733426f9cbcb6b89f6b3e6",
+    "/home/liulu/projects/VAR_COMM/src/var_comm/quality.py": "589d43a9dede2327c67d363f3b8b879cfb184e40e6a58b1aa2ae9b675d63a1a5",
+    "/home/liulu/projects/VAR_COMM/src/var_comm/prefix_learning_support.py": "8652dad77a112afdb51f7287f519e3bacfb8a7fe749878ee96ec214c00d271ba",
+    "/home/liulu/projects/VAR_COMM/src/var_comm/whole_frame.py": "8ff405c0b5aece03d7f67434c3b799ea15afe0277e2469ba2736d318365dc13a",
+    "/home/liulu/projects/VAR_COMM/src/var_comm/next_scale_prior.py": "568217086c94ee7607abc256415d705a11702ffcaaed9c79ca04d5e9a62da562",
+    "/home/liulu/projects/VAR_COMM/src/var_comm/failure_replay.py": "98d89f27cf38abd0824f4607e92654b55afdc49c5304c346c1afdacdc06b32a1",
+    "/home/liulu/projects/VAR_COMM/src/var_comm/progressive.py": "61821ad63d3b4cad2476f1d074ec3901a6b61c488d93db57bcebfda089a16ed9",
+    "/home/liulu/projects/VAR_COMM/src/var_comm/prefix_refinement.py": "8d8c06b0294df3efdc9f35f321683293eb7e2d0292b4d11accba533c4d621c1f",
+    "/home/liulu/projects/VAR_COMM/src/var_comm/prefix_training_data.py": "8b077284e9f9031f28db263ce4ecf0ef06757900fbe283aacdd11be5f6ab9c43",
+    "/home/liulu/projects/VAR_COMM/src/var_comm/whole_study.py": "61e00e7e7f2a66986ec477a000ce09faf461f1db7d8d3b65116ae3a856f5c818",
+    "/home/liulu/projects/VAR_COMM/experiments/var-latent-enhancement-20260917/src/latent_enhancement/qualify.py": "c7ec01d1eb2ae9edb4d44de0e7bb8715b13e1db799670b44155c8d8c785612c2",
+    "/home/liulu/projects/VAR_COMM/experiments/var-latent-enhancement-20260917/src/latent_enhancement/training.py": "fc3e59b48f7c5dda01d29f7a7f6ab7fddd0b339b4168a93a86badcec9b9012fb",
+    "/home/liulu/projects/VAR_COMM/experiments/var-latent-enhancement-20260917/src/latent_enhancement/__init__.py": "fc5c009b11f1a92dd3d36a28b2c40cad5eb74545d9efde0f504cdad44ceb419d",
+    "/home/liulu/projects/VAR_COMM/experiments/var-latent-enhancement-20260917/src/latent_enhancement/latent.py": "d556732b86cb83499c8912a2412a8858f599e1ddd58f28418a0f1889d2b705a1",
+    "/home/liulu/projects/VAR_COMM/experiments/var-latent-enhancement-20260917/src/latent_enhancement/runtime.py": "0c3e9e65b4e1a402865b77904c2aa74d2de5384d81e0a8a31278a8943f84c71f",
+    "/home/liulu/projects/VAR_COMM/experiments/var-latent-enhancement-20260917/src/latent_enhancement/pipeline.py": "8c861be19e8aff8f6805c229ea5ab5dfed60d8a4b48376d1a4745f0861a22823",
+    "/home/liulu/projects/VAR_COMM/experiments/var-latent-enhancement-20260917/src/latent_enhancement/cache.py": "9711f43050687a39f04bd3a73aef6d05de03d588ab114c7381ed9e8ddb7d3fbd",
+    "/home/liulu/projects/VAR_COMM/experiments/var-latent-enhancement-20260917/src/latent_enhancement/stage_a.py": "dc8f3e7fb169d02585502922a031e39d43a783dd4704454955d48a43b8321b3c",
+    "/home/liulu/projects/VAR_COMM/experiments/var-latent-enhancement-20260917/phase_b/src/latent_enhancement_b/common.py": "f5958d761e806e3887f91973ac39bff7710f14d1bc1676c9196ad7f90facf335",
+    "/home/liulu/projects/VAR_COMM/experiments/var-latent-enhancement-20260917/phase_b/src/latent_enhancement_b/qualify.py": "6ec227b8120a9d7c513406d07a8832d4c230aea617aeb29d6e756c746fbfceae",
+    "/home/liulu/projects/VAR_COMM/experiments/var-latent-enhancement-20260917/phase_b/src/latent_enhancement_b/rx_cache.py": "0b6c48c1aee553b2b09c044fa2e78b60c39a406cf238516d1756ee2a2d984371",
+    "/home/liulu/projects/VAR_COMM/experiments/var-latent-enhancement-20260917/phase_b/src/latent_enhancement_b/__init__.py": "37d3703238a1c28f9f48174229b8080ce21731542bacd6c7091d97cf379ba257",
+    "/home/liulu/projects/VAR_COMM/experiments/var-latent-enhancement-20260917/phase_b/src/latent_enhancement_b/train.py": "9468cd29fe9c4a7e8eb410962b61c024cd510020837bf342b1384591c1898073",
+    "/home/liulu/projects/VAR_COMM/experiments/var-latent-enhancement-20260917/phase_b/src/latent_enhancement_b/model.py": "2e8e67cccc159d007cb9efa41db7f389109b68ea99b2fafbd6aa350eb34ddcf7",
+    "/home/liulu/projects/VAR_COMM/experiments/var-latent-enhancement-20260917/phase_b/src/latent_enhancement_b/phy_cache.py": "cf629172c4401896ac600710685d65f7989b3ce16efa17bf5feed29517280581",
+    "/home/liulu/projects/VAR_COMM/experiments/var-latent-enhancement-20260917/phase_b/src/latent_enhancement_b/data.py": "06c833d4a71cd3d84a3820cc3dc15aefdac98d099789ee74012a1d4d115b26d7",
+    "/home/liulu/projects/VAR_COMM/experiments/var-latent-enhancement-20260917/phase_b/src/latent_enhancement_b/evaluate.py": "b8c241bfb0b0bb3e3ea7d1357374876efe4fe0efc2a1bb6fd50db2792b7b63bf",
+    "/home/liulu/projects/VAR_COMM/experiments/var-latent-enhancement-20260917/phase_b/src/latent_enhancement_b/pipeline.py": "805b75fc9c28ff401d6b208146785fc35c01d7a2989010def80d17a7c9246e61",
+    "/home/liulu/projects/VAR_COMM/experiments/var-short-prefix-hybrid-20260923/src/short_prefix/cache.py": "926a13dc3ee31f2760e89bd50833740b042db0e751593a6262ed6a47a36cf71c"
+  }
+}
