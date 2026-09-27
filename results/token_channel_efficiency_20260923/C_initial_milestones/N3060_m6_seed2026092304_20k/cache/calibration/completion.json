@@ -1,0 +1,73 @@
+{
+  "status": "REAL_PHY_AND_LATENT_CACHE_COMPLETE",
+  "sources": 1000,
+  "frames": 15000,
+  "scope": {
+    "ledger": {
+      "m": 6,
+      "N": 3060,
+      "E": 6120,
+      "NH": 68,
+      "ND": 1200,
+      "NA": 1792,
+      "protocol_id": "short-prefix-v1"
+    },
+    "precision": {
+      "matmul_tf32": false,
+      "cudnn_tf32": false,
+      "deterministic_algorithms": true,
+      "cudnn_deterministic": true,
+      "cudnn_benchmark": false
+    },
+    "model_paths": {
+      "var_source": "/home/liulu/projects/VAR-MAP-GATE0/third_party/VAR",
+      "vae_checkpoint": "/home/liulu/projects/VAR-MAP-GATE0/checkpoints/vae_ch160v4096z32.pth",
+      "vae_checkpoint_sha256": "7c3ec27ae28a3f87055e83211ea8cc8558bd1985d7b51742d074fb4c2fcf186c",
+      "var_checkpoint": "/home/liulu/projects/VAR-MAP-GATE0/checkpoints/var_d16.pth",
+      "var_checkpoint_sha256": "4f6151aad91c94e03e224dd7358d8389fa05301c0c291279566998efb54b0ecb",
+      "development_manifest": "/home/liulu/projects/VAR-MAP-GATE0/results/vae_reconstruction/imagenet100_m6_to_m10_rate_sweep/selected_samples.json",
+      "development_manifest_sha256": "33d2a4f13eb97bb1d47fca25df04d9ca4b7ebf0fdcefe7d9497c5a6e4830c243",
+      "split_manifest": "/home/liulu/projects/VAR-MAP-GATE0/manifests/split_manifest.json",
+      "split_manifest_sha256": "576ffc8db4d9ced560af66e55c185fcd2d1a078b9ffa9315b372ea15f2532959"
+    },
+    "decoder_state_sha256": "bf1d64bf8ff7eeda416032daa2ada1654fb37de2553235e85d364211ddfefad1",
+    "role": "calibration",
+    "snrs_db": [
+      1,
+      4,
+      7,
+      13,
+      19
+    ],
+    "seeds": [
+      4101,
+      4102,
+      4103
+    ],
+    "noise": {
+      "variance_per_real_coordinate": "10**(-snr_db/10)",
+      "digital_namespace": "SHORT-PREFIX-v1/N{N}/m{m}/ND{ND}/digital|image_id",
+      "continuous_namespace": "SHORT-PREFIX-v1/N{N}/m{m}/NA{NA}/continuous|image_id",
+      "VP_pair": "same source,SNR,seed,shape,standard_noise; different learned waveforms allowed"
+    },
+    "allowed_modes": [
+      6
+    ],
+    "cache_schema": "source/SNR/noise, F/B_TX/B_RX/G_RX float32, actual decoded class/status"
+  },
+  "hashes": {
+    "shard_0000.pt": "9ae6a831dc2424a2ed1910beb5b1e6034be796b92482e1c506ba323b6f92259b",
+    "shard_0001.pt": "96e62e20c32f535b06f584b670d0235f2e3e5bf72c55fb799b505fe26832c824",
+    "shard_0002.pt": "dbce6de083a317dd276768622900c23fbd4b5364101051dd1f323cbfcb5686e9",
+    "shard_0003.pt": "ba9702c0b90067166379db5507563e422f3bbad05a4f8e1a4c15ea9087bbaea6",
+    "shard_0004.pt": "a96751c89177200bf84bd80a41b3544848c5c25f929d9efd67c66972fb020155",
+    "shard_0005.pt": "bc55921f09cdef4698798b439805e12410ab7f086df3f5a7cdc1fe761aaee0b5",
+    "shard_0006.pt": "d77a430f1a701bd47e802ef34ac2a07931205b6273729c3bd84477bcb0cb4b7c",
+    "shard_0007.pt": "ec0be62e63257cf615036804c721759afc8d388d2729cfd9554a464610980e86",
+    "shard_0008.pt": "fefebadcddceb2740f5b2d799890b8e853c290ec1ad1c7b034ec9bd3d9378e58",
+    "shard_0009.pt": "1480bf41926b6179f1ceea61a24f522cbef8f6112f7dda1bda6b8352012ea3f3"
+  },
+  "registration_sha256": "8b270711434a1231641deca661371a94706be995f9f245dad0aa326da7d21a8a",
+  "seconds": 426.6538031101227,
+  "synthetic": false
+}
