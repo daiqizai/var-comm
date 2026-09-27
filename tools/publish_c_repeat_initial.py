@@ -61,9 +61,17 @@ def validate_scope(reg, group, seed):
           'repeat data/channel RNG lineage')
 
 
+def completion_is_real_schema(done, arms):
+    # Original short_prefix.train omits this field; scoped C_train writes it.
+    # Real provenance is established by bound source, qualification and checkpoints.
+    if 'synthetic' in done:
+        return done['synthetic'] is False
+    return arms in (['H6-V', 'H6-P'], ['H8-V'])
+
+
 def validate_boundary(done, regsha, arms):
     check(done['status'] == 'REGISTERED_MILESTONE_COMPLETE_NOT_CONVERGENCE' and
-          done['synthetic'] is False and done['registration_sha256'] == regsha and
+          completion_is_real_schema(done, arms) and done['registration_sha256'] == regsha and
           done['state']['step'] == done['state']['last_full'] == 20000 and
           done['state']['updates'] == {a:20000 for a in arms} and
           set(done['selected']) == set(arms), 'complete real initial paired/single boundary')

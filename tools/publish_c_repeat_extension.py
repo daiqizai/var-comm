@@ -36,7 +36,7 @@ def checkpoint_path(src,group,step):
 
 def validate_boundary(done,regsha,arms,until):
     check(done['status']=='REGISTERED_MILESTONE_COMPLETE_NOT_CONVERGENCE' and
-          done['synthetic'] is False and done['registration_sha256']==regsha and
+          initial.completion_is_real_schema(done,arms) and done['registration_sha256']==regsha and
           done['state']['step']==done['state']['last_full']==until and
           done['state']['updates']=={a:until for a in arms} and
           set(done['selected'])==set(arms),'complete real repeat extension boundary')

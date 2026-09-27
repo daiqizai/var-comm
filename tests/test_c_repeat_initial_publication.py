@@ -106,5 +106,22 @@ class RepeatPublicationTests(unittest.TestCase):
         with self.assertRaises(ValueError):p.validate_pure_rows([row],[{'image_id':'a'}],[1],[4101])
 
 
+
+    def test_original_hybrid_completion_without_synthetic_field(self):
+        for arms in (['H6-V','H6-P'],['H8-V'],['P4084']):
+            x=dict(status='REGISTERED_MILESTONE_COMPLETE_NOT_CONVERGENCE',
+                   registration_sha256='reg',state=dict(step=20000,last_full=20000,
+                   updates={a:20000 for a in arms}),selected={a:{} for a in arms})
+            if arms==['P4084']:
+                with self.assertRaises(ValueError):p.validate_boundary(x,'reg',arms)
+            else:
+                p.validate_boundary(x,'reg',arms)
+            for value in (True,None,0,'false'):
+                x['synthetic']=value
+                with self.assertRaises(ValueError):p.validate_boundary(x,'reg',arms)
+            x['synthetic']=False
+            p.validate_boundary(x,'reg',arms)
+
+
 if __name__=='__main__':
     unittest.main()

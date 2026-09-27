@@ -107,4 +107,21 @@ class RepeatExtensionPublicationTests(unittest.TestCase):
             self.assertEqual(a['status'],'C_REPEAT_EXTENSION_CPU_PREPARATION_ONLY')
 
 
+
+    def test_original_hybrid_completion_without_synthetic_field(self):
+        for arms in (['H6-V','H6-P'],['H8-V'],['P4084']):
+            x=dict(status='REGISTERED_MILESTONE_COMPLETE_NOT_CONVERGENCE',
+                   registration_sha256='reg',state=dict(step=30000,last_full=30000,
+                   updates={a:30000 for a in arms}),selected={a:{} for a in arms})
+            if arms==['P4084']:
+                with self.assertRaises(ValueError):p.validate_boundary(x,'reg',arms,30000)
+            else:
+                p.validate_boundary(x,'reg',arms,30000)
+            for value in (True,None,0,'false'):
+                x['synthetic']=value
+                with self.assertRaises(ValueError):p.validate_boundary(x,'reg',arms,30000)
+            x['synthetic']=False
+            p.validate_boundary(x,'reg',arms,30000)
+
+
 if __name__=='__main__':unittest.main()
