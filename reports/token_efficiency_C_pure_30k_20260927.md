@@ -1,0 +1,17 @@
+# C pure：30k 延长校准结果与原阶段回执缺口（2026-09-27）
+
+唯一登记臂 P4084 完成总30,000次更新，包含继承的历史10,000次更新。原调度器正式登记 `extend=false`，selected保留27,500步、utility 0.016179145597014576。30k utility退步至0.01625360535796111，完整保留。末两段改善+0.510203%/−0.460221%，不满足连续两段均>=0.2%的原条件；规则停止不证明理论收敛。
+
+结果位于 `results/token_channel_efficiency_20260923/C_extensions/pure_seed2026092304_until30000`。本次新增22.5k/25k/27.5k/30k四轮60,000条校准记录、逐源均值、SNR分项、九轮曲线和两张SVG。初始10k至20k五轮75,000条由已发布索引和原CSV SHA引用。CPU发布器重审九轮135,000条完整source/SNR/noise/method键、公式、均值、全历史选模和正式决策。这些记录复用既有特征缓存，不代表新增独立PHY传输或development质量验收。
+
+原阶段 `C_N4084_pure_seed2026092304_until30000` 缺少调度回执。外层3402646/start113579629于05:50:01 UTC记录thermal安全停止；内层3402892/start113584789于05:50:03记录传播后的requested_stop，两个采样均为81C且软件热降频开启。05:52:47 UTC完整30k校准、终端checkpoint、selected、completion和MILESTONE_COMPLETE已落盘；原外层stopping分支在归档stage前退出。原调度器重启3407067/start113657625后依据完整completion作出停止决策，并进入N3060/m6。上述进程仅为历史证据，不能据此启动或恢复旧PID。
+
+本次显式终端证据核验不补造原stage或退出码。发布状态为 `REAL_C_EXTENSION_CALIBRATION_VERIFIED_STAGE_RECEIPT_MISSING`、`complete_stage=false`、`terminal_artifacts_verified=true`、`process_returncode=null`。完整原launch/stop/log、重启登记、终端状态和哈希均封存；原实验源码与调度outputs未改。m6/m7缺口及m8完整原回执分别保留。
+
+首次CPU发布尝试在创建结果目录前拒绝requested_stop，日志存于outputs监测目录的 `C_pure_30000_publication_attempt1_reason_schema.log`。独立、未绑定的tools/audit_c_terminal_boundary.py补充接受外层真实thermal先发生、随后内层requested_stop且双方均有热证据的传播路径；拒绝相反或相同时间、无热标志、错误进程和非thermal外层。原调度器的信号传播与stopping逻辑未修改。这是发布核验器的原因字段覆盖不足，不是新增GPU失败；对应回归测试覆盖接受与拒绝条件。
+
+selected checkpoint SHA为cba6190cabff71d2e6906644025a4769a5c2c46ec492bc8fc8d275faa085778af；terminal30k SHA为5b86a9f20cfa6b7c53e42bf23ae78433a7114dca61b47c32c0891ed0f2352896。20k parent SHA为1fd1c1bab1a268af07bf9a096eecd5a478c6d805c8d220aa7e79c8c2ddec8836，registration SHA为2536a256d42bd2e9beb1214dd8a00bb1723b3859f01cabd9f7cff677fd0ed431。63项绑定、10份校准tensor SHA以及真实20k/30k CPU checkpoint的填充optimizer、模型和恢复状态通过核验。训练大tensor只保留原loader核验范围，发布器没有重哈希全部训练tensor。历史continuous_grid的P4084 10k结果属于独立lineage，未覆盖。
+
+N4084全部为连续信道uses；source bits不适用，数字控制/FEC/coded slots均为0。body_crc_ok=not_applicable，header_ok=1仅为无头序列化约定。E8168为登记约束，非本校准新增逐帧实测能量；训练/校准秒数不等于完整在线TX/RX时间。
+
+N3060/另两个训练seed、selected真实development评测/能量/在线计时、诊断、四个历史GPU worker及最终全方法配对报告仍待完成。图像bootstrap与训练seed变异分开，新holdout和内容选择器继续暂缓。

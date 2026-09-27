@@ -24,6 +24,20 @@ class TerminalBoundaryEvidenceTests(unittest.TestCase):
         bad=copy.deepcopy(args);bad[1]['hardware']['software_thermal_slowdown']=False
         with self.assertRaises(ValueError):validate_thermal_sequence(*bad)
 
+    def test_propagated_outer_thermal_stop_requires_ordered_evidence(self):
+        args=self.sequence()
+        args[1]['reason']='requested_stop'
+        args[1]['hardware']=dict(args[1]['hardware'],time=3.2)
+        validate_thermal_sequence(*args)
+        for position,field,value in [(3,'reason','requested_stop'),(3,'process',{'pid':9})]:
+            bad=copy.deepcopy(args);bad[position][field]=value
+            with self.assertRaises(ValueError):validate_thermal_sequence(*bad)
+        for stamp in [3.2,3.3]:
+            bad=copy.deepcopy(args);bad[3]['hardware']['time']=stamp
+            with self.assertRaises(ValueError):validate_thermal_sequence(*bad)
+        bad=copy.deepcopy(args);bad[3]['hardware']['software_thermal_slowdown']=False
+        with self.assertRaises(ValueError):validate_thermal_sequence(*bad)
+
     def test_no_recovery_from_partial_or_extending_artifacts(self):
         with tempfile.TemporaryDirectory() as td:
             p=Path(td)/'checkpoint';p.write_bytes(b'engineering fixture only')

@@ -21,8 +21,12 @@ def validate_artifacts(done, status, latest, decision, until, arms, regsha):
           'only finalized calibration boundary may be independently captured')
 
 def validate_thermal_sequence(launch, stop, outer, outer_stop, resumed, completed_time, decision_time):
-    check(stop['process']==launch['process'] and stop['reason']=='thermal',
-          'inner thermal identity')
+    check(stop['process']==launch['process'] and
+          stop['reason'] in ('thermal','requested_stop'), 'inner thermal identity')
+    if stop['reason']=='requested_stop':
+        check(outer_stop['reason']=='thermal' and
+              outer_stop['hardware']['time'] < stop['hardware']['time'],
+              'requested inner stop requires earlier enclosing thermal stop')
     check(outer_stop['process']==outer['process'] and outer_stop['reason']=='thermal',
           'outer thermal identity')
     check(outer['command'][3:]==['token_efficiency.C_followups'] and
