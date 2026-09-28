@@ -123,5 +123,26 @@ class RepeatPublicationTests(unittest.TestCase):
             p.validate_boundary(x,'reg',arms)
 
 
+    def test_original_f_cache_registration_uses_historical_snapshot(self):
+        old = dict(config_sha256='a'*64,image_manifest_sha256='b'*64,
+                   source_snapshot={'/historical/cache.py':'c'*64},
+                   precision='float32',old_fp16_fhat_used=False)
+        self.assertEqual(p.cache_registration_bindings(old,'pure'),{})
+        for change in [dict(precision='float16'),dict(old_fp16_fhat_used=True),
+                       dict(old_fp16_fhat_used=0),dict(source_snapshot={}),
+                       dict(source_snapshot={'x':'bad'}),dict(config_sha256=None),
+                       dict(bindings={'x':'d'*64})]:
+            with self.assertRaises(ValueError):
+                p.cache_registration_bindings(dict(old,**change),'pure')
+
+    def test_hybrid_cache_cannot_skip_execution_binding_schema(self):
+        for group in ('m6','m8'):
+            b={'cache.py':'c'*64}
+            self.assertEqual(p.cache_registration_bindings({'bindings':b},group),b)
+            for reg in [{},{'bindings':{}},{'source_snapshot':{'cache.py':'c'*64}}]:
+                with self.assertRaises(ValueError):
+                    p.cache_registration_bindings(reg,group)
+
+
 if __name__=='__main__':
     unittest.main()

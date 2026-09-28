@@ -165,6 +165,32 @@ def boundary(src, command, group, seed, regsha, allow_gap):
         explanation='Verified terminal assets after original nested thermal pause; no scheduler receipt, exit code or finalization reconstructed.'),files
 
 
+def cache_registration_bindings(cache_reg, group):
+    """Hybrid caches bind active sources; original F receipts keep historical snapshots.
+
+    The caller first verifies the complete original F registration against the
+    immutable first-seed publication. Historical snapshot paths may predate the
+    repository migration and are not relabelled as current execution bindings.
+    """
+    if group == 'pure':
+        check('bindings' not in cache_reg and
+              cache_reg.get('precision') == 'float32' and
+              cache_reg.get('old_fp16_fhat_used') is False,
+              'original F cache registration schema and precision')
+        snapshot = cache_reg.get('source_snapshot')
+        check(isinstance(snapshot, dict) and bool(snapshot),
+              'original F historical source snapshot')
+        hashes = [cache_reg.get('config_sha256'),
+                  cache_reg.get('image_manifest_sha256'), *snapshot.values()]
+        check(all(isinstance(h, str) and len(h) == 64 and
+                  all(c in '0123456789abcdef' for c in h) for h in hashes),
+              'original F historical identity hashes')
+        return {}
+    check(group in ('m6', 'm8') and isinstance(cache_reg.get('bindings'), dict)
+          and bool(cache_reg['bindings']), 'hybrid cache execution bindings required')
+    return cache_reg['bindings']
+
+
 def audit_inputs(group, seed):
     src,command,target=scope(group,seed)
     regpath=src/'registration.json';reg=read(regpath);regsha=digest(regpath)
@@ -201,7 +227,7 @@ def audit_inputs(group, seed):
         p=Path(m['source'])
         check(digest(p)==m['sha256']==digest(base/n), 'original cache receipt changed')
         if p.name=='registration.json':
-            bindings.update(read(p)['bindings'])
+            bindings.update(cache_registration_bindings(read(p),group))
         if p.name.startswith('shard_'):
             role=p.parent.name;shards[role]+=1;meta=read(p)
             if group!='pure':
