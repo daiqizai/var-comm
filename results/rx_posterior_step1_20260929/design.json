@@ -1,0 +1,93 @@
+{
+  "study": "RX-POSTERIOR-STEP1-20260929",
+  "stage": "mechanism_diagnostic_not_finite_N_communication",
+  "no_training": true,
+  "new_holdout": false,
+  "decoder": "existing stage A selected Dc",
+  "latent_shape": [
+    32,
+    16,
+    16
+  ],
+  "calibration_sources": 1000,
+  "calibration_subset": "first 200 in original calibration cache order, frozen before token-difficulty results",
+  "calibration_noise_seeds": [
+    4101,
+    4102,
+    4103
+  ],
+  "development_sources": 100,
+  "development_noise_seeds": [
+    2001,
+    2002,
+    2003
+  ],
+  "oracle_snrs_db": [
+    -5,
+    -2,
+    0,
+    1,
+    4,
+    7,
+    13
+  ],
+  "difficulty_targets": [
+    0.9,
+    0.7,
+    0.5,
+    0.3
+  ],
+  "difficulty_scales": [
+    8,
+    9,
+    10
+  ],
+  "main_mechanism_scales": [
+    7,
+    8,
+    9,
+    10
+  ],
+  "static_pseudocount": 0.5,
+  "lambda": 1,
+  "MAP_only": true,
+  "CFG": 0,
+  "unconditional_label": 1000,
+  "standard_deviation_floor": 0.000001,
+  "variance_floor": 1e-12,
+  "engineering_calibration_indices": [
+    0,
+    100,
+    200,
+    300
+  ],
+  "zero_noise_prior_min_accuracy": 0.99,
+  "official_forward_absolute_tolerance": 0.0002,
+  "bootstrap_resamples": 10000,
+  "bootstrap_seed": 20260929,
+  "confidence": 0.95,
+  "reliability_bins": 15,
+  "snr_definition": "gamma=10^(dB/10), complex signal energy 2, complex AWGN energy 2/gamma, each real variance=1/gamma; eta=10^(-dB/20)",
+  "equivalent_N": 4096,
+  "actual_channel_simulation": false,
+  "energy_note": "per-coordinate calibration standardization gives ensemble expected sum(x^2)=8192, not exact per-frame normalization; 4096-vs4084 and omitted gain overhead make P4084 comparison approximate",
+  "comparison_primary_P4084": "P4084_N4084_seed2026092304 (calibration selected 27500); original P4084 10000 separately retained",
+  "gates": {
+    "C_low_snr_points_min": 2,
+    "C_delta_LPIPS_max": -0.02,
+    "C_delta_DINO_min": 0.02,
+    "C_CI_excludes_zero": true,
+    "C_O1_vs_P4084_1db": "LPIPS lower OR DINO higher; approximate comparison",
+    "M1_min_points": 2,
+    "M1_acc_gain_min": 0.02,
+    "M1_logp_gain_positive": true,
+    "M1_both_controls": true,
+    "M2_gain_retention_min": 0.5,
+    "M3_min_points": 2,
+    "M3_delta_LPIPS_max": -0.01,
+    "M3_delta_DINO_min": 0.01,
+    "M3_PSNR_drop_max_db": 0.3
+  },
+  "deadline": "3 working days from 2026-09-29; no automatic expansion to step 2",
+  "development_gate": "freeze final config including calibration difficulty levels before new development access; all engineering checks must pass"
+}

@@ -1,0 +1,64 @@
+{
+  "definition": "gamma=Es/E|complex_noise|^2; Es=2; E|complex_noise|^2=2/gamma; per-real variance=1/gamma; eta=10^(-dB/20)",
+  "F_dimensions": 8192,
+  "linear_analog_complex_uses": 4096,
+  "comparison_P4084_uses": 4084,
+  "budget_ratio_4096_over_4084": 1.0029382957884427,
+  "budget_ratio_db": 0.012742145529017186,
+  "point_table": [
+    {
+      "snr_db": -5,
+      "eta": 1.7782794100389228,
+      "real_noise_variance": 3.1622776601683795,
+      "complex_noise_energy": 6.324555320336759
+    },
+    {
+      "snr_db": -2,
+      "eta": 1.2589254117941673,
+      "real_noise_variance": 1.5848931924611136,
+      "complex_noise_energy": 3.169786384922227
+    },
+    {
+      "snr_db": 0,
+      "eta": 1.0,
+      "real_noise_variance": 1.0,
+      "complex_noise_energy": 2.0
+    },
+    {
+      "snr_db": 1,
+      "eta": 0.8912509381337456,
+      "real_noise_variance": 0.7943282347242815,
+      "complex_noise_energy": 1.588656469448563
+    },
+    {
+      "snr_db": 4,
+      "eta": 0.6309573444801932,
+      "real_noise_variance": 0.3981071705534972,
+      "complex_noise_energy": 0.7962143411069944
+    },
+    {
+      "snr_db": 7,
+      "eta": 0.44668359215096315,
+      "real_noise_variance": 0.19952623149688797,
+      "complex_noise_energy": 0.39905246299377595
+    },
+    {
+      "snr_db": 13,
+      "eta": 0.22387211385683395,
+      "real_noise_variance": 0.05011872336272722,
+      "complex_noise_energy": 0.10023744672545444
+    }
+  ],
+  "evidence": {
+    "experiments/var-short-prefix-hybrid-20260923/EXPERIMENT_PLAN.md": "d44551664e5344deb979d176aeb400931fcc82224da216eed4c04a18cdfb7f84",
+    "experiments/token_channel_efficiency_20260923/protocol.json": "5889d7d0fbd7fe5e93294bc8913592ec96fe09061a261edc44a52d5cd1e307b0",
+    "experiments/token_channel_efficiency_20260923/src/token_efficiency/execution.py": "c634477d2d563086331ecf81389862bc4a1fea87b4ecf9057fb7b696126220db",
+    "experiments/token_channel_efficiency_20260923/src/token_efficiency/phy.py": "1afb47603d5bee5a0b5d393fd4c6934f1ef3e7e1ac8312c98fa7c9a42d0e8293"
+  },
+  "limitations": [
+    "No conversion change is required under the actual project convention.",
+    "Calibration standardization ensures ensemble expected energy, not per-frame fixed energy.",
+    "No frame-gain side information, no PCA truncation; N4096 vs N4084 comparison remains approximate.",
+    "Oracle/true-prefix diagnostic is not a deployable receiver or finite-N communication result."
+  ]
+}
