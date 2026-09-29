@@ -1,0 +1,3 @@
+# Unified v3 frame schema
+
+Lossless numeric projection of the previously sealed A/B result objects. A: 4200 rows. B: 12000 TF rows plus 10500 CL decisions exported once as tok and once as fuse = 33000 rows. Total 37200 rows, not independent transmissions or noise samples. TF output=none has blank image metrics; original-token CL accuracy and path-conditioned CL accuracy are separate columns. A has no token decision metrics. O1 is oracle-only. Profiles and calibration-frozen parameters remain explicit. All B decisions use beta=0; positive-beta probability-only diagnostics remain in the original B source objects and tables.

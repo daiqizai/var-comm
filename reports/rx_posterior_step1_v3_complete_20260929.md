@@ -124,4 +124,6 @@ M2路径准确率主统计为十尺度等权平均，另报token数加权值。�
 - B冻结config SHA：ae4e611f98e0a01f2c44046162cd332c1a658c29d1bd6412014c4ee957445dad。
 - B完成回执SHA：801f74cfc7ad915b4cd083e6f7ba59a0dc829d2b3f15d767336f80ed1d7e9db9。
 
+[执行单统一逐帧CSV：含task/prior/output/eta及全部逐尺度指标](../results/rx_posterior_step1_20260929/revision_v3_frame_schema/index.json)。A为4200条；B的tok/fuse拆行后为33000条，合计37200条，和原22500条B宽表是同一批推断。
+
 [全部数据、配对区间、校准与图表索引](../results/rx_posterior_step1_20260929/revision_v3_B/index.json)。根工程与独立远端检查以实际receipt为准，报告文件本身不替代验收。
