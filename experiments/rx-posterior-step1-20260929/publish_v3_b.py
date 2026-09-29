@@ -4,6 +4,7 @@ os.environ['CUDA_VISIBLE_DEVICES']=''
 import json,hashlib,gzip,csv,shutil,time,io
 from pathlib import Path
 import numpy as np
+from rx_v3_archive import pack,unpack,original_bytes
 ROOT=Path(__file__).resolve().parents[2];RAW=ROOT/'outputs/RX-POSTERIOR-STEP1-20260929/revision_v3'
 DEST=ROOT/'results/rx_posterior_step1_20260929/revision_v3_B'
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
@@ -40,6 +41,18 @@ def main():
             level=next(x for x in cfg['levels'] if x['name']==row['level'])
             assert row['eta']==level['eta'] and row['snr_equiv_db']==level['snr_db']
             assert len(row['scales'])==10
+            for metrics in [row['scales'],row['probability_only']]:
+                assert len(metrics) in [0,10]
+                for scale,m in enumerate(metrics):
+                    n=[1,4,9,16,25,36,64,100,169,256][scale]
+                    assert len(m['bins'])==15 and 0<=m['acc']<=1 and np.isfinite(m['logp_true']) and m['logp_true']<=1e-9
+                    assert np.isfinite(m['entropy']) and m['entropy']>=-1e-9
+                    assert sum(b['count'] for b in m['bins'])==n
+                    assert abs(sum(b['correct_sum'] for b in m['bins'])/n-m['acc'])<1e-12
+                    for b in m['bins']:
+                        assert 0<=b['correct_sum']<=b['count'] and 0<=b['confidence_sum']<=b['count']+1e-5
+                    if 'path_accuracy' in m:assert 0<=m['path_accuracy']<=1
+
             vals=dict(source_index=i,source_id=row['source_id'],level=row['level'],snr_db=row['snr_equiv_db'],noise_seed=row['noise_seed'],
                       mode=row['mode'],profile=row['profile'],lambda_=row['lambda_'],beta=0,preprocessing_sha256=row['preprocessing_sha256'])
             for k,m in enumerate(row['scales'],1):
@@ -110,15 +123,39 @@ def main():
         bootstrap=dict(resamples=10000,seed=20260929,unit='source image after 3-noise averaging',interval='pointwise percentile 95%',training_seed_variation=False))
     DEST.mkdir(parents=True);(DEST/'decision.json').write_text(json.dumps(result,indent=2)+'\n')
     table(DEST/'summary.csv',summary);table(DEST/'paired.csv',paired)
-    # Gzip deterministic source cells preserve every probability/reliability field and all source/run identities.
+    # Pre-existing A shares exactly the same original sources and Gaussian draws.
+    # These low-SNR baseline contrasts are secondary and cannot alter M1-M3.
+    acells=[sealed(RAW/'A_cells'/f'{i:03d}.json') for i in range(100)]
+    baseline_pairs=[];baseline_means=[]
+    for level in cfg['levels']:
+        if not level['name'].startswith('target_'):continue
+        name=level['name'];snr=level['snr_db']
+        for baseline in ['B1','O1']:
+            for metric in ['psnr_db','lpips_alex','dino_cosine']:
+                ref=np.asarray([np.mean([x[metric] for x in d['rows'] if x['method']==baseline and x['snr_equiv_db']==snr]) for d in acells])
+                assert all(acells[i]['source_identity']==pop[i] for i in range(100))
+                v=arrays[(name,'CL','V_decision','fused_image_'+metric)];delta=v-ref;lo,hi=np.quantile(weights@delta,[.025,.975])
+                baseline_pairs.append(dict(level=name,snr_db=snr,contrast='V_fuse-'+baseline,metric=metric,mean=float(delta.mean()),lo=float(lo),hi=float(hi),role='secondary_not_M1_M2_M3'))
+                baseline_means.append(dict(level=name,snr_db=snr,method=baseline,metric=metric,mean=float(ref.mean())))
+    table(DEST/'low_SNR_A_baseline_pairs.csv',baseline_pairs);table(DEST/'low_SNR_A_baseline_means.csv',baseline_means)
+    (DEST/'A_reference_identity.json').write_text(json.dumps(dict(A_index_sha256=sha(ROOT/'results/rx_posterior_step1_20260929/revision_v3_A/index.json'),A_completion_sha256=sha(RAW/'A_completion.json'),same_source_and_noise=True,role='secondary_only_not_parameter_selection'),indent=2)+'\n')
+
+    # Plain JSON, sparse zero bins and compact spacing; exact original byte reconstruction.
     am=[]
     for p,d in archive:
-        target=DEST/(p.stem+'.json.gz')
-        with target.open('wb') as f:
-            with gzip.GzipFile(fileobj=f,mode='wb',mtime=0) as z:z.write(p.read_bytes())
-        assert hashlib.sha256(gzip.decompress(target.read_bytes())).hexdigest()==d
-        am.append(dict(file=target.name,uncompressed_sha256=d,uncompressed_bytes=p.stat().st_size))
+        target=DEST/('source_'+p.stem+'.json');packed=pack(read(p))
+        target.write_text(json.dumps(packed,separators=(',',':'),allow_nan=False)+'\n')
+        restored=original_bytes(unpack(read(target)));assert hashlib.sha256(restored).hexdigest()==d
+        am.append(dict(file=target.name,original_sha256=d,original_bytes=p.stat().st_size,encoding='plain_JSON_sparse_bins_v1'))
     (DEST/'source_archive_manifest.json').write_text(json.dumps(am,indent=2)+'\n')
+    calibration_archive=[]
+    for kind,bound in [('grid',sel['grid_cells']),('rho',cfg['rho_cells'])]:
+        for original,digest in sorted(bound.items()):
+            original=Path(original);assert sha(original)==digest;target=DEST/(kind+'_'+original.stem+'.json')
+            target.write_text(json.dumps(pack(read(original)),separators=(',',':'),allow_nan=False)+'\n')
+            restored=original_bytes(unpack(read(target)));assert hashlib.sha256(restored).hexdigest()==digest
+            calibration_archive.append(dict(file=target.name,kind=kind,original_sha256=digest,original_bytes=original.stat().st_size,encoding='plain_JSON_sparse_bins_v1'))
+    (DEST/'calibration_archive_manifest.json').write_text(json.dumps(calibration_archive,indent=2)+'\n')
     for label,data in [('frames',frames),('source_means',source_rows)]:
         for start in range(0,len(data),5000):table(DEST/f'{label}_{start//5000:03d}.csv',data[start:start+5000])
     reliability=[];ece=[]
@@ -177,8 +214,24 @@ def main():
     axes.flat[-1].set_axis_off()
     fig.suptitle('V CL probability reliability against original encoding tokens (not M2 path target)')
     fig.tight_layout();fig.savefig(DEST/'V_CL_probability_reliability.svg');fig.savefig(RAW/'V_CL_probability_reliability.png',dpi=140);plt.close(fig)
+    for family,metrics,thresholds in [
+        ('M1',[('TF_band_accuracy','TF accuracy gain'),('TF_band_logp','TF true-token logp gain')],[.02,0]),
+        ('M2',[('path_accuracy','CL path accuracy gain'),('latent_squared_error','CL latent squared-error change')],[0,0]),
+        ('M3',[('fused_image_psnr_db','Fused PSNR change'),('fused_image_lpips_alex','Fused LPIPS change'),('fused_image_dino_cosine','Fused DINO change')],[-.3,-.01,.01])]:
+        fig,axes=plt.subplots(1,len(metrics),figsize=(4.5*len(metrics),4));axes=np.atleast_1d(axes)
+        for ax,(metric,title),threshold in zip(axes,metrics,thresholds):
+            for control,color,offset in [('A1_decision','tab:blue',-.13),('A2_decision','tab:orange',.13)]:
+                data=sorted([x for x in paired if x['metric']==metric and x['contrast']=='V_decision-'+control],key=lambda x:x['snr_db'])
+                xs=np.array([x['snr_db'] for x in data])+offset
+                ax.vlines(xs,[x['lo'] for x in data],[x['hi'] for x in data],color=color)
+                ax.plot(xs,[x['mean'] for x in data],'o',color=color,label='V - '+control.split('_')[0],markersize=4)
+            ax.axhline(0,color='black',linestyle=':',linewidth=.8)
+            if threshold!=0:ax.axhline(threshold,color='green',linestyle='--',linewidth=.8,label='mean threshold')
+            ax.set(xlabel='Equivalent SNR (dB)',title=title);ax.grid(alpha=.2);ax.legend(fontsize=7)
+        fig.suptitle(f'{family}: paired source-bootstrap 95% intervals (10000 resamples)');fig.tight_layout()
+        fig.savefig(DEST/f'{family}_paired_intervals.svg');fig.savefig(RAW/f'{family}_paired_intervals.png',dpi=140);plt.close(fig)
     files={p.name:dict(sha256=sha(p),bytes=p.stat().st_size) for p in sorted(DEST.iterdir()) if p.is_file()}
     assert all(x['bytes']<10_000_000 for x in files.values())
-    (DEST/'index.json').write_text(json.dumps(dict(status='REAL_V3_B_PUBLICATION',source_cells=100,rows=len(frames),files=files,frozen_config_sha256=sha(RAW/'B_frozen_config.json')),indent=2)+'\n')
+    (DEST/'index.json').write_text(json.dumps(dict(status='REAL_V3_B_PUBLICATION',source_cells=100,rows=len(frames),files=files,frozen_config_sha256=sha(RAW/'B_frozen_config.json'),publisher_sha256=sha(__file__),archive_codec_sha256=sha(Path(__file__).with_name('rx_v3_archive.py'))),indent=2)+'\n')
     print(json.dumps({k:v for k,v in result.items() if k!='levels'}))
 if __name__=='__main__':main()
