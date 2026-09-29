@@ -1,0 +1,152 @@
+{
+  "status": "USER_REQUESTED_STOP_VERIFIED_NO_FURTHER_ADVANCEMENT",
+  "time": 1790673091.8446815,
+  "main": {
+    "status": "STOPPED_BY_REQUEST",
+    "pid": 222743,
+    "start_ticks": "132046029",
+    "time": 1790673009.8339596,
+    "stage": "C_followups",
+    "returncode": 75
+  },
+  "C": {
+    "status": "STOPPED_BY_REQUEST",
+    "stage": "C_N4084_m8_seed2026092504_until30000",
+    "returncode": 0
+  },
+  "stopped_processes": [
+    {
+      "name": "delivery_chain_v1",
+      "process": {
+        "pid": 222743,
+        "start_ticks": "132046029",
+        "state": "S",
+        "cmdline": "python3 -u -m token_efficiency.delivery_chain "
+      },
+      "status_before": {
+        "status": "RUNNING_STAGE",
+        "pid": 222743,
+        "start_ticks": "132046029",
+        "time": 1790672937.7282915,
+        "stage": "C_followups",
+        "command": [
+          "token_efficiency.C_followups"
+        ],
+        "process": {
+          "pid": 223002,
+          "cmdline": "/usr/bin/python3 -u -m token_efficiency.C_followups ",
+          "start_ticks": "132051186",
+          "state": "R"
+        },
+        "hardware": {
+          "temperature": 79,
+          "hardware_thermal_slowdown": false,
+          "software_thermal_slowdown": false,
+          "time": 1790672937.7281895
+        },
+        "attempt": "/home/liulu/projects/VAR_COMM/outputs/TOKEN-CHANNEL-EFFICIENCY-20260923/delivery_chain_v1/attempts/C_followups_1790672355969590213"
+      }
+    },
+    {
+      "name": "reference_common_metrics_v1",
+      "process": {
+        "pid": 2207900,
+        "start_ticks": "95438011",
+        "state": "S",
+        "cmdline": "python3 -u -m tools.rescore_token_efficiency_references --wait "
+      },
+      "status_before": {
+        "status": "WAITING_FOR_REGISTERED_B1_B2_C_RELEASE",
+        "pid": 2207900,
+        "start_ticks": "95438011",
+        "time": 1790672920.2369356,
+        "delivery_state": "RUNNING_STAGE"
+      }
+    },
+    {
+      "name": "n4084_common_replay_v1",
+      "process": {
+        "pid": 2208104,
+        "start_ticks": "95441544",
+        "state": "S",
+        "cmdline": "python3 -u -m tools.replay_token_efficiency_n4084 --wait "
+      },
+      "status_before": {
+        "status": "WAITING_FOR_MAIN_AND_REFERENCE_METRIC_RELEASE",
+        "pid": 2208104,
+        "start_ticks": "95441544",
+        "time": 1790672935.05753,
+        "delivery_state": "RUNNING_STAGE",
+        "reference_state": "WAITING_FOR_REGISTERED_B1_B2_C_RELEASE"
+      }
+    },
+    {
+      "name": "author_native_timing_v1",
+      "process": {
+        "pid": 222751,
+        "start_ticks": "132046229",
+        "state": "S",
+        "cmdline": "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/.venv/bin/python -u -m tools.replay_author_reference_timing --wait "
+      },
+      "status_before": {
+        "status": "WAITING_FOR_N4084_AND_ALL_PREDECESSORS",
+        "pid": 222751,
+        "start_ticks": "132046229",
+        "time": 1790672937.4631705,
+        "upstream": [
+          "RUNNING_STAGE",
+          "LOW_BUDGET_MILESTONE_COMPLETE_LATER_STAGES_PENDING",
+          "WAITING_FOR_REGISTERED_B1_B2_C_RELEASE",
+          "WAITING_FOR_MAIN_AND_REFERENCE_METRIC_RELEASE"
+        ]
+      }
+    },
+    {
+      "name": "n3060_native_timing_v1",
+      "process": {
+        "pid": 224291,
+        "start_ticks": "132073909",
+        "state": "S",
+        "cmdline": "/home/liulu/projects/VAR_COMM/experiments/backbone-eval-20260912/.venv/bin/python -u /home/liulu/projects/VAR_COMM/experiments/rx-posterior-step1-20260929/resume_n3060_manifest.py "
+      },
+      "status_before": {
+        "status": "WAITING_FOR_AUTHOR_AND_ALL_PREDECESSORS",
+        "pid": 224291,
+        "start_ticks": "132073909",
+        "time": 1790672914.9269838,
+        "upstream": [
+          "RUNNING_STAGE",
+          "LOW_BUDGET_MILESTONE_COMPLETE_LATER_STAGES_PENDING",
+          "WAITING_FOR_REGISTERED_B1_B2_C_RELEASE",
+          "WAITING_FOR_MAIN_AND_REFERENCE_METRIC_RELEASE",
+          "WAITING_FOR_N4084_AND_ALL_PREDECESSORS"
+        ]
+      }
+    }
+  ],
+  "latest_checkpoint": {
+    "path": "/home/liulu/projects/VAR_COMM/outputs/SHORT-PREFIX-20260923/training/m8_seed2026092504/checkpoints/step_30000.pt",
+    "sha256": "97af395988e714b8a04bae381167e93407d13a9922f5bc2e54f315ef646ac639",
+    "step": 30000,
+    "reason": "full_calibration"
+  },
+  "all_original_locks_free": [
+    "/home/liulu/projects/VAR_COMM/outputs/TOKEN-CHANNEL-EFFICIENCY-20260923/delivery_chain_v1/chain.lock",
+    "/home/liulu/projects/VAR_COMM/outputs/TOKEN-CHANNEL-EFFICIENCY-20260923/C_followups/followups.lock",
+    "/home/liulu/projects/VAR_COMM/outputs/SHORT-PREFIX-20260923/controller.lock",
+    "/home/liulu/projects/VAR_COMM/outputs/TOKEN-CHANNEL-EFFICIENCY-20260923/reference_common_metrics_v1/worker.lock",
+    "/home/liulu/projects/VAR_COMM/outputs/TOKEN-CHANNEL-EFFICIENCY-20260923/n4084_common_replay_v1/worker.lock",
+    "/home/liulu/projects/VAR_COMM/outputs/TOKEN-CHANNEL-EFFICIENCY-20260923/author_native_timing_v1/worker.lock",
+    "/home/liulu/projects/VAR_COMM/outputs/TOKEN-CHANNEL-EFFICIENCY-20260923/n3060_native_timing_v1/worker.lock"
+  ],
+  "GPU_processes": "",
+  "automation": {
+    "id": "var-comm",
+    "status": "PAUSED",
+    "confirmed_by": "automation_update tool"
+  },
+  "new_training_or_evaluation_authorized": false,
+  "probe_revision_results_preserved": "/home/liulu/projects/VAR_COMM/results/rx_posterior_step1_20260929/revision_v2",
+  "probe_revision_git_publication": "NOT_COMPLETED_BEFORE_USER_STOP; local files retained",
+  "git_head": "0ba01cb21103b0b7ea3e54a0676e7b6c210bfe19"
+}

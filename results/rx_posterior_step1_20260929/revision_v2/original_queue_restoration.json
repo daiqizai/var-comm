@@ -1,0 +1,65 @@
+{
+  "status": "ORIGINAL_MAIN_AND_FOUR_HISTORICAL_WAITERS_RESTORED",
+  "time": 1790672634.0637157,
+  "processes": [
+    {
+      "name": "delivery_chain_v1",
+      "process": {
+        "pid": 222743,
+        "start_ticks": "132046029",
+        "state": "S",
+        "cmdline": "python3 -u -m token_efficiency.delivery_chain "
+      },
+      "status": "RUNNING_STAGE"
+    },
+    {
+      "name": "reference_common_metrics_v1",
+      "process": {
+        "pid": 2207900,
+        "start_ticks": "95438011",
+        "state": "S",
+        "cmdline": "python3 -u -m tools.rescore_token_efficiency_references --wait "
+      },
+      "status": "WAITING_FOR_REGISTERED_B1_B2_C_RELEASE"
+    },
+    {
+      "name": "n4084_common_replay_v1",
+      "process": {
+        "pid": 2208104,
+        "start_ticks": "95441544",
+        "state": "S",
+        "cmdline": "python3 -u -m tools.replay_token_efficiency_n4084 --wait "
+      },
+      "status": "WAITING_FOR_MAIN_AND_REFERENCE_METRIC_RELEASE"
+    },
+    {
+      "name": "author_native_timing_v1",
+      "process": {
+        "pid": 222751,
+        "start_ticks": "132046229",
+        "state": "S",
+        "cmdline": "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/.venv/bin/python -u -m tools.replay_author_reference_timing --wait "
+      },
+      "status": "WAITING_FOR_N4084_AND_ALL_PREDECESSORS"
+    },
+    {
+      "name": "n3060_native_timing_v1",
+      "process": {
+        "pid": 224291,
+        "start_ticks": "132073909",
+        "state": "S",
+        "cmdline": "/home/liulu/projects/VAR_COMM/experiments/backbone-eval-20260912/.venv/bin/python -u /home/liulu/projects/VAR_COMM/experiments/rx-posterior-step1-20260929/resume_n3060_manifest.py "
+      },
+      "status": "WAITING_FOR_AUTHOR_AND_ALL_PREDECESSORS"
+    }
+  ],
+  "probe_development_accessed": false,
+  "first_restoration_failure_retained": true,
+  "N3060_fix": "exact original 470 dependency manifest; unrelated new RX files excluded only from broad enumeration; original source and GPU gates unchanged",
+  "paused_checkpoint": {
+    "path": "/home/liulu/projects/VAR_COMM/outputs/SHORT-PREFIX-20260923/training/m8_seed2026092504/checkpoints/step_29001.pt",
+    "sha256": "dff6580b6f155895e6e6709d602bdb4e53fe66a9a0e7c91dd7d21919ae9880eb",
+    "step": 29001,
+    "reason": "safe_paired_pause"
+  }
+}

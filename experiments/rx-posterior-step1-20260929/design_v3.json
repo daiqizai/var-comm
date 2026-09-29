@@ -1,0 +1,88 @@
+{
+  "study": "RX-POSTERIOR-STEP1-20260929",
+  "no_training": true,
+  "new_holdout": false,
+  "oracle_snrs_db": [
+    -5,
+    -2,
+    0,
+    1,
+    4,
+    7,
+    13
+  ],
+  "development_noise_seeds": [
+    2001,
+    2002,
+    2003
+  ],
+  "calibration_noise_seeds": [
+    4101,
+    4102,
+    4103
+  ],
+  "engineering_calibration_indices": [
+    0,
+    100,
+    200,
+    300
+  ],
+  "bootstrap_resamples": 10000,
+  "bootstrap_seed": 20260929,
+  "confidence": 0.95,
+  "snr_definition": "gamma=10^(dB/10), complex signal energy 2, complex AWGN energy 2/gamma, each real variance=1/gamma; eta=10^(-dB/20)",
+  "equivalent_N": 4096,
+  "energy_note": "per-coordinate calibration standardization gives ensemble expected sum(x^2)=8192, not exact per-frame normalization; 4096-vs4084 and omitted gain overhead make P4084 comparison approximate",
+  "comparison_primary_P4084": "P4084_N4084_seed2026092304 (calibration selected 27500); original P4084 10000 separately retained",
+  "static_pseudocount": 0.5,
+  "revision": "v3_user_exact_limit_path_conditioned_MAP_20260929",
+  "task_A_independent_of_token_gates": true,
+  "original_training_must_remain_stopped": true,
+  "automation_must_remain_paused": true,
+  "zero_noise_limit_check": {
+    "eta": 0,
+    "beta": 0,
+    "lambda_": 1,
+    "all_tokens_exact": true,
+    "modes": [
+      "TF",
+      "CL"
+    ]
+  },
+  "thirty_db_is_relative_diagnostic_only": true,
+  "task_B_extra_snrs": [
+    4,
+    1,
+    -2
+  ],
+  "decision_beta": 0,
+  "lambda_grid": [
+    0.5,
+    0.75,
+    1,
+    1.5
+  ],
+  "M1_log_probability_requirement": "awaiting user clarification; Task A unaffected",
+  "M2": "at least two levels: V has higher path-conditioned accuracy and lower raw latent squared error than both controls; source-bootstrap CIs exclude zero",
+  "M3": {
+    "C_low_snr_points_min": 2,
+    "C_delta_LPIPS_max": -0.02,
+    "C_delta_DINO_min": 0.02,
+    "C_CI_excludes_zero": true,
+    "C_O1_vs_P4084_1db": "LPIPS lower OR DINO higher; approximate comparison",
+    "M1_min_points": 2,
+    "M1_acc_gain_min": 0.02,
+    "M1_logp_gain_positive": true,
+    "M1_both_controls": true,
+    "M2_gain_retention_min": 0.5,
+    "M3_min_points": 2,
+    "M3_delta_LPIPS_max": -0.01,
+    "M3_delta_DINO_min": 0.01,
+    "M3_PSNR_drop_max_db": 0.3
+  },
+  "task_A_source_A_approximate_tolerance": {
+    "psnr_db": 0.1,
+    "lpips_alex": 0.003
+  },
+  "task_B_must_freeze_calibration_before_B_development": true
+}

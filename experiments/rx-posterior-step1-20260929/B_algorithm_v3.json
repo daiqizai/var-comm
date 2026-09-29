@@ -1,0 +1,132 @@
+{
+  "levels": [
+    {
+      "name": "difficulty_90",
+      "snr_db": 30.6,
+      "eta": 0.029512092266663854,
+      "role": "decision",
+      "target_accuracy": 0.9
+    },
+    {
+      "name": "difficulty_70",
+      "snr_db": 20.2,
+      "eta": 0.09772372209558107,
+      "role": "decision",
+      "target_accuracy": 0.7
+    },
+    {
+      "name": "difficulty_50",
+      "snr_db": 14.6,
+      "eta": 0.18620871366628675,
+      "role": "decision",
+      "target_accuracy": 0.5
+    },
+    {
+      "name": "difficulty_30",
+      "snr_db": 10.0,
+      "eta": 0.31622776601683794,
+      "role": "decision",
+      "target_accuracy": 0.3
+    },
+    {
+      "name": "target_4dB",
+      "snr_db": 4,
+      "eta": 0.6309573444801932,
+      "role": "decision"
+    },
+    {
+      "name": "target_1dB",
+      "snr_db": 1,
+      "eta": 0.8912509381337456,
+      "role": "decision"
+    },
+    {
+      "name": "target_-2dB",
+      "snr_db": -2,
+      "eta": 1.2589254117941673,
+      "role": "decision"
+    },
+    {
+      "name": "relative_30dB",
+      "snr_db": 30,
+      "eta": 0.03162277660168379,
+      "role": "TF_diagnostic_only"
+    }
+  ],
+  "calibration_sources": 200,
+  "calibration_subset": "same first 200 original calibration cache IDs",
+  "calibration_noise_seeds": [
+    4101,
+    4102,
+    4103
+  ],
+  "development_noise_seeds": [
+    2001,
+    2002,
+    2003
+  ],
+  "beta_decision": 0,
+  "lambda_grid": [
+    0.5,
+    0.75,
+    1,
+    1.5
+  ],
+  "selection_metric": "TF token accuracy equally averaged over calibration-frozen ambiguity-band scales, then seeds and sources",
+  "ambiguity_band": {
+    "min_accuracy": 0.2,
+    "max_accuracy": 0.95,
+    "include_endpoints": true,
+    "source": "200 calibration sources, 3 seeds, A1 TF, beta0",
+    "float64_comparison_tolerance": 1e-12
+  },
+  "empty_band": "M1 inapplicable for that level; choose lambda=1 without tuning",
+  "tie_break": "smallest lambda among exact accuracy ties",
+  "probability_only_beta_grid": [
+    0.05,
+    0.1,
+    0.2,
+    0.5
+  ],
+  "probability_only_lambda_grid": [
+    0.5,
+    0.75,
+    1,
+    1.5
+  ],
+  "probability_only_objective": "TF true-token mean log probability, equal scales 7-10 then seeds then sources",
+  "probability_only_role": "log probability and reliability on decision prefixes; cannot change MAP decisions, M1-M3 or image outputs",
+  "report_fixed_beta0_lambda1_reference": true,
+  "M1_accuracy": {
+    "min_levels": 2,
+    "delta_accuracy_min": 0.02,
+    "CI": "positive paired source-bootstrap 95% against both A1 and A2",
+    "scales": "calibration-frozen ambiguity band"
+  },
+  "M1_original_joint_secondary": {
+    "additional_requirement": "beta0 decision-version true-token logp gain CI positive against both controls; separately reported pending clarification"
+  },
+  "M2": {
+    "min_levels": 2,
+    "path_accuracy": "equal average of all 10 per-scale path-conditioned accuracies; token-count-weighted accuracy also reported secondarily",
+    "latent_error": "sum of squared errors ||F-Fq_post||^2 in original latent coordinates",
+    "criteria": "V minus each control: path accuracy CI strictly positive and latent error CI strictly negative"
+  },
+  "M3": {
+    "M3_min_points": 2,
+    "M3_delta_LPIPS_max": -0.01,
+    "M3_delta_DINO_min": 0.01,
+    "M3_PSNR_drop_max_db": 0.3
+  },
+  "bootstrap_resamples": 10000,
+  "bootstrap_seed": 20260929,
+  "confidence": 0.95,
+  "fusion": "unchanged precision formula with per-channel calibration variance; each decision/fixed receiver has its own calibration rho",
+  "fusion_variance_population": "200 fixed calibration sources x 3 seeds x 256 spatial positions per channel per level/receiver",
+  "receiver_no_clean_latent_access": true,
+  "clean_latent_use": "offline path-conditioned score and latent-error diagnostic only",
+  "original_training_remains_stopped": true,
+  "task_A_results_cannot_influence_B_calibration": true,
+  "task_B_runs_as_mechanism_diagnostic_after_exact_limit_pass": true,
+  "no_automatic_step2": true
+}
