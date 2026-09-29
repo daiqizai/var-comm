@@ -86,7 +86,7 @@ def retained_sources(files,group,seed,until):
     return retained
 
 
-def boundary(src, command, group, seed, regsha, allow_gap, until):
+def boundary(src, command, group, seed, regsha, allow_gap, until, allow_superseded=False):
     chain = OUT/'delivery_chain_v1'
     key = f'C_N4084_{group}_seed{seed}_until{until}'
     sp = chain/'stages'/f'{key}.json'
@@ -97,6 +97,9 @@ def boundary(src, command, group, seed, regsha, allow_gap, until):
         validate_boundary(done,regsha,ARMS[group],until)
         return done,dict(complete_stage=True,process_returncode=0), {
             'training/stage.json':sp,'training/completion_snapshot.json':Path(stage['snapshot'])}
+    if allow_superseded:
+        from tools.audit_c_superseded_repeat_boundary import audit
+        return audit(src, command, group, seed, regsha, until)
     check(allow_gap, 'original stage missing; explicit thermal artifact capture required')
     cp = src/'completion.json';done = read(cp)
     validate_boundary(done,regsha,ARMS[group],until)
@@ -170,13 +173,13 @@ def prepare(group,seed,until):
     return audit
 
 
-def collect(group,seed,until,allow_gap=False,audit_only=False):
+def collect(group,seed,until,allow_gap=False,audit_only=False,allow_superseded=False):
     check(os.environ.get('CUDA_VISIBLE_DEVICES')=='','mask CUDA before CPU audit')
     src,command,base,target=scope(group,seed,until)
     check(audit_only or not target.exists(),'immutable publication already exists')
     reg,regsha,inputs=initial.audit_inputs(group,seed)
     refs,paths,prior=history(group,seed,until,regsha)
-    done,evidence,files=boundary(src,command,group,seed,regsha,allow_gap,until)
+    done,evidence,files=boundary(src,command,group,seed,regsha,allow_gap,until,allow_superseded)
     curves,snrs,means,cals,total=initial.calibration(src,reg,group,until,False)
     check(sorted(means)==list(range(0,until+1,2500)) and
           total==(until//2500+1)*15000*len(ARMS[group]),'complete all-history calibration')
@@ -272,9 +275,10 @@ def main():
     mode.add_argument('--prepare-only',action='store_true')
     mode.add_argument('--audit-only',action='store_true')
     p.add_argument('--allow-thermal-receipt-gap',action='store_true')
+    p.add_argument('--allow-overwritten-thermal-boundary',action='store_true')
     a=p.parse_args()
     if a.prepare_only:prepare(a.group,a.seed,a.until)
-    else:collect(a.group,a.seed,a.until,a.allow_thermal_receipt_gap,a.audit_only)
+    else:collect(a.group,a.seed,a.until,a.allow_thermal_receipt_gap,a.audit_only,a.allow_overwritten_thermal_boundary)
 
 
 if __name__=='__main__':
