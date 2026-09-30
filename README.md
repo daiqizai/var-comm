@@ -3,7 +3,19 @@
 The actual project root is now the sole Git worktree for `daiqizai/var-comm`.
 Edit, run, test, commit and push here. `publish/var-comm` is retained locally as an ignored historical backup; no source-copy or separate publication workflow is required.
 
-## Current authorized study
+## Latest completed study (2026-09-30)
+
+[Frozen P4084 Step2 A conclusions](results/rx_posterior_step2_A_20260930_R1/report_reviewed.md) and
+[complete results with exact table restoration](results/rx_posterior_step2_A_20260930_R1/README.md).
+The run has zero training updates. Policies bypass at 1/4/7/13 dB; -5/-2 dB
+outside the original training range exceed B2/A1/A2 with common-weight support,
+at about 125 ms versus 13 ms receive time. B/P_low and Step3 require a separate
+decision. [Execution and asset guide](experiments/rx-posterior-step2-A-20260930/README.md).
+
+## Earlier study registration (2026-09-23 snapshot)
+
+The following entries preserve earlier study registrations and runtime snapshots;
+they do not restart the currently paused historical queues.
 
 [Token/channel efficiency supplement](experiments/token_channel_efficiency_20260923/README.md)
 adds source-codec accounting, P2048/P3060 and real16QAM. A/B now precede unstarted

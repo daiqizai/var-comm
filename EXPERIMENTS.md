@@ -1,3 +1,13 @@
+## 2026-09-30：冻结 P4084 接收端 Step2 A 完成
+
+本轮只执行 A：P4084 第一训练 seed 2026092304 selected27500、匹配 Dc/VQ/VAR 全部冻结，原 N4084/E8168 与一次 AWGN 保持。200 源校准先冻结参数，再完成 100 源×6 SNR×3噪声×14输出的 25200 行 development 指标、108000 行 token 诊断、360 次计时和40张固定样例。新增训练更新为0，历史队列保持暂停。
+
+1/4/7 dB 与13 dB的策略均选择真正旁路，最终输出与B2相同，未建立范围内增量。训练范围外−5/−2 dB超过B2/A1/A2并达到G1，共同A1融合权重下仍保留内容增量；相对B2的LPIPS差为−0.05076/−0.01789，DINO差为+0.19734/+0.04599。接收耗时约13→125 ms。13 dB保护来自旁路，未旁路融合的LPIPS显著恶化。
+
+必要自检、历史B2再现、冻结身份和源图配对bootstrap已核验。结果是复用development的探索性证据；B/P_low及Step3等待独立决定。完整原始表按仓库每文件10 MB限制做可精确重建的分片，所有记录保留。
+
+[结论与完整报告](results/rx_posterior_step2_A_20260930_R1/report_reviewed.md) · [结果及分片恢复](results/rx_posterior_step2_A_20260930_R1/README.md) · [执行入口](experiments/rx-posterior-step2-A-20260930/README.md)
+
 > 2026-09-23 source A COMPLETE: actual source streams/roundtrips and20 representation paths for1000 calibration+100 original development sources, calibrated quality targets frozen before development. Full source report: reports/token_channel_efficiency_20260923_source_A.md. P2048/P3060 real-device qualification passed; P2048 is training. B1/B2 communication matrices and merged short-prefix C remain incomplete; no new holdout.
 
 > 2026-09-23 supplement accepted: A actual source representation/bitstreams, B1 P2048/P3060 and QPSK resource curves, B2 real16QAM, then merged short-prefix C. New holdout and content selectors are deferred. Code/CPU qualification is not real-result completion. See experiments/token_channel_efficiency_20260923/README.md and outputs/TOKEN-CHANNEL-EFFICIENCY-20260923/status.json. Existing m6 cache continues unchanged; its controller is intentionally held before training to honor A/B priority.

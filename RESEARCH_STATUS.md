@@ -1,3 +1,5 @@
+> 2026-09-30 Step2 A COMPLETE: frozen P4084 selected27500, zero training updates. Policies bypass at 1/4/7/13 dB. Out-of-training-range -5/-2 dB exceed B2/A1/A2 with shared-weight content support, at about 9.7x receive time. High-SNR protection is bypass; raw fusion worsens LPIPS. B/P_low and old queues remain paused pending user decision. See [reviewed report](results/rx_posterior_step2_A_20260930_R1/report_reviewed.md) and [complete result archive](results/rx_posterior_step2_A_20260930_R1/README.md).
+
 > 2026-09-24 Swin/ADJSCC:9000 actual paid-frame PHY receipts/noise hashes/resources verified. Qualification/development adapter revision differs; not a confirmed quality error, but fresh native parity and uniform timing remain required. Pinned torch1.12.1 runtime is available. See reports/token_efficiency_author_phy_audit_20260924.md.
 
 > 2026-09-24 N4084 actual replay continuation implemented:6 legacy methods, real24-check gate before9000 frames/600 timings, serially after the existing reference metric worker. GPU acceptance/results are NOT_RUN until actual receipts. See reports/token_efficiency_n4084_replay_queue_20260924.md.
