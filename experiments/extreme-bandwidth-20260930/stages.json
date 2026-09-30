@@ -1,0 +1,11 @@
+[
+  {"name":"qualification", "script":"qualification.py", "receipt":"outputs/EXTREME-BW-20260930-R1/training/p512_2026093001/qualification_fresh_budget.json"},
+  {"name":"source_references", "script":"digital.py", "args":["--stage","references"], "receipt":"outputs/EXTREME-BW-20260930-R1/digital/references/calibration/completion.json"},
+  {"name":"digital_calibration", "script":"digital.py", "args":["--stage","calibration"], "receipt":"outputs/EXTREME-BW-20260930-R1/digital/calibration_complete.json"},
+  {"name":"training", "script":"train.py", "receipt":"outputs/EXTREME-BW-20260930-R1/training/p512_2026093001/completion.json"},
+  {"name":"plugin_evaluation", "script":"plugin.py", "receipt":"outputs/EXTREME-BW-20260930-R1/plugin/completion.json"},
+  {"name":"digital_evaluation", "script":"digital.py", "args":["--stage","evaluation"], "receipt":"outputs/EXTREME-BW-20260930-R1/digital/evaluation_complete.json"},
+  {"name":"historical_references", "script":"prepare_reference.py", "receipt":"outputs/EXTREME-BW-20260930-R1/reference_import.json"},
+  {"name":"analysis", "script":"analysis.py", "args":["--out","outputs/EXTREME-BW-20260930-R1","--results","results/extreme_bandwidth_20260930_R1"], "receipt":"results/extreme_bandwidth_20260930_R1/analysis_completion.json"},
+  {"name":"publication", "script":"publish.py", "receipt":"outputs/EXTREME-BW-20260930-R1/publication.json"}
+]
