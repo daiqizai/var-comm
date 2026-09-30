@@ -1,5 +1,4 @@
 """Detached sequential owner of the explicitly authorized N512 study."""
-import fcntl
 import hashlib
 import json
 import os
@@ -23,7 +22,21 @@ def write(path, record):
     os.replace(temporary, path)
 
 
+def receipt_complete(stage, receipt):
+    if not receipt.exists():
+        return False
+    record = json.loads(receipt.read_text())
+    if record.get('status') != stage['complete_status']:
+        return False
+    if any(record.get(k) != v for k, v in stage.get('required_fields', {}).items()):
+        return False
+    if stage['name'] == 'publication':
+        return bool(record.get('commit')) and record['commit'] == record.get('remote_commit') and record.get('checks') == 'PASS'
+    return True
+
+
 def main():
+    import fcntl
     OUT.mkdir(parents=True, exist_ok=True)
     lock = (OUT / 'supervisor.lock').open('a')
     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -54,7 +67,7 @@ def main():
         for stage in stages:
             verify_sources()
             receipt = ROOT / stage['receipt']
-            if receipt.exists():
+            if receipt_complete(stage, receipt):
                 status(status='RECEIPT_PRESENT', stage=stage['name'], receipt=str(receipt))
                 continue
             attempt = 0
@@ -74,7 +87,7 @@ def main():
                     status(status='WAITING_FOR_SAFE_RESOURCE', stage=stage['name'], attempt=attempt)
                     time.sleep(30)
                     continue
-                if code != 0 or not receipt.exists():
+                if code != 0 or not receipt_complete(stage, receipt):
                     status(status='FAILED', stage=stage['name'], exit_code=code,
                            receipt_exists=receipt.exists(), log=str(log))
                     raise RuntimeError('Stage failed: ' + stage['name'])

@@ -1,11 +1,96 @@
 [
-  {"name":"qualification", "script":"qualification.py", "receipt":"outputs/EXTREME-BW-20260930-R1/training/p512_2026093001/qualification_fresh_budget.json"},
-  {"name":"source_references", "script":"digital.py", "args":["--stage","references"], "receipt":"outputs/EXTREME-BW-20260930-R1/digital/references/calibration/completion.json"},
-  {"name":"digital_calibration", "script":"digital.py", "args":["--stage","calibration"], "receipt":"outputs/EXTREME-BW-20260930-R1/digital/calibration_complete.json"},
-  {"name":"training", "script":"train.py", "receipt":"outputs/EXTREME-BW-20260930-R1/training/p512_2026093001/completion.json"},
-  {"name":"plugin_evaluation", "script":"plugin.py", "receipt":"outputs/EXTREME-BW-20260930-R1/plugin/completion.json"},
-  {"name":"digital_evaluation", "script":"digital.py", "args":["--stage","evaluation"], "receipt":"outputs/EXTREME-BW-20260930-R1/digital/evaluation_complete.json"},
-  {"name":"historical_references", "script":"prepare_reference.py", "receipt":"outputs/EXTREME-BW-20260930-R1/reference_import.json"},
-  {"name":"analysis", "script":"analysis.py", "args":["--out","outputs/EXTREME-BW-20260930-R1","--results","results/extreme_bandwidth_20260930_R1"], "receipt":"results/extreme_bandwidth_20260930_R1/analysis_completion.json"},
-  {"name":"publication", "script":"publish.py", "receipt":"outputs/EXTREME-BW-20260930-R1/publication.json"}
+  {
+    "name": "qualification",
+    "script": "qualification.py",
+    "receipt": "outputs/EXTREME-BW-20260930-R1/training/p512_2026093001/qualification_fresh_budget.json",
+    "complete_status": "FRESH_P512_REAL_GPU_EXACT_RESUME_PASS",
+    "required_fields": {
+      "training_updates": 0,
+      "passed": true
+    }
+  },
+  {
+    "name": "source_references",
+    "script": "digital.py",
+    "args": [
+      "--stage",
+      "references"
+    ],
+    "receipt": "outputs/EXTREME-BW-20260930-R1/digital/references/calibration/completion.json",
+    "complete_status": "SOURCE_REFERENCE_COMPLETE"
+  },
+  {
+    "name": "digital_calibration",
+    "script": "digital.py",
+    "args": [
+      "--stage",
+      "calibration"
+    ],
+    "receipt": "outputs/EXTREME-BW-20260930-R1/digital/calibration_complete.json",
+    "complete_status": "DIGITAL_FULL1000_CALIBRATION_COMPLETE",
+    "required_fields": {
+      "sources": 1000,
+      "development_read": false,
+      "frames": 150000
+    }
+  },
+  {
+    "name": "training",
+    "script": "train.py",
+    "receipt": "outputs/EXTREME-BW-20260930-R1/training/p512_2026093001/completion.json",
+    "complete_status": "CALIBRATION_ONLY_SELECTION_COMPLETE",
+    "required_fields": {
+      "development_read": false
+    }
+  },
+  {
+    "name": "plugin_evaluation",
+    "script": "plugin.py",
+    "receipt": "outputs/EXTREME-BW-20260930-R1/plugin/completion.json",
+    "complete_status": "N512_PLUGIN_EVALUATION_COMPLETE",
+    "required_fields": {
+      "frozen_weights_unchanged": true
+    }
+  },
+  {
+    "name": "digital_evaluation",
+    "script": "digital.py",
+    "args": [
+      "--stage",
+      "evaluation"
+    ],
+    "receipt": "outputs/EXTREME-BW-20260930-R1/digital/evaluation_complete.json",
+    "complete_status": "DIGITAL_DEVELOPMENT_COMPLETE",
+    "required_fields": {
+      "frozen_weights_unchanged": true,
+      "rows": 24000
+    }
+  },
+  {
+    "name": "historical_references",
+    "script": "prepare_reference.py",
+    "receipt": "outputs/EXTREME-BW-20260930-R1/reference_import.json",
+    "complete_status": "COMPATIBLE_HISTORICAL_REFERENCES_IMPORTED"
+  },
+  {
+    "name": "analysis",
+    "script": "analysis.py",
+    "args": [
+      "--out",
+      "outputs/EXTREME-BW-20260930-R1",
+      "--results",
+      "results/extreme_bandwidth_20260930_R1"
+    ],
+    "receipt": "results/extreme_bandwidth_20260930_R1/analysis_completion.json",
+    "complete_status": "N512_SOURCE_PAIRED_ANALYSIS_COMPLETE",
+    "required_fields": {
+      "automatic_N1024": false
+    }
+  },
+  {
+    "name": "publication",
+    "script": "publish.py",
+    "receipt": "outputs/EXTREME-BW-20260930-R1/publication.json",
+    "complete_status": "PUSHED"
+  }
 ]

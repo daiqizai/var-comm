@@ -91,6 +91,15 @@ def prepare_results():
         copy_exact(path, provenance / 'qualification_attempts' / path.name)
     for path in OUT.glob('qualification_attempt_*.log'):
         copy_exact(path, provenance / 'qualification_attempts' / path.name)
+    for role in ('calibration', 'development'):
+        for name in ('identity.json', 'completion.json'):
+            source = OUT / 'digital/references' / role / name
+            if not source.exists():
+                raise RuntimeError('Source reference evidence missing: ' + str(source))
+            copy_exact(source, provenance / 'source_references' / role / name)
+    for path in (OUT / 'source_publication_history').glob('*.json'):
+        copy_exact(path, provenance / 'source_publication_history' / path.name)
+    copy_exact(OUT / 'source_publication.json', provenance / 'source_publication.json')
     copy_exact(OUT / 'supervisor_registration.json', provenance / 'supervisor_registration.json')
     for path in (TRAIN / 'calibration').glob('full_*.csv'):
         copy_exact(path, RESULT / 'training_calibration' / path.name)
@@ -170,8 +179,19 @@ def prepare_results():
 def main(register_only=False):
     OUT.mkdir(parents=True, exist_ok=True)
     receipt = OUT / ('source_publication.json' if register_only else 'publication.json')
-    if receipt.exists() and read(receipt).get('status') == 'PUSHED':
-        return
+    if receipt.exists():
+        previous = read(receipt)
+        if previous.get('status') == 'PUSHED':
+            if register_only and previous.get('source_bindings') == source_bindings():
+                return
+            if not register_only:
+                for path, expected in previous.get('source_bindings', {}).items():
+                    if sha(path) != expected:
+                        raise RuntimeError('Published execution source changed: ' + path)
+                return
+        if register_only:
+            history_name = previous['commit'] + '_' + previous['status'] + '_' + str(previous['time']).replace('.', '_') + '.json'
+            copy_exact(receipt, OUT / 'source_publication_history' / history_name)
     bindings = source_bindings() if register_only else prepare_results()
     own = [str(HERE.relative_to(ROOT))]
     if not register_only:
@@ -203,12 +223,12 @@ def main(register_only=False):
         if subprocess.check_output(['git', 'diff', '--cached', '--name-only'], cwd=ROOT).strip():
             command(['git', 'commit', '-F', str(message)], log)
         commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
-        write(receipt, dict(status='COMMITTED', commit=commit, checks='PASS', time=time.time()))
+        write(receipt, dict(status='COMMITTED', commit=commit, checks='PASS', source_bindings=bindings, time=time.time()))
         command(['git', 'push', 'origin', 'main'], log)
         remote = subprocess.check_output(['git', 'ls-remote', 'origin', 'refs/heads/main'], cwd=ROOT, text=True).split()[0]
         if remote != commit:
             raise RuntimeError('Remote main differs from committed results')
-    write(receipt, dict(status='PUSHED', commit=commit, remote_commit=remote, checks='PASS', time=time.time()))
+    write(receipt, dict(status='PUSHED', commit=commit, remote_commit=remote, checks='PASS', source_bindings=bindings, time=time.time()))
 
 
 if __name__ == '__main__':
