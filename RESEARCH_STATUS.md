@@ -1,3 +1,7 @@
+## Step2 B started 2026-09-30
+
+The user explicitly authorized B. A single P_low arm resumes selected27500 with original AdamW moments, source order and RNG. Train SNRs are -5/-2/1/4dB; full1000 calibration selects checkpoints every2500 added updates. The first milestone is10000 added updates; calibration-only extensions are capped at30000. Real-GPU populated-optimizer bitwise resume, frozen Dc/LPIPS gradients, and N4084/E8168 checks passed. The detached pipeline will evaluate the selected model and publish results after checks. Training/evaluation are in progress; no B scientific conclusion is available yet. Original A/P assets and paused old queues are preserved.
+
 > 2026-09-30 Step2 A COMPLETE: frozen P4084 selected27500, zero training updates. Policies bypass at 1/4/7/13 dB. Out-of-training-range -5/-2 dB exceed B2/A1/A2 with shared-weight content support, at about 9.7x receive time. High-SNR protection is bypass; raw fusion worsens LPIPS. B/P_low and old queues remain paused pending user decision. See [reviewed report](results/rx_posterior_step2_A_20260930_R1/report_reviewed.md) and [complete result archive](results/rx_posterior_step2_A_20260930_R1/README.md).
 
 > 2026-09-24 Swin/ADJSCC:9000 actual paid-frame PHY receipts/noise hashes/resources verified. Qualification/development adapter revision differs; not a confirmed quality error, but fresh native parity and uniform timing remain required. Pinned torch1.12.1 runtime is available. See reports/token_efficiency_author_phy_audit_20260924.md.

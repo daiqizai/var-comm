@@ -1,3 +1,7 @@
+## Step2 B started 2026-09-30
+
+The user explicitly authorized B. A single P_low arm resumes selected27500 with original AdamW moments, source order and RNG. Train SNRs are -5/-2/1/4dB; full1000 calibration selects checkpoints every2500 added updates. The first milestone is10000 added updates; calibration-only extensions are capped at30000. Real-GPU populated-optimizer bitwise resume, frozen Dc/LPIPS gradients, and N4084/E8168 checks passed. The detached pipeline will evaluate the selected model and publish results after checks. Training/evaluation are in progress; no B scientific conclusion is available yet. Original A/P assets and paused old queues are preserved.
+
 ## 2026-09-30：冻结 P4084 接收端 Step2 A 完成
 
 本轮只执行 A：P4084 第一训练 seed 2026092304 selected27500、匹配 Dc/VQ/VAR 全部冻结，原 N4084/E8168 与一次 AWGN 保持。200 源校准先冻结参数，再完成 100 源×6 SNR×3噪声×14输出的 25200 行 development 指标、108000 行 token 诊断、360 次计时和40张固定样例。新增训练更新为0，历史队列保持暂停。
