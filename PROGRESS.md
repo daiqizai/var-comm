@@ -1,3 +1,9 @@
+## Step2 B completed 2026-09-30
+
+The authorized single P_low arm continued selected27500 with the original populated AdamW, order and RNG. It completed 20000 added updates and selected added step 20000 only by full1000 calibration utility. The frozen evaluation then recalibrated receiver policies on200 calibration sources and evaluated100 development sources at -5/-2/1/4/13dB. G2: -5.0dB BYPASS_SELECTED, -2.0dB BYPASS_SELECTED, 1.0dB BYPASS_SELECTED. The13dB result is an out-of-training-range side-effect diagnostic.
+
+[Report and full tables](results/rx_posterior_step2_B_20260930_R1/README.md). The development set is reused; this is not a new holdout or a training-seed replication.
+
 ## Step2 B started 2026-09-30
 
 The user explicitly authorized B. A single P_low arm resumes selected27500 with original AdamW moments, source order and RNG. Train SNRs are -5/-2/1/4dB; full1000 calibration selects checkpoints every2500 added updates. The first milestone is10000 added updates; calibration-only extensions are capped at30000. Real-GPU populated-optimizer bitwise resume, frozen Dc/LPIPS gradients, and N4084/E8168 checks passed. The detached pipeline will evaluate the selected model and publish results after checks. Training/evaluation are in progress; no B scientific conclusion is available yet. Original A/P assets and paused old queues are preserved.
