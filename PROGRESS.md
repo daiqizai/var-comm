@@ -1,3 +1,9 @@
+## N1024 extreme bandwidth study completed 2026-10-01
+
+One fresh P1024 completed 40000 updates and selected step 40000 using complete1000-source calibration at1/4/7/13/19dB. Digital raw N1024 policies use paid68-symbol headers and were independently frozen on1000 calibration sources; P1024 receiver policies use200 calibration sources. All systems then used the same100 development sources and three noise repeats. P1024 budget_truncated=True; no convergence claim is made. QPSK/continuous have actual per-frameE2048;16QAM retains original fixed constellation scaling and actual energy. H_D/H_R decisions, paid-class conditions, distortion, source specificity, failures and computation are reported. Development is reused and the intervals do not cover training-seed variance. This authorized N1024 stage is complete. N512 remains frozen at its 40000-update budget cap; further experiments await a separate decision.
+
+[Scientific report](reports/extreme_bandwidth_probe_20261001_R1_N1024.md).
+
 ## N512 extreme bandwidth study completed 2026-09-30
 
 One fresh P512 completed 40000 updates and selected step 40000 using complete1000-source calibration at1/4/7/13/19dB. Digital raw N512 policies use paid68-symbol headers and were independently frozen on1000 calibration sources; P512 receiver policies use200 calibration sources. All systems then used the same100 development sources and three noise repeats. QPSK/continuous have actual per-frameE1024;16QAM retains original fixed constellation scaling and actual energy. H_D/H_R decisions, paid-class conditions, distortion, source specificity, failures and computation are reported. Development is reused and the intervals do not cover training-seed variance. N1024 remains a later decision.

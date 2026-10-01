@@ -1,0 +1,133 @@
+{
+  "N": 1024,
+  "automatic_further_experiments": false,
+  "stages": [
+    {
+      "name": "qualification",
+      "script": "qualification.py",
+      "receipt": "outputs/EXTREME-BW-20261001-R1-N1024/training/p1024_2026093001/qualification_fresh_budget.json",
+      "complete_status": "FRESH_P1024_REAL_GPU_EXACT_RESUME_PASS",
+      "required_fields": {
+        "training_updates": 0,
+        "passed": true
+      }
+    },
+    {
+      "name": "training",
+      "script": "train.py",
+      "receipt": "outputs/EXTREME-BW-20261001-R1-N1024/training/p1024_2026093001/completion.json",
+      "complete_status": "CALIBRATION_ONLY_SELECTION_COMPLETE",
+      "required_fields": {
+        "development_read": false
+      }
+    },
+    {
+      "name": "source_references",
+      "script": "digital.py",
+      "args": [
+        "--stage",
+        "references"
+      ],
+      "receipt": "outputs/EXTREME-BW-20261001-R1-N1024/digital/references/calibration/completion.json",
+      "complete_status": "SOURCE_REFERENCE_COMPLETE"
+    },
+    {
+      "name": "digital_calibration",
+      "script": "digital.py",
+      "args": [
+        "--stage",
+        "calibration"
+      ],
+      "receipt": "outputs/EXTREME-BW-20261001-R1-N1024/digital/calibration_complete.json",
+      "complete_status": "DIGITAL_FULL1000_CALIBRATION_COMPLETE",
+      "required_fields": {
+        "sources": 1000,
+        "development_read": false,
+        "frames": 210000
+      }
+    },
+    {
+      "name": "plugin_evaluation",
+      "script": "plugin.py",
+      "receipt": "outputs/EXTREME-BW-20261001-R1-N1024/plugin/completion.json",
+      "complete_status": "N1024_PLUGIN_EVALUATION_COMPLETE",
+      "required_fields": {
+        "metric_rows": 21000,
+        "frozen_weights_unchanged": true
+      }
+    },
+    {
+      "name": "digital_evaluation",
+      "script": "digital.py",
+      "args": [
+        "--stage",
+        "evaluation"
+      ],
+      "receipt": "outputs/EXTREME-BW-20261001-R1-N1024/digital/evaluation_complete.json",
+      "complete_status": "DIGITAL_DEVELOPMENT_COMPLETE",
+      "required_fields": {
+        "frozen_weights_unchanged": true,
+        "rows": 24000
+      }
+    },
+    {
+      "name": "historical_references",
+      "script": "prepare_reference.py",
+      "receipt": "outputs/EXTREME-BW-20261001-R1-N1024/reference_import.json",
+      "complete_status": "COMPATIBLE_HISTORICAL_REFERENCES_IMPORTED",
+      "required_fields": {
+        "N512_comparison_verified": true
+      }
+    },
+    {
+      "name": "analysis",
+      "script": "analysis.py",
+      "args": [
+        "--out",
+        "outputs/EXTREME-BW-20261001-R1-N1024",
+        "--results",
+        "results/extreme_bandwidth_20261001_R1_N1024"
+      ],
+      "receipt": "results/extreme_bandwidth_20261001_R1_N1024/analysis_completion.json",
+      "complete_status": "N1024_SOURCE_PAIRED_ANALYSIS_COMPLETE",
+      "required_fields": {
+        "metric_rows": 45000,
+        "synthetic": false,
+        "automatic_further_experiments": false
+      }
+    },
+    {
+      "name": "publication",
+      "script": "publish.py",
+      "receipt": "outputs/EXTREME-BW-20261001-R1-N1024/publication.json",
+      "complete_status": "PUSHED"
+    }
+  ],
+  "source_bindings": {
+    "/home/liulu/projects/VAR_COMM/experiments/extreme-bandwidth-20261001-N1024/compatible_budget_references.csv": "4063990ebe70c009b4d38c734401f9235aac21eb52c720452b72a0adb3b62d15",
+    "/home/liulu/projects/VAR_COMM/experiments/extreme-bandwidth-20261001-N1024/test_digital.py": "781995b3d7783e9d8d3ca7aaa77edbdc65892717ba9334cd3c1e6408b4041358",
+    "/home/liulu/projects/VAR_COMM/experiments/extreme-bandwidth-20261001-N1024/training_protocol.json": "0fcad8f5c03e8b33aa6278c3297bece7b02a8d6e6deb04d3640fcafd4113a4ec",
+    "/home/liulu/projects/VAR_COMM/experiments/extreme-bandwidth-20261001-N1024/plugin.py": "6de26919ce698bd6dfe6250f7ae740843bfb24dbe9e5125524deac1081b10254",
+    "/home/liulu/projects/VAR_COMM/experiments/extreme-bandwidth-20261001-N1024/digital.py": "5ceeb1be6aa678b1b82d807067d96aa2be3bfa77f43965721f55394d4046da57",
+    "/home/liulu/projects/VAR_COMM/experiments/extreme-bandwidth-20261001-N1024/training_rules.py": "ee5f5e86254c1e7e150d327a12da2c4fdd9714d39bccadd0221a8a2c50708480",
+    "/home/liulu/projects/VAR_COMM/experiments/extreme-bandwidth-20261001-N1024/compatible_budget_reference_identity.json": "5da3e7c0c69d3c4d3844d86d7e50a79fa03b3f220d70708a2282bbbd025dc991",
+    "/home/liulu/projects/VAR_COMM/experiments/extreme-bandwidth-20261001-N1024/test_supervisor.py": "f8080074ce0a130ced359e6239fc81121a4b9496104c399cd86165d64ff0d241",
+    "/home/liulu/projects/VAR_COMM/experiments/extreme-bandwidth-20261001-N1024/test_analysis.py": "ecf5145fce43de47fa05c1041a85e964e29c42023a534c3233b1b011c0efdd2f",
+    "/home/liulu/projects/VAR_COMM/experiments/extreme-bandwidth-20261001-N1024/EXECUTION_PLAN.md": "4538b43cb3adcc706bdcff82768e598a2c8dc1f35db0ec40e059397bd51091ba",
+    "/home/liulu/projects/VAR_COMM/experiments/extreme-bandwidth-20261001-N1024/test_training_rules.py": "b3314ee60a1dcfac930c73a692985ce5a9b9f0d6740c6dce8b6fcec22e649d74",
+    "/home/liulu/projects/VAR_COMM/experiments/extreme-bandwidth-20261001-N1024/train.py": "1a34b25fdb084133ead16b24b06ba01475608f5cb13625e461520c6b38bcaa05",
+    "/home/liulu/projects/VAR_COMM/experiments/extreme-bandwidth-20261001-N1024/tables.py": "57587ce6c8f321e3f47ade3aa1fa54a828650c1e818661adb72cdf6b4b50bbc6",
+    "/home/liulu/projects/VAR_COMM/experiments/extreme-bandwidth-20261001-N1024/receiver.py": "0629c915d5433f38bbd51f185c81b5f8b29d93309452a7a693468106d546e4bc",
+    "/home/liulu/projects/VAR_COMM/experiments/extreme-bandwidth-20261001-N1024/stages.json": "0eb3bdee1928ddd290a109a7e0abe326fbf361c5b8233af46415961a62fa2036",
+    "/home/liulu/projects/VAR_COMM/experiments/extreme-bandwidth-20261001-N1024/prepare_reference.py": "980947d42e02d90c26b851c66ca79a39da9e32f3f579a5761d1c6d763bda930b",
+    "/home/liulu/projects/VAR_COMM/experiments/extreme-bandwidth-20261001-N1024/publish.py": "67d525d16be69af556fbacfcff6e24938055569ab9832a824fbcf0269083341a",
+    "/home/liulu/projects/VAR_COMM/experiments/extreme-bandwidth-20261001-N1024/analysis.py": "f3910e78be7925f267ae834bb43b9baf5d6af045db6dc4c40e6870386f935de0",
+    "/home/liulu/projects/VAR_COMM/experiments/extreme-bandwidth-20261001-N1024/assets.py": "009bfe9ba28d04ea1974bf88115c6b0fd5506b5652a38d27f7662220745dccde",
+    "/home/liulu/projects/VAR_COMM/experiments/extreme-bandwidth-20261001-N1024/digital_protocol.py": "e3eec019503fa9cecd878cfaa5cdfd911dc612210dbb7f5f39318d3e2a6c1049",
+    "/home/liulu/projects/VAR_COMM/experiments/extreme-bandwidth-20261001-N1024/supervisor.py": "05d68a310c195aa7cd825cb248826ebcfaa21a765aa84232c847721fd149d074",
+    "/home/liulu/projects/VAR_COMM/experiments/extreme-bandwidth-20261001-N1024/protocol.json": "7db285476727a85a6563a8392387667558903206d2e36e8fef76108c781e5ce6",
+    "/home/liulu/projects/VAR_COMM/experiments/extreme-bandwidth-20261001-N1024/budget_model.py": "f8c19491cdae105d14c9ee756074611d510b6994895c00675985560c2e907b3a",
+    "/home/liulu/projects/VAR_COMM/experiments/extreme-bandwidth-20261001-N1024/N512_frozen_reference.json": "5ea65960518d14285690b723ac5c7e0f756733dc35cdf6e1abe622a72b834c0e",
+    "/home/liulu/projects/VAR_COMM/experiments/extreme-bandwidth-20261001-N1024/qualification.py": "83463470dc7eb62946c36480f848a6101d424d1c0835c98ad4b72be2fbd53f80"
+  }
+}
