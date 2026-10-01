@@ -2,6 +2,15 @@
 
 P512 单个训练 seed=2026093001；完成更新 40000；校准选中更新 40000；checkpoint SHA-256 `28009f4263905bf307abec341ff4aff147140e3543ec3eae231781ca5ff0036b`。本报告只交付第一阶段 N512。
 
+## 训练预算与结论范围（2026-10-01 核查）
+
+P512 在 40,000 步时，最近两个完整校准区间的损失仍分别下降 0.5073% 和 0.6497%。训练达到预设 40,000 步上限后停止，记录为 `budget_truncated=true`，未确认已收敛。以下结论针对本次单个训练 seed、校准选中的 40,000 步模型。
+
+本轮数字方案的 `CLEAR_GAIN` 全部来自 DINO 与匹配特异性分支；PSNR、LPIPS 和 F 误差同时变差。VAR 接收插件在五档 SNR 下均选择真正旁路，未建立独立接收增量。
+
+[训练完成与预算记录](../results/extreme_bandwidth_20260930_R1/provenance/training/completion.json)；[40k 停止决定](../results/extreme_bandwidth_20260930_R1/provenance/training/extension_40000.json)。
+
+
 1. **同 Dc、无额外类别的数字分工是否胜过 P512？** 严格逐帧同能量无条件 QPSK 的明显增益点：1 dB D_U_QPSK、4 dB D_U_QPSK、7 dB D_U_QPSK、13 dB D_U_QPSK、19 dB D_U_QPSK。下面同时给出 PSNR、F 平方和及配对区间。
 2. **属于什么资源口径？** 连续与 QPSK 的每帧 E=1024、N=512；16QAM 保留原星座，其实测帧能量分布另表。全部数字明显信号：1 dB D_U_QPSK、1 dB D_C_QPSK、1 dB D_U_16QAM、1 dB D_C_16QAM、4 dB D_U_QPSK、4 dB D_C_QPSK、4 dB D_U_16QAM、4 dB D_C_16QAM、7 dB D_U_QPSK、7 dB D_C_QPSK、7 dB D_U_16QAM、7 dB D_C_16QAM、13 dB D_U_QPSK、13 dB D_C_QPSK、13 dB D_U_16QAM、13 dB D_C_16QAM、19 dB D_U_QPSK、19 dB D_C_QPSK、19 dB D_U_16QAM、19 dB D_C_16QAM。类别辅助与 16QAM 点分别限定解释。
 3. **插件是否同时超过 P、A1、A2？** 同一个质量分支同时超过三控制的明显点：无。真正 BYPASS 不计为修正成功；共同 A1 alpha 的内容差值单列。
