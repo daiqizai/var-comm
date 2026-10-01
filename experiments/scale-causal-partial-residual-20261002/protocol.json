@@ -1,0 +1,147 @@
+{
+  "run_id": "SCALE-CAUSAL-PARTIAL-RESIDUAL-20261002",
+  "authorization": "User explicitly requested both methods, sequential execution, repository delivery; supplementary K calibration and residual oracle ladder included.",
+  "method_order": [
+    "partial_scale",
+    "residual_oracle_ladder",
+    "residual_real_link_if_calibration_gate_passes"
+  ],
+  "training_updates": 0,
+  "budgets": [
+    512,
+    1024
+  ],
+  "snrs_db": [
+    1,
+    4,
+    7,
+    13,
+    19
+  ],
+  "phy_families": [
+    "QPSK",
+    "16QAM"
+  ],
+  "class_condition": "unconditional VAR class1000; no true class supplied to RX",
+  "visual_interface": "Existing frozen encoder, original ten-scale VQ, VAR-d16 and selected Dc; original coordinates F shape32x16x16",
+  "generation": "Deterministic argmax, no CFG, original FP32 deterministic numerical protocol; not called posterior sampling",
+  "calibration_sources": 1000,
+  "development_sources": 100,
+  "calibration_noise_seeds": [
+    4101,
+    4102,
+    4103
+  ],
+  "development_noise_seeds": [
+    2001,
+    2002,
+    2003
+  ],
+  "method1": {
+    "orders": [
+      "whole",
+      "raster",
+      "random",
+      "entropy",
+      "oracle"
+    ],
+    "whole_scales": [
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "partial_prefix_scales": [
+      4,
+      5,
+      6,
+      7
+    ],
+    "partial_counts": "floor(next-scale length times .25,.5,.75), and maximum legal K; deduplicate; K=0 whole always available; exclude K>=next-scale length",
+    "header": "68 QPSK symbols; m3bits + K7bits + order2bits, CRC16, tail6, original FEC/rate matching",
+    "body": "K0 single prefix packet; K>0 separate prefix and partial CRC16+tail6 packets. Oracle partial adds explicit next-scale-length binary mask.",
+    "rate_cap_per_packet": 0.9,
+    "allocation": "Public proportional information+CRC+tail allocation clamped to each packet rate cap; derived from received header",
+    "failure": "Header invalid: RGB.5 erasure. Prefix CRC failure: keep unverified hard prefix, discard all partial data in every scheme. Partial CRC failure: discard partial and complete from prefix. No feedback or receiver-only order change.",
+    "entropy": "Full4096-way probabilities conditioned only on prefix, deterministic quantized entropy descending and index ascending ties. Identical pinned implementation at both endpoints.",
+    "random": "Deterministic prefix-derived per-position SHA256 permutation with public seed; never untransmitted image identity",
+    "oracle": "TX prioritizes positions where greedy next-scale prediction is wrong, explicit paid mask; diagnostic reference, not mathematically optimal image-quality bound",
+    "selection_screen": "First200 original calibration sources, seed4101, all legal candidates. Each N/PHY/SNR/order retains top2 feasible candidates and best whole K0 reference.",
+    "selection_final": "All1000 original calibration sources and all3 seeds on frozen shortlist; independently select each N/PHY/SNR/order; K0 admissible. No development access before policies frozen.",
+    "selection_objective": "Original failure-rate reference and PSNR>=reference-.25dB constraint, then minimum mean Dc LPIPS; fixed lexical tie break. DINO reported, not selected.",
+    "development": "Independent selected policies plus raster/random/oracle at entropy policy's same m,K where legal; zero-noise source rate curves separately labelled, no interpolation as measured points",
+    "primary_order_contrast": "entropy vs both raster and random at identical m,K,N,PHY and shared new-study noise; QPSK exact E2N,16QAM actual E differences reported",
+    "legacy_reference": "Frozen N512/N1024 U policy and P rows with exact data/model identity, no historical reruns except small parity qualification; extended whole m8 tested where legal"
+  },
+  "method2": {
+    "prefix_m": 4,
+    "residual": "area_g(F - exact cumulative true m4 prefix), shape32xgxg at TX; clean residual is permitted ONLY as explicitly labelled oracle observation",
+    "projections_g_channels": [
+      [
+        8,
+        32
+      ],
+      [
+        8,
+        8
+      ],
+      [
+        6,
+        8
+      ],
+      [
+        4,
+        32
+      ],
+      [
+        4,
+        16
+      ],
+      [
+        4,
+        8
+      ]
+    ],
+    "pca": "One shared across-channel PCA basis fitted on1000 calibration m4 residuals at16x16 locations; same basis at every spatial position and grid; measurements uncentered, no spatial mixing or neural training",
+    "ladder": [
+      "full8x8x32 noiseless",
+      "reduced noiseless",
+      "same reduced measurements with target SNR noise",
+      "actual paid digital/analog link only if calibration gate passes"
+    ],
+    "feasibility": "header68 + digital m4 CRC/tail protected at rate<=.9 + paid float32 gain control32 + g*g*c/2 measurement complex uses +1 paid energy padding complex; remaining symbols protect digital prefix; infeasible profiles excluded",
+    "controls": [
+      "unguided VAR same prefix",
+      "likelihood-only",
+      "static prior same observation",
+      "VAR prior guidance",
+      "direct residual correction without guided token generation"
+    ],
+    "likelihood_scope": "Gaussian working/composite likelihood with calibrated unobserved residual covariance; exact forward projected contribution retains phi/bicubic coupling and bias-difference handling; not claimed exact independent posterior",
+    "real_link_gate": "At least one budget-feasible reduced/noisy projection at7dB: calibrated guided vs unguided PSNR>=+.5dB and LPIPS<=-.02 with paired95% intervals excluding0, and DINO loss<=.01. Gate uses only calibration. Controls and P compared separately; passing gate alone does not prove VAR-specific gain.",
+    "failed_gate": "Complete and publish oracle ladder, record actual link SKIPPED_GATE_NOT_MET; do not grow grid or train",
+    "gain_protocol": "Quantized downward positive float32 gain transmitted as32 payload bits withCRC16+tail6 over32QPSKuses; one extra paid analog symbol fills energy deficit and RX ignores it. Failed gain/prefixCRC discards analog. QPSK full frame E2N;16QAM digital actualE retained.",
+    "calibration_policy": "Fit PCA/structural mean and scalar variance on1000cal; first200cal at7dB three noises selects VAR and static lambda independently from[.25,.5,1,2]; all1000cal three noises validates gate for selected VAR at feasible projected profiles; all choices frozen before development. Actual-link projection chosen from passed candidates on first200cal perN/PHY/SNR.",
+    "actual_header": "68QPSK symbols with12-bit code (m4<<3)|projection_index, CRC16/tail6; no true class; received code must match frozen public projection",
+    "received_gain_validation": "Finite positive received gain plus finite FP32-representable recovered observation and strictly positive finite FP32-representable variance; otherwise discard analog and record numeric failure without consulting TX truth"
+  },
+  "statistics": {
+    "unit": "source image; mean noise within source",
+    "bootstrap_replicates": 10000,
+    "seed": 20261002,
+    "intervals": "paired95% percentile descriptive intervals on repeatedly reused development; no training-seed uncertainty"
+  },
+  "deliverables": [
+    "per-frame paid resource and failure ledger",
+    "frozen calibration policies",
+    "paired intervals",
+    "fixed samples",
+    "quality-rate/resource curves",
+    "TX/RX uncached time",
+    "P512/P1024 comparison",
+    "scope-separated report",
+    "verified normal git push"
+  ],
+  "stop": "After two authorized methods and conditional actual-link branch are reported and pushed; preserve all prior models/results; no other queues or training"
+}
