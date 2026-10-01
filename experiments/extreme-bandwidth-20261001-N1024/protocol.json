@@ -1,0 +1,180 @@
+{
+  "run_id": "EXTREME-BW-20261001-R1-N1024",
+  "authorization": "Explicit user authorization 2026-10-01 for revised R1 second stage N1024 only",
+  "plan": "EXECUTION_PLAN.md",
+  "baseline_repository_commit": "c42ffa0167d786aafcd5cae4434123afac6ddb3f",
+  "stage": "N1024 only; complete report and push, then stop",
+  "N": 1024,
+  "E_equal_frame": 2048,
+  "header_symbols": 68,
+  "body_symbols": 956,
+  "training_seed": 2026093001,
+  "training_recipe": "Actual P512 fresh construction, seed2026093001, data/loss/optimizer/selection unchanged; only N-dependent bottleneck and TX/RX shapes change; no communication weights or optimizer inherited",
+  "training_limit": "first20000, possible30000/40000 only at frozen last-two-interval full-calibration gate",
+  "training_snrs_db": [
+    1,
+    4,
+    7,
+    13,
+    19
+  ],
+  "calibration_snrs_db": [
+    1,
+    4,
+    7,
+    13,
+    19
+  ],
+  "evaluation_snrs_db": [
+    1,
+    4,
+    7,
+    13,
+    19
+  ],
+  "calibration_sources": 1000,
+  "calibration_noise_seeds": [
+    4101,
+    4102,
+    4103
+  ],
+  "plugin_calibration_sources": 200,
+  "development_sources": 100,
+  "development_noise_seeds": [
+    2001,
+    2002,
+    2003
+  ],
+  "digital_mode_map": {
+    "0": 4,
+    "1": 5,
+    "2": 6,
+    "3": 7
+  },
+  "phy_families": [
+    "QPSK",
+    "16QAM"
+  ],
+  "phy_known_in_advance": true,
+  "legal_actions": {
+    "QPSK": [
+      4,
+      5,
+      6
+    ],
+    "16QAM": [
+      4,
+      5,
+      6,
+      7
+    ]
+  },
+  "raw_prefix_payload_bits": {
+    "4": 360,
+    "5": 660,
+    "6": 1092,
+    "7": 1860
+  },
+  "body_crc_tail_bits": 22,
+  "maximum_effective_code_rate": 0.9,
+  "digital_reliability_reference": "minimum header failure OR bodyCRC failure frame proportion; exact ties prefer larger m then fixed action ID",
+  "digital_quality_selection": "each PHY and C/U independently: PSNR>=same-condition reliability-reference PSNR-.25dB; then minimum LPIPS, ties lower failure fraction then fixed action ID",
+  "header_failure": "existing grey-image fallback, with event/erasure recorded",
+  "body_crc_failure": "existing unverified raw decoded candidate prefix retained; trusted_last=0; no truth token replacement",
+  "source_class_origin": "original registered ImageNet/application labels transmitted in the paid header; availability is an additional condition",
+  "unconditional_generation": "verified unconditional VAR class embedding index1000; paid header length retained; no true or received class used for completion",
+  "generation": "original frozen greedy completion; no sampling, CFG, beam or best-sample search",
+  "QPSK_energy_constraint": "per-frame E=2N including header and body",
+  "continuous_energy_constraint": "per-frame E=2N",
+  "16QAM_energy_constraint": "original fixed constellation scaling, actual frame energy recorded; no per-frame normalization or free gain",
+  "decoder_primary": "same frozen Dc",
+  "decoder_reference": "original D0 rerenders the identical selected digital latent and action; no D0 reselection",
+  "plugin": {
+    "lambda_grid": [
+      0,
+      0.25,
+      0.5,
+      0.75,
+      1,
+      1.5
+    ],
+    "methods": [
+      "A1",
+      "A2",
+      "V"
+    ],
+    "selection": "same Step2 calibration error/fusion/LPIPS/BYPASS rules, independently recalibrated for P1024",
+    "psnr_caps_db": {
+      "default": 0.3,
+      "13": 0.2
+    },
+    "common_alpha": "A1 calibration alpha",
+    "bypass": "identical P1024 Fhat and image",
+    "lambda0": "quantization/fusion candidate, same A1 result, distinct from true BYPASS",
+    "shared_observation": "one N1024 P1024 waveform and AWGN observation per source/SNR/noise; no latent AWGN added"
+  },
+  "statistics": {
+    "unit": "source image, averaging three noise repeats first",
+    "bootstrap_repeats": 10000,
+    "bootstrap_seed": 20260930,
+    "mismatch_seed": 20260930,
+    "statistical_zero_tolerance": 1e-12,
+    "confidence_interval": "pointwise95percent percentile, no multiple-comparison correction",
+    "H_D": "same-Dc digital vs P1024; LPIPS delta<=-.02 and CIupper<0 OR DINO delta>=+.02 and CIlower>0 with positive source-specificity CI; report PSNR/F error tradeoffs without extra PSNR gate",
+    "H_R": "one common quality branch must simultaneously exceed P1024/A1/A2; same amplitude/CI rules plus frozen PSNR feasibility; true BYPASS is not a gain"
+  },
+  "timing_sources": [
+    0,
+    11,
+    22,
+    33,
+    44,
+    55,
+    66,
+    77,
+    88,
+    99
+  ],
+  "timing_repeats": 2,
+  "timing_warmup_repeats": 3,
+  "example_sources": [
+    0,
+    25,
+    50,
+    75
+  ],
+  "example_snrs_db": [
+    4,
+    13
+  ],
+  "development_tuning": false,
+  "new_holdout": false,
+  "automatic_generative_training": false,
+  "automatic_old_queue_resume": false,
+  "historical_budget_curves": "reuse only identity-compatible completed points; missing points stay missing; no automatic historical matrix rerun",
+  "digital_latent_failure_accounting": "Header failure preserves original RGB=0.5 and has no actual Fhat: latent_valid=false, decoder_applied=false, actual latent squared error empty/NaN; optional zero-erasure proxy is a separate diagnostic. Quality metrics and source bootstrap include all failures. Actual latent summaries are conditional on valid estimates with counts; paired latent differences use the valid intersection.",
+  "authorized_budgets": [
+    1024
+  ],
+  "automatic_further_experiments": false,
+  "digital_calibration_expected_rows": 210000,
+  "N512_reference": {
+    "run_id": "EXTREME-BW-20260930-R1",
+    "completed_updates": 40000,
+    "selected_updates": 40000,
+    "budget_truncated": true,
+    "continue_training": false,
+    "registration_sha256": "7790418a13e6a4142b6e56bf1bae9de0076194f9dc0f0d6bc2158fc48f3d8be9",
+    "checkpoint_sha256": "28009f4263905bf307abec341ff4aff147140e3543ec3eae231781ca5ff0036b"
+  },
+  "cross_budget_comparison": "Compare digital-minus-continuous metric deltas at N1024 vs N512, paired by source after averaging the registered noise repeats. This is a single model per N on reused development, not training-seed replication.",
+  "excluded": [
+    "P512 continuation",
+    "N256",
+    "N128",
+    "generative model fine-tuning",
+    "new loss",
+    "old queues",
+    "new hyperparameter search"
+  ]
+}

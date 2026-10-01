@@ -1,0 +1,102 @@
+[
+  {
+    "name": "qualification",
+    "script": "qualification.py",
+    "receipt": "outputs/EXTREME-BW-20261001-R1-N1024/training/p1024_2026093001/qualification_fresh_budget.json",
+    "complete_status": "FRESH_P1024_REAL_GPU_EXACT_RESUME_PASS",
+    "required_fields": {
+      "training_updates": 0,
+      "passed": true
+    }
+  },
+  {
+    "name": "training",
+    "script": "train.py",
+    "receipt": "outputs/EXTREME-BW-20261001-R1-N1024/training/p1024_2026093001/completion.json",
+    "complete_status": "CALIBRATION_ONLY_SELECTION_COMPLETE",
+    "required_fields": {
+      "development_read": false
+    }
+  },
+  {
+    "name": "source_references",
+    "script": "digital.py",
+    "args": [
+      "--stage",
+      "references"
+    ],
+    "receipt": "outputs/EXTREME-BW-20261001-R1-N1024/digital/references/calibration/completion.json",
+    "complete_status": "SOURCE_REFERENCE_COMPLETE"
+  },
+  {
+    "name": "digital_calibration",
+    "script": "digital.py",
+    "args": [
+      "--stage",
+      "calibration"
+    ],
+    "receipt": "outputs/EXTREME-BW-20261001-R1-N1024/digital/calibration_complete.json",
+    "complete_status": "DIGITAL_FULL1000_CALIBRATION_COMPLETE",
+    "required_fields": {
+      "sources": 1000,
+      "development_read": false,
+      "frames": 210000
+    }
+  },
+  {
+    "name": "plugin_evaluation",
+    "script": "plugin.py",
+    "receipt": "outputs/EXTREME-BW-20261001-R1-N1024/plugin/completion.json",
+    "complete_status": "N1024_PLUGIN_EVALUATION_COMPLETE",
+    "required_fields": {
+      "metric_rows": 21000,
+      "frozen_weights_unchanged": true
+    }
+  },
+  {
+    "name": "digital_evaluation",
+    "script": "digital.py",
+    "args": [
+      "--stage",
+      "evaluation"
+    ],
+    "receipt": "outputs/EXTREME-BW-20261001-R1-N1024/digital/evaluation_complete.json",
+    "complete_status": "DIGITAL_DEVELOPMENT_COMPLETE",
+    "required_fields": {
+      "frozen_weights_unchanged": true,
+      "rows": 24000
+    }
+  },
+  {
+    "name": "historical_references",
+    "script": "prepare_reference.py",
+    "receipt": "outputs/EXTREME-BW-20261001-R1-N1024/reference_import.json",
+    "complete_status": "COMPATIBLE_HISTORICAL_REFERENCES_IMPORTED",
+    "required_fields": {
+      "N512_comparison_verified": true
+    }
+  },
+  {
+    "name": "analysis",
+    "script": "analysis.py",
+    "args": [
+      "--out",
+      "outputs/EXTREME-BW-20261001-R1-N1024",
+      "--results",
+      "results/extreme_bandwidth_20261001_R1_N1024"
+    ],
+    "receipt": "results/extreme_bandwidth_20261001_R1_N1024/analysis_completion.json",
+    "complete_status": "N1024_SOURCE_PAIRED_ANALYSIS_COMPLETE",
+    "required_fields": {
+      "metric_rows": 45000,
+      "synthetic": false,
+      "automatic_further_experiments": false
+    }
+  },
+  {
+    "name": "publication",
+    "script": "publish.py",
+    "receipt": "outputs/EXTREME-BW-20261001-R1-N1024/publication.json",
+    "complete_status": "PUSHED"
+  }
+]
