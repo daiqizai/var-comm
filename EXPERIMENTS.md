@@ -1,3 +1,7 @@
+## M2 scale-causal study delivered 2026-10-02
+
+Zero neural training updates. Frozen calibration choices, original100 development sources and failure-inclusive metrics. See [complete report](reports/scale_causal_m2_20261002.md); historical models and queues are preserved. The two-method authorized pipeline stops after this verified publication; actual-link branch status is explicit in the report.
+
 ## M1 scale-causal study delivered 2026-10-02
 
 Zero neural training updates. Frozen calibration choices, original100 development sources and failure-inclusive metrics. See [complete report](reports/scale_causal_m1_20261002.md); historical models and queues are preserved. Method2 proceeds only after the verified method1 publication.
