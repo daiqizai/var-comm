@@ -1,0 +1,64 @@
+"""CPU qualification against every original real CSV row; no image inference."""
+import csv,hashlib,importlib.util,json,sys,time
+from pathlib import Path
+ROOT=Path('/home/liulu/projects/VAR_COMM');OUT=ROOT/'outputs/METRIC-NUMERIC-RECOVERY-20261003'
+sys.path.insert(0,str(OUT/'runtime'));import numeric_snr
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def read(p):return json.loads(Path(p).read_text())
+def digest(v):return hashlib.sha256(json.dumps(v,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+path=ROOT/'experiments/unified-metrics-20261002/replay.py';spec=importlib.util.spec_from_file_location('_numeric_qual_frozen_replay',path)
+r=importlib.util.module_from_spec(spec);sys.modules[spec.name]=r;spec.loader.exec_module(r)
+parent=ROOT/'outputs/SCALE-CAUSAL-PARTIAL-RESIDUAL-20261002';regpath=parent/'m2_actual_registration.json';reg=read(regpath)
+polpath=parent/'m2/calibration/actual_policy.json';policy=read(polpath);layouts=r.default_layouts(ROOT)
+raw={}
+for study,layout in layouts.items():
+    with layout.rows.open(newline='',encoding='utf-8') as handle:raw[study]=list(csv.DictReader(handle))
+assert len(raw['M2_ORACLE'])==48000 and len(raw['M2_ACTUAL'])==30000
+records=[dict(image_id=a,preprocessing_id=b) for a,b in zip(reg['source_ids'],reg['preprocessing_ids'])]
+assert len(records)==100 and len({x['image_id'] for x in records})==100
+ids={x['image_id']:i for i,x in enumerate(records)};mismatch=r.ReplayEngine._derangement()
+for row in raw['M2_ACTUAL']:
+    i=int(row['source_index']);target=ids[row['mismatch_source_id']]
+    assert mismatch[i]==target
+e=object.__new__(r.ReplayEngine);e.records=records;e.mismatch=mismatch;e.synthetic=False
+preparer=e._prepare_rows
+old_prepared={s:preparer(s,rows) for s,rows in raw.items() if s!='M2_ACTUAL'}
+original_hash={s:digest(rows) for s,rows in raw.items()}
+failed=False
+try:e._validate_rows('M2_ACTUAL',raw['M2_ACTUAL'])
+except ValueError as error:
+    assert "invalid literal for int()" in str(error);failed=True
+assert failed,'Original reported failure was not reproduced'
+receipt=numeric_snr.install(r,ROOT)
+counts={};summary=[]
+for study,rows in raw.items():
+    prepared=e._prepare_rows(study,rows)
+    if study=='M2_ACTUAL':
+        assert prepared==rows and digest(prepared)==original_hash[study]
+        for first,second in zip(rows,prepared):
+            assert r.source_row_hash(first)==r.source_row_hash(second)
+            assert r.row_id(study,first)==r.row_id(study,second)
+            assert r.metadata(first,study)==r.metadata(second,study)
+            assert float(second['snr_db'])==int(second['snr_db']) in r.SNRS
+            for key in ('source_index','noise_seed','N'):
+                assert str(int(first[key]))==first[key],(key,first[key])
+        adapter=object.__new__(r._M2Adapter);adapter.study=study;adapter.actual_policy=policy
+        adapter.actual_receipt=read(parent/'m2_actual_complete.json');r._M2Adapter.validate_rows(adapter,prepared)
+    else:
+        assert prepared==old_prepared[study] and digest(prepared)==digest(old_prepared[study])
+    e._validate_rows(study,prepared)
+    assert digest(rows)==original_hash[study]
+    counts[study]=len(prepared);summary.append(dict(study=study,rows=len(prepared),raw_json_sha256=original_hash[study]))
+assert digest(policy)==digest(read(polpath))
+tables={str(layout.rows):sha(layout.rows) for layout in layouts.values()}
+tables.update({str(p):sha(p) for p in [polpath,regpath,parent/'m2_actual_complete.json']})
+sources={str(path):sha(path),str(OUT/'runtime/numeric_snr.py'):sha(OUT/'runtime/numeric_snr.py')}
+assert 'torch' not in sys.modules
+record=dict(status='REAL_NUMERIC_SNR_COMPATIBILITY_PASS',source_bindings=sources,table_bindings=tables,
+    raw_strings_unchanged=True,source_row_hashes_unchanged=True,row_ids_unchanged=True,actual_grid_equal=True,
+    integer_grid_valid=True,other_studies_unchanged=True,training_updates=0,policy_selection_updates=0,
+    original_failure_reproduced=True,original_policy_unchanged=True,all_original_grid_checks_passed=True,
+    synthetic=False,real_image_inference=False,cpu_only=True,torch_imported=False,rows=counts,row_evidence=summary,
+    installed_receipt=receipt,qualification_script_sha256=sha(__file__),time=time.time())
+p=OUT/'numeric_snr_qualification.json';assert not p.exists();p.write_text(json.dumps(record,indent=2)+'\n')
+print(json.dumps({k:record[k] for k in ['status','rows','original_failure_reproduced','raw_strings_unchanged','row_ids_unchanged']}))

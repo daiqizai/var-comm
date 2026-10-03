@@ -1,0 +1,31 @@
+
+[constructor]  ==== flash_if_available=False (0/16), fused_if_available=False (fusing_add_ln=0/16, fusing_mlp=0/16) ==== 
+    [VAR config ] embed_dim=1024, num_heads=16, depth=16, mlp_ratio=4.0
+    [drop ratios ] drop_rate=0.0, attn_drop_rate=0.0, drop_path_rate=0.0666667 (tensor([0.0000, 0.0044, 0.0089, 0.0133, 0.0178, 0.0222, 0.0267, 0.0311, 0.0356,
+        0.0400, 0.0444, 0.0489, 0.0533, 0.0578, 0.0622, 0.0667]))
+
+[init_weights] VAR with init_std=0.0180422
+/home/liulu/.local/lib/python3.10/site-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+  warnings.warn(
+/home/liulu/.local/lib/python3.10/site-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=None`.
+  warnings.warn(msg)
+/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/layers/swiglu_ffn.py:51: UserWarning: xFormers is not available (SwiGLU)
+  warnings.warn("xFormers is not available (SwiGLU)")
+/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/layers/attention.py:33: UserWarning: xFormers is not available (Attention)
+  warnings.warn("xFormers is not available (Attention)")
+/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/layers/block.py:40: UserWarning: xFormers is not available (Block)
+  warnings.warn("xFormers is not available (Block)")
+Traceback (most recent call last):
+  File "/home/liulu/projects/VAR_COMM/outputs/METRIC-FINAL-CACHE-20261002/runtime/final_runner.py", line 278, in <module>
+    main()
+  File "/home/liulu/projects/VAR_COMM/outputs/METRIC-FINAL-CACHE-20261002/runtime/final_runner.py", line 274, in main
+    run_final(snapshot,runner,replay,cache,own)
+  File "/home/liulu/projects/VAR_COMM/outputs/METRIC-FINAL-CACHE-20261002/runtime/final_runner.py", line 107, in run_final
+    engine=replay.create_engine(ROOT)
+  File "/home/liulu/projects/VAR_COMM/experiments/unified-metrics-20261002/replay.py", line 1098, in create_engine
+    return engine.setup(studies)
+  File "/home/liulu/projects/VAR_COMM/experiments/unified-metrics-20261002/replay.py", line 406, in setup
+    self._validate_rows(study, rows)
+  File "/home/liulu/projects/VAR_COMM/experiments/unified-metrics-20261002/replay.py", line 463, in _validate_rows
+    elif int(row['snr_db']) not in SNRS or int(row['noise_seed']) not in DEV_SEEDS:
+ValueError: invalid literal for int() with base 10: '1.0'

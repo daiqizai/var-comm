@@ -1,0 +1,27 @@
+"""Queue the repair's source/proof publication after all original deliveries."""
+import os,subprocess,sys,time
+from pathlib import Path
+ROOT=Path('/home/liulu/projects/VAR_COMM');OUT=ROOT/'outputs/METRIC-NUMERIC-RECOVERY-20261003'
+sys.path.insert(0,str(OUT/'runtime'));import numeric_delivery as pub
+sys.path.insert(0,str(ROOT/'outputs/METRIC-CONCURRENT-R4-20261002/runtime'));from scheduling_guard import identity,process
+q=pub.read(OUT/'real_first_source_qualification.json');assert q['status']=='REAL_FIRST_SOURCE_PARITY_PASS'
+for name in ['qualify_numeric_recovery','register_numeric_manifest','qualify_numeric_first_source','register_numeric_delivery']:
+    (OUT/(name+'_source.txt')).write_bytes((OUT/(name+'.py')).read_bytes())
+paths=[OUT/x for x in ['native_cpu_tests.json','numeric_snr_qualification.json','manifest.json','real_first_source_qualification.json',
+    'qualify_numeric_recovery_source.txt','register_numeric_manifest_source.txt','qualify_numeric_first_source_source.txt','register_numeric_delivery_source.txt','launch.json']]
+paths+=sorted(p for p in (OUT/'previous_failure').iterdir() if p.is_file())
+for source in (OUT/'executions').glob('*.json'):
+    target=OUT/('startup_snapshot_'+source.name);target.write_bytes(source.read_bytes());paths.append(target)
+bound=pub.bindings(paths);manifest=OUT/'numeric_publication_manifest.json';assert not manifest.exists()
+pub.write(manifest,dict(status='NUMERIC_RECOVERY_READY_FOR_PUBLICATION',scope='STRICT_INTEGER_SNR_STRING_SUBCLASS_ONLY',
+    source_bindings=pub.bindings(pub.source_files(OUT/'runtime')),proof_bindings=bound,artifacts=bound,
+    qualification_receipts=dict(cpu=str(OUT/'numeric_snr_qualification.json'),real_first_source=str(OUT/'real_first_source_qualification.json')),
+    training_updates=0,policy_selection_updates=0,inference_functions_changed=False,original_values_changed=False,
+    row_hashes_changed=False,model_weights_changed=False,time=time.time()))
+pub.numeric_gate(ROOT,OUT/'runtime',manifest)
+argv=['/usr/bin/python3','-u',str(OUT/'runtime/numeric_delivery.py'),'--root',str(ROOT)]
+env=dict(os.environ,CUDA_VISIBLE_DEVICES='',OMP_NUM_THREADS='2',OPENBLAS_NUM_THREADS='2',MKL_NUM_THREADS='2')
+with (OUT/'delivery.log').open('ab') as log:
+    child=subprocess.Popen(argv,cwd=ROOT,env=env,stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+who=identity(process(child.pid));pub.write(OUT/'delivery_launch.json',dict(**who,command=argv,time=time.time(),manifest_sha256=pub.sha(manifest)))
+print('NUMERIC_RECOVERY_POST_COMPLETION_DELIVERY_QUEUED',who)

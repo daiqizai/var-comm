@@ -1,0 +1,27 @@
+"""Bind the isolated repair after native real-table qualification."""
+import json,sys,time
+from pathlib import Path
+ROOT=Path('/home/liulu/projects/VAR_COMM');OUT=ROOT/'outputs/METRIC-NUMERIC-RECOVERY-20261003'
+sys.path.insert(0,str(OUT/'runtime'));import launch_recovery as l
+paths=l.layout();own=l.sources(OUT/'runtime');tests=l.read(OUT/'native_cpu_tests.json')
+assert tests['status']=='PASS' and tests['source_bindings']==own
+frozen={}
+for p in [paths['original'],paths['cache']/'runtime',paths['controller'].parent]:frozen.update(l.sources(p))
+extra=[ROOT/'outputs/UNIFIED-METRICS-20261002'/x for x in ['supervisor_registration.json','source_publication.json','assets_complete.json','modelmanifest.json','models_qualification.json']]
+extra += [ROOT/'outputs/METRIC-FINAL-CACHE-20261002'/x for x in ['runtime_registration.json','handoff.json','r4_retirement.json','extension_source_publication.json','real_cached_row_qualification.json']]
+extra += [ROOT/'outputs/METRIC-CONCURRENT-R4-20261002'/x for x in ['runtime_registration.json','concurrent_registration.json','partial_completion.json','extension_source_publication.json','status.json']]
+extra += [ROOT/'outputs/SCALE-CAUSAL-PARTIAL-RESIDUAL-20261002'/x for x in ['completion.json','m2_calibration_complete.json','m2_evaluation_complete.json','m2_actual_complete.json','m2_timing_complete.json']]
+extra += [OUT/'native_cpu_tests.json',OUT/'qualify_numeric_recovery.py',OUT/'register_numeric_manifest.py']
+for p in extra:frozen[str(p)]=l.sha(p)
+failure={str(p):l.sha(p) for p in sorted((OUT/'previous_failure').iterdir()) if p.is_file()}
+old=l.read(OUT/'previous_failure/1_controller_launch.json');q=OUT/'numeric_snr_qualification.json'
+value=dict(status='REGISTERED_METRIC_NUMERIC_RECOVERY',root=str(ROOT),controller_entry=str(paths['controller']),
+    final_runner_entry=str(paths['final_runner']),cache_dir=str(paths['cache']),runtime_source_bindings=own,
+    frozen_source_bindings=frozen,previous_failure_bindings=failure,qualification_path=str(q),qualification_sha256=l.sha(q),
+    python_executable=l.read(ROOT/'outputs/UNIFIED-METRICS-20261002/assets_complete.json')['environment'],
+    previous_controller={k:old[k] for k in ['pid','start_ticks']},training_updates=0,policy_selection_updates=0,
+    inference_functions_changed=False,metric_values_changed=False,time=time.time())
+p=OUT/'manifest.json';assert not p.exists();l.write(p,value)
+l.validate(p,[str(paths['controller']),'--root',str(ROOT)],paths['runtime'])
+l.validate(p,[str(paths['final_runner']),'--root',str(ROOT),'--cache-dir',str(paths['cache'])],paths['runtime'])
+print('BOTH_STARTUP_MANIFESTS_VALIDATED',l.sha(p))

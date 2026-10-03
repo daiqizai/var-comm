@@ -1,0 +1,39 @@
+"""Validate the actual first final checkpoint and preserve its recovery proof."""
+import csv,importlib.util,json,sys,time
+from pathlib import Path
+ROOT=Path('/home/liulu/projects/VAR_COMM');OUT=ROOT/'outputs/METRIC-NUMERIC-RECOVERY-20261003'
+sys.path.insert(0,str(ROOT/'experiments/unified-metrics-20261002'))
+import runner,replay
+sys.path.insert(0,str(ROOT/'outputs/METRIC-FINAL-CACHE-20261002/runtime'));import cache_assembly as assembly
+sys.path.insert(0,str(ROOT/'outputs/METRIC-CONCURRENT-R4-20261002/runtime'));import cache_handoff as cache
+read=runner.read;sha=runner.sha;write=runner.write
+checkpoint=ROOT/'outputs/UNIFIED-METRICS-20261002/source_checkpoints/000.json'
+regpath=ROOT/'results/unified_metrics_20261002/metrics_registration.json';reg=read(regpath);done=read(checkpoint)
+source_reg=read(ROOT/'outputs/SCALE-CAUSAL-PARTIAL-RESIDUAL-20261002/m2_actual_registration.json')
+e=object.__new__(replay.ReplayEngine);e.records=[dict(image_id=a,preprocessing_id=b) for a,b in zip(source_reg['source_ids'],source_reg['preprocessing_ids'])]
+expected={};table_bindings={};per_study={}
+for study,layout in replay.default_layouts(ROOT).items():
+    with layout.rows.open(newline='',encoding='utf-8') as f:rows=[r for r in csv.DictReader(f) if r['source_index']=='0']
+    table_bindings[str(layout.rows)]=sha(layout.rows);rows=e._prepare_rows(study,rows);per_study[study]=len(rows)
+    for row in rows:
+        rid=replay.row_id(study,row);assert rid not in expected
+        expected[rid]=runner.normalized(row,study,replay.metadata(row,study))
+runner.checkpoint_valid(done,runner.identity(reg),expected)
+assert done['source_index']==0 and len(done['rows'])==2370 and len(done['parity'])==2370
+for row in done['rows']:
+    original=expected[row['replay_row_id']]
+    for key,value in original.items():assert cache.same_json(row[key],value),(key,row[key],value)
+for parity in done['parity']:
+    assert parity['replay_parity_passed'] is True and parity['synthetic'] is False
+counts=assembly.origin_counts(done['rows'],done['parity'])
+assert counts==done['parity_origin_counts'] and counts[assembly.FRESH]==780 and counts[assembly.HISTORICAL]==1590
+manifest=OUT/'manifest.json';cpu=OUT/'numeric_snr_qualification.json';native=OUT/'native_cpu_tests.json'
+inputs={**table_bindings,str(manifest):sha(manifest),str(cpu):sha(cpu),str(native):sha(native),str(regpath):sha(regpath),str(checkpoint):sha(checkpoint),str(Path(__file__).resolve()):sha(__file__)}
+for field in ['frozen_policy_bindings','source_bindings']:runner.verify(reg[field])
+qual=dict(status='REAL_FIRST_SOURCE_PARITY_PASS',parity_passed=True,synthetic=False,source_index=0,
+    original_source_row_ids_preserved=True,original_normalized_fields_preserved=True,rows=per_study,
+    total_rows=2370,fresh_m2_replay_rows=780,historical_cache_rows=1590,parity_origin_counts=counts,
+    checkpoints_bound={str(checkpoint):sha(checkpoint)},inputs=inputs,metric_batch_sizes_used=done['metric_batch_sizes_used'],
+    original_parity_tolerances=replay.PARITY_TOLERANCES,training_updates=0,policy_selection_updates=0,time=time.time())
+p=OUT/'real_first_source_qualification.json';assert not p.exists();write(p,qual)
+print(json.dumps({k:qual[k] for k in ['status','total_rows','fresh_m2_replay_rows','historical_cache_rows','metric_batch_sizes_used']}))
