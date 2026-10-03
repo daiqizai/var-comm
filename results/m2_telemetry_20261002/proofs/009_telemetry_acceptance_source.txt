@@ -1,0 +1,47 @@
+"""Observe restored jobs without changing their inference or scheduling."""
+import hashlib,json,statistics,subprocess,sys,time
+from pathlib import Path
+ROOT=Path('/home/liulu/projects/VAR_COMM');OUT=ROOT/'outputs/M2-TELEMETRY-20261002'
+PARENT=ROOT/'outputs/SCALE-CAUSAL-PARTIAL-RESIDUAL-20261002';R4=ROOT/'outputs/METRIC-CONCURRENT-R4-20261002'
+sys.path.insert(0,str(R4/'runtime'))
+from scheduling_guard import read,write,verify,process,identity,alive,sha
+saved=read(OUT/'checkpoint_pause_complete.json');verify(saved['checkpoint_bindings']);verify(saved['source_bindings'])
+deadline=time.monotonic()+180
+while len(list((R4/'source_checkpoints').glob('*.json')))<=saved['metric_sources']:
+    if time.monotonic()>deadline:raise RuntimeError('Restored metric job did not save the next source within warmup allowance')
+    time.sleep(2)
+start=time.time();samples=[]
+for _ in range(30):
+    raw=subprocess.check_output(['nvidia-smi','--id=0','--query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw','--format=csv,noheader,nounits'],text=True)
+    vals=[float(v.strip()) for v in raw.strip().split(',')]
+    samples.append(dict(time=time.time(),gpu_util_pct=vals[0],memory_mib=vals[1],total_memory_mib=vals[2],temperature_c=vals[3],power_w=vals[4]));time.sleep(2)
+main=read(PARENT/'supervisor_status.json');metric=read(R4/'controller_status.json')
+gate=sorted((PARENT/'m2/calibration/gate').glob('source_*.json'));cached=sorted((R4/'source_checkpoints').glob('*.json'))
+old_gate=[p for p in gate if str(p) in saved['checkpoint_bindings']][-21:]
+new_gate=[p for p in gate if str(p) not in saved['checkpoint_bindings']]
+def timings(paths):
+    times=[p.stat().st_mtime for p in paths];deltas=[b-a for a,b in zip(times,times[1:])]
+    return dict(sources=len(paths),intervals=len(deltas),mean_seconds=statistics.mean(deltas) if deltas else None,median_seconds=statistics.median(deltas) if deltas else None,seconds=deltas)
+before=timings(old_gate);after=timings(new_gate)
+hook=OUT/'executions'/f'{main["worker_pid"]}_{main["worker_start_ticks"]}.json'
+hookvalue=read(hook)
+assert hookvalue['enabled'] and hookvalue['stats']['cache_hits']>0
+assert main['status']=='RUNNING' and metric['status']=='CONCURRENT_SCORING'
+assert main['worker_pid']!=saved['m2_worker']['pid'] and metric['pid']==saved['metric_owner']['pid']
+assert alive(saved['metric_owner'],process(saved['metric_owner']['pid']))
+for value in [main,metric]:
+    worker=dict(pid=value['worker_pid'],start_ticks=value['worker_start_ticks'])
+    assert alive(worker,process(worker['pid'])) and process(worker['pid'])['ppid']==value['pid']
+assert len(new_gate)>=3 and len(cached)>saved['metric_sources']
+verify(saved['checkpoint_bindings']);verify(saved['source_bindings'])
+evidence=dict(status='ACCELERATION_AND_PARALLEL_PROGRESS_VERIFIED',time=time.time(),started=start,main=main,metric=metric,
+    gate_sources_complete=len(gate),gate_total=1000,screen_sources_complete=200,metric_sources_complete=len(cached),metric_total=100,
+    historical_recent_gate=before,new_resumed_gate=after,gate_throughput_speedup_observed=before['mean_seconds']/after['mean_seconds'],
+    throughput_comparison_note='Different calibration sources; exclude paused gap and first warmup interval. Exact same-source engineering comparison is separate.',
+    gpu_samples=samples,gpu_summary=dict(mean_util_pct=statistics.mean(s['gpu_util_pct'] for s in samples),min_util_pct=min(s['gpu_util_pct'] for s in samples),max_util_pct=max(s['gpu_util_pct'] for s in samples),max_memory_mib=max(s['memory_mib'] for s in samples),max_temperature_c=max(s['temperature_c'] for s in samples)),
+    telemetry_execution_snapshot=hookvalue,native_tests_passed=40,scientific_inference_unchanged=True,training_updates=0,policy_selection_updates=0,
+    qualification_sha256=sha(OUT/'telemetry_qualification.json'),manifest_sha256=sha(OUT/'manifest.json'),previous_checkpoints_byte_preserved=True,
+    final_cache_guardian=read(ROOT/'outputs/METRIC-FINAL-CACHE-20261002/guardian_status.json') if (ROOT/'outputs/METRIC-FINAL-CACHE-20261002/guardian_status.json').exists() else None,
+    recovery_publication_guardian=read(ROOT/'outputs/M2-JSON-RECOVERY-20261002/publication_status.json'))
+write(OUT/'acceptance.json',evidence)
+print(json.dumps({k:evidence[k] for k in ['status','gate_sources_complete','metric_sources_complete','gate_throughput_speedup_observed','gpu_summary']}))

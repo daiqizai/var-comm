@@ -1,0 +1,26 @@
+"""Register only a successfully qualified isolated runtime before handoff."""
+import json,os,sys,time
+from pathlib import Path
+ROOT=Path('/home/liulu/projects/VAR_COMM');OUT=ROOT/'outputs/M2-TELEMETRY-20261002'
+R4=ROOT/'outputs/METRIC-CONCURRENT-R4-20261002';BOOL=ROOT/'outputs/M2-JSON-RECOVERY-20261002'
+sys.path.insert(0,str(OUT/'runtime'))
+import telemetry as t
+own=t.sources(OUT/'runtime');tests=t.read(OUT/'native_cpu_tests.json')
+assert tests['status']=='PASS' and tests['source_bindings']==own
+q=OUT/'telemetry_qualification.json';t.qualification(q,t.sha(q),own)
+original=t.sources(R4/'runtime')
+admission=t.read(R4/'admission.json');original.update(admission['original_guard_bindings'])
+for p in [ROOT/'experiments/scale-causal-partial-residual-20261002/common.py',ROOT/'experiments/scale-causal-partial-residual-20261002/m2_runner.py',ROOT/'experiments/metric-speed-20261002/wrapper.py',R4/'admission.json']:
+    original[str(p)]=t.sha(p)
+value=dict(status='REGISTERED_M2_TELEMETRY_EXTENSION',entrypoint=str(t.ENTRY),runtime_source_bindings=own,
+    original_source_bindings=original,ttl_seconds=1.0,training_updates=0,policy_selection_updates=0,
+    inference_functions_changed=False,qualification_path=str(q),qualification_sha256=t.sha(q),
+    native_cpu_tests_path=str(OUT/'native_cpu_tests.json'),native_cpu_tests_sha256=t.sha(OUT/'native_cpu_tests.json'),time=time.time())
+for kind,p in [('manifest',BOOL/'manifest.json'),('sitecustomize',BOOL/'runtime/sitecustomize.py')]:
+    value['bool_'+kind+'_path']=str(p);value['bool_'+kind+'_sha256']=t.sha(p)
+manifest=OUT/'manifest.json'
+assert not manifest.exists()
+manifest.write_text(json.dumps(value,indent=2)+'\n')
+os.environ['M2_JSON_RECOVERY_MANIFEST']=str(BOOL/'manifest.json')
+t.validate(manifest,[str(t.ENTRY),'--root',str(ROOT),'--admission',str(R4/'admission.json'),'--stage','calibration'],OUT/'runtime')
+print('FULL_DEPLOYMENT_MANIFEST_VALIDATED',t.sha(manifest))

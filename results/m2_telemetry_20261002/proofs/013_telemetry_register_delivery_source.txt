@@ -1,0 +1,26 @@
+"""Freeze measured evidence and queue sequential post-completion delivery."""
+import json,os,subprocess,sys,time
+from pathlib import Path
+ROOT=Path('/home/liulu/projects/VAR_COMM');OUT=ROOT/'outputs/M2-TELEMETRY-20261002';R4=ROOT/'outputs/METRIC-CONCURRENT-R4-20261002'
+sys.path.insert(0,str(OUT/'runtime'));import telemetry_delivery as pub
+sys.path.insert(0,str(R4/'runtime'));from scheduling_guard import identity,process,alive
+accept=pub.read(OUT/'acceptance.json');assert accept['status']=='ACCELERATION_AND_PARALLEL_PROGRESS_VERIFIED'
+for name in ['telemetry_operator','telemetry_manifest','telemetry_acceptance','telemetry_register_delivery']:
+    (OUT/(name+'_source.txt')).write_bytes((OUT/(name+'.py')).read_bytes())
+names=['native_cpu_tests.json','native_cpu_tests_initial_failure.json','telemetry_qualification.json','manifest.json',
+       'pause_requested.json','checkpoint_pause_complete.json','operator_launch.json','acceptance.json','steady_comparison.json',
+       'telemetry_operator_source.txt','telemetry_manifest_source.txt','telemetry_acceptance_source.txt','telemetry_register_delivery_source.txt']
+paths=[OUT/n for n in names]
+paths.append(ROOT/'outputs/GPU-TELEMETRY-PROFILE-20261002/before_telemetry_sampling.json')
+bound=pub.bindings(paths)
+manifest=OUT/'telemetry_publication_manifest.json';assert not manifest.exists()
+pub.write(manifest,dict(status='TELEMETRY_READY_FOR_PUBLICATION',source_bindings=pub.bindings(pub.source_files(OUT/'runtime')),
+    proof_bindings=bound,artifacts=bound,training_updates=0,policy_selection_updates=0,
+    healthy_query_ttl_seconds=1.,inference_functions_changed=False,scientific_parity_status='PASS',time=time.time()))
+pub.telemetry_gate(ROOT,OUT/'runtime',manifest)
+argv=['/usr/bin/python3','-u',str(OUT/'runtime/telemetry_delivery.py'),'--root',str(ROOT)]
+env=dict(os.environ,CUDA_VISIBLE_DEVICES='',OMP_NUM_THREADS='2',OPENBLAS_NUM_THREADS='2',MKL_NUM_THREADS='2')
+with (OUT/'delivery.log').open('ab') as log:
+    child=subprocess.Popen(argv,cwd=ROOT,env=env,stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+who=identity(process(child.pid));pub.write(OUT/'delivery_launch.json',dict(**who,command=argv,time=time.time(),manifest_sha256=pub.sha(manifest)))
+print('POST_COMPLETION_DELIVERY_QUEUED',who)

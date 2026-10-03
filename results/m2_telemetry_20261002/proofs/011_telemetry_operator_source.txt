@@ -1,0 +1,148 @@
+"""Reviewed checkpoint handoff for one bounded engineering benchmark."""
+import argparse,json,os,signal,subprocess,sys,time
+from pathlib import Path
+ROOT=Path('/home/liulu/projects/VAR_COMM')
+R4=ROOT/'outputs/METRIC-CONCURRENT-R4-20261002'
+OUT=ROOT/'outputs/M2-TELEMETRY-20261002'
+PARENT=ROOT/'outputs/SCALE-CAUSAL-PARTIAL-RESIDUAL-20261002'
+BOOL=ROOT/'outputs/M2-JSON-RECOVERY-20261002'
+sys.path.insert(0,str(R4/'runtime'))
+from scheduling_guard import process,identity,alive,sha,read,write,verify,sources
+
+def signaled(expected,sig,entry):
+    fd=os.pidfd_open(expected['pid'],0)
+    try:
+        actual=process(expected['pid'])
+        if not alive(expected,actual) or entry not in actual['command']:raise RuntimeError('Signal target identity/entry changed')
+        signal.pidfd_send_signal(fd,sig,None,0)
+    finally:os.close(fd)
+def wait_stopped(expected):
+    end=time.monotonic()+10
+    while True:
+        p=process(expected['pid'])
+        if not alive(expected,p):raise RuntimeError('Owner exited before stop confirmation')
+        if p['state'] in ('T','t'):return
+        if time.monotonic()>end:raise RuntimeError('Owner did not stop')
+        time.sleep(.05)
+def raw_exit(expected):
+    p=process(expected['pid'])
+    if p is None or identity(p)!=identity(expected):raise RuntimeError('Paused parent lost its child exit evidence')
+    if p['state']!='Z':return None
+    raw=(Path('/proc')/str(expected['pid'])/'stat').read_text();fields=raw[raw.rfind(') ')+2:].split()
+    return int(fields[49])
+def wait_normal_exit(expected,seconds=60):
+    end=time.monotonic()+seconds
+    while time.monotonic()<end:
+        code=raw_exit(expected)
+        if code is not None:
+            if code!=75*256:raise RuntimeError('Worker exit was not normal checkpoint75: '+str(code))
+            return
+        time.sleep(.2)
+    raise RuntimeError('Worker has not reached its normal pause')
+def checkpoint_bindings():
+    paths=list((PARENT/'m2/calibration/screen').glob('source_*.json'))
+    paths+=list((PARENT/'m2/calibration/gate').glob('source_*.json'))
+    paths+=list((R4/'source_checkpoints').glob('*.json'))
+    return {str(p):sha(p) for p in sorted(paths)}
+def pause():
+    OUT.mkdir(parents=True,exist_ok=True)
+    if (OUT/'pause_requested.json').exists():raise RuntimeError('Pause already attempted; inspect evidence before retry')
+    main=read(PARENT/'supervisor_status.json');metric=read(R4/'controller_status.json')
+    if main['status']!='RUNNING' or main['stage']!='m2_calibration' or metric['status']!='CONCURRENT_SCORING':raise RuntimeError('Expected live calibration and scoring')
+    m2owner=identity(read(R4/'m2_controller_launch.json'));metricowner=identity(read(R4/'controller_launch.json'))
+    m2worker=identity(dict(pid=main['worker_pid'],start_ticks=main['worker_start_ticks']))
+    metricworker=identity(dict(pid=metric['worker_pid'],start_ticks=metric['worker_start_ticks']))
+    for owner,worker in [(m2owner,m2worker),(metricowner,metricworker)]:
+        if not alive(owner,process(owner['pid'])) or not alive(worker,process(worker['pid'])) or process(worker['pid'])['ppid']!=owner['pid']:raise RuntimeError('Owned process ancestry changed')
+    if main['pid']!=m2owner['pid'] or metric['pid']!=metricowner['pid']:raise RuntimeError('Status owner differs')
+    evidence=dict(status='CHECKPOINT_BENCHMARK_PAUSE_REQUESTED',time=time.time(),m2_owner=m2owner,m2_worker=m2worker,
+        metric_owner=metricowner,metric_worker=metricworker,checkpoint_bindings=checkpoint_bindings(),
+        main_status=main,metric_status=metric,source_bindings=sources(OUT/'runtime'))
+    write(OUT/'pause_requested.json',evidence)
+    signaled(metricowner,signal.SIGSTOP,str(R4/'runtime/controller.py'));wait_stopped(metricowner)
+    write(OUT/'operator_status.json',dict(status='WAITING_FOR_NEXT_METRIC_CHECKPOINT',time=time.time()))
+    initial=len(list((R4/'source_checkpoints').glob('*.json')));deadline=time.monotonic()+180
+    while len(list((R4/'source_checkpoints').glob('*.json')))<=initial:
+        if not alive(metricworker,process(metricworker['pid'])):raise RuntimeError('Metric worker exited before next saved checkpoint')
+        if time.monotonic()>deadline:raise RuntimeError('Next metric checkpoint timed out')
+        time.sleep(.1)
+    write(R4/'pause_requested.json',dict(status='PAUSE_REQUESTED',reason='BOUNDED_TELEMETRY_ENGINEERING_BENCHMARK',
+        time=time.time(),controller_pid=metricowner['pid'],controller_start_ticks=metricowner['start_ticks'],admission_sha256=sha(R4/'admission.json')))
+    wait_normal_exit(metricworker)
+    signaled(m2owner,signal.SIGSTOP,str(R4/'runtime/m2_controller.py'));wait_stopped(m2owner)
+    signaled(m2worker,signal.SIGTERM,str(R4/'runtime/scheduled_process.py'));wait_normal_exit(m2worker)
+    verify(evidence['checkpoint_bindings']);verify(evidence['source_bindings'])
+    archive=OUT/'checkpoint_handoff';archive.mkdir(exist_ok=True)
+    files=[PARENT/'supervisor_status.json',PARENT/'supervisor_launch.json',R4/'m2_controller_launch.json',R4/'active_m2.json',R4/'controller_status.json',R4/'status.json',R4/'partial_launch.json']
+    for index,p in enumerate(files):(archive/(str(index)+'_'+p.name)).write_bytes(p.read_bytes())
+    record=dict(evidence,status='BOTH_WORKERS_PAUSED_WITH_EXIT75',time=time.time(),
+        checkpoint_bindings=checkpoint_bindings(),metric_sources=len(list((R4/'source_checkpoints').glob('*.json'))),
+        gate_sources=len(list((PARENT/'m2/calibration/gate').glob('source_*.json'))),worker_exit_codes=[75,75])
+    write(OUT/'checkpoint_pause_complete.json',record);write(OUT/'operator_status.json',dict(status=record['status'],time=time.time()))
+    print(json.dumps({k:record[k] for k in ('status','metric_sources','gate_sources')}))
+def benchmark():
+    saved=read(OUT/'checkpoint_pause_complete.json');verify(saved['source_bindings']);verify(saved['checkpoint_bindings'])
+    for key in ('metric_owner','m2_owner'):wait_stopped(saved[key])
+    for key in ('metric_worker','m2_worker'):
+        if raw_exit(saved[key])!=75*256:raise RuntimeError('Worker exit evidence changed')
+    deadline=time.monotonic()+10
+    while subprocess.check_output(['nvidia-smi','--query-compute-apps=pid','--format=csv,noheader,nounits'],text=True).strip():
+        if time.monotonic()>deadline:raise RuntimeError('GPU is not exclusive for engineering benchmark')
+        time.sleep(.5)
+    env=dict(os.environ,**read(R4/'operator_preflight.json')['environment'])
+    argv=['/usr/bin/python3','-u',str(OUT/'runtime/benchmark.py'),'--root',str(ROOT)]
+    with (OUT/'benchmark.log').open('ab') as stream:
+        child=subprocess.Popen(argv,cwd=ROOT,env=env,stdin=subprocess.DEVNULL,stdout=stream,stderr=subprocess.STDOUT,start_new_session=True)
+    actual=process(child.pid)
+    write(OUT/'benchmark_launch.json',dict(**identity(actual),command=argv,time=time.time(),source_bindings=sources(OUT/'runtime')))
+    print('BENCHMARK_LAUNCHED',child.pid)
+def fallback():
+    saved=read(OUT/'checkpoint_pause_complete.json')
+    for key,script in [('m2_owner','m2_controller.py'),('metric_owner','controller.py')]:
+        signaled(saved[key],signal.SIGCONT,str(R4/'runtime'/script))
+    write(OUT/'operator_status.json',dict(status='ORIGINAL_OWNERS_RESUMED_WITHOUT_OPTIMIZATION',time=time.time()))
+def resume():
+    saved=read(OUT/'checkpoint_pause_complete.json');verify(saved['source_bindings']);verify(saved['checkpoint_bindings'])
+    q=read(OUT/'telemetry_qualification.json')
+    # Qualification schema is checked by the startup extension too; fail closed
+    # here on the agreed numerical proof and measured end-to-end gain.
+    if q.get('status')!='QUALIFIED' or q.get('selected_implementation')!='cached' or q.get('strict_equality_passed') is not True or q.get('speedup',0)<1.10:raise RuntimeError('Measured strict-parity speed qualification did not pass')
+    bench=read(OUT/'benchmark_launch.json')
+    if alive(bench,process(bench['pid'])):raise RuntimeError('Benchmark still active')
+    for key in ('m2_owner','metric_owner'):wait_stopped(saved[key])
+    manifest=OUT/'manifest.json'
+    if not manifest.exists():raise RuntimeError('Reviewed deployment manifest required')
+    verify(read(manifest)['runtime_source_bindings'])
+    signaled(saved['m2_owner'],signal.SIGTERM,str(R4/'runtime/m2_controller.py'))
+    try:signaled(saved['m2_owner'],signal.SIGCONT,str(R4/'runtime/m2_controller.py'))
+    except ProcessLookupError:pass
+    deadline=time.monotonic()+10
+    while alive(saved['m2_owner'],process(saved['m2_owner']['pid'])):
+        if time.monotonic()>deadline:raise RuntimeError('Retired original M2 owner still active')
+        time.sleep(.1)
+    env=dict(os.environ,**read(R4/'operator_preflight.json')['environment'])
+    env['PYTHONPATH']=str(OUT/'runtime')+os.pathsep+str(BOOL/'runtime')+os.pathsep+env['PYTHONPATH']
+    env['M2_JSON_RECOVERY_MANIFEST']=str(BOOL/'manifest.json');env['M2_TELEMETRY_MANIFEST']=str(manifest)
+    argv=['/usr/bin/python3','-u',str(R4/'runtime/m2_controller.py'),'--root',str(ROOT)]
+    with (OUT/'m2_controller.log').open('ab') as stream:
+        child=subprocess.Popen(argv,cwd=ROOT,env=env,stdin=subprocess.DEVNULL,stdout=stream,stderr=subprocess.STDOUT,start_new_session=True)
+    who=identity(process(child.pid));write(OUT/'operator_launch.json',dict(status='QUALIFIED_TELEMETRY_M2_LAUNCHED',**who,command=argv,
+        manifest_sha256=sha(manifest),qualification_sha256=sha(OUT/'telemetry_qualification.json'),time=time.time(),
+        runtime_source_bindings=sources(OUT/'runtime'),original_metric_owner=saved['metric_owner']))
+    signaled(saved['metric_owner'],signal.SIGCONT,str(R4/'runtime/controller.py'))
+    write(OUT/'operator_status.json',dict(status='QUALIFIED_TELEMETRY_RESUMED',**who,time=time.time()))
+    print('QUALIFIED_TELEMETRY_RESUMED',who)
+if __name__=='__main__':
+    os.chdir(ROOT);p=argparse.ArgumentParser();p.add_argument('action',choices=('pause','benchmark','resume','fallback'));a=p.parse_args()
+    try:globals()[a.action]()
+    except BaseException as error:
+        if a.action=='pause' and (OUT/'pause_requested.json').exists() and not (OUT/'checkpoint_pause_complete.json').exists():
+            saved=read(OUT/'pause_requested.json');recovery=[]
+            for key,script in [('m2_owner','m2_controller.py'),('metric_owner','controller.py')]:
+                try:
+                    actual=process(saved[key]['pid'])
+                    if alive(saved[key],actual) and actual['state'] in ('T','t'):
+                        signaled(saved[key],signal.SIGCONT,str(R4/'runtime'/script));recovery.append(key)
+                except Exception as recovery_error:recovery.append(str(recovery_error))
+            write(OUT/'pause_failed.json',dict(error=str(error),resumed=recovery,time=time.time()))
+        raise
