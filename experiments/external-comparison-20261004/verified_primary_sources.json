@@ -1,0 +1,149 @@
+{
+  "checked_at_utc": "2026-10-03T14:11:48.889282+00:00",
+  "primary_sources_only": true,
+  "dit_jscc": {
+    "repository": "https://github.com/semcomm/DiTJSCC",
+    "commit": "d72503a831da8da0a45abf5bad16c2f951dd11cc",
+    "commit_date": "2026-01-01T13:21:26Z",
+    "live_api_verified": {
+      "tree_files": [
+        "README.md"
+      ],
+      "branches": [
+        "main"
+      ],
+      "releases": []
+    },
+    "status": "OFFICIAL_REPOSITORY_PRESENT_IMPLEMENTATION_AND_WEIGHTS_NOT_RELEASED",
+    "readme_release_condition": "code after final acceptance",
+    "execution_action": "Record E5 as unavailable public implementation; do not invent a reproduction or block other methods. No release/code/checkpoint to execute at checked revision."
+  },
+  "var": {
+    "repository": "https://github.com/FoundationVision/VAR",
+    "commit": "78b95394fc5896192e3a003e4b295f8ea743c48f",
+    "weight_repository_revision": "6d0ee6598a42f75079aa79e58b012b57b284c91b",
+    "shared_tokenizer_verified_from": "https://github.com/FoundationVision/VAR/blob/78b95394fc5896192e3a003e4b295f8ea743c48f/demo_sample.ipynb",
+    "depths": [
+      16,
+      20,
+      24,
+      30
+    ],
+    "tokenizer": "vae_ch160v4096z32.pth",
+    "vocabulary": 4096,
+    "latent_channels": 32,
+    "vae_base_channels": 160,
+    "share_quant_resi": 4,
+    "patch_nums": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      8,
+      10,
+      13,
+      16
+    ],
+    "build_dimensions": {
+      "d16": {
+        "embed_dim": 1024,
+        "heads": 16,
+        "reported_parameters": "310M"
+      },
+      "d24": {
+        "embed_dim": 1536,
+        "heads": 24,
+        "reported_parameters": "1.0B"
+      },
+      "d30": {
+        "embed_dim": 1920,
+        "heads": 30,
+        "reported_parameters": "2.0B"
+      }
+    },
+    "weights": [
+      {
+        "filename": "vae_ch160v4096z32.pth",
+        "bytes": 436075834,
+        "sha256": "7c3ec27ae28a3f87055e83211ea8cc8558bd1985d7b51742d074fb4c2fcf186c",
+        "url": "https://huggingface.co/FoundationVision/var/resolve/6d0ee6598a42f75079aa79e58b012b57b284c91b/vae_ch160v4096z32.pth"
+      },
+      {
+        "filename": "var_d16.pth",
+        "bytes": 1243116346,
+        "sha256": "4f6151aad91c94e03e224dd7358d8389fa05301c0c291279566998efb54b0ecb",
+        "url": "https://huggingface.co/FoundationVision/var/resolve/6d0ee6598a42f75079aa79e58b012b57b284c91b/var_d16.pth"
+      },
+      {
+        "filename": "var_d24.pth",
+        "bytes": 4135711722,
+        "sha256": "12c03619b2d3906ed19fe59539a90aadf60d72287dbaa31cf540435e76ddf789",
+        "url": "https://huggingface.co/FoundationVision/var/resolve/6d0ee6598a42f75079aa79e58b012b57b284c91b/var_d24.pth"
+      },
+      {
+        "filename": "var_d30.pth",
+        "bytes": 8042294478,
+        "sha256": "7b11551dd4d794c7d6ed10b3d2822d42efe609a86128171b646e543dd2633b56",
+        "url": "https://huggingface.co/FoundationVision/var/resolve/6d0ee6598a42f75079aa79e58b012b57b284c91b/var_d30.pth"
+      }
+    ],
+    "hardware_fact": "Official README requires torch>=2.0 and makes flash-attn/xformers optional. No official minimum VRAM for this project reconstruction protocol was found. Official demo uses autocast FP16, unlike the existing project frozen float32 protocol.",
+    "hardware_inference": "Parameter-only FP32 storage is about4.14GB for d24 and8.04GB for d30 plus VAE; these are not peak-VRAM measurements. Qualify batch1 and measure actual maximum allocated/reserved memory before full run on24GB.",
+    "execution_actions": [
+      "Reuse existing VAE only after comparing official checksum and model configuration; do not replace F/Dc.",
+      "Download d24 first into a separate immutable assets folder and verify LFS SHA256. Keep d16 result policy unchanged.",
+      "Build exact depth24 with the same patch schedule and tokenizer; use the established numeric protocol, not demo sampling defaults.",
+      "For entropy-based M1, sender and receiver must reproduce ordering with the same model. A larger-prior arm requires its own recorded ordering and calibration-only choices; do not claim it is a pure receiver swap if ordering changes.",
+      "Benchmark reconstruction and evaluation separately to avoid retaining multiple VAR backbones plus all metric models. d30 feasibility remains real-hardware qualification, not guaranteed."
+    ]
+  },
+  "hifi_diffcom": {
+    "repository": "https://github.com/wsxtyrdd/diffcom",
+    "commit": "a8cc4d63304f5bb514d69576e689ff2412510161",
+    "commit_date": "2025-02-07T07:44:55Z",
+    "official_config": "https://github.com/wsxtyrdd/diffcom/blob/a8cc4d63304f5bb514d69576e689ff2412510161/configs/diffcom.yaml",
+    "default_method": "hifi_diffcom",
+    "default_operator": "djscc (ADJSCC)",
+    "swinjscc": "README TODO; no SwinJSCC operator registration in official measurement.py",
+    "provided_adjscc_C": [
+      2,
+      4,
+      6
+    ],
+    "verified_google_drive_folder": "https://drive.google.com/drive/folders/1N0EzzxCv1wh6JeFr0g8vkmB0Qj23ozZJ",
+    "resource_derivation": "256x256 input -> Cx64x64 real latent -> pair real/imag -> N=C*64*64/2=2048*C complex symbols per image",
+    "provided_N_at_256": [
+      4096,
+      8192,
+      12288
+    ],
+    "target_2048": "C1 architecture possible but not among public provided weights",
+    "target_1024": "requires a changed spatial/channel bottleneck; cannot set fractionalC or simply trim existing final latent as a trained baseline",
+    "config_N_warning": "N:1.0 in diffcom.yaml is a reverse-sampling-step multiplier, not channel symbols",
+    "official_awgn_convention": "Channel normalization has complex energy1 (total E=N) and per-real noise variance1/(2*10^(SNR/10)); multiplying both TX and noise bysqrt2 yields project E=2N with identical SNR. Receiver normalization must be consistently inverted.",
+    "side_information_warning": "ChannelWrapper.observe stores avg_pwr calculated atTX; forward()/transpose() read it atRX. Official code explicitly assumes RX knows this float. Audit local adapter and account for or disclose this channel normalization side information.",
+    "imagenet_diffusion": {
+      "filename": "256x256_diffusion_uncond.pt",
+      "url": "https://openaipublic.blob.core.windows.net/diffusion/jul-2021/256x256_diffusion_uncond.pt",
+      "head_status": 200,
+      "bytes": 2211383297
+    },
+    "defaults_not_for_main_imagenet": [
+      "ffhq_10m model and ffhq_demo dataset are YAML defaults; select ImageNet unconditional diffusion weights for ImageNet results.",
+      "CSNR10 is the default; new protocol explicitly needs1/7/13.",
+      "YAML memory comment5404MB applies to the FFHQ setup and is not a measured ImageNet requirement."
+    ],
+    "execution_actions": [
+      "Prefer already qualified local HiFi-DiffCom assets/adapters and record their commit/diff/operator.",
+      "If local adapter is SwinJSCC-based, clearly label HiFi-DiffCom+SwinJSCC with actual measured N and verify differentiable forward likelihood and author-setting parity.",
+      "Official ADJSCC_C2 plus ImageNet prior can serve an actual N4096 reference. It is not a matched N1024/N2048 baseline.",
+      "Do not use test/development quality to change diffusion hyperparameters. Keep official or independently registered calibration setting.",
+      "Record any shared gain/shuffle metadata, actual noise waveform count and energy, and verify that receiver receives no raw source features."
+    ]
+  },
+  "notes": [
+    "Primary-source raw files and API snapshots are saved beside this JSON with their source URLs and hashes in primary_source_files.json. No model weights were downloaded; only metadata,source files,and HEAD responses."
+  ]
+}

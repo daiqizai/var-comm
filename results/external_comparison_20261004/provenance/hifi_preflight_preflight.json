@@ -1,0 +1,521 @@
+{
+  "status": "ENGINEERING_PREFLIGHT",
+  "passed": true,
+  "request": {
+    "root": "/home/liulu/projects/VAR_COMM",
+    "swin_output": "/home/liulu/projects/VAR_COMM/outputs/EXTERNAL-COMPARISON-20261004/swin_training",
+    "swin_vendor": "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/SwinJSCC",
+    "diffcom_vendor": "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/diffcom_code",
+    "adm_checkpoint": "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/checkpoints/256x256_diffusion_uncond.pt",
+    "image_cache": "/home/liulu/projects/channel-adaptive-semantic-drift-controlled-diffusion-jscc/outputs/cache/CACHE-VAR-DECODER-FT-IMAGENET20K-CAL1K-001",
+    "reference_registration": "/home/liulu/projects/VAR_COMM/outputs/EXTREME-BW-20261001-R1-N1024/training/p1024_2026093001/registration.json",
+    "output": "/home/liulu/projects/VAR_COMM/outputs/EXTERNAL-COMPARISON-20261004/hifi_preflight",
+    "config": "/home/liulu/projects/VAR_COMM/outputs/EXTERNAL-COMPARISON-20261004/runtime/swin_training_protocol.json"
+  },
+  "full_input_gradient_pass": true,
+  "native_forward_parity_pass": true,
+  "model_parameters_unchanged": true,
+  "parameter_gradients_accumulated": false,
+  "initialization": "random",
+  "initial_model_sha256": "401758fc75ed03fe2272cc633b794d56deb75e3a3b9eab2dbbcd01f1ca0656f4",
+  "formal_training_updates": 0,
+  "swin_qualification_sha256": "30b41f328c18ec4546dd9a5f677b90620a4180f6a460d2f1dc22cc7880da65e7",
+  "adm_checkpoint_sha256": "a37c32fffd316cd494cf3f35b339936debdc1576dad13fe57c42399a5dbc78b1",
+  "source_bindings": {
+    "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/SwinJSCC/data/datasets.py": "98aead75565c246a9d0cb997c03667088fc32ee8cdfa6baf57e3b9b7ca01db6f",
+    "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/SwinJSCC/loss/distortion.py": "8b02884a542b73db1c3a55faf698368132395aa2344feac0cc1c8083d8836402",
+    "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/SwinJSCC/main.py": "013f1bf13e7f4536173bdf061b602e723817a40776582206631d0b76cd3fd4f9",
+    "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/SwinJSCC/net/channel.py": "84572df9fb661d5e10cc0b00dbed1db473eef94bb1822833be06b33443dc74d9",
+    "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/SwinJSCC/net/decoder.py": "29260e7252551e445eae245c1714879e7459ca93a3dfeec9119da80136c87822",
+    "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/SwinJSCC/net/encoder.py": "dd9379276d6cc2dbdd6ac174b14a72e604e859ed30884367e62f5a1e8bbb37d3",
+    "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/SwinJSCC/net/modules.py": "341213cd8f59e983045acd7354ca2d0768da58389fc346ee9516856ecd90e6ce",
+    "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/SwinJSCC/net/network.py": "215fc46a52809f9db57570bb8a1d1a278c936c30abd2018aa55efb7b0fc73b6a",
+    "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/SwinJSCC/utils.py": "48027e772236aca5ea62047d067546dd9bd4c2810e8add33b4d623b72ee72d0e",
+    "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/diffcom_code/_djscc/network.py": "c3cb624b04308a81facbeed9eb93937448a35ce9e86eedff3e2ce2323e87acf0",
+    "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/diffcom_code/channel/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/diffcom_code/channel/channel.py": "bf86e729fabae21a3393f43a5e9b6c3133c12d424f1004eb23bed0088c58b5c2",
+    "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/diffcom_code/channel/ofdm_channel.py": "a25e88ac194626e7d0b586e67efeeacec4a878a1407a9c3d4ca6a3c2ab7fb8f9",
+    "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/diffcom_code/conditioning_method/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/diffcom_code/conditioning_method/diffcom.py": "e381c684e072c6fa87b761c471651aebe349fdf497c230261abb00105dbd8468",
+    "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/diffcom_code/configs/diffcom.yaml": "1abd4c45a879bae0d93176db1ca64075a787cfb0d41cc60a6784dcd26ccd9335",
+    "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/diffcom_code/data/datasets.py": "bc9700f51e3f3973e49eb68f63e89ca5a7bf9703cc6847a7f96356cfe33eeede",
+    "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/diffcom_code/guided_diffusion/fp16_util.py": "31ce6b36be7a2a09606687a4935eca6b093f645c7ecd2111f43fca54aff3dc2a",
+    "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/diffcom_code/guided_diffusion/gaussian_diffusion.py": "ece0176dc6f3a176774d4343c4887d5a44733925f8e47299c39ede3e7a9c797e",
+    "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/diffcom_code/guided_diffusion/logger.py": "615d9cb63dd2cfe017ac424bcc64340257c83eb9cb8e6b6913df4bd55831c1c0",
+    "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/diffcom_code/guided_diffusion/losses.py": "0b0f5a5532910fbc7f16d30f2b891d8f1e20aa88881589ce4eacc2cc6ce06026",
+    "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/diffcom_code/guided_diffusion/measurement.py": "fd719078752adaa60fa570122ac81e4508b1dc917e7b5cbae9be5bf691a64ebe",
+    "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/diffcom_code/guided_diffusion/nn.py": "d9547fb22b421a16dc079cb82a9d98630100b5e1b2a710d343f4d3f90b8661f3",
+    "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/diffcom_code/guided_diffusion/noise_schedule.py": "95d411b6462b3a4bdfb92bec1ea0e316b944a9590310eaf769841088b5e8e0bd",
+    "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/diffcom_code/guided_diffusion/respace.py": "b9a509b28c10a52ca3ee8cc48f40205b1d70aecfc95356b540dc88415368c2de",
+    "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/diffcom_code/guided_diffusion/script_util.py": "9606bcf279d113fa3208c62ce64e7f977acf5f54fa0cb03212b8091d508d5b24",
+    "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/diffcom_code/guided_diffusion/unet.py": "ab3ad40d70a551069f3e2d14698f7c6712e5738d0be1365def6cad78ca15eeda",
+    "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/diffcom_code/main_diffcom.py": "61e459829becd5a06f6ace8f4a3722e903949622016c139b113cf6766b9fccb4",
+    "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/diffcom_code/utils/util.py": "130bd1d02b9a3092b1d1503b56e331c53e709312e01ef199ea8a25b2ec4e1014",
+    "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/diffcom_code/utils/utils_logger.py": "8b31ef4c81deee883a1809952152e65e0f38c3707d4adda3c464de64a3187942",
+    "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/diffcom_code/utils/utils_model.py": "e6fd7586abf4316fe12e4986e72bfd6f5e04732d5f43c51bafac4e8a6b7b7898",
+    "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/vendor/diffcom_code/utils/utils_resizer.py": "9c1608459afee012b714178fc99bef5b3c0cb7dba73b9c709db27287d4c6d78a",
+    "/home/liulu/projects/VAR_COMM/outputs/EXTERNAL-COMPARISON-20261004/runtime/hifi_qualification.py": "3fb18439023970d9300154fa08a1a0f7f38cf14ceee8852b9fdacfc6f9ca9991",
+    "/home/liulu/projects/VAR_COMM/outputs/EXTERNAL-COMPARISON-20261004/runtime/hifi_swin_operator.py": "fc34e38664146b1b5d61cb717f2ab4f66600e5b75e75a225544b4cbfe1fe5ace",
+    "/home/liulu/projects/VAR_COMM/outputs/EXTERNAL-COMPARISON-20261004/runtime/hifi_swin_sampler.py": "7c52843b89a6f614889235a812dd124c102a51f2e8227a765105d1abe1a07778",
+    "/home/liulu/projects/VAR_COMM/outputs/EXTERNAL-COMPARISON-20261004/runtime/hifi_swin_schedule.py": "f9a5cc6cb1236e368d2fb05e3f760ad0171555a56b9ed698bdeb32a67b607b8b",
+    "/home/liulu/projects/VAR_COMM/outputs/EXTERNAL-COMPARISON-20261004/runtime/hifi_swin_schedule_tests.py": "de9229f58aeacc53c1d91949a1d0cb18018e915caebf058a4a3de30f1f78ac29",
+    "/home/liulu/projects/VAR_COMM/outputs/EXTERNAL-COMPARISON-20261004/runtime/hifi_swin_tests.py": "56b2a5ee50b0d51afe1fcb67736eaf7d0479ec72a7f2cdf14b56b08ee9674bd6",
+    "/home/liulu/projects/VAR_COMM/outputs/EXTERNAL-COMPARISON-20261004/runtime/swin_data.py": "618a73d01a53dc53d3b2fc81643c1453c86f840a6ab6415765b5f94011c6fffb",
+    "/home/liulu/projects/VAR_COMM/outputs/EXTERNAL-COMPARISON-20261004/runtime/swin_model.py": "144c6164160eac328c5612cdd0d3697e7b8492989c97c937935a0c5960975ee2",
+    "/home/liulu/projects/VAR_COMM/outputs/EXTERNAL-COMPARISON-20261004/runtime/swin_protocol.py": "25402398744133df919ae2317a3221bd95e004bd271fab92376a898992f13a78",
+    "/home/liulu/projects/VAR_COMM/outputs/EXTERNAL-COMPARISON-20261004/runtime/swin_replay.py": "fdcd850ad3873974c7ebe32b01594b674c89aaadba944657895b499a05244faa",
+    "/home/liulu/projects/VAR_COMM/outputs/EXTERNAL-COMPARISON-20261004/runtime/swin_state.py": "7adc08e448977369a919a0fbbdb8e0036bd5098335ec613789aad7ee833d48c6",
+    "/home/liulu/projects/VAR_COMM/outputs/EXTERNAL-COMPARISON-20261004/runtime/swin_train.py": "6f23125fc332bcbb1e38d498ba1a6899ff5c5bbd336ecee23146bd15ba41ed88",
+    "/home/liulu/projects/VAR_COMM/src/var_comm/scale_channel.py": "35cae80a94d3997584342b6e4566a6cff53cf4914ca4745a59b0a9bba48c8145",
+    "/home/liulu/projects/VAR_COMM/src/var_comm/token_trellis.cpp": "035058221b35df245fe1520a0e14f741528b53d84c0a987359d0df0d226a7b52",
+    "/home/liulu/projects/VAR_COMM/outputs/EXTERNAL-COMPARISON-20261004/runtime/hifi_preflight.py": "c72a491b526bb8a3bef14ea80dbde6cc3331d818d5c4a4feed5f7fddb8bb11b7",
+    "/home/liulu/projects/VAR_COMM/outputs/EXTERNAL-COMPARISON-20261004/runtime/swin_training_protocol.json": "fe8f3965e746ccc33199d56bb8d095ec907f7cbf437e7800791853a18fb61e45"
+  },
+  "input_bindings": {
+    "/home/liulu/projects/channel-adaptive-semantic-drift-controlled-diffusion-jscc/outputs/cache/CACHE-VAR-DECODER-FT-IMAGENET20K-CAL1K-001/manifest.json": "49f344e8cf72960b7c164af96e05c203e24f4ae1cbfb8be9f3f02f8842b8e8b8",
+    "/home/liulu/projects/VAR_COMM/outputs/EXTREME-BW-20261001-R1-N1024/training/p1024_2026093001/registration.json": "6b9bb15bc3caecf417389922c20ae592330e43cdb10206f5b5c0282aa0925b5a",
+    "/home/liulu/projects/channel-adaptive-semantic-drift-controlled-diffusion-jscc/outputs/cache/CACHE-VAR-DECODER-FT-IMAGENET20K-CAL1K-001/calibration/shard_0000.pt": "cc225e8ce22698af1434810465ab2c9631e3e7f75eb98f3b60c23b23410d7070",
+    "/home/liulu/projects/channel-adaptive-semantic-drift-controlled-diffusion-jscc/outputs/cache/CACHE-VAR-DECODER-FT-IMAGENET20K-CAL1K-001/calibration/shard_0001.pt": "6de4253a55715bdd7a2488cbdf0716eed47f60cebe271a240c0c200add2b44b1",
+    "/home/liulu/projects/channel-adaptive-semantic-drift-controlled-diffusion-jscc/outputs/cache/CACHE-VAR-DECODER-FT-IMAGENET20K-CAL1K-001/calibration/shard_0002.pt": "2279547f8ac211add4d8b44a75a4ffb2b503b8095efaf4bcad272345241f2cc1",
+    "/home/liulu/projects/channel-adaptive-semantic-drift-controlled-diffusion-jscc/outputs/cache/CACHE-VAR-DECODER-FT-IMAGENET20K-CAL1K-001/calibration/shard_0003.pt": "f30ad86ea742cce32244fe1c9a113f24e83e8c7b2b27d2a6c917f9e2d795d284",
+    "/home/liulu/projects/channel-adaptive-semantic-drift-controlled-diffusion-jscc/outputs/cache/CACHE-VAR-DECODER-FT-IMAGENET20K-CAL1K-001/calibration/shard_0004.pt": "d13b0ba84506eff3274ebe53d00da328fc068c075dfd0ea74706d31eaf6a0119",
+    "/home/liulu/projects/channel-adaptive-semantic-drift-controlled-diffusion-jscc/outputs/cache/CACHE-VAR-DECODER-FT-IMAGENET20K-CAL1K-001/calibration/shard_0005.pt": "e6c7898ef321bcaed315f5196fdd2fc06ba04b9314d51e61a20ba0e4cfd616bf",
+    "/home/liulu/projects/channel-adaptive-semantic-drift-controlled-diffusion-jscc/outputs/cache/CACHE-VAR-DECODER-FT-IMAGENET20K-CAL1K-001/calibration/shard_0006.pt": "fd76af24b91272885697cbd4143f89255b0aab97b4060955f43dddbd7a6ebd4c",
+    "/home/liulu/projects/channel-adaptive-semantic-drift-controlled-diffusion-jscc/outputs/cache/CACHE-VAR-DECODER-FT-IMAGENET20K-CAL1K-001/calibration/shard_0007.pt": "1b9222e16d79682442c54663f9ffbb28dc001647cc7f02d1daf5d68fa276db87",
+    "/home/liulu/projects/channel-adaptive-semantic-drift-controlled-diffusion-jscc/outputs/cache/CACHE-VAR-DECODER-FT-IMAGENET20K-CAL1K-001/calibration/shard_0008.pt": "5a31e9f56a2fc7fcc74723c942754fb48b34ce6bbbaba29ddb249b56b2603355",
+    "/home/liulu/projects/channel-adaptive-semantic-drift-controlled-diffusion-jscc/outputs/cache/CACHE-VAR-DECODER-FT-IMAGENET20K-CAL1K-001/calibration/shard_0009.pt": "cfe88eb66ee8d9d5e1418e7e9cb3edee0da3f9bac818d0f0c1caa7ab0f31b040",
+    "/home/liulu/projects/VAR_COMM/outputs/EXTERNAL-COMPARISON-20261004/swin_training/qualification.json": "30b41f328c18ec4546dd9a5f677b90620a4180f6a460d2f1dc22cc7880da65e7",
+    "/home/liulu/projects/VAR_COMM/experiments/external-baseline-positioning-20260916/checkpoints/256x256_diffusion_uncond.pt": "a37c32fffd316cd494cf3f35b339936debdc1576dad13fe57c42399a5dbc78b1"
+  },
+  "torch": "1.12.1+cu116",
+  "cuda": "11.6",
+  "device": "NVIDIA GeForce RTX 4090 D",
+  "numeric": {
+    "dtype": "float32",
+    "TF32": false,
+    "deterministic": true
+  },
+  "source_role": "original_calibration",
+  "source_ids": [
+    "n01440764/ILSVRC2012_val_00045866_n01440764",
+    "n01443537/ILSVRC2012_val_00044095_n01443537"
+  ],
+  "source_indices": [
+    0,
+    1
+  ],
+  "development_read": false,
+  "holdout_read": false,
+  "checks": [
+    {
+      "N": 1024,
+      "snr": 1,
+      "source_index": 0,
+      "source_id": "n01440764/ILSVRC2012_val_00045866_n01440764",
+      "kind": "native_encoder_decoder",
+      "result": {
+        "encoder_max_abs": 0.0,
+        "decoder_max_abs": 0.0,
+        "mask_exact": true,
+        "input_detach_removed_only_for_posterior": true
+      }
+    },
+    {
+      "N": 1024,
+      "snr": 13,
+      "source_index": 0,
+      "source_id": "n01440764/ILSVRC2012_val_00045866_n01440764",
+      "kind": "native_encoder_decoder",
+      "result": {
+        "encoder_max_abs": 0.0,
+        "decoder_max_abs": 0.0,
+        "mask_exact": true,
+        "input_detach_removed_only_for_posterior": true
+      }
+    },
+    {
+      "N": 1024,
+      "snr": 7,
+      "source_index": 0,
+      "source_id": "n01440764/ILSVRC2012_val_00045866_n01440764",
+      "kind": "official_full_forward",
+      "result": {
+        "max_abs": 8.642673492431641e-07,
+        "mean_abs": 6.639167793309753e-08,
+        "real_official_forward": true,
+        "same_standard_noise": true,
+        "batch_size": 1,
+        "passed": true
+      }
+    },
+    {
+      "N": 1024,
+      "snr": 7,
+      "source_index": 0,
+      "source_id": "n01440764/ILSVRC2012_val_00045866_n01440764",
+      "kind": "full_input_gradient",
+      "result": {
+        "objective": "waveform",
+        "loss": 0.04891401529312134,
+        "gradient_l2": 0.02001579364676477,
+        "gradient_nonzero_elements": 196608,
+        "direction": "full_gradient_sign",
+        "input_gradient_includes_encoder_and_decoder": false,
+        "fixed_received_mask_and_gain": true,
+        "comparisons": [
+          {
+            "epsilon": 0.001,
+            "analytic": 6.490537703425782,
+            "central_difference": 6.4904652535915375,
+            "absolute_error": 7.244983424481433e-05,
+            "tolerance": 0.19471633110277348,
+            "passed": true
+          },
+          {
+            "epsilon": 0.0003,
+            "analytic": 6.490537703425782,
+            "central_difference": 6.4904553194840755,
+            "absolute_error": 8.238394170678731e-05,
+            "tolerance": 0.19471633110277348,
+            "passed": true
+          }
+        ],
+        "passed": true
+      }
+    },
+    {
+      "N": 1024,
+      "snr": 7,
+      "source_index": 0,
+      "source_id": "n01440764/ILSVRC2012_val_00045866_n01440764",
+      "kind": "full_input_gradient",
+      "result": {
+        "objective": "confirming_rgb",
+        "loss": 0.00016837267321534455,
+        "gradient_l2": 0.0004115281771463805,
+        "gradient_nonzero_elements": 196608,
+        "direction": "full_gradient_sign",
+        "input_gradient_includes_encoder_and_decoder": true,
+        "fixed_received_mask_and_gain": true,
+        "comparisons": [
+          {
+            "epsilon": 0.001,
+            "analytic": 0.10856601424883469,
+            "central_difference": 0.10726214532041922,
+            "absolute_error": 0.0013038689284154692,
+            "tolerance": 0.003257180427465041,
+            "passed": true
+          },
+          {
+            "epsilon": 0.0003,
+            "analytic": 0.10856601424883469,
+            "central_difference": 0.10833544365596028,
+            "absolute_error": 0.00023057059287441561,
+            "tolerance": 0.003257180427465041,
+            "passed": true
+          }
+        ],
+        "passed": true
+      }
+    },
+    {
+      "N": 2048,
+      "snr": 1,
+      "source_index": 1,
+      "source_id": "n01443537/ILSVRC2012_val_00044095_n01443537",
+      "kind": "native_encoder_decoder",
+      "result": {
+        "encoder_max_abs": 0.0,
+        "decoder_max_abs": 0.0,
+        "mask_exact": true,
+        "input_detach_removed_only_for_posterior": true
+      }
+    },
+    {
+      "N": 2048,
+      "snr": 13,
+      "source_index": 1,
+      "source_id": "n01443537/ILSVRC2012_val_00044095_n01443537",
+      "kind": "native_encoder_decoder",
+      "result": {
+        "encoder_max_abs": 0.0,
+        "decoder_max_abs": 0.0,
+        "mask_exact": true,
+        "input_detach_removed_only_for_posterior": true
+      }
+    },
+    {
+      "N": 2048,
+      "snr": 7,
+      "source_index": 1,
+      "source_id": "n01443537/ILSVRC2012_val_00044095_n01443537",
+      "kind": "official_full_forward",
+      "result": {
+        "max_abs": 8.046627044677734e-07,
+        "mean_abs": 6.78429827871696e-08,
+        "real_official_forward": true,
+        "same_standard_noise": true,
+        "batch_size": 1,
+        "passed": true
+      }
+    },
+    {
+      "N": 2048,
+      "snr": 7,
+      "source_index": 1,
+      "source_id": "n01443537/ILSVRC2012_val_00044095_n01443537",
+      "kind": "full_input_gradient",
+      "result": {
+        "objective": "waveform",
+        "loss": 0.05006638169288635,
+        "gradient_l2": 0.00706002081883326,
+        "gradient_nonzero_elements": 196608,
+        "direction": "full_gradient_sign",
+        "input_gradient_includes_encoder_and_decoder": false,
+        "fixed_received_mask_and_gain": true,
+        "comparisons": [
+          {
+            "epsilon": 0.001,
+            "analytic": 2.3900007557320686,
+            "central_difference": 2.3899786174297333,
+            "absolute_error": 2.213830233532832e-05,
+            "tolerance": 0.07170022267196206,
+            "passed": true
+          },
+          {
+            "epsilon": 0.0003,
+            "analytic": 2.3900007557320686,
+            "central_difference": 2.390015870332718,
+            "absolute_error": 1.5114600649290821e-05,
+            "tolerance": 0.07170067610998154,
+            "passed": true
+          }
+        ],
+        "passed": true
+      }
+    },
+    {
+      "N": 2048,
+      "snr": 7,
+      "source_index": 1,
+      "source_id": "n01443537/ILSVRC2012_val_00044095_n01443537",
+      "kind": "full_input_gradient",
+      "result": {
+        "objective": "confirming_rgb",
+        "loss": 0.00019827081996481866,
+        "gradient_l2": 5.2100419643512315e-05,
+        "gradient_nonzero_elements": 196608,
+        "direction": "full_gradient_sign",
+        "input_gradient_includes_encoder_and_decoder": true,
+        "fixed_received_mask_and_gain": true,
+        "comparisons": [
+          {
+            "epsilon": 0.001,
+            "analytic": 0.017784104332433867,
+            "central_difference": 0.017744234355632216,
+            "absolute_error": 3.9869976801651386e-05,
+            "tolerance": 0.000533723129973016,
+            "passed": true
+          },
+          {
+            "epsilon": 0.0003,
+            "analytic": 0.017784104332433867,
+            "central_difference": 0.01778045164731642,
+            "absolute_error": 3.6526851174487063e-06,
+            "tolerance": 0.000533723129973016,
+            "passed": true
+          }
+        ],
+        "passed": true
+      }
+    }
+  ],
+  "real_ADM_probes": [
+    {
+      "N": 1024,
+      "snr": 7,
+      "source_id": "n01440764/ILSVRC2012_val_00045866_n01440764",
+      "source_index": 0,
+      "actual_frame_energy": 2047.9999690515401,
+      "actual_rx_context": {
+        "N": 1024,
+        "channels": 6,
+        "power": 0.017669012770056725,
+        "indices": [
+          16,
+          99,
+          172,
+          199,
+          232,
+          271
+        ],
+        "accepted": true,
+        "crc_accepted": true,
+        "fields_legal": true
+      },
+      "observed_waveform_sha256": "cd8bf1b71e78e7f89361ab3549b6d11d0d434e1a124ee0c65d2b0ca82397750c",
+      "sampler_receipt": {
+        "method": "HiFi-DiffCom+SwinJSCC_registered_adaptation",
+        "diffusion_checkpoint_sha256": "a37c32fffd316cd494cf3f35b339936debdc1576dad13fe57c42399a5dbc78b1",
+        "diffusion_model": "ImageNet_ADM_256x256_unconditional",
+        "prior_finetuning_steps": 0,
+        "operator_mask": "fixed_CRC_decoded_paid_header",
+        "operator_gain": "fixed_CRC_decoded_float32_power",
+        "confirming_decoder": "same_clamped_RGB_as_paired_Swin_receiver",
+        "upstream_input_detaches_removed_in_new_operator_only": 3,
+        "schedule_mode": "actual_data_cbr",
+        "sampling_parameters": {
+          "lr_schedule": "constant",
+          "lr_min": 0.3,
+          "learning_rate": 1.0,
+          "zeta": 0.25,
+          "gamma": 0.25
+        },
+        "N_total": 1024,
+        "N_data": 768,
+        "N_header": 256,
+        "E_total": 2048,
+        "E_data": 1536,
+        "E_header": 512,
+        "mask_bits": 41,
+        "power_bits": 32,
+        "crc_bits": 16,
+        "tail_bits": 6,
+        "header_information_bits": 95,
+        "header_coded_bits": 512,
+        "project_noise_variance_per_real": 0.19952623149688797,
+        "author_noise_variance_per_real": 0.09976311574844399,
+        "schedule_adaptive": true,
+        "schedule_data_N": 768,
+        "schedule_image_real_dimensions": 196608,
+        "schedule_actual_data_cbr": 0.00390625,
+        "schedule_effective_cbr": 0.00390625,
+        "schedule_dsnr": 0.015215034172901688,
+        "schedule_multiplier": 1.0,
+        "schedule_formula": "DSNR=5*CBR*log10(1+10^(SNR_dB/10))",
+        "schedule_selection": "registered_mechanical_resource_substitution_no_quality_search",
+        "t_start": 255,
+        "header_accepted": true,
+        "fallback": "",
+        "sampling_seed": 23,
+        "NFE": 2,
+        "complete_author_schedule": false,
+        "diagnostic_probe": true,
+        "RX_seconds": 0.7742892538663,
+        "latent_consistency": 13.277631759643555,
+        "confirming_consistency": 22.851579666137695,
+        "model_parameters_unchanged": true,
+        "parameter_gradients_accumulated": false,
+        "max_memory_allocated_bytes": 8645617664,
+        "max_memory_reserved_bytes": 9053405184
+      }
+    },
+    {
+      "N": 2048,
+      "snr": 7,
+      "source_id": "n01443537/ILSVRC2012_val_00044095_n01443537",
+      "source_index": 1,
+      "actual_frame_energy": 4095.9999521289415,
+      "actual_rx_context": {
+        "N": 2048,
+        "channels": 13,
+        "power": 0.10199373215436935,
+        "indices": [
+          16,
+          71,
+          99,
+          135,
+          172,
+          181,
+          185,
+          199,
+          205,
+          232,
+          271,
+          296,
+          301
+        ],
+        "accepted": true,
+        "crc_accepted": true,
+        "fields_legal": true
+      },
+      "observed_waveform_sha256": "72c35e6cf94b621cd4ffc5985e93350af8b271eba956f6c582c24c7ef6533639",
+      "sampler_receipt": {
+        "method": "HiFi-DiffCom+SwinJSCC_registered_adaptation",
+        "diffusion_checkpoint_sha256": "a37c32fffd316cd494cf3f35b339936debdc1576dad13fe57c42399a5dbc78b1",
+        "diffusion_model": "ImageNet_ADM_256x256_unconditional",
+        "prior_finetuning_steps": 0,
+        "operator_mask": "fixed_CRC_decoded_paid_header",
+        "operator_gain": "fixed_CRC_decoded_float32_power",
+        "confirming_decoder": "same_clamped_RGB_as_paired_Swin_receiver",
+        "upstream_input_detaches_removed_in_new_operator_only": 3,
+        "schedule_mode": "actual_data_cbr",
+        "sampling_parameters": {
+          "lr_schedule": "constant",
+          "lr_min": 0.3,
+          "learning_rate": 1.0,
+          "zeta": 0.25,
+          "gamma": 0.25
+        },
+        "N_total": 2048,
+        "N_data": 1664,
+        "N_header": 384,
+        "E_total": 4096,
+        "E_data": 3328,
+        "E_header": 768,
+        "mask_bits": 76,
+        "power_bits": 32,
+        "crc_bits": 16,
+        "tail_bits": 6,
+        "header_information_bits": 130,
+        "header_coded_bits": 768,
+        "project_noise_variance_per_real": 0.19952623149688797,
+        "author_noise_variance_per_real": 0.09976311574844399,
+        "schedule_adaptive": true,
+        "schedule_data_N": 1664,
+        "schedule_image_real_dimensions": 196608,
+        "schedule_actual_data_cbr": 0.008463541666666666,
+        "schedule_effective_cbr": 0.008463541666666666,
+        "schedule_dsnr": 0.032965907374620324,
+        "schedule_multiplier": 1.0,
+        "schedule_formula": "DSNR=5*CBR*log10(1+10^(SNR_dB/10))",
+        "schedule_selection": "registered_mechanical_resource_substitution_no_quality_search",
+        "t_start": 251,
+        "header_accepted": true,
+        "fallback": "",
+        "sampling_seed": 23,
+        "NFE": 2,
+        "complete_author_schedule": false,
+        "diagnostic_probe": true,
+        "RX_seconds": 0.6435994759667665,
+        "latent_consistency": 7.434364318847656,
+        "confirming_consistency": 8.288496017456055,
+        "model_parameters_unchanged": true,
+        "parameter_gradients_accumulated": false,
+        "max_memory_allocated_bytes": 8644895744,
+        "max_memory_reserved_bytes": 9053405184
+      }
+    }
+  ],
+  "model_state_before_after": {
+    "swin_before": "b05c46e9bf12cb63fd31f7b90cde97a3cdf3ae395c36ed945f8ab7cd9589ee52",
+    "swin_after": "b05c46e9bf12cb63fd31f7b90cde97a3cdf3ae395c36ed945f8ab7cd9589ee52",
+    "adm_before": "9d1c908f12c15cfc718a4e488061e65a93281d66e9e8679fbbdbde3f744a02da",
+    "adm_after": "9d1c908f12c15cfc718a4e488061e65a93281d66e9e8679fbbdbde3f744a02da"
+  },
+  "finite_difference_epsilons": [
+    0.001,
+    0.0003
+  ],
+  "finite_difference_relative_tolerance": 0.03,
+  "finite_difference_absolute_tolerance": 2e-07,
+  "seconds": 12.677905758144334,
+  "qualification_only": true,
+  "engineering_only": true,
+  "scientific_result": false,
+  "synthetic": false,
+  "selected_checkpoint_qualification": false,
+  "training_qualification_replacement": false,
+  "formal_evaluation_step_limit_permitted": false,
+  "SIGTERM_handler": false
+}
