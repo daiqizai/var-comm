@@ -1,0 +1,62 @@
+
+[constructor]  ==== flash_if_available=False (0/16), fused_if_available=False (fusing_add_ln=0/16, fusing_mlp=0/16) ==== 
+    [VAR config ] embed_dim=1024, num_heads=16, depth=16, mlp_ratio=4.0
+    [drop ratios ] drop_rate=0.0, attn_drop_rate=0.0, drop_path_rate=0.0666667 (tensor([0.0000, 0.0044, 0.0089, 0.0133, 0.0178, 0.0222, 0.0267, 0.0311, 0.0356,
+        0.0400, 0.0444, 0.0489, 0.0533, 0.0578, 0.0622, 0.0667]))
+
+[init_weights] VAR with init_std=0.0180422
+/home/liulu/.local/lib/python3.10/site-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+  warnings.warn(
+/home/liulu/.local/lib/python3.10/site-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=None`.
+  warnings.warn(msg)
+/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/layers/swiglu_ffn.py:51: UserWarning: xFormers is not available (SwiGLU)
+  warnings.warn("xFormers is not available (SwiGLU)")
+/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/layers/attention.py:33: UserWarning: xFormers is not available (Attention)
+  warnings.warn("xFormers is not available (Attention)")
+/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/layers/block.py:40: UserWarning: xFormers is not available (Block)
+  warnings.warn("xFormers is not available (Block)")
+Traceback (most recent call last):
+  File "/home/liulu/projects/VAR_COMM/outputs/METRIC-CONCURRENT-R4-20261002/runtime/scheduled_process.py", line 29, in <module>
+    if __name__ == '__main__': main()
+  File "/home/liulu/projects/VAR_COMM/outputs/METRIC-CONCURRENT-R4-20261002/runtime/scheduled_process.py", line 26, in main
+    runpy.run_path(str(target), run_name='__main__')
+  File "/usr/lib/python3.10/runpy.py", line 289, in run_path
+    return _run_module_code(code, init_globals, run_name,
+  File "/usr/lib/python3.10/runpy.py", line 96, in _run_module_code
+    _run_code(code, mod_globals, init_globals,
+  File "/usr/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/home/liulu/projects/VAR_COMM/experiments/metric-speed-20261002/wrapper.py", line 217, in <module>
+    main(parser.parse_args().stage)
+  File "/home/liulu/projects/VAR_COMM/experiments/metric-speed-20261002/wrapper.py", line 208, in main
+    run_stage(runner,common,stage,out)
+  File "/home/liulu/projects/VAR_COMM/experiments/metric-speed-20261002/wrapper.py", line 57, in run_stage
+    try:return runner.main(stage)
+  File "/home/liulu/projects/VAR_COMM/experiments/scale-causal-partial-residual-20261002/m2_runner.py", line 827, in main
+    functions[name](loaded)
+  File "/home/liulu/.local/lib/python3.10/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+  File "/home/liulu/projects/VAR_COMM/experiments/scale-causal-partial-residual-20261002/m2_runner.py", line 323, in calibration
+    policy_path = OUT / 'calibration' / 'policy.json'; c.seal(policy_path, policy)
+  File "/home/liulu/projects/VAR_COMM/experiments/scale-causal-partial-residual-20261002/common.py", line 48, in seal
+    else: write(p, obj)
+  File "/home/liulu/projects/VAR_COMM/experiments/scale-causal-partial-residual-20261002/common.py", line 41, in write
+    t.write_text(json.dumps(obj, indent=2, ensure_ascii=False, allow_nan=False) + '\n')
+  File "/usr/lib/python3.10/json/__init__.py", line 238, in dumps
+    **kw).encode(obj)
+  File "/usr/lib/python3.10/json/encoder.py", line 201, in encode
+    chunks = list(chunks)
+  File "/usr/lib/python3.10/json/encoder.py", line 431, in _iterencode
+    yield from _iterencode_dict(o, _current_indent_level)
+  File "/usr/lib/python3.10/json/encoder.py", line 405, in _iterencode_dict
+    yield from chunks
+  File "/usr/lib/python3.10/json/encoder.py", line 405, in _iterencode_dict
+    yield from chunks
+  File "/usr/lib/python3.10/json/encoder.py", line 405, in _iterencode_dict
+    yield from chunks
+  [Previous line repeated 1 more time]
+  File "/usr/lib/python3.10/json/encoder.py", line 438, in _iterencode
+    o = _default(o)
+  File "/usr/lib/python3.10/json/encoder.py", line 179, in default
+    raise TypeError(f'Object of type {o.__class__.__name__} '
+TypeError: Object of type bool is not JSON serializable
