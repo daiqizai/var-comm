@@ -1,0 +1,135 @@
+{
+  "study_id": "PRIOR-AWARE-UEP-20261004-V1",
+  "status": "STAGE_A_ENGINEERING_REGISTRATION_BEFORE_QUALITY_SELECTION",
+  "main_budget": 1024,
+  "auxiliary_budget": 2048,
+  "auxiliary_scope_before_gate": "resource enumeration and reuse of exactly matching measured PHY only; no auxiliary quality population or real-link sweep",
+  "training_updates": 0,
+  "frozen_visual_assets": "Original M1 unconditional Encoder/VQ/VAR/F/Dc; actual asset SHA256 must match original M1 calibration registration",
+  "generation": {
+    "method": "deterministic greedy argmax at every scale; received tokens clamped",
+    "class_condition": 1000,
+    "true_class_side_information": false,
+    "cfg": false,
+    "top_k": null,
+    "top_p": null,
+    "sampling_draws": 0,
+    "per_image_state_random_seed": "not applicable because there is no token sampling",
+    "numeric": "original deterministic FP32; TF32 and autocast disabled",
+    "quality_and_real_link_rules_identical": true,
+    "cache_acceleration": "source-local teacher-forced prefix and KV reuse; require exact fresh-path token/latent/RGB parity before enabling"
+  },
+  "calibration": {
+    "population": 1000,
+    "identity": "original registered calibration source IDs and preprocessing, unchanged order",
+    "development_access": false,
+    "quality_objective": "dinov2_vitl14_cosine",
+    "other_quality_columns_used_for_selection": false,
+    "cost_pilot": "at most first two calibration sources; engineering equivalence and timing only",
+    "full_search_default": "all 1000 calibration sources for all feasible N1024 states",
+    "cost_limit_hours": 48,
+    "cost_fallback": "if measured estimate for quality plus BLER and actual-link/report exceeds 48h, screen complete registered grid on fixed first300 calibration sources, freeze family top3 + strongest baselines + B3-matched pools + distinct validation candidates, then reevaluate their needed states on original full1000",
+    "fallback_disclosure": "1000-source optimum is only over the screened finite shortlist; no global-full-grid optimum claim",
+    "shortlist_rule_frozen_before_Q": true,
+    "score_refinement": "BLER uncertainty refinement uses only calibrated objective and preset families; independent validation scores never refine candidates"
+  },
+  "body": {
+    "implementation": "Sionna 2.2.0 LDPC5GEncoder and LDPC5GDecoder, isolated Python3.11/PyTorch2.11.0 environment",
+    "qualification_required": true,
+    "neural_decoder_training": false,
+    "groups": [1,2],
+    "crc_per_group_bits": 16,
+    "tail_bits": 0,
+    "codeblocks_per_group": 1,
+    "modulations": ["QPSK","16QAM"],
+    "nominal_rates": ["1/3","1/2","2/3","3/4","5/6"],
+    "decoder": "boxplus-phi flooding, 20 fixed iterations, clipped absolute LLR20, no early stop, float32",
+    "rate_matching": "actual Sionna supported RV0 lengths, output interleaver by modulation width; no invented repetition support",
+    "scrambling": "public deterministic independent encoded-bit mask from protocol/session/frame/group counter; counter known by both ends from experiment frame schedule, never payload, label, or true noise",
+    "unused_symbols": "known QPSK filler, fully charged in N and energy, not source information"
+  },
+  "header": {
+    "complex_uses": 68,
+    "information_bits": 12,
+    "meaning": "profile_id in final public frozen codebook",
+    "crc_bits": 16,
+    "convolutional_tail_bits": 6,
+    "coded_bits": 136,
+    "all_families_share_same_header": true,
+    "profile_capacity": 4096,
+    "candidate_search_ids_transmitted": false,
+    "receiver_format_source": "only actual header-decoded profile_id and public codebook"
+  },
+  "candidate_source": {
+    "whole_prefix_m": [4,5,6,7,8,9],
+    "K": "0,floor(L/4),floor(L/2),floor(3L/4),maximum legal K per actual N,m,j,MCS tuple,allocation mode; normalize K=L to next whole",
+    "maxima_not_cross_multiplied": true,
+    "G2_boundaries": [4,5,6,7],
+    "ordering": "original entropy values, rounding and deterministic tie rule; no location side information",
+    "full_budget_fill": "remaining symbols proportional to nominal symbol allocations, integer residual by group index, each actual new LDPC configuration revalidated",
+    "B0_strength": "same source/MCS grid and legal full-budget fill as all new families"
+  },
+  "power": {
+    "mean_complex_symbol_energy": 2,
+    "AWGN_real_component_variance": "10^(-SNR_dB/10)",
+    "QPSK": "exact E=2N per frame",
+    "16QAM": "fixed PAM levels [-3,-1,3,1]/sqrt(5), actual E recorded per frame",
+    "framewise_16QAM_renormalization": false,
+    "claim": "same total complex uses and same average symbol power"
+  },
+  "receiver": {
+    "rule": "continuous CRC-accepted prefix only",
+    "header_reject_or_group1_reject": "RGB0.5 gray",
+    "group1_accept_group2_reject": "complete from accepted group1 prefix only",
+    "all_groups_accept": "complete from actual accepted full prefix and partial values",
+    "later_accept_after_earlier_reject": "discard",
+    "CRC_rejected_hard_tokens": "never used",
+    "CRC_acceptance_is_truth": false,
+    "false_acceptance": "count and render actual wrong accepted bits; Q-state model ignores these only as an explicitly checked approximation",
+    "direct": "unknown partial positions use zero embedding; never token index0; absent scales add no contribution"
+  },
+  "BLER": {
+    "snrs_db": [1,4,7,10,13,19],
+    "coarse_blocks_per_config_snr": 256,
+    "refine_stop_errors": 100,
+    "refine_max_blocks": 20000,
+    "interval": "Wilson95% for correct/reject/undetected events",
+    "actual_image_payload_validation": "frozen finalists; source-dependent probability requires per-source/stratified Q-p combination",
+    "zero_observed_errors": "retain interval; never call exact zero BLER"
+  },
+  "development": {
+    "sources": 100,
+    "noise_seeds": [2001,2002,2003],
+    "snrs_db": [4,7,10,13],
+    "methods": ["B0","B1","B2","B3","B4","matched_controls","frozen_distinct_neighbor"],
+    "selection": "never",
+    "independent_metric": {
+      "name": "convnext_source_prediction_agreement",
+      "architecture": "torchvision ConvNeXt-Tiny",
+      "weights": "IMAGENET1K_V1, convnext_tiny-983f1562.pth, full SHA recorded before run",
+      "used_by_pipeline": false,
+      "used_in_selection_or_refinement": false,
+      "additional_outputs": ["ground_truth_top1","source_correct_to_reconstruction_wrong","source_wrong_to_reconstruction_correct"]
+    },
+    "metrics": ["PSNR","LPIPS-Alex","DINOv2-ViT-S14","DINOv2-ViT-L14","CLIP","DISTS","DreamSim","MS-SSIM","DINO-specificity","ResNet50-label-accuracy","ResNet50-source-agreement","ConvNeXt-label-accuracy","ConvNeXt-source-agreement","F-error"],
+    "DINO_L_role": "calibration-selected optimization objective, not independent validation",
+    "bootstrap": {"unit":"source_mean_of_three_noises","draws":10000,"seed":20261002,"interval":0.95},
+    "holdout": "not opened; reused development exploratory evidence",
+    "P1024_10dB": "new inference with original selected40000 model and registered population/noise; no training",
+    "historical_new_protocol_baseline": "old M1 hard-failure behavior is only labeled historical reference, never B0-B4 baseline",
+    "external_controls": "only exactly matching measured populations/workpoints; unmeasured cells remain blank"
+  },
+  "extension_gate": {
+    "comparison": "B3 minus B0",
+    "metrics": ["dinov2_vitl14_cosine","convnext_source_prediction_agreement"],
+    "rule": "both paired95%CI lower bounds strictly above0 at at least2 actual SNRs; passed points must be nondegenerate G2 and actual probability/order model validation must pass",
+    "insufficient_evidence": "report means and intervals, stop; never append development sources to seek significance",
+    "next_if_pass": "N2048 4/7/13dB registered replication only; no other expansion"
+  },
+  "timing": {
+    "TX_entropy": "measure uncached frozen VAR entropy ordering separately, report relative to original approximately60-75ms historical measurement; raster only discussed, no new sort search",
+    "receive": "controlled online timing disables final-image caches",
+    "parallel": "leave existing N2048 job intact; benchmark CPU PHY and bounded separate GPU tasks before choosing concurrent scheduling; no hardware setting changes"
+  },
+  "stop": "deliver all positive/negative N1024 results and registered extension decision, push reviewed results normally, stop; no training, M2, adapter, new channel or old queues"
+}

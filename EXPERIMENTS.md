@@ -341,3 +341,6 @@ cell约束修正预注册：`reports/var_prefix_consistency_preregistration_2026
 新实验在本目录登记数据角色、共享信息、真实预算、模型/源码版本、随机种子、对照、判据和输出位置。
 新输出写入本项目的 `outputs/`，不覆盖历史输出，不默认写回旧项目。
 未运行的建议不得记为已完成；只做目录整理不记作新算法实验。
+
+
+2026-10-04: Registered prior-aware UEP N1024 with real Sionna5G LDPC, continuous accepted-prefix RX, independent ConvNeXt validation and conditional N2048 replication. CPU BLER shards running; GPU source-Q waits for existing M1 N2048 delivery. No new quality result or training. See [Stage A](reports/prior_aware_uep_stage_a_20261004.md).

@@ -745,3 +745,6 @@ cell约束修正的主消融LPIPS相对改善仅0.64%/0.92%，不如简单prefix
 2026-09-24: P3060 completed 30k; selected 30k and 195,000 calibration records verified, with 60,000 new rows published. Last intervals improved 0.650284% / 1.597301%; the existing scheduler continues to 40k under the registered rule. P2048 remains finalized at 30k. Full development/evaluation/delivery remains pending. See [P3060 30k milestone](reports/token_efficiency_P3060_30k_20260924.md).
 
 2026-09-24: P3060 finalized after 40k; selected 37.5k. Last interval changes +0.080443% / -0.470516% do not support extension. All 255,000 calibration records verified. P2048 remains finalized at 30k. Shared real-weight interface acceptance passed (selected trained-model replay remains pending); the existing scheduler is executing QPSK full calibration. See [training stop and acceptance](reports/token_efficiency_P3060_40k_and_shared_acceptance_20260924.md).
+
+
+2026-10-04: Registered prior-aware UEP N1024 with real Sionna5G LDPC, continuous accepted-prefix RX, independent ConvNeXt validation and conditional N2048 replication. CPU BLER shards running; GPU source-Q waits for existing M1 N2048 delivery. No new quality result or training. See [Stage A](reports/prior_aware_uep_stage_a_20261004.md).
