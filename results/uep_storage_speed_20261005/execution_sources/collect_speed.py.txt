@@ -1,0 +1,55 @@
+"""Read-only scientific-output observation; write engineering evidence only."""
+from pathlib import Path
+import hashlib
+import json
+import statistics
+import subprocess
+import time
+import zipfile
+
+root = Path('/home/liulu/projects/VAR_COMM')
+out = root / 'outputs/PRIOR-AWARE-UEP-20261004-V1'
+run = out / 'storage_fast_r1'
+quality = out / 'quality_final1000'
+read = lambda path: json.loads(path.read_text())
+saved = read(run / 'pause_receipt.json')
+files = sorted((quality / 'source_checkpoints').glob('*.json'))
+new_files = [p for p in files if int(p.stem) >= saved['retained_sources']]
+if len(new_files) < 5:
+    print(json.dumps(dict(status='WAITING_FOR_FIVE_NEW_SOURCES', current_sources=len(files), new_sources=len(new_files),
+                         quality_status=read(quality / 'status.json'))))
+    raise SystemExit(0)
+def sha(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+assert all(sha(path) == digest for path, digest in saved['checkpoint_sha256'].items())
+old = [read(p)['source_seconds'] for p in files if saved['retained_sources'] - 20 <= int(p.stem) < saved['retained_sources']]
+fresh_files = new_files[-10:]
+fresh = [read(p) for p in fresh_files]
+gpu_samples = []
+for _ in range(20):
+    values = subprocess.check_output(['nvidia-smi', '--query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw',
+                                     '--format=csv,noheader,nounits'], text=True).strip().split(',')
+    gpu_samples.append([float(value.strip()) for value in values])
+    time.sleep(1)
+for row in fresh:
+    with zipfile.ZipFile(row['float_reconstructions']['path']) as archive:
+        assert all(item.compress_type == zipfile.ZIP_STORED for item in archive.infolist())
+old_mean, fresh_mean = statistics.mean(old), statistics.mean(r['source_seconds'] for r in fresh)
+wall = (fresh_files[-1].stat().st_mtime - fresh_files[0].stat().st_mtime) / (len(fresh_files) - 1)
+sources = len(list((quality / 'source_checkpoints').glob('*.json')))
+record = dict(status='MEASURED_STORAGE_SPEEDUP', time=time.time(), sources_complete=sources,
+    old_sources=len(old), new_sources=len(fresh), old_mean_seconds=old_mean,
+    new_mean_seconds=fresh_mean, new_wall_seconds_per_source=wall, throughput_factor=old_mean/fresh_mean,
+    saved_seconds_per_source=old_mean-fresh_mean, remaining_quality_seconds=(1000-sources)*wall,
+    estimated_remaining_quality_time_saved_seconds=(1000-sources)*(old_mean-wall),
+    remaining_scope='source Q only; excludes BLER refinement, actual evaluation, reporting and push',
+    old_checkpoints_preserved=saved['retained_sources'], all_old_checkpoint_sha_unchanged=True,
+    all_observed_new_archives_ZIP_STORED=True,
+    new_indices=[r['source_index'] for r in fresh],
+    gpu_samples=gpu_samples, gpu_utilization_mean=statistics.mean(r[0] for r in gpu_samples),
+    gpu_memory_max_MiB=max(r[1] for r in gpu_samples), gpu_temperature_max_C=max(r[3] for r in gpu_samples),
+    qualification_sha256=sha(run/'qualification.json'), execution_registration_sha256=sha(run/'execution_registration.json'))
+destination = run / 'throughput_observation.json'
+assert not destination.exists(), 'Observation is immutable; retain the existing one'
+destination.write_text(json.dumps(record, indent=2)+'\n')
+print(json.dumps({k:v for k,v in record.items() if k != 'gpu_samples'}))

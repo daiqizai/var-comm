@@ -1,0 +1,314 @@
+"""Storage-only UEP continuation, then the unchanged registered R3 owner.
+
+This file lives outside frozen scientific sources. No model, metric, array,
+sample, state, or scientific registration is modified.
+"""
+from pathlib import Path
+import argparse
+import fcntl
+import hashlib
+import json
+import os
+import shutil
+import signal
+import subprocess
+import sys
+import time
+import traceback
+
+
+def require(value, message):
+    if not value:
+        raise RuntimeError(message)
+
+
+def sha(path):
+    h = hashlib.sha256()
+    with Path(path).open('rb') as stream:
+        for chunk in iter(lambda: stream.read(8 * 1024 * 1024), b''):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def read(path):
+    return json.loads(Path(path).read_text())
+
+
+def write(path, value, exclusive=False):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if exclusive:
+        with path.open('x') as stream:
+            json.dump(value, stream, indent=2)
+    else:
+        temp = path.with_name(path.name + '.tmp')
+        temp.write_text(json.dumps(value, indent=2) + '\n')
+        os.replace(temp, path)
+
+
+def process(pid):
+    base = Path('/proc') / str(pid)
+    if not base.exists():
+        return None
+    try:
+        stat = (base / 'stat').read_text().rsplit(')', 1)[1].split()
+        return dict(pid=pid, proc_start_ticks=stat[19], state=stat[0],
+                    uid=base.stat().st_uid,
+                    args=(base / 'cmdline').read_bytes().decode().strip('\0').split('\0'))
+    except FileNotFoundError:
+        return None
+
+
+def alive(saved):
+    now = process(saved['pid'])
+    return now is not None and now['state'] != 'Z' and all(
+        now[k] == saved[k] for k in ('proc_start_ticks', 'uid', 'args'))
+
+
+def check_bindings(bindings):
+    for path, digest in bindings.items():
+        require(sha(path) == digest, 'Registered input changed: ' + path)
+
+
+def gpu_empty():
+    value = subprocess.check_output(['nvidia-smi', '--query-compute-apps=pid',
+                                     '--format=csv,noheader,nounits'], text=True).strip()
+    require(not value, 'GPU has an existing compute owner: ' + value)
+
+
+def paths(root, run):
+    root, run = root.resolve(), run.resolve()
+    out = root / 'outputs/PRIOR-AWARE-UEP-20261004-V1'
+    require(run == out / 'storage_fast_r1', 'Unexpected engineering run directory')
+    return root, run, out, out / 'quality_final1000', root / 'experiments/prior-aware-grouped-mcs-v1'
+
+
+def verify_registration(run):
+    registration = read(run / 'execution_registration.json')
+    check_bindings(registration['input_bindings'])
+    require(read(run / 'qualification.json')['status'] == 'LOSSLESS_ARCHIVE_PARITY_PASS',
+            'Missing storage parity qualification')
+    return registration
+
+
+def pause(root, run):
+    root, run, out, quality, code = paths(root, run)
+    require(not (run / 'pause_receipt.json').exists(), 'Pause already recorded; do not repeat')
+    require(not (out / 'owner_failure.json').exists() and not (out / 'STOP').exists()
+            and not (quality / 'STOP').exists(), 'Unreviewed failure or stop exists')
+    proof = read(run / 'qualification.json')
+    require(proof['status'] == 'LOSSLESS_ARCHIVE_PARITY_PASS', 'CPU qualification is required')
+    config_path = out / 'owner_config_r3.json'
+    config = read(config_path)
+    check_bindings(config['source_bindings'])
+    check_bindings(read(quality / 'driver_registration.json')['source_bindings'])
+    active = read(out / 'active_children.json')
+    require(len(active['children']) == 1 and active['children'][0]['name'] == 'Q_quality_final1000',
+            'Unexpected active UEP stage')
+    owner, child = process(active['owner_pid']), process(active['children'][0]['pid'])
+    require(owner and child and owner['uid'] == child['uid'] == os.getuid(), 'UEP process identity unavailable')
+    require(str(config_path) in owner['args'] and str(code / 'study_owner.py') in owner['args']
+            and str(code / 'quality_driver.py') in child['args'], 'UEP command identity differs')
+    before = dict(owner=owner, child=child, time=time.time(),
+                  status=read(quality / 'status.json'), config_sha256=sha(config_path))
+    write(run / 'pause_before.json', before, exclusive=True)
+    stop = quality / 'STOP'
+    write(stop, dict(reason='Registered lossless archive speed qualification; pause at source boundary',
+                     engineering_directory=str(run), time=time.time()), exclusive=True)
+    stop_sha = sha(stop)
+    deadline = time.monotonic() + 150
+    while alive(owner) or alive(child):
+        require(time.monotonic() < deadline, 'Source-boundary pause timeout; preserve all evidence')
+        time.sleep(1)
+    failure = read(out / 'owner_failure.json')
+    status = read(quality / 'status.json')
+    require(failure.get('pid') == owner['pid'] and failure.get('error') ==
+            "RuntimeError('Quality worker returned without a completion receipt')",
+            'Owner failure differs from the expected source-boundary pause')
+    require(status['status'] == 'PAUSED_AT_SOURCE_BOUNDARY', 'Quality did not stop at a source boundary')
+    gpu_empty()
+    checkpoints = {str(p): sha(p) for p in sorted((quality / 'source_checkpoints').glob('*.json'))}
+    require(len(checkpoints) == status['sources'], 'Paused source count differs from checkpoints')
+    expected_names = {f'{index:04d}.json' for index in range(status['sources'])}
+    require({Path(p).name for p in checkpoints} == expected_names, 'Paused source set is not contiguous')
+    receipt = dict(status='PAUSED_FOR_LOSSLESS_ARCHIVE_EXECUTION', time=time.time(),
+                   original_owner=owner, original_child=child, retained_sources=len(checkpoints),
+                   checkpoint_sha256=checkpoints, stop_file=str(stop), stop_sha256=stop_sha,
+                   expected_owner_failure_sha256=sha(out / 'owner_failure.json'),
+                   quality_status=status, config_sha256=sha(config_path))
+    write(run / 'pause_receipt.json', receipt, exclusive=True)
+    inputs = {str(p): sha(p) for p in [config_path, run / 'archive_io.py', Path(__file__).resolve(),
+              run / 'qualification.json', run / 'pause_receipt.json',
+              quality / 'registration.json', quality / 'driver_registration.json',
+              quality / 'qualification.json', quality / 'metric_batch8_qualification.json']}
+    inputs.update(config['source_bindings'])
+    registration = dict(status='LOSSLESS_ARCHIVE_EXECUTION_REGISTERED', root=str(root), run_dir=str(run),
+        time=time.time(), input_bindings=inputs, first_new_source=len(checkpoints), source_count=1000,
+        change='Only source_quality.np.savez_compressed delegates to numpy.savez for new reconstruction archives',
+        format='NPZ ZIP_STORED, original float32 arrays and row mapping; no quantization',
+        scientific_protocol_changed=False, model_or_metric_numerics_changed=False,
+        original_owner_config=str(config_path), completion_chain='quality wrapper -> unchanged R3 owner',
+        failure_rule='No automatic retry, no deletion of failures, preserve current results')
+    write(run / 'execution_registration.json', registration, exclusive=True)
+    print(json.dumps(dict(status=receipt['status'], retained_sources=len(checkpoints))))
+
+
+def quality_run(root, run):
+    root, run, out, quality, code = paths(root, run)
+    registration = verify_registration(run)
+    require(not (out / 'STOP').exists() and not (quality / 'STOP').exists(), 'Stop remains')
+    sys.path.insert(0, str(code))
+    import quality_driver
+    from archive_io import NumpyProxy
+    real_numpy = quality_driver.q.np
+    quality_driver.q.np = NumpyProxy(real_numpy, quality)
+    sys.argv = [str(code / 'quality_driver.py'), '--root', str(root), '--states',
+                str(out / 'quality_states_registered.json'), '--output', str(quality),
+                '--stage', 'run', '--source-limit', '1000']
+    write(run / 'quality_execution.json', dict(status='RUNNING_LOSSLESS_ARCHIVE_QUALITY',
+        process=process(os.getpid()), time=time.time(), registration_sha256=sha(run / 'execution_registration.json'),
+        first_new_source=registration['first_new_source'], original_driver_args=sys.argv), exclusive=True)
+    try:
+        quality_driver.main()
+    finally:
+        quality_driver.q.np = real_numpy
+
+
+def supervisor(root, run):
+    root, run, out, quality, code = paths(root, run)
+    lock = (run / 'supervisor.lock').open('a+')
+    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    owner_lock = (out / 'study_owner.lock').open('a+')
+    fcntl.flock(owner_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    registration = verify_registration(run)
+    saved = read(run / 'pause_receipt.json')
+    require(not alive(saved['original_owner']) and not alive(saved['original_child']), 'Original processes remain')
+    require(not (run / 'supervisor_launch.json').exists(), 'Continuation already launched; inspect receipts')
+    require(not (out / 'STOP').exists(), 'Study STOP remains')
+    require(sha(quality / 'STOP') == saved['stop_sha256'] and
+            sha(out / 'owner_failure.json') == saved['expected_owner_failure_sha256'], 'Pause evidence changed')
+    check_bindings(saved['checkpoint_sha256'])
+    gpu_empty()
+    # The worst case is 1000 full archives, still well below current free disk.
+    require(shutil.disk_usage(out).free > (1000 - saved['retained_sources']) * 260_000_000 + 50_000_000_000,
+            'Insufficient disk for full-precision stored archives')
+    os.replace(quality / 'STOP', run / 'quality_STOP.original')
+    os.replace(out / 'owner_failure.json', run / 'owner_failure.original.json')
+    write(run / 'supervisor_launch.json', dict(process=process(os.getpid()), time=time.time(),
+        retained_sources=saved['retained_sources'], registration_sha256=sha(run / 'execution_registration.json')), exclusive=True)
+    config = read(out / 'owner_config_r3.json')
+    env = os.environ.copy()
+    env.update(config['native_environment'])
+    checks = root / 'outputs/UNIFIED-METRICS-20261002/environment/bin'
+    env.update(VAR_COMM_ROOT=str(root), PYTHONDONTWRITEBYTECODE='1',
+               PYTHONPATH=str(code) + ':' + str(root / 'src') + ':' + env.get('PYTHONPATH', ''),
+               PATH=str(checks) + ':' + env.get('PATH', ''))
+    child = None
+    resumed_owner = None
+    def stop_supervisor(signum, _frame):
+        raise RuntimeError('Storage supervisor received stop signal ' + str(signum))
+    signal.signal(signal.SIGTERM, stop_supervisor)
+    signal.signal(signal.SIGINT, stop_supervisor)
+    try:
+        args = [config['native_python'], '-B', str(Path(__file__).resolve()), '--root', str(root),
+                '--run-dir', str(run), '--mode', 'quality']
+        with (run / 'quality.log').open('ab') as log:
+            child = subprocess.Popen(args, cwd=root, env=env, stdin=subprocess.DEVNULL,
+                                     stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+        write(run / 'quality_launch.json', dict(process=process(child.pid), args=args, time=time.time()), exclusive=True)
+        while child.poll() is None:
+            verify_registration(run)
+            require(not (out / 'STOP').exists(), 'Study stop requested')
+            write(run / 'status.json', dict(status='RUNNING_STORAGE_OPTIMIZED_QUALITY',
+                supervisor=process(os.getpid()), child=process(child.pid), time=time.time(),
+                quality_status=read(quality / 'status.json')))
+            time.sleep(5)
+        require(child.returncode == 0, 'Storage quality child failed; review quality.log')
+        complete = read(quality / 'completion.json')
+        require(complete['status'] == 'SOURCE_QUALITY_COMPLETE' and complete['sources'] == 1000
+                and complete['rows'] == 295000 and complete['stage'] == 'final1000'
+                and complete['population'] == 'calibration' and complete['development_read'] is False
+                and complete['training_updates'] == 0, 'Full quality completion missing')
+        require({p.name for p in (quality / 'source_checkpoints').glob('*.json')} ==
+                {f'{index:04d}.json' for index in range(1000)}, 'Incomplete quality checkpoint set')
+        require(complete['registration_sha256'] == sha(quality / 'registration.json'), 'Quality completion binding changed')
+        write(run / 'status.json', dict(status='VERIFYING_COMPLETE_QUALITY_OUTPUTS', time=time.time(),
+                                        supervisor=process(os.getpid()), sources=1000))
+        check_bindings(complete['outputs'])
+        for checkpoint in sorted((quality / 'source_checkpoints').glob('*.json')):
+            require(complete['outputs'].get(str(checkpoint)) == sha(checkpoint), 'Unbound quality checkpoint')
+            proof = read(checkpoint)['float_reconstructions']
+            require(complete['outputs'].get(proof['path']) == proof['sha256']
+                    and Path(proof['path']).is_file(), 'Missing or unbound quality archive')
+        check_bindings(saved['checkpoint_sha256'])
+        verify_registration(run)
+        require(not (quality / 'STOP').exists() and not (out / 'STOP').exists(), 'Stop requested before continuation')
+        require(not (out / 'owner_failure.json').exists(), 'Unexpected owner failure before continuation')
+        gpu_empty()
+        env.update(CUDA_VISIBLE_DEVICES='', OMP_NUM_THREADS='2', MKL_NUM_THREADS='2', OPENBLAS_NUM_THREADS='2',
+                   PYTHONPATH=str(code) + ':' + str(root / 'src'))
+        args = [str(out / 'ldpc_environment/bin/python'), '-B', str(code / 'study_owner.py'),
+                '--config', str(out / 'owner_config_r3.json')]
+        fcntl.flock(owner_lock, fcntl.LOCK_UN)
+        owner_lock.close()
+        with (run / 'owner_resume.log').open('ab') as log:
+            owner = subprocess.Popen(args, cwd=root, env=env, stdin=subprocess.DEVNULL,
+                                     stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+        resumed_owner = owner
+        write(run / 'owner_resume_launch.json', dict(process=process(owner.pid), args=args, time=time.time(),
+            config_sha256=sha(out / 'owner_config_r3.json'), quality_completion_sha256=sha(quality / 'completion.json')), exclusive=True)
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline:
+            require(owner.poll() is None, 'Original R3 owner exited after resume')
+            status = read(out / 'owner_status.json')
+            if status.get('pid') == owner.pid:
+                require(status['status'] != 'STOPPED_REQUIRES_REVIEW', 'Original R3 owner stopped')
+                done = dict(status='QUALITY_COMPLETE_ORIGINAL_R3_OWNER_RESUMED', time=time.time(),
+                    owner_status=status, quality_completion_sha256=sha(quality / 'completion.json'),
+                    retained_checkpoints_unchanged=True, registration_sha256=sha(run / 'execution_registration.json'))
+                write(run / 'completion.json', done, exclusive=True)
+                write(run / 'status.json', done)
+                return
+            time.sleep(.5)
+        raise RuntimeError('No fresh original-owner status; do not launch a duplicate')
+    except BaseException as error:
+        failure = dict(status='STORAGE_CONTINUATION_REQUIRES_REVIEW', error=repr(error),
+                       traceback=traceback.format_exc(), time=time.time(), automatic_retry=False,
+                       child=process(child.pid) if child is not None else None,
+                       resumed_owner=process(resumed_owner.pid) if resumed_owner is not None else None,
+                       resume_started=resumed_owner is not None,
+                       original_owner_may_be_running=resumed_owner is not None and resumed_owner.poll() is None)
+        write(run / 'failure.json', failure)
+        write(run / 'status.json', failure)
+        # Preserve source atomicity on a supervisor-side error or user stop.
+        if child is not None and child.poll() is None:
+            if not (quality / 'STOP').exists():
+                write(quality / 'STOP', dict(reason='Storage supervisor stopped; retain source checkpoint', time=time.time()), exclusive=True)
+            try:
+                child.wait(timeout=120)
+            except subprocess.TimeoutExpired:
+                failure.update(status='STOP_REQUESTED_CHILD_STILL_ACTIVE', child=process(child.pid), time=time.time())
+                write(run / 'failure.json', failure)
+                write(run / 'status.json', failure)
+                # Keep the owner lock until this owned child exits. Never release
+                # the lock while an unresolved GPU process could still be active.
+                signal.signal(signal.SIGTERM, signal.SIG_IGN)
+                signal.signal(signal.SIGINT, signal.SIG_IGN)
+                child.wait()
+        raise
+    finally:
+        if not owner_lock.closed:
+            owner_lock.close()
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--root', type=Path, required=True)
+    parser.add_argument('--run-dir', type=Path, required=True)
+    parser.add_argument('--mode', choices=['pause', 'quality', 'supervise'], required=True)
+    args = parser.parse_args()
+    {'pause': pause, 'quality': quality_run, 'supervise': supervisor}[args.mode](args.root, args.run_dir)
+
+
+if __name__ == '__main__':
+    main()

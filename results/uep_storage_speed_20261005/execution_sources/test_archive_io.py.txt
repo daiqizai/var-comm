@@ -1,0 +1,100 @@
+"""CPU-only tests; every output is a temporary test file."""
+from pathlib import Path
+import shutil
+import tempfile
+import unittest
+import zipfile
+
+import numpy as np
+import archive_io as a
+
+
+def fixture():
+    images = np.full((1, 3, 256, 256), .25, dtype=np.float32)
+    images[0, 0, 0, 0] = np.float32(-0.)
+    return dict(images=images, source_rgb=np.full((3, 256, 256), .5, np.float32),
+                row_ids=np.asarray(["registered-row"]), image_slots=np.asarray([0], np.int64))
+
+
+class ArchiveTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.output = self.root / "quality"
+        (self.output / "reconstructions").mkdir(parents=True)
+
+    def test_proxy_delegates_attributes_without_global_patch(self):
+        original_compressed, original_stored = np.savez_compressed, np.savez
+        proxy = a.NumpyProxy(np, self.output)
+        self.assertIs(proxy.stack, np.stack)
+        self.assertIs(proxy.float32, np.float32)
+        self.assertIs(proxy.load, np.load)
+        self.assertIs(np.savez_compressed, original_compressed)
+        self.assertIs(np.savez, original_stored)
+
+    def test_wrong_path_and_schema_rejected_before_write(self):
+        proxy = a.NumpyProxy(np, self.output)
+        for path in (self.root / "outside.npz.tmp", self.output / "reconstructions/0000.npz"):
+            with self.subTest(path=path), path.open("wb") as handle:
+                with self.assertRaisesRegex(RuntimeError, "outside registered"):
+                    proxy.savez_compressed(handle, **fixture())
+                self.assertEqual(handle.tell(), 0)
+        target = self.output / "reconstructions/0000.npz.tmp"
+        arrays = fixture()
+        bad = [dict(arrays, extra=np.asarray([1])), {k:v for k,v in arrays.items() if k != "row_ids"},
+               dict(arrays, row_ids=np.asarray([object()], dtype=object))]
+        for value in bad:
+            with self.subTest(keys=list(value)), target.open("wb") as handle:
+                with self.assertRaises(RuntimeError):
+                    proxy.savez_compressed(handle, **value)
+                self.assertEqual(handle.tell(), 0)
+
+    def test_npz_stored_readback_is_byte_exact_including_signed_zero(self):
+        target = self.output / "reconstructions/0000.npz.tmp"
+        arrays = fixture()
+        with target.open("wb") as handle:
+            a.NumpyProxy(np, self.output).savez_compressed(handle, **arrays)
+        result = a.check_archive(target, arrays, zipfile.ZIP_STORED)
+        self.assertTrue(all(check["exact"] for check in result.values()))
+        with np.load(target, allow_pickle=False) as restored:
+            self.assertTrue(np.signbit(restored["images"][0, 0, 0, 0]))
+
+    def test_cpu_qualification_uses_original_reader_and_preserves_production(self):
+        here = Path(__file__).resolve()
+        candidates = [here.parents[1] / "runtime/source_quality.py"] + [
+            p / "experiments/prior-aware-grouped-mcs-v1/source_quality.py" for p in here.parents]
+        original_q = next(p for p in candidates if p.is_file())
+        code = self.root / "experiments/prior-aware-grouped-mcs-v1"
+        code.mkdir(parents=True)
+        shutil.copy2(original_q, code / "source_quality.py")
+        q = a.load_quality(code / "source_quality.py")
+        production = self.root / "outputs/PRIOR-AWARE-UEP-20261004-V1/quality_final1000"
+        (production / "reconstructions").mkdir(parents=True)
+        registration = dict(source_sha256=a.sha(code / "source_quality.py"), purpose="CPU fixture")
+        q.write(production / "registration.json", registration)
+        q.write(production / "driver_registration.json", {"source_bindings": {str(code / "source_quality.py"): a.sha(code / "source_quality.py")}})
+        for i in (0, 1):
+            arrays = fixture()
+            archive = production / "reconstructions" / ("%04d.npz" % i)
+            np.savez_compressed(archive, **arrays)
+            row = dict(row_id="registered-row", state_id="m4_K0", receiver="VAR",
+                       image_sha256=q.rgb_sha(arrays["images"][0]), reference_sha256=q.rgb_sha(arrays["source_rgb"]),
+                       dinov2_vitl14_cosine=.75, source_index=i)
+            cp = dict(binding=q.identity(registration), source_index=i, rows=[row], source_seconds=1.,
+                      float_reconstructions=dict(path=str(archive), sha256=a.sha(archive)))
+            cp["payload_sha256"] = q.identity(cp)
+            q.write(production / "source_checkpoints" / ("%04d.json" % i), cp)
+        before = {str(p): a.sha(p) for p in production.rglob("*") if p.is_file()}
+        run = self.root / "outputs/storage_trial"
+        receipt = a.qualify(self.root, run)
+        self.assertEqual(receipt["status"], a.STATUS)
+        self.assertEqual(len(receipt["measurements"]), 4)
+        self.assertTrue(receipt["scientific_rows_exact"])
+        self.assertEqual(before, {str(p): a.sha(p) for p in production.rglob("*") if p.is_file()})
+        with self.assertRaisesRegex(RuntimeError, "already exists"):
+            a.qualify(self.root, run)
+
+
+if __name__ == "__main__":
+    unittest.main()

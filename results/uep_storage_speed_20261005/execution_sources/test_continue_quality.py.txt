@@ -1,0 +1,133 @@
+"""CPU-only transition tests; all subprocesses, GPU queries and locks are mocked.
+
+The frozen continuation and scientific implementations are not modified. The
+small Windows fcntl substitute permits the same policy tests on the local host;
+these tests do not claim to test kernel-lock behavior on either platform.
+"""
+from contextlib import ExitStack
+import importlib.util
+import os
+from pathlib import Path
+import sys
+import tempfile
+from types import SimpleNamespace
+import unittest
+from unittest import mock
+
+
+HERE = Path(__file__).resolve().parent
+SPEC = importlib.util.spec_from_file_location('_test_frozen_storage_continuation', HERE / 'continue_quality.py')
+c = importlib.util.module_from_spec(SPEC)
+if os.name == 'nt':
+    with mock.patch.dict(sys.modules, {'fcntl': SimpleNamespace(LOCK_EX=2, LOCK_NB=4, LOCK_UN=8, flock=lambda *args: None)}):
+        SPEC.loader.exec_module(c)
+else:
+    SPEC.loader.exec_module(c)
+
+
+class ContinuationTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name).resolve()
+        self.out = self.root / 'outputs/PRIOR-AWARE-UEP-20261004-V1'
+        self.run = self.out / 'storage_fast_r1'
+        self.quality = self.out / 'quality_final1000'
+        self.run.mkdir(parents=True); self.quality.mkdir()
+        c.write(self.quality / 'STOP', {'reason': 'registered source-boundary pause'})
+        c.write(self.out / 'owner_failure.json', {'error': 'expected pause'})
+        c.write(self.out / 'owner_config_r3.json', {'native_environment': {}, 'native_python': 'never-executed'})
+        c.write(self.quality / 'registration.json', {'stage': 'final1000'})
+        c.write(self.run / 'execution_registration.json', {'test_fixture': True})
+        c.write(self.run / 'pause_receipt.json', dict(original_owner={'pid': 1101}, original_child={'pid': 1102},
+            retained_sources=0, checkpoint_sha256={}, stop_sha256=c.sha(self.quality / 'STOP'),
+            expected_owner_failure_sha256=c.sha(self.out / 'owner_failure.json')))
+        self.child = mock.Mock(pid=2201, returncode=0)
+        self.child.poll.return_value = 0
+
+    def patches(self, stack, gpu_available=True):
+        # The real CLI exits after a preflight failure, which closes its lock
+        # descriptors. Close those descriptors at the same test boundary too.
+        original_open = Path.open
+        def tracked_open(path, *args, **kwargs):
+            handle = original_open(path, *args, **kwargs)
+            if path.suffix == '.lock':
+                stack.callback(handle.close)
+            return handle
+        stack.enter_context(mock.patch.object(Path, 'open', tracked_open))
+        stack.enter_context(mock.patch.object(c.fcntl, 'flock'))
+        stack.enter_context(mock.patch.object(c, 'verify_registration', return_value={'first_new_source': 0}))
+        stack.enter_context(mock.patch.object(c, 'alive', return_value=False))
+        stack.enter_context(mock.patch.object(c, 'process', side_effect=lambda pid: dict(pid=pid, proc_start_ticks='20',
+            state='S', uid=1002, args=['test-owned-process'])))
+        stack.enter_context(mock.patch.object(c.shutil, 'disk_usage', return_value=SimpleNamespace(free=10**13)))
+        stack.enter_context(mock.patch.object(c.signal, 'signal'))
+        stack.enter_context(mock.patch.object(c.time, 'sleep', side_effect=AssertionError('Unexpected wait in a completed-child test')))
+        query = stack.enter_context(mock.patch.object(c.subprocess, 'check_output', return_value='' if gpu_available else '98765\n'))
+        launch = stack.enter_context(mock.patch.object(c.subprocess, 'Popen', return_value=self.child))
+        return query, launch
+
+    def test_incomplete_scope_or_changed_output_never_resumes_original_owner(self):
+        for defect in ('incomplete_population', 'changed_output'):
+            with self.subTest(defect=defect):
+                # Use an independent fresh run for each failed transition.
+                for name in ('supervisor_launch.json', 'quality_launch.json', 'failure.json', 'status.json',
+                             'quality_STOP.original', 'owner_failure.original.json'):
+                    (self.run / name).unlink(missing_ok=True)
+                c.write(self.quality / 'STOP', {'reason': 'registered source-boundary pause'})
+                c.write(self.out / 'owner_failure.json', {'error': 'expected pause'})
+                table = self.quality / 'quality_per_source.csv'; table.write_text('actual,values\n')
+                receipt = dict(status='SOURCE_QUALITY_COMPLETE', sources=1000, rows=295000, stage='final1000',
+                    population='calibration', development_read=False, training_updates=0,
+                    registration_sha256=c.sha(self.quality / 'registration.json'), outputs={str(table): c.sha(table)})
+                if defect == 'incomplete_population':
+                    receipt['sources'] = 999
+                    expected_error = 'Full quality completion missing'
+                else:
+                    folder = self.quality / 'source_checkpoints'; folder.mkdir(exist_ok=True)
+                    for index in range(1000):
+                        c.write(folder / ('%04d.json' % index), {'source_index': index})
+                    receipt['outputs'][str(table)] = '0' * 64
+                    expected_error = 'Registered input changed'
+                c.write(self.quality / 'completion.json', receipt)
+                with ExitStack() as stack:
+                    _, launch = self.patches(stack)
+                    with self.assertRaisesRegex(RuntimeError, expected_error):
+                        c.supervisor(self.root, self.run)
+                    # Only the quality wrapper was started. No original-owner
+                    # launch, optimization, GPU model or external command runs.
+                    self.assertEqual(launch.call_count, 1)
+                    self.assertEqual(launch.call_args.args[0][-2:], ['--mode', 'quality'])
+                failure = c.read(self.run / 'failure.json')
+                self.assertFalse(failure['automatic_retry'])
+                self.assertFalse(failure['resume_started'])
+                self.assertFalse(failure['original_owner_may_be_running'])
+                self.assertFalse((self.run / 'owner_resume_launch.json').exists())
+                self.assertFalse((self.run / 'completion.json').exists())
+
+    def test_existing_gpu_process_refuses_launch_and_preserves_pause_evidence(self):
+        before_stop = (self.quality / 'STOP').read_bytes()
+        before_failure = (self.out / 'owner_failure.json').read_bytes()
+        with ExitStack() as stack:
+            query, launch = self.patches(stack, gpu_available=False)
+            with self.assertRaisesRegex(RuntimeError, 'existing compute owner: 98765'):
+                c.supervisor(self.root, self.run)
+            launch.assert_not_called()
+            self.assertEqual(query.call_args.args[0][0], 'nvidia-smi')
+        self.assertEqual((self.quality / 'STOP').read_bytes(), before_stop)
+        self.assertEqual((self.out / 'owner_failure.json').read_bytes(), before_failure)
+        self.assertFalse((self.run / 'supervisor_launch.json').exists())
+
+    def test_pid_reuse_changed_user_or_command_and_zombie_are_not_same_owner(self):
+        saved = dict(pid=3301, proc_start_ticks='111222', uid=1002, args=['python', 'study_owner.py'], state='S')
+        cases = [(dict(saved, state='R'), True), (dict(saved, proc_start_ticks='111223'), False),
+                 (dict(saved, uid=1003), False), (dict(saved, args=['python', 'other.py']), False),
+                 (dict(saved, state='Z'), False), (None, False)]
+        for current, expected in cases:
+            with self.subTest(current=current), mock.patch.object(c, 'process', return_value=current) as process:
+                self.assertIs(c.alive(saved), expected)
+                process.assert_called_once_with(saved['pid'])
+
+
+if __name__ == '__main__':
+    unittest.main()

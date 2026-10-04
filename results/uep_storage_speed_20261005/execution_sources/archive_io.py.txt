@@ -1,0 +1,191 @@
+"""Process-local lossless NPZ storage override and a CPU-only qualification."""
+from __future__ import annotations
+import argparse
+import copy
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import time
+import zipfile
+
+import numpy as np
+
+MEMBERS = frozenset(("images", "source_rgb", "row_ids", "image_slots"))
+STATUS = "LOSSLESS_ARCHIVE_PARITY_PASS"
+
+
+def require(ok, message):
+    if not ok:
+        raise RuntimeError(message)
+
+
+def sha(path):
+    h = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for block in iter(lambda: handle.read(8 * 1024 * 1024), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def check_arrays(arrays):
+    require(set(arrays) == MEMBERS, "Archive requires exactly the four registered members")
+    require(all(isinstance(a, np.ndarray) and not a.dtype.hasobject for a in arrays.values()),
+            "Archive members must be nonobject NumPy arrays")
+    images, source = arrays["images"], arrays["source_rgb"]
+    require(images.dtype == np.float32 and images.ndim == 4 and images.shape[1:] == (3, 256, 256)
+            and len(images) > 0 and source.dtype == np.float32 and source.shape == (3, 256, 256),
+            "Archive image dtype or CHW shape differs")
+    ids, slots = arrays["row_ids"], arrays["image_slots"]
+    require(ids.ndim == 1 and ids.dtype.kind in ("U", "S") and slots.dtype == np.int64
+            and slots.shape == ids.shape and len(ids) > 0, "Archive row mapping schema differs")
+    require(bool(np.all((slots >= 0) & (slots < len(images)))), "Archive slot index is invalid")
+
+
+class NumpyProxy:
+    """Override one module's NPZ writer without mutating the NumPy module.
+
+    Use ``source_quality.np = NumpyProxy(original_numpy, quality_output)`` only
+    inside the independently registered process. The original writer opens the
+    temporary file and retains responsibility for its flush, close and rename.
+    """
+    def __init__(self, numpy_module, output):
+        self._numpy = numpy_module
+        self._directory = (Path(output).resolve() / "reconstructions").resolve()
+        self._stored_writer = numpy_module.savez
+
+    def __getattr__(self, name):
+        return getattr(self._numpy, name)
+
+    def savez_compressed(self, file, *args, **arrays):
+        require(not args, "Positional NPZ members are not registered")
+        require(hasattr(file, "write") and isinstance(getattr(file, "name", None), (str, bytes, os.PathLike)),
+                "Archive override requires a named writable binary file handle")
+        path = Path(os.fsdecode(file.name)).resolve()
+        require(path.parent == self._directory and path.name.endswith(".npz.tmp"),
+                "Archive override target is outside registered reconstruction temporaries")
+        check_arrays(arrays)
+        # Passing the original file handle avoids NumPy adding a .npz suffix.
+        return self._stored_writer(file, **arrays)
+
+
+def load_quality(path):
+    spec = importlib.util.spec_from_file_location("_uep_lossless_archive_original_quality", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def check_archive(path, arrays, compression=None):
+    with zipfile.ZipFile(path) as archive:
+        require(set(archive.namelist()) == {name + ".npy" for name in MEMBERS}, "ZIP members differ")
+        require(len(archive.infolist()) == len(MEMBERS), "Duplicate ZIP members")
+        if compression is not None:
+            require(all(info.compress_type == compression for info in archive.infolist()), "ZIP storage mode differs")
+    checks = {}
+    with np.load(path, allow_pickle=False) as archive:
+        require(set(archive.files) == MEMBERS, "NPZ members differ")
+        for name, original in arrays.items():
+            restored = archive[name]
+            require(restored.dtype == original.dtype and restored.shape == original.shape,
+                    "Archive dtype or shape changed: " + name)
+            raw = original.tobytes(order="C")
+            require(restored.tobytes(order="C") == raw, "Archive raw array bytes changed: " + name)
+            checks[name] = dict(dtype=original.dtype.str, shape=list(original.shape),
+                               raw_bytes=len(raw), raw_sha256=hashlib.sha256(raw).hexdigest(), exact=True)
+    return checks
+
+
+def qualify(root, run_dir):
+    root, run_dir = Path(root).resolve(), Path(run_dir).resolve()
+    production = root / "outputs/PRIOR-AWARE-UEP-20261004-V1/quality_final1000"
+    require(root in run_dir.parents and production != run_dir and production not in run_dir.parents,
+            "Qualification output must be inside root and outside production quality output")
+    receipt_path, scratch = run_dir / "qualification.json", run_dir / "scratch"
+    require(not receipt_path.exists() and not scratch.exists(), "Qualification output already exists; preserve it for review")
+    qpath = root / "experiments/prior-aware-grouped-mcs-v1/source_quality.py"
+    q = load_quality(qpath)  # This original module imports NumPy, not CUDA/Torch.
+    registration_path = production / "registration.json"
+    driver_path = production / "driver_registration.json"
+    registration = q.read(registration_path)
+    require(registration["source_sha256"] == sha(qpath), "Frozen source-quality implementation differs")
+    binding = q.identity(registration)
+    inputs = {str(p): sha(p) for p in (qpath, Path(__file__).resolve(), registration_path, driver_path)}
+    measurements, outputs = [], {}
+    for index in (0, 1):
+        cp_path = production / "source_checkpoints" / ("%04d.json" % index)
+        inputs[str(cp_path)] = sha(cp_path)
+        original, _, _ = q._read_checkpoint(cp_path, binding)
+        archive_path = Path(original["float_reconstructions"]["path"]).resolve()
+        require(archive_path.parent == production / "reconstructions", "Original archive path is outside production")
+        inputs[str(archive_path)] = sha(archive_path)
+        with np.load(archive_path, allow_pickle=False) as archive:
+            arrays = {name: archive[name].copy() for name in archive.files}
+        check_arrays(arrays)
+        original_checks = check_archive(archive_path, arrays)
+        rows_identity = q.identity(original["rows"])
+        for mode in ("compressed", "stored"):
+            output = scratch / mode
+            destination = output / "reconstructions" / ("%04d.npz" % index)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            temporary = destination.with_name(destination.name + ".tmp")
+            require(not destination.exists() and not temporary.exists(), "Scratch archive already exists")
+            writer = np.savez_compressed if mode == "compressed" else NumpyProxy(np, output).savez_compressed
+            began = time.perf_counter()
+            with temporary.open("xb") as stream:
+                writer(stream, **arrays)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, destination)
+            digest = sha(destination)
+            seconds = time.perf_counter() - began
+            checks = check_archive(destination, arrays, zipfile.ZIP_DEFLATED if mode == "compressed" else zipfile.ZIP_STORED)
+            require(checks == original_checks, "Stored array identity differs from original")
+            copied = copy.deepcopy(original)
+            copied["float_reconstructions"] = dict(path=str(destination), sha256=digest)
+            copied.pop("payload_sha256")
+            copied["payload_sha256"] = q.identity(copied)
+            scratch_cp = output / "source_checkpoints" / ("%04d.json" % index)
+            q.seal(scratch_cp, copied)
+            began_read = time.perf_counter()
+            restored, _, _ = q._read_checkpoint(scratch_cp, binding)
+            reader_seconds = time.perf_counter() - began_read
+            require(restored["rows"] == original["rows"] and q.identity(restored["rows"]) == rows_identity,
+                    "Original checkpoint reader changed scientific rows")
+            outputs.update({str(destination): digest, str(scratch_cp): sha(scratch_cp)})
+            measurements.append(dict(source_index=index, mode=mode, archive_path=str(destination),
+                archive_bytes=destination.stat().st_size, write_fsync_sha_seconds=seconds,
+                original_reader_seconds=reader_seconds, scientific_rows=len(original["rows"]),
+                scientific_rows_sha256=rows_identity, arrays=checks, original_reader_passed=True))
+        del arrays
+    for path, digest in inputs.items():
+        require(sha(path) == digest, "Original input changed during qualification: " + path)
+    for path, digest in outputs.items():
+        require(sha(path) == digest, "Scratch output changed during qualification: " + path)
+    receipt = dict(status=STATUS, version="UEP_ARCHIVE_STORAGE_R1", source_indices=[0, 1],
+        source_count=2, input_bindings=inputs, outputs=outputs, measurements=measurements,
+        original_registration_sha256=inputs[str(registration_path)], original_checkpoint_binding=binding,
+        original_source_quality_sha256=inputs[str(qpath)], implementation_sha256=sha(__file__),
+        CPU_only=True, synthetic=False, model_inference=False, metric_recomputation=False,
+        scientific_rows_exact=True, all_array_raw_bytes_exact=True, training_updates=0,
+        production_modified=False, global_numpy_modified=False,
+        timing_scope="Sequential two-source engineering benchmark; write, flush, fsync, rename and SHA included; exact-read validation separately timed")
+    receipt["payload_sha256"] = q.identity(receipt)
+    q.seal(receipt_path, receipt)
+    return receipt
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--root", required=True)
+    parser.add_argument("--run-dir", required=True)
+    args = parser.parse_args()
+    result = qualify(args.root, args.run_dir)
+    print(json.dumps(dict(status=result["status"], sources=result["source_count"],
+                         measurements=[{k: r[k] for k in ("source_index", "mode", "archive_bytes", "write_fsync_sha_seconds")}
+                                       for r in result["measurements"]])))
+
+
+if __name__ == "__main__":
+    main()
