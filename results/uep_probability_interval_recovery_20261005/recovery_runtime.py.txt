@@ -1,0 +1,279 @@
+"""Registered, in-memory Wilson endpoint recovery for the frozen UEP queue.
+
+Only optimize.py and model_validation.py run through the adapter. The original
+owner owns its existing lock, signals, subprocesses and failure cleanup. No
+original source, configuration, probability table or quality receipt is edited.
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import importlib
+import json
+import os
+from pathlib import Path
+import re
+import sys
+import time
+
+
+REGISTERED = 'PROBABILITY_INTERVAL_RECOVERY_REGISTERED'
+QUALIFIED = 'PROBABILITY_INTERVAL_PARITY_PASS'
+SCRIPTS = ('optimize.py', 'model_validation.py')
+HERE = Path(__file__).resolve().parent
+
+
+def require(condition, message):
+    if not condition:
+        raise RuntimeError(message)
+
+
+def read(path):
+    return json.loads(Path(path).read_text(encoding='utf-8-sig'))
+
+
+def sha(path):
+    digest = hashlib.sha256()
+    with Path(path).open('rb') as stream:
+        for block in iter(lambda: stream.read(8 * 1024 * 1024), b''):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def seal(path, value):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data = json.dumps(value, indent=2, ensure_ascii=False, allow_nan=False) + '\n'
+    # A unique receipt is never replaced, including after an interrupted run.
+    with path.open('x', encoding='utf-8') as stream:
+        stream.write(data)
+        stream.flush()
+        os.fsync(stream.fileno())
+
+
+def absolute(value):
+    path = Path(value)
+    require(path.is_absolute(), 'Registered/forwarded paths must be absolute: ' + str(path))
+    return path.resolve()
+
+
+def inside(path, directory):
+    return path == directory or directory in path.parents
+
+
+def process_identity():
+    proc = Path('/proc') / str(os.getpid())
+    fields = (proc / 'stat').read_text().rsplit(')', 1)[1].split()
+    return dict(pid=os.getpid(), start_ticks=fields[19], uid=os.getuid(),
+                argv=(proc / 'cmdline').read_bytes().decode().rstrip('\0').split('\0'))
+
+
+class Registration:
+    def __init__(self, root, run_dir):
+        self.root, self.run = absolute(root), absolute(run_dir)
+        require(self.run == HERE, 'Execution must use the registered recovery directory')
+        self.path = self.run / 'execution_registration.json'
+        self.digest = sha(self.path)
+        self.value = read(self.path)
+        r = self.value
+        require(r.get('status') == REGISTERED, 'Recovery execution is not registered')
+        require(absolute(r['root']) == self.root and absolute(r['run_dir']) == self.run,
+                'Recovery root/run-directory mismatch')
+        self.out, self.code = absolute(r['out']), absolute(r['original_code'])
+        self.config_path = absolute(r['owner_config'])
+        require(self.out == self.root / 'outputs/PRIOR-AWARE-UEP-20261004-V1', 'Unexpected study output')
+        require(self.run == self.out / 'probability_interval_recovery_r1', 'Recovery scope differs')
+        require(self.code == self.root / 'experiments/prior-aware-grouped-mcs-v1', 'Original source scope differs')
+        require(self.config_path == self.out / 'owner_config_r3.json', 'Original R3 owner configuration required')
+        self.bindings = r['input_bindings']
+        require(isinstance(self.bindings, dict) and self.bindings, 'Stable input bindings are required')
+        required = [Path(__file__).resolve(), self.run / 'interval_adapter.py', self.config_path]
+        for name in ('qualification_path', 'pre_recovery_state', 'diagnostic_path'):
+            target = absolute(r[name])
+            require(inside(target, self.run), 'Recovery evidence must be in the registered directory')
+            required.append(target)
+        for path in required:
+            require(str(path) in self.bindings, 'Required recovery input is unbound: ' + str(path))
+        self.verify()
+        self.config = read(self.config_path)
+        require(absolute(self.config['root']) == self.root and absolute(self.config['out']) == self.out,
+                'Original owner root/output mismatch')
+        # Original source bindings remain the authority for every original module.
+        for name in ('study_owner.py', 'optimize.py', 'phy_lookup.py', 'model_validation.py', 'uep_common.py'):
+            require(str(self.code / name) in self.config['source_bindings'], 'Original source is not registered: ' + name)
+        self.verify_original_sources()
+
+    def verify(self):
+        require(sha(self.path) == self.digest, 'Recovery registration changed during execution')
+        for name, digest in self.bindings.items():
+            path = absolute(name)
+            require(isinstance(digest, str) and re.fullmatch('[0-9a-f]{64}', digest), 'Invalid input SHA256')
+            require(path.is_file() and sha(path) == digest, 'Bound recovery input changed: ' + name)
+        q = read(self.value['qualification_path'])
+        require(q.get('status') == QUALIFIED, 'Endpoint parity qualification is not complete')
+        require(q.get('adapter_sha256') == sha(self.run / 'interval_adapter.py')
+                and q.get('runtime_sha256') == sha(__file__), 'Qualification covers different recovery code')
+
+    def verify_original_sources(self):
+        for path, digest in self.config['source_bindings'].items():
+            require(sha(path) == digest, 'Registered original source changed: ' + path)
+
+    def module(self, name, directory=None):
+        directory = self.code if directory is None else directory
+        # Original stage functions also import their siblings lazily. Keep the
+        # registered directory available for those imports for this process.
+        if str(directory) not in sys.path:
+            sys.path.insert(0, str(directory))
+        module = importlib.import_module(name)
+        require(Path(module.__file__).resolve() == directory / (name + '.py'), 'Imported module path differs: ' + name)
+        return module
+
+
+def worker_arguments(reg, script, forwarded):
+    require(script in SCRIPTS, 'Only the two registered probability consumers can be wrapped')
+    parser = argparse.ArgumentParser(prog=script, allow_abbrev=False)
+    fields = ('profiles', 'quality', 'bler', 'output') if script == 'optimize.py' else (
+        'policies', 'bler', 'events', 'scores', 'preregistration', 'output')
+    for field in fields:
+        parser.add_argument('--' + field, required=True)
+    if script == 'optimize.py':
+        parser.add_argument('--stage', choices=('screen', 'final'), default='final')
+    require(all(forwarded.count('--' + field) == 1 for field in fields), 'Missing or repeated forwarded option')
+    require(forwarded.count('--stage') <= 1, 'Repeated optimization stage')
+    args = parser.parse_args(forwarded)
+    for field in fields:
+        target = absolute(getattr(args, field))
+        require(inside(target, reg.out), 'Forwarded artifact is outside the study output: ' + str(target))
+        setattr(args, field, target)
+    require(args.output.parent == reg.out, 'Worker output must be a top-level study artifact')
+    if script == 'optimize.py':
+        require(args.output.name == 'screen300_policies.json' or
+                re.fullmatch(r'final_policy_revision_0[0-8]\.json', args.output.name), 'Unexpected policy output')
+    else:
+        require(args.output.name == 'model_validation.json' and args.preregistration == reg.config_path,
+                'Model validation must retain its original output and preregistration')
+    require(args.bler.is_file(), 'Original raw BLER table is missing')
+    return args
+
+
+def run_worker(reg, script, forwarded):
+    import fcntl
+    args = worker_arguments(reg, script, forwarded)
+    identity = process_identity()
+    tag = '{}.{}.{}'.format(args.output.stem, identity['pid'], identity['start_ticks'])
+    workers = reg.run / 'workers'
+    workers.mkdir(exist_ok=True)
+    with (workers / (args.output.stem + '.lock')).open('a+') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        reg.verify()
+        reg.verify_original_sources()
+        raw_sha = sha(args.bler)
+        original = reg.module('optimize')
+        phy = reg.module('phy_lookup')
+        adapter = reg.module('interval_adapter', reg.run)
+        raw_identity = original.identity(read(args.bler))
+        record = dict(status='PROBABILITY_INTERVAL_WORKER_STARTED', script=script, original_script=str(reg.code / script),
+                      original_args=forwarded, identity=identity, time=time.time(),
+                      execution_registration_sha256=reg.digest, raw_bler_path=str(args.bler), raw_bler_sha256=raw_sha,
+                      raw_bler_identity=raw_identity, output=str(args.output), CPU_only=True)
+        seal(workers / (tag + '.started.json'), record)
+        audit_paths = []
+
+        def audit_callback(value):
+            require(value.get('status') == QUALIFIED and value.get('raw_table_identity') == raw_identity,
+                    'Probability audit refers to an unqualified or different table')
+            require(sha(args.bler) == raw_sha, 'Raw BLER file changed during probability construction')
+            path = reg.run / 'audits' / ('{}.{}.json'.format(tag, len(audit_paths)))
+            seal(path, dict(status='REGISTERED_PROBABILITY_CONSTRUCTION_AUDIT', time=time.time(),
+                            execution_registration_sha256=reg.digest, worker_identity=identity, script=script,
+                            original_output=str(args.output), raw_bler_path=str(args.bler), raw_bler_sha256=raw_sha,
+                            qualification_sha256=sha(reg.value['qualification_path']), adapter_audit=value))
+            audit_paths.append(path)
+
+        try:
+            adapter.install(original, phy, audit_callback)
+            module = original if script == 'optimize.py' else reg.module('model_validation')
+            if script == 'model_validation.py':
+                require(module.o is original, 'Model validation did not import the adapted optimizer')
+            previous = sys.argv
+            try:
+                sys.argv = [str(reg.code / script), *forwarded]
+                module.main()
+            finally:
+                sys.argv = previous
+            reg.verify()
+            require(audit_paths and args.output.is_file(), 'Original worker returned without probability audit/output')
+            require(sha(args.bler) == raw_sha, 'Raw BLER table was rewritten')
+            seal(workers / (tag + '.completion.json'), dict(status='PROBABILITY_INTERVAL_WORKER_COMPLETE',
+                 time=time.time(), identity=identity, execution_registration_sha256=reg.digest,
+                 original_script=str(reg.code / script), original_args=forwarded,
+                 raw_bler_sha256=raw_sha, raw_bler_identity=raw_identity,
+                 outputs={str(p): sha(p) for p in [args.output, *audit_paths]}, original_raw_table_unchanged=True))
+        except BaseException as error:
+            seal(workers / (tag + '.failure.json'), dict(status='PROBABILITY_INTERVAL_WORKER_FAILED',
+                 time=time.time(), identity=identity, error=repr(error), execution_registration_sha256=reg.digest,
+                 audits={str(p): sha(p) for p in audit_paths}))
+            raise
+
+
+def run_owner(reg):
+    module = reg.module('study_owner')
+    original_owner = module.Owner
+
+    class RecoveryOwner(original_owner):
+        def __init__(self, config):
+            super().__init__(config)
+            require(config == reg.config and self.code.resolve() == reg.code, 'Original owner/configuration differs')
+            # Original main has already acquired study_owner.lock at this point.
+            identity = process_identity()
+            seal(reg.run / 'owner_executions' / ('{}.{}.json'.format(identity['pid'], identity['start_ticks'])),
+                 dict(status='REGISTERED_RECOVERY_OWNER_STARTED', time=time.time(), identity=identity,
+                      execution_registration_sha256=reg.digest, original_config=str(reg.config_path),
+                      original_config_sha256=sha(reg.config_path), intercepted_CPU_scripts=list(SCRIPTS),
+                      original_owner_lock_and_signal_cleanup=True))
+
+        def check(self):
+            super().check()
+            reg.verify()
+
+        def start(self, name, args, gpu=False):
+            forwarded = [str(x) for x in args]
+            if forwarded and Path(forwarded[0]).name in SCRIPTS:
+                script = Path(forwarded[0]).name
+                require(not gpu and absolute(forwarded[0]) == reg.code / script,
+                        'Only original CPU probability consumers may be redirected')
+                worker_arguments(reg, script, forwarded[1:])
+                forwarded = [str(Path(__file__).resolve()), '--root', str(reg.root), '--run-dir', str(reg.run),
+                             '--mode', 'worker', '--script', script, '--', *forwarded[1:]]
+            return super().start(name, forwarded, gpu)
+
+    module.Owner = RecoveryOwner
+    previous = sys.argv
+    try:
+        sys.argv = [str(reg.code / 'study_owner.py'), '--config', str(reg.config_path)]
+        module.main()
+    finally:
+        sys.argv = previous
+        module.Owner = original_owner
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
+    parser.add_argument('--root', required=True)
+    parser.add_argument('--run-dir', required=True)
+    parser.add_argument('--mode', choices=('owner', 'worker'), required=True)
+    parser.add_argument('--script', choices=SCRIPTS)
+    parser.add_argument('forwarded', nargs=argparse.REMAINDER)
+    args = parser.parse_args()
+    forwarded = args.forwarded[1:] if args.forwarded[:1] == ['--'] else args.forwarded
+    reg = Registration(args.root, args.run_dir)
+    if args.mode == 'owner':
+        require(args.script is None and not forwarded, 'Owner uses only the registered original configuration')
+        run_owner(reg)
+    else:
+        require(args.script is not None and args.forwarded[:1] == ['--'], 'Worker arguments require an explicit -- separator')
+        run_worker(reg, args.script, forwarded)
+
+
+if __name__ == '__main__':
+    main()

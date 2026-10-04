@@ -1,0 +1,91 @@
+"""CPU-only diagnosis and qualification of the sealed actual BLER table."""
+from pathlib import Path
+import argparse
+import hashlib
+import json
+import sys
+import time
+
+
+def sha(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--root', type=Path, required=True)
+    parser.add_argument('--run-dir', type=Path, required=True)
+    args = parser.parse_args()
+    root, run = args.root.resolve(), args.run_dir.resolve()
+    out = root/'outputs/PRIOR-AWARE-UEP-20261004-V1'
+    code = root/'experiments/prior-aware-grouped-mcs-v1'
+    assert run == out/'probability_interval_recovery_r1'
+    sys.path.insert(0, str(code))
+    import optimize as original
+    import phy_lookup
+    import interval_adapter
+    read = lambda path: json.loads(Path(path).read_text())
+    table_path = out/'bler_coarse.json'
+    table = read(table_path)
+    before = original.identity(table)
+    registration = read(out/'quality_final1000/registration.json')
+    diagnosis = read(run/'diagnosis.json')
+    assert diagnosis['all_invalid_are_all_success_upper_roundoff'] is True
+    assert sha(table_path) == diagnosis['table_sha256']
+    initial_failure = None
+    try:
+        original.ProbabilityTable(table, registration['source_ids'])
+    except ValueError as error:
+        assert str(error) == 'Invalid correct-probability interval'
+        initial_failure = str(error)
+    assert initial_failure is not None
+    records = []
+    interval_adapter.install(original, phy_lookup, records.append)
+    tested = original.ProbabilityTable(table, registration['source_ids'])
+    assert original.identity(table) == before
+    assert len(tested.rows) == len(table['rows']) == 16902
+    changed = []
+    for index, raw in enumerate(table['rows']):
+        key = (raw['phy_key'], int(raw['snr_db']), raw.get('source_id', '*'))
+        new = tested.rows[key]
+        diff = [name for name in set(raw) | set(new) if raw.get(name) != new.get(name)]
+        if diff:
+            assert diff == ['p_correct_ci']
+            assert raw['n_blocks'] == raw['n_correct'] == 256 and raw['p_correct'] == 1.0
+            assert raw['p_correct_ci'] == [new['p_correct_ci'][0], .9999999999999999]
+            assert new['p_correct_ci'][1] == 1.0
+            changed.append(index)
+        for name in ('n_blocks', 'n_correct', 'n_reject', 'n_undetected',
+                     'p_correct', 'p_reject', 'p_undetected'):
+            assert raw[name] == new[name]
+    assert changed == [v['index'] for v in diagnosis['invalid_rows']]
+    assert len(changed) == 11692 and records
+    # The validation module must use the same adapted optimizer module.
+    import model_validation
+    assert model_validation.o is original
+    model_validation.o.ProbabilityTable(table, registration['source_ids'])
+    assert original.identity(table) == before and sha(table_path) == diagnosis['table_sha256']
+    audit = run/'actual_table_adapter_audit.json'
+    assert not audit.exists()
+    audit.write_text(json.dumps(records, indent=2)+'\n')
+    result = dict(status='PROBABILITY_INTERVAL_PARITY_PASS', time=time.time(),
+        CPU_only=True, actual_sealed_table=True, source_population='calibration',
+        table_path=str(table_path), table_sha256=sha(table_path), raw_table_identity=before,
+        original_failure_reproduced=initial_failure, actual_rows=16902,
+        repaired_rows=len(changed), original_input_not_modified=True,
+        original_probabilities_and_counts_exact=True, only_changed_field='p_correct_ci',
+        actual_changed_endpoint='all-success upper 0.9999999999999999 -> mathematical 1.0',
+        maximum_endpoint_delta=1.0-.9999999999999999,
+        model_validation_uses_same_adapter=True, model_validation_wilson_fraction_changed=False,
+        policy_selection_run=False, development_read=False, new_channel_simulation=False,
+        image_inference=False, quality_completion_sha256=sha(out/'quality_final1000/completion.json'),
+        adapter_sha256=sha(run/'interval_adapter.py'), runtime_sha256=sha(run/'recovery_runtime.py'),
+        qualification_source_sha256=sha(__file__), audit_path=str(audit), audit_sha256=sha(audit))
+    destination = run/'qualification.json'
+    assert not destination.exists()
+    destination.write_text(json.dumps(result, indent=2)+'\n')
+    print(json.dumps(result))
+
+
+if __name__ == '__main__':
+    main()

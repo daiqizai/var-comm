@@ -1,0 +1,109 @@
+"""Private in-memory Wilson endpoint canonicalization; raw tables stay frozen."""
+from __future__ import annotations
+import math
+
+VERSION = "UEP_WILSON_ENDPOINT_ROUNDOFF_R1"
+MAX_DELTA = math.ulp(1.0)
+COUNTS = ("n_blocks", "n_correct", "n_reject", "n_undetected")
+PROBABILITIES = ("p_correct", "p_reject", "p_undetected")
+WILSON_LABEL = "Wilson two-sided95% binomial"
+
+
+def _candidate(row, phy):
+    """Return a copied row only for the narrowly identified roundoff case.
+
+    All other rows, including invalid ones, reach the original strict validator.
+    No generic tolerance, clipping, probability changes, or CI recomputation is
+    applied to the table.
+    """
+    ci = row.get("p_correct_ci")
+    if not isinstance(ci, (list, tuple)) or len(ci) != 2:
+        return None
+    if not all(type(value) in (int, float) and math.isfinite(value) for value in ci):
+        return None
+    if not all(type(row.get(key)) is int and row[key] >= 0 for key in COUNTS):
+        return None
+    n, k = row["n_blocks"], row["n_correct"]
+    if n <= 0 or k + row["n_reject"] + row["n_undetected"] != n or k not in (0, n):
+        return None
+    if not all(type(row.get(key)) in (int, float) and math.isfinite(row[key])
+               and row[key] == row[count] / n for key, count in zip(PROBABILITIES, COUNTS[1:])):
+        return None
+    if row.get("interval") != WILSON_LABEL or list(ci) != phy.wilson(k, n):
+        return None
+    endpoint, exact = (0, 0.0) if k == 0 else (1, 1.0)
+    delta = abs(ci[endpoint] - exact)
+    # Only repair the inward error that violates inclusion of p=0 or p=1.
+    inward = ci[0] > 0.0 if k == 0 else ci[1] < 1.0
+    if not inward or not 0.0 < delta <= MAX_DELTA:
+        return None
+    changed = dict(row)
+    changed["p_correct_ci"] = list(ci)
+    changed["p_correct_ci"][endpoint] = exact
+    return changed, endpoint, delta
+
+
+def _probability_counts(rows):
+    return [{key: row[key] for key in PROBABILITIES + COUNTS if key in row} for row in rows]
+
+
+def install(optimize_module, phy_lookup_module, audit_callback):
+    """Install on one privately loaded optimizer module and return its subclass.
+
+    The callback receives one compact audit dict after original validation.
+    Changed raw entries are identified by row index and digest, without copying
+    their large code/layout metadata. The whole raw table also has a digest.
+    The original ProbabilityTable API, including canonical ``self.used`` rows,
+    is retained. This function neither writes files nor changes PHY code.
+    """
+    original = optimize_module.ProbabilityTable
+    if getattr(original, "_uep_endpoint_adapter", False):
+        raise ValueError("Wilson endpoint adapter is already installed")
+    if not callable(audit_callback):
+        raise TypeError("A callable audit sink is required")
+    identity, require = optimize_module.identity, optimize_module.require
+
+    class CanonicalWilsonProbabilityTable(original):
+        _uep_endpoint_adapter = True
+
+        def __init__(self, bundle, source_ids):
+            raw_identity = identity(bundle)
+            raw_rows_identity = identity(bundle["rows"])
+            canonical = dict(bundle)
+            canonical["rows"] = list(bundle["rows"])
+            changes = []
+            for index, raw in enumerate(bundle["rows"]):
+                candidate = _candidate(raw, phy_lookup_module)
+                if candidate is None:
+                    continue
+                changed, endpoint, delta = candidate
+                canonical["rows"][index] = changed
+                changes.append(dict(row_index=index, phy_key=raw["phy_key"], snr_db=raw["snr_db"],
+                    source_id=raw.get("source_id", "*"), n_blocks=raw["n_blocks"], n_correct=raw["n_correct"],
+                    field="p_correct_ci", endpoint=endpoint,
+                    old=list(raw["p_correct_ci"]), new=list(changed["p_correct_ci"]), absolute_delta=delta,
+                    raw_entry_sha256=identity(raw), canonical_entry_sha256=identity(changed)))
+            # Keep every original guard, including count agreement, probability
+            # sums, duplicate keys, source applicability and strict CI ordering.
+            super().__init__(canonical, source_ids)
+            before = identity(_probability_counts(bundle["rows"]))
+            after = identity(_probability_counts(canonical["rows"]))
+            require(before == after, "Adapter changed probabilities or counts")
+            require(identity(bundle) == raw_identity and identity(bundle["rows"]) == raw_rows_identity,
+                    "Adapter mutated its raw input table")
+            audit = dict(status="PROBABILITY_INTERVAL_PARITY_PASS", version=VERSION,
+                raw_table_identity=raw_identity, raw_table_identity_after=identity(bundle),
+                raw_rows_identity=raw_rows_identity, raw_entry_count=len(bundle["rows"]),
+                canonical_table_identity=identity(canonical),
+                changed_count=len(changes), changes=changes,
+                maximum_absolute_delta=max((x["absolute_delta"] for x in changes), default=0.0),
+                permitted_maximum_absolute_delta=MAX_DELTA,
+                probability_counts_identity_before=before, probability_counts_identity_after=after,
+                unchanged_probabilities_and_counts=True, original_bundle_unchanged=True,
+                original_strict_validation_passed=True, original_wilson_formula_exact_match=True,
+                external_raw_table_rewritten=False)
+            audit_callback(audit)
+            require(identity(bundle) == raw_identity, "Audit callback changed the raw input table")
+
+    optimize_module.ProbabilityTable = CanonicalWilsonProbabilityTable
+    return CanonicalWilsonProbabilityTable

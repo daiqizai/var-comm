@@ -1,0 +1,130 @@
+"""CPU-only synthetic tests of the narrow endpoint view; no real policy claim."""
+import copy
+import importlib.util
+from pathlib import Path
+import sys
+import unittest
+
+import numpy as np
+import interval_adapter as adapter
+
+
+def runtime_directory():
+    here = Path(__file__).resolve()
+    candidates = [here.parents[1] / "runtime"] + [
+        p / "experiments/prior-aware-grouped-mcs-v1" for p in here.parents]
+    return next(p for p in candidates if (p / "optimize.py").is_file() and (p / "phy_lookup.py").is_file())
+
+
+def module(name, path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    value = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(value)
+    return value
+
+
+class AdapterTests(unittest.TestCase):
+    def setUp(self):
+        runtime = runtime_directory()
+        if str(runtime) not in sys.path:
+            sys.path.insert(0, str(runtime))
+        self.opt = module("_interval_test_optimizer", runtime / "optimize.py")
+        self.phy = module("_interval_test_phy", runtime / "phy_lookup.py")
+        self.original = self.opt.ProbabilityTable
+        self.audit = []
+        adapter.install(self.opt, self.phy, self.audit.append)
+
+    def row(self, n=256, k=256, key="body"):
+        return dict(phy_key=key, snr_db=13, source_id="*", applicability="iid_scrambled_payload_approximation",
+                    n_blocks=n, n_correct=k, n_reject=n-k, n_undetected=0,
+                    p_correct=k/n, p_reject=(n-k)/n, p_undetected=0.,
+                    p_correct_ci=self.phy.wilson(k, n), interval=adapter.WILSON_LABEL)
+
+    def table(self, rows):
+        return dict(conditional_group_independence=True, rows=rows, provenance="synthetic unit test")
+
+    def test_coarse_and_refined_all_correct_only_fix_one_ulp_endpoint(self):
+        for n in (256, 512, 20000):
+            with self.subTest(n=n):
+                raw = self.table([self.row(n, n)])
+                with self.assertRaisesRegex(ValueError, "Invalid correct-probability interval"):
+                    self.original(raw, ["source"])
+                view = self.opt.ProbabilityTable(raw, ["source"])
+                probability, ci, rows = view.vector("body", 13)
+                self.assertEqual(probability.tolist(), [1.])
+                self.assertEqual(ci[1].tolist(), [1.])
+                self.assertEqual(view.used[("body", 13, "*")]["p_correct_ci"][1], 1.)
+                self.assertEqual(raw["rows"][0]["p_correct_ci"][1], .9999999999999999)
+                self.assertEqual(self.audit[-1]["changed_count"], 1)
+                self.assertLessEqual(self.audit[-1]["maximum_absolute_delta"], adapter.MAX_DELTA)
+
+    def test_zero_endpoint_from_actual_original_formula(self):
+        raw = self.table([self.row(3, 0)])
+        self.assertGreater(raw["rows"][0]["p_correct_ci"][0], 0.)
+        view = self.opt.ProbabilityTable(raw, ["source"])
+        probability, ci, _ = view.vector("body", 13)
+        self.assertEqual(probability.tolist(), [0.])
+        self.assertEqual(ci[0].tolist(), [0.])
+        self.assertEqual(self.audit[-1]["changes"][0]["endpoint"], 0)
+
+    def test_input_digest_rows_and_unrelated_metadata_unchanged(self):
+        raw = self.table([self.row()])
+        raw["nested"] = {"items": [1, 2, 3]}
+        before, digest = copy.deepcopy(raw), self.opt.identity(raw)
+        view = self.opt.ProbabilityTable(raw, ["source"])
+        view.vector("body", 13)
+        self.assertEqual(raw, before)
+        self.assertEqual(self.opt.identity(raw), digest)
+        audit = self.audit[-1]
+        self.assertEqual(audit["raw_table_identity"], digest)
+        self.assertEqual(audit["raw_table_identity_after"], digest)
+        self.assertEqual(audit["probability_counts_identity_before"], audit["probability_counts_identity_after"])
+        # Audit data do not retain mutable references into the raw table.
+        audit["changes"][0]["old"][1] = 0.
+        self.assertEqual(raw, before)
+
+    def test_invalid_intervals_counts_labels_and_original_guards_still_reject(self):
+        cases = []
+        row = self.row(); row["p_correct_ci"][1] = 1. - 1e-8; cases.append(row)
+        row = self.row(); row.pop("n_blocks"); cases.append(row)
+        row = self.row(); row["interval"] = "Not Wilson"; cases.append(row)
+        row = self.row(); row["p_correct_ci"][0] += 1e-7; cases.append(row)
+        row = self.row(256, 128); row["p_correct_ci"] = [0., .5 - adapter.MAX_DELTA]; cases.append(row)
+        row = self.row(); row["n_correct"] = True; cases.append(row)
+        row = self.row(); row["p_reject"] = 1e-12; cases.append(row)
+        row = self.row(); row["p_correct_ci"] = [.99, float("nan")]; cases.append(row)
+        for row in cases:
+            with self.subTest(row=row):
+                with self.assertRaises((ValueError, TypeError)):
+                    self.opt.ProbabilityTable(self.table([row]), ["source"])
+        with self.assertRaisesRegex(ValueError, "Duplicate"):
+            self.opt.ProbabilityTable(self.table([self.row(), self.row()]), ["source"])
+        with self.assertRaisesRegex(ValueError, "applicability"):
+            row = self.row(); row["applicability"] = "unsupported"
+            self.opt.ProbabilityTable(self.table([row]), ["source"])
+
+    def test_valid_interior_interval_is_unchanged(self):
+        raw = self.table([self.row(256, 128)])
+        before = copy.deepcopy(raw)
+        view = self.opt.ProbabilityTable(raw, ["source"])
+        self.assertEqual(view.vector("body", 13)[2][0], before["rows"][0])
+        self.assertEqual(self.audit[-1]["changed_count"], 0)
+
+    def test_synthetic_point_estimates_and_ranking_unchanged(self):
+        raw = self.table([self.row(), self.row(256, 200, "alternate")])
+        view = self.opt.ProbabilityTable(raw, ["a", "b"])
+        gray = np.asarray([.1, .2]); states = [np.asarray([.7, .8])]; header = np.ones(2)
+        baseline, canonical = [], []
+        for row in raw["rows"]:
+            original_p = np.full(2, row["p_correct"])
+            observed_p = view.vector(row["phy_key"], 13)[0]
+            old = self.opt.expected_quality(gray, states, header, [original_p])
+            new = self.opt.expected_quality(gray, states, header, [observed_p])
+            np.testing.assert_array_equal(old, new)
+            baseline.append(float(np.mean(old))); canonical.append(float(np.mean(new)))
+        self.assertEqual(baseline, canonical)
+        self.assertEqual(np.argsort(baseline).tolist(), np.argsort(canonical).tolist())
+
+
+if __name__ == "__main__":
+    unittest.main()

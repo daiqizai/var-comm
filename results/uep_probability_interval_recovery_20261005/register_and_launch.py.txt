@@ -1,0 +1,108 @@
+"""One-shot, evidence-preserving launch after actual-table qualification."""
+from pathlib import Path
+import argparse
+import fcntl
+import hashlib
+import json
+import os
+import subprocess
+import time
+
+
+def sha(p):
+    return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+
+
+def read(p):
+    return json.loads(Path(p).read_text())
+
+
+def seal(p, value):
+    with Path(p).open('x') as stream:
+        json.dump(value, stream, indent=2)
+        stream.write('\n')
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--root', type=Path, required=True)
+    args = parser.parse_args()
+    root = args.root.resolve()
+    out = root/'outputs/PRIOR-AWARE-UEP-20261004-V1'
+    run = out/'probability_interval_recovery_r1'
+    assert Path(__file__).resolve().parent == run
+    config_path = out/'owner_config_r3.json'
+    config = read(config_path)
+    qualification = read(run/'qualification.json')
+    pre = read(run/'pre_recovery_state.json')
+    assert qualification['status'] == 'PROBABILITY_INTERVAL_PARITY_PASS'
+    assert qualification['repaired_rows'] == 11692
+    assert qualification['runtime_sha256'] == sha(run/'recovery_runtime.py')
+    assert qualification['adapter_sha256'] == sha(run/'interval_adapter.py')
+    assert not (run/'execution_registration.json').exists()
+    assert not (run/'launch.json').exists()
+    with (out/'study_owner.lock').open('a+') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        assert not (out/'STOP').exists()
+        assert not (out/'final_policy_revision_00.json').exists()
+        assert read(out/'active_children.json')['children'] == []
+        original_failure = out/'owner_failure.json'
+        assert read(original_failure) == pre['owner_failure']
+        assert sha(original_failure) == sha(run/'incident/owner_failure.json')
+        assert not (Path('/proc')/str(pre['owner_failure']['pid'])).exists()
+        assert not subprocess.check_output(['nvidia-smi','--query-compute-apps=pid','--format=csv,noheader,nounits'],text=True).strip()
+        for path, digest in config['source_bindings'].items():
+            assert sha(path) == digest, path
+        for path, digest in pre['quality_checkpoint_sha256'].items():
+            assert sha(path) == digest, path
+        assert sha(out/'quality_final1000/completion.json') == pre['quality_completion_sha256']
+        assert sha(out/'quality_final1000/registration.json') == pre['quality_registration_sha256']
+        assert sha(out/'bler_coarse.json') == qualification['table_sha256']
+        stable = [run/name for name in ('interval_adapter.py','test_interval_adapter.py','recovery_runtime.py',
+            'qualify_actual_table.py','register_and_launch.py','qualification.json','qualification_run_0.log',
+            'qualification_run_1.log','pre_recovery_state.json','diagnosis.json')]
+        stable += [config_path,out/'quality_final1000/completion.json',out/'quality_final1000/registration.json',
+                   out/'storage_fast_r1/completion.json',run/'incident/owner_failure.json']
+        bindings = {str(p):sha(p) for p in stable}
+        bindings.update(config['source_bindings'])
+        registration = dict(status='PROBABILITY_INTERVAL_RECOVERY_REGISTERED',time=time.time(),
+            root=str(root),run_dir=str(run),out=str(out),original_code=str(root/'experiments/prior-aware-grouped-mcs-v1'),
+            owner_config=str(config_path),qualification_path=str(run/'qualification.json'),
+            pre_recovery_state=str(run/'pre_recovery_state.json'),diagnostic_path=str(run/'diagnosis.json'),
+            input_bindings=bindings,original_raw_bler_sha256=sha(out/'bler_coarse.json'),
+            original_quality_bundle_sha256=sha(out/'quality_final1000/quality_bundle.json'),
+            scientific_protocol_changed=False,raw_data_modified=False,
+            original_failure_sha256=sha(original_failure),original_failure_archive=str(run/'owner_failure.original.json'))
+        seal(run/'execution_registration.json',registration)
+        # Check runtime's own registration validation before releasing the failure gate.
+        import recovery_runtime
+        recovery_runtime.Registration(root,run)
+        assert not (run/'owner_failure.original.json').exists()
+        original_failure.rename(run/'owner_failure.original.json')
+        seal(run/'failure_archive_receipt.json',dict(status='DIAGNOSED_FAILURE_PRESERVED',time=time.time(),
+            original_path=str(original_failure),archive_path=str(run/'owner_failure.original.json'),
+            sha256=registration['original_failure_sha256'],diagnosis_sha256=sha(run/'diagnosis.json'),
+            qualification_sha256=sha(run/'qualification.json'),registration_sha256=sha(run/'execution_registration.json')))
+        fcntl.flock(lock,fcntl.LOCK_UN)
+        command=[str(out/'ldpc_environment/bin/python'),'-B',str(run/'recovery_runtime.py'),
+                 '--root',str(root),'--run-dir',str(run),'--mode','owner']
+        native_bin=str(Path(config['native_python']).parent)
+        env=dict(os.environ,OMP_NUM_THREADS='2',MKL_NUM_THREADS='2',OPENBLAS_NUM_THREADS='2',
+                 PYTHONDONTWRITEBYTECODE='1',VAR_COMM_ROOT=str(root),PATH=native_bin+':'+os.environ['PATH'],
+                 PYTHONPATH=str(root/'experiments/prior-aware-grouped-mcs-v1')+':'+str(root/'src'))
+        with (run/'owner.log').open('xb') as log:
+            process=subprocess.Popen(command,cwd=root,env=env,stdin=subprocess.DEVNULL,
+                stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+        proc=Path('/proc')/str(process.pid)
+        identity=dict(pid=process.pid,start_ticks=proc.joinpath('stat').read_text().rsplit(')',1)[1].split()[19],
+            uid=proc.stat().st_uid,argv=proc.joinpath('cmdline').read_bytes().decode().rstrip('\0').split('\0'))
+        launch=dict(status='REGISTERED_RECOVERY_OWNER_LAUNCHED',time=time.time(),identity=identity,command=command,
+                    execution_registration_sha256=sha(run/'execution_registration.json'),
+                    original_config_sha256=sha(config_path),preserved_quality_sources=1000,
+                    reused_raw_bler_rows=16902,archived_failure_sha256=sha(run/'owner_failure.original.json'))
+        seal(run/'launch.json',launch)
+        print(json.dumps(launch))
+
+
+if __name__ == '__main__':
+    main()
