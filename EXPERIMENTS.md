@@ -344,3 +344,6 @@ cell约束修正预注册：`reports/var_prefix_consistency_preregistration_2026
 
 
 2026-10-04: Registered prior-aware UEP N1024 with real Sionna5G LDPC, continuous accepted-prefix RX, independent ConvNeXt validation and conditional N2048 replication. CPU BLER shards running; GPU source-Q waits for existing M1 N2048 delivery. No new quality result or training. See [Stage A](reports/prior_aware_uep_stage_a_20261004.md).
+
+
+2026-10-04: Qualified M1 N2048 source-parallel GPU execution on the same six completed calibration sources with exact full-row parity (image metrics, link decisions and waveform/observation hashes; no reconstructed-pixel hashes were recorded). Selected 4 workers at 2.021x measured source throughput; preserved 286 prior source checkpoints. Original science and delivery paths continue. See [execution benchmark](reports/m1_gpu_workers_20261004.md).
