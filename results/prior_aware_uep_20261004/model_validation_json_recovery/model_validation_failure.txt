@@ -1,0 +1,36 @@
+Traceback (most recent call last):
+  File "/home/liulu/projects/VAR_COMM/outputs/PRIOR-AWARE-UEP-20261004-V1/probability_interval_recovery_r1/recovery_runtime.py", line 279, in <module>
+    main()
+  File "/home/liulu/projects/VAR_COMM/outputs/PRIOR-AWARE-UEP-20261004-V1/probability_interval_recovery_r1/recovery_runtime.py", line 275, in main
+    run_worker(reg, args.script, forwarded)
+  File "/home/liulu/projects/VAR_COMM/outputs/PRIOR-AWARE-UEP-20261004-V1/probability_interval_recovery_r1/recovery_runtime.py", line 201, in run_worker
+    module.main()
+  File "/home/liulu/projects/VAR_COMM/experiments/prior-aware-grouped-mcs-v1/model_validation.py", line 248, in main
+    seal(args.output,result);print(result['status'],[(r['snr_db'],r['status']) for r in result['model_validation']])
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/liulu/projects/VAR_COMM/experiments/prior-aware-grouped-mcs-v1/uep_common.py", line 36, in seal
+    else:write(path,value)
+         ^^^^^^^^^^^^^^^^^
+  File "/home/liulu/projects/VAR_COMM/experiments/prior-aware-grouped-mcs-v1/uep_common.py", line 32, in write
+    tmp.write_text(json.dumps(value,indent=2,ensure_ascii=False,allow_nan=False)+'\n',encoding='utf-8');os.replace(tmp,p)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/json/__init__.py", line 238, in dumps
+    **kw).encode(obj)
+          ^^^^^^^^^^^
+  File "/usr/lib/python3.11/json/encoder.py", line 202, in encode
+    chunks = list(chunks)
+             ^^^^^^^^^^^^
+  File "/usr/lib/python3.11/json/encoder.py", line 432, in _iterencode
+    yield from _iterencode_dict(o, _current_indent_level)
+  File "/usr/lib/python3.11/json/encoder.py", line 406, in _iterencode_dict
+    yield from chunks
+  File "/usr/lib/python3.11/json/encoder.py", line 326, in _iterencode_list
+    yield from chunks
+  File "/usr/lib/python3.11/json/encoder.py", line 406, in _iterencode_dict
+    yield from chunks
+  File "/usr/lib/python3.11/json/encoder.py", line 439, in _iterencode
+    o = _default(o)
+        ^^^^^^^^^^^
+  File "/usr/lib/python3.11/json/encoder.py", line 180, in default
+    raise TypeError(f'Object of type {o.__class__.__name__} '
+TypeError: Object of type bool is not JSON serializable

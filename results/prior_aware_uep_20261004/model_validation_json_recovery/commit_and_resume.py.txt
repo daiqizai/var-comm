@@ -1,0 +1,190 @@
+"""Commit a qualified JSON representation, then resume the unchanged R1 owner.
+
+No validation statistic, policy, model output, or channel event is recomputed.
+The original qualifier and its qualification receipt remain immutable.
+"""
+from pathlib import Path
+import argparse
+import importlib.util
+import os
+import subprocess
+import sys
+import time
+
+
+def require(ok, message):
+    if not ok:
+        raise RuntimeError(message)
+
+
+def process(pid):
+    try:
+        directory = Path('/proc') / str(pid)
+        fields = (directory / 'stat').read_text().rsplit(')', 1)[1].split()
+        if fields[0] == 'Z':
+            return None
+        return dict(pid=pid, start_ticks=fields[19], uid=directory.stat().st_uid,
+                    argv=[os.fsdecode(x) for x in (directory / 'cmdline').read_bytes().split(b'\0') if x])
+    except (FileNotFoundError, ProcessLookupError):
+        return None
+
+
+def verify(bindings, sha):
+    for path, expected in bindings.items():
+        require(sha(path) == expected, 'Bound input changed: ' + str(path))
+
+
+def commit_no_replace(candidate, destination, expected_sha, sha):
+    """Atomic, exclusive destination publication on the same Linux filesystem."""
+    temporary = destination.with_name(destination.name + '.json_recovery_r1.tmp')
+    require(not destination.exists() and not temporary.exists(), 'Existing JSON destination/temporary needs review')
+    with temporary.open('xb') as handle:
+        handle.write(candidate.read_bytes())
+        handle.flush()
+        os.fsync(handle.fileno())
+    require(sha(temporary) == expected_sha, 'Candidate changed during atomic copy')
+    os.link(temporary, destination)  # Exclusive: never overwrites an existing destination.
+    temporary.unlink()
+    directory_fd = os.open(str(destination.parent), os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(directory_fd)
+    finally:
+        os.close(directory_fd)
+    require(sha(destination) == expected_sha, 'Committed JSON checksum differs')
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--root', type=Path, required=True)
+    args = parser.parse_args()
+    root = args.root.resolve()
+    out = root / 'outputs/PRIOR-AWARE-UEP-20261004-V1'
+    run = out / 'model_validation_json_recovery_r1'
+    old = out / 'probability_interval_recovery_r1'
+    require(Path(__file__).resolve().parent == run, 'Use the registered recovery directory')
+    qualifier = run / 'recover_validation.py'
+    spec = importlib.util.spec_from_file_location('_frozen_validation_json_qualifier', qualifier)
+    helper = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(helper)
+    read, sha, seal = helper.read, helper.sha, helper.seal
+    sys.path.insert(0, str(old))
+    import recovery_runtime
+    reg = recovery_runtime.Registration(root, old)
+    import fcntl
+
+    with (run / 'commit_and_resume.lock').open('a+') as own_lock, (out / 'study_owner.lock').open('a+') as owner_lock:
+        fcntl.flock(own_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        fcntl.flock(owner_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        # Every admission check below occurs while the original owner's lock is held.
+        reg.verify()
+        reg.verify_original_sources()
+        qpath, candidate = run / 'qualification.json', run / 'candidate_model_validation.json'
+        q, incident, old_launch = read(qpath), read(run / 'incident.json'), read(old / 'launch.json')
+        require(q['status'] == 'MODEL_VALIDATION_JSON_PARITY_PASS'
+                and q['source_sha256'] == sha(qualifier)
+                and q['candidate_sha256'] == sha(candidate)
+                and q['probability_audit_sha256'] == sha(run / 'probability_audit.json'),
+                'Qualified source/candidate/audit identity differs')
+        require(q['only_numpy_bool_to_python_bool'] is True and q['scalar_values_unchanged'] is True
+                and q['unsupported_types_and_NaN_still_rejected'] is True
+                and q['image_or_channel_reexecution'] is False and q['policy_reselection'] is False,
+                'Qualification permits an unregistered change')
+        verify(q['input_bindings'], sha)
+        value = read(candidate)
+        require(value['status'] == 'MODEL_VALIDATION_COMPLETE' and value['input_bindings'] == q['input_bindings'],
+                'Candidate is not the qualified original validation result')
+        command = [str(out / 'ldpc_environment/bin/python'), '-B', str(old / 'recovery_runtime.py'),
+                   '--root', str(root), '--run-dir', str(old), '--mode', 'owner']
+        require(old_launch['command'] == command and old_launch['identity']['argv'] == command,
+                'Prior launch is not the exact registered LDPC/R1 owner command')
+        require(old_launch['execution_registration_sha256'] == reg.digest
+                and old_launch['identity']['uid'] == os.getuid(), 'Original launch registration/UID differs')
+        prior_pid = old_launch['identity']['pid']
+        require(process(prior_pid) is None, 'Prior owner PID is still live; never start a duplicate')
+        require(read(out / 'active_children.json')['children'] == [], 'An original child remains active')
+        owner_status = read(out / 'owner_status.json')
+        require(owner_status['status'] == 'STOPPED_REQUIRES_REVIEW' and owner_status['pid'] == prior_pid,
+                'Unexpected owner status requires review')
+        require(not (out / 'STOP').exists() and not (old / 'STOP').exists(), 'A study/recovery STOP remains')
+        failure = out / 'owner_failure.json'
+        failure_sha = incident['files'][str(failure)]['sha256']
+        require(sha(failure) == failure_sha and read(failure)['pid'] == prior_pid,
+                'Active owner failure is not the diagnosed incident')
+        require('not JSON serializable' in read(failure).get('error', '')
+                or 'Worker failed' in read(failure).get('error', ''), 'Unexpected owner failure reason')
+        worker_failures = [Path(path) for path in incident['files']
+                           if Path(path).parent == old / 'workers'
+                           and Path(path).name.startswith('model_validation.') and Path(path).name.endswith('.failure.json')]
+        require(len(worker_failures) == 1, 'Expected exactly one reviewed R1 model-validation failure')
+        worker_failure = worker_failures[0]
+        require(sha(worker_failure) == incident['files'][str(worker_failure)]['sha256']
+                and 'Object of type bool is not JSON serializable' in read(worker_failure).get('error', ''),
+                'R1 worker failure is not the diagnosed NumPy-bool encoding error')
+        # These stage receipts make the unchanged owner skip completed experiment work.
+        completed = {
+            out / 'quality_final1000/completion.json': 'SOURCE_QUALITY_COMPLETE',
+            out / 'actual_events/completion.json': 'UEP_ACTUAL_EVENTS_COMPLETE',
+            out / 'actual_scores/completion.json': 'UEP_ACTUAL_SCORING_COMPLETE',
+            out / 'p1024_scores/completion.json': 'P1024_BASELINE_EVALUATION_COMPLETE',
+            out / 'receiver_cost/timing.json': 'UEP_UNCACHED_RECEIVER_COST_COMPLETE'}
+        for path, status in completed.items():
+            require(read(path)['status'] == status, 'A prerequisite stage is not complete: ' + str(path))
+        verify(read(out / 'final_freeze.json')['bindings'], sha)
+        target = out / 'model_validation.json'
+        generated = [target, run / 'execution_registration.json', run / 'completion.json',
+                     run / 'owner_failure.original.json', run / 'failure_archive_receipt.json',
+                     run / 'owner_resume_launch.json', run / 'owner_resume.log']
+        require(not any(path.exists() for path in generated), 'A previous commit/resume attempt exists; do not retry blindly')
+        bound = [Path(__file__).resolve(), qualifier, run / 'incident.json', qpath, candidate,
+                 run / 'probability_audit.json', old / 'launch.json', old / 'execution_registration.json',
+                 worker_failure, out / 'final_freeze.json', *completed]
+        bindings = {str(path): sha(path) for path in bound}
+        registration = dict(status='MODEL_VALIDATION_JSON_RECOVERY_REGISTERED', time=time.time(),
+            input_bindings=bindings, conversion='numpy.bool_ -> bool at JSON encoding only',
+            destination=str(target), upstream_r1_registration_sha256=reg.digest,
+            original_R1_worker_failure_reviewed=incident['files'][str(worker_failure)],
+            reviewed_owner_failure_sha256=failure_sha, exact_resume_command=command,
+            no_scientific_rule_or_scope_change=True, validation_recomputed_in_commit=False)
+        seal(run / 'execution_registration.json', registration)
+        # Verify again immediately before the first scientific-output write.
+        verify(bindings, sha)
+        verify(q['input_bindings'], sha)
+        require(sha(failure) == failure_sha, 'Owner failure changed before commit')
+        commit_no_replace(candidate, target, q['candidate_sha256'], sha)
+        seal(run / 'completion.json', dict(status='ORIGINAL_MODEL_VALIDATION_SERIALIZED_WITH_IDENTICAL_BOOLEAN_VALUES',
+            time=time.time(), model_validation_sha256=q['candidate_sha256'],
+            registration_sha256=sha(run / 'execution_registration.json'), qualification_sha256=sha(qpath),
+            original_runtime_sources_unchanged=True, image_or_channel_reexecution=False, policy_reselection=False))
+        require(sha(failure) == failure_sha, 'Owner failure changed before archival')
+        failure.rename(run / 'owner_failure.original.json')
+        require(sha(run / 'owner_failure.original.json') == failure_sha, 'Archived failure checksum differs')
+        seal(run / 'failure_archive_receipt.json', dict(status='DIAGNOSED_JSON_FAILURE_PRESERVED', time=time.time(),
+            archived_owner_failure_sha256=failure_sha, original_R1_worker_failure_retained=True,
+            original_R1_worker_failure_sha256=sha(worker_failure),
+            execution_registration_sha256=sha(run / 'execution_registration.json')))
+        reg.verify()
+        reg.verify_original_sources()
+        require(read(old / 'launch.json')['command'] == command and sha(old / 'launch.json') == bindings[str(old / 'launch.json')],
+                'Original command changed before launch')
+        env = dict(os.environ, CUDA_VISIBLE_DEVICES='', OMP_NUM_THREADS='2', MKL_NUM_THREADS='2',
+            OPENBLAS_NUM_THREADS='2', PYTHONDONTWRITEBYTECODE='1', VAR_COMM_ROOT=str(root),
+            PATH=str(Path(reg.config['native_python']).parent) + ':' + os.environ.get('PATH', ''),
+            PYTHONPATH=str(root / 'experiments/prior-aware-grouped-mcs-v1') + ':' + str(root / 'src'))
+        fcntl.flock(owner_lock, fcntl.LOCK_UN)
+        with (run / 'owner_resume.log').open('xb') as log:
+            child = subprocess.Popen(command, cwd=root, env=env, stdin=subprocess.DEVNULL,
+                stdout=log, stderr=subprocess.STDOUT, start_new_session=True, close_fds=True)
+        identity = process(child.pid)
+        require(identity is not None and identity['uid'] == os.getuid() and identity['argv'] == command,
+                'Resumed owner exited or has an unexpected process identity; inspect retained log')
+        launch = dict(status='ORIGINAL_R1_OWNER_RESUMED_AFTER_JSON_QUALIFICATION', time=time.time(),
+            pid=child.pid, start_ticks=identity['start_ticks'], uid=identity['uid'], command=command,
+            qualification_sha256=sha(qpath), model_validation_sha256=sha(target),
+            execution_registration_sha256=sha(run / 'execution_registration.json'),
+            validation_recomputed_in_commit=False)
+        seal(run / 'owner_resume_launch.json', launch)
+        print(helper.json.dumps(launch))
+
+
+if __name__ == '__main__':
+    main()

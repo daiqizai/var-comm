@@ -1,0 +1,141 @@
+"""Retain original statistics; qualify only NumPy bool -> JSON bool encoding."""
+from pathlib import Path
+import argparse
+import hashlib
+import json
+import os
+import subprocess
+import sys
+import time
+
+
+def read(path):
+    return json.loads(Path(path).read_text())
+
+
+def sha(path):
+    h = hashlib.sha256()
+    with Path(path).open('rb') as stream:
+        for chunk in iter(lambda: stream.read(8*1024*1024), b''):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def seal(path, value):
+    with Path(path).open('x') as stream:
+        stream.write(json.dumps(value, indent=2, allow_nan=False)+'\n')
+
+
+def normalize(value, np, changes, path='$'):
+    if type(value) is np.bool_:
+        changes.append(dict(path=path, original_type='numpy.bool_', value=bool(value)))
+        return bool(value)
+    if isinstance(value, dict):
+        assert all(type(key) is str for key in value)
+        return {key:normalize(item,np,changes,path+'.'+key) for key,item in value.items()}
+    if isinstance(value, list):
+        return [normalize(item,np,changes,path+'['+str(i)+']') for i,item in enumerate(value)]
+    if isinstance(value, tuple):
+        return tuple(normalize(item,np,changes,path+'['+str(i)+']') for i,item in enumerate(value))
+    return value
+
+
+def bool_default(value, np):
+    if type(value) is np.bool_:
+        return bool(value)
+    raise TypeError('Unsupported type: '+type(value).__name__)
+
+
+def main():
+    parser=argparse.ArgumentParser();parser.add_argument('--root',type=Path,required=True)
+    parser.add_argument('--mode',choices=('qualify','commit-and-resume'),required=True)
+    args=parser.parse_args();root=args.root.resolve();out=root/'outputs/PRIOR-AWARE-UEP-20261004-V1'
+    run=out/'model_validation_json_recovery_r1';old=out/'probability_interval_recovery_r1'
+    assert Path(__file__).resolve().parent==run
+    sys.path.insert(0,str(old));import recovery_runtime
+    reg=recovery_runtime.Registration(root,old)
+    assert not (Path('/proc')/'3735694').exists()
+    assert not (out/'model_validation.json').exists()
+    assert read(out/'active_children.json')['children']==[]
+    assert sha(out/'owner_failure.json')==read(run/'incident.json')['files'][str(out/'owner_failure.json')]['sha256']
+    if args.mode=='qualify':
+        import numpy as np
+        # This change must preserve values and continue rejecting unsupported types/non-finite numbers.
+        fixture={'a':[np.bool_(True),np.bool_(False),True,False,1,0.25]}
+        changes=[];plain=normalize(fixture,np,changes)
+        assert plain=={'a':[True,False,True,False,1,0.25]} and len(changes)==2
+        assert json.dumps(plain,allow_nan=False)==json.dumps(fixture,default=lambda x:bool_default(x,np),allow_nan=False)
+        for value in (np.int64(1),np.array([True]),float('nan')):
+            try:json.dumps(normalize(value,np,[]),allow_nan=False)
+            except (TypeError,ValueError):pass
+            else:raise AssertionError('Unsupported value was silently accepted')
+        original=reg.module('optimize');phy=reg.module('phy_lookup');adapter=reg.module('interval_adapter',old)
+        audits=[];adapter.install(original,phy,audits.append);module=reg.module('model_validation')
+        freeze=read(out/'final_freeze.json');assert all(sha(k)==v for k,v in freeze['bindings'].items())
+        result=module.run(freeze['policies'],freeze['bler'],out/'actual_events',out/'actual_scores',out/'owner_config_r3.json')
+        try:json.dumps(result,allow_nan=False)
+        except TypeError as error:
+            assert str(error)=='Object of type bool is not JSON serializable';original_error=str(error)
+        else:raise AssertionError('Original JSON failure was not reproduced')
+        changes=[];plain=normalize(result,np,changes);assert changes
+        text=json.dumps(plain,indent=2,allow_nan=False)
+        assert json.loads(text)==json.loads(json.dumps(result,default=lambda x:bool_default(x,np),allow_nan=False))
+        assert all(x['path'].endswith('.qualified') or x['path'].endswith('.state_frequency_qualified') for x in changes)
+        assert plain['status']=='MODEL_VALIDATION_COMPLETE'
+        # Merely reading the candidate cannot select a policy or alter any source metrics.
+        reg.verify();assert all(sha(k)==v for k,v in result['input_bindings'].items())
+        seal(run/'candidate_model_validation.json',plain);seal(run/'probability_audit.json',audits)
+        qualification=dict(status='MODEL_VALIDATION_JSON_PARITY_PASS',time=time.time(),
+            original_error_reproduced=original_error,source_sha256=sha(__file__),
+            candidate_sha256=sha(run/'candidate_model_validation.json'),
+            input_bindings=result['input_bindings'],changes=changes,converted_leaves=len(changes),
+            only_numpy_bool_to_python_bool=True,scalar_values_unchanged=True,
+            unsupported_types_and_NaN_still_rejected=True,original_interval_adapter_unchanged=True,
+            probability_audit_sha256=sha(run/'probability_audit.json'),
+            image_or_channel_reexecution=False,policy_reselection=False,
+            validation_statuses=[dict(snr_db=x['snr_db'],status=x['status']) for x in plain['model_validation']])
+        seal(run/'qualification.json',qualification)
+        print(json.dumps({k:v for k,v in qualification.items() if k not in ('input_bindings','changes')}))
+        return
+    import fcntl
+    q=read(run/'qualification.json');assert q['status']=='MODEL_VALIDATION_JSON_PARITY_PASS'
+    assert q['source_sha256']==sha(__file__) and q['candidate_sha256']==sha(run/'candidate_model_validation.json')
+    assert all(sha(k)==v for k,v in q['input_bindings'].items())
+    with (out/'study_owner.lock').open('a+') as lock:
+        fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        assert not (out/'STOP').exists()
+        assert not (out/'model_validation.json').exists()
+        bound=[Path(__file__),run/'incident.json',run/'qualification.json',run/'candidate_model_validation.json',run/'probability_audit.json',old/'execution_registration.json']
+        registration=dict(status='MODEL_VALIDATION_JSON_RECOVERY_REGISTERED',time=time.time(),
+            input_bindings={str(p):sha(p) for p in bound},conversion='numpy.bool_ -> bool at JSON encoding only',
+            destination=str(out/'model_validation.json'),upstream_r1_registration_sha256=sha(old/'execution_registration.json'),
+            original_R1_worker_failure_reviewed=read(run/'incident.json')['files'][str(old/'workers/model_validation.3755169.180286518.failure.json')],
+            no_scientific_rule_or_scope_change=True)
+        seal(run/'execution_registration.json',registration)
+        with (out/'model_validation.json').open('xb') as stream:
+            stream.write((run/'candidate_model_validation.json').read_bytes())
+        assert sha(out/'model_validation.json')==q['candidate_sha256']
+        seal(run/'completion.json',dict(status='ORIGINAL_MODEL_VALIDATION_SERIALIZED_WITH_IDENTICAL_BOOLEAN_VALUES',time=time.time(),
+            model_validation_sha256=q['candidate_sha256'],registration_sha256=sha(run/'execution_registration.json'),
+            qualification_sha256=sha(run/'qualification.json'),original_runtime_sources_unchanged=True,
+            image_or_channel_reexecution=False,policy_reselection=False))
+        (out/'owner_failure.json').rename(run/'owner_failure.original.json')
+        seal(run/'failure_archive_receipt.json',dict(status='DIAGNOSED_JSON_FAILURE_PRESERVED',time=time.time(),
+            archived_owner_failure_sha256=sha(run/'owner_failure.original.json'),
+            original_R1_worker_failure_retained=True,execution_registration_sha256=sha(run/'execution_registration.json')))
+        fcntl.flock(lock,fcntl.LOCK_UN)
+        command=read(old/'launch.json')['command']
+        env=dict(os.environ,OMP_NUM_THREADS='2',MKL_NUM_THREADS='2',OPENBLAS_NUM_THREADS='2',PYTHONDONTWRITEBYTECODE='1',
+            VAR_COMM_ROOT=str(root),PATH=str(Path(reg.config['native_python']).parent)+':'+os.environ['PATH'],
+            PYTHONPATH=str(root/'experiments/prior-aware-grouped-mcs-v1')+':'+str(root/'src'))
+        with (run/'owner_resume.log').open('xb') as log:
+            p=subprocess.Popen(command,cwd=root,env=env,stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+        proc=Path('/proc')/str(p.pid)
+        launch=dict(status='ORIGINAL_R1_OWNER_RESUMED_AFTER_JSON_QUALIFICATION',time=time.time(),
+            pid=p.pid,start_ticks=(proc/'stat').read_text().rsplit(')',1)[1].split()[19],uid=proc.stat().st_uid,command=command,
+            qualification_sha256=sha(run/'qualification.json'),model_validation_sha256=sha(out/'model_validation.json'))
+        seal(run/'owner_resume_launch.json',launch);print(json.dumps(launch))
+
+
+if __name__=='__main__':
+    main()
