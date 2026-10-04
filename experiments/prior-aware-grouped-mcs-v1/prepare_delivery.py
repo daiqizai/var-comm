@@ -7,7 +7,8 @@ from uep_common import read,write,seal,sha,require
 from release_tables import copy_light
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--root',required=True,type=Path);p.add_argument('--out',required=True,type=Path);a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--root',required=True,type=Path);p.add_argument('--out',required=True,type=Path)
+    p.add_argument('--owner-config',type=Path);a=p.parse_args()
     root=a.root.resolve();out=a.out.resolve();result=root/'results/prior_aware_uep_20261004';code=root/'experiments/prior-aware-grouped-mcs-v1'
     report_manifest=result/'publication_manifest.json';report=read(report_manifest)
     require(report['status']=='UEP_STATIC_REPORT_COMPLETE','Real report is incomplete')
@@ -15,8 +16,13 @@ def main():
     require(read(out/'p1024_scores/completion.json')['status']=='P1024_BASELINE_EVALUATION_COMPLETE','P1024 evaluation incomplete')
     require(read(out/'receiver_cost/timing.json')['status']=='UEP_UNCACHED_RECEIVER_COST_COMPLETE','Required online receiver timing incomplete')
     for path,digest in report['outputs'].items():require(sha(path)==digest,'Report output changed')
-    for name in ('ldpc_qualification.json','stage_a_cost_decision.json','final_codebook.json','final_freeze.json','owner_config_r2.json','environment_completion.json','ldpc_requirements_lock.txt'):
+    for name in ('ldpc_qualification.json','stage_a_cost_decision.json','final_codebook.json','final_freeze.json','environment_completion.json','ldpc_requirements_lock.txt'):
         source=out/name;require(source.exists(),'Delivery receipt missing: '+name);shutil.copyfile(source,result/name)
+    owner_config=(a.owner_config or out/'owner_config_r2.json').resolve()
+    require(owner_config.parent==out and read(owner_config)['out']==str(out),'Wrong execution registration')
+    shutil.copyfile(owner_config,result/owner_config.name)
+    for name in ('CPU_affinity_revision_20261004.json','execution_scheduling_r3.json'):
+        if (out/name).exists():shutil.copyfile(out/name,result/name)
     shutil.copyfile(out/'receiver_cost/timing.json',result/'receiver_cost.json')
     for name in ('candidate_profiles_N1024.json','candidate_profiles_N2048.json','resource_ledger.csv','K_generation.json','resource_enumeration.json'):
         copy_light(out/'stage_a'/name,result/('resources_'+name))

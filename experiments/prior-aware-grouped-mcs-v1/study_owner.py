@@ -26,7 +26,7 @@ class Owner:
         self.phy=self.out/'ldpc_environment/bin/python';self.native=Path(config['native_python'])
         self.shards=[self.out/'phy_shards'/str(i) for i in range(8)]
         self.profiles=self.out/'stage_a/candidate_profiles_N1024.json'
-        self.children=[]
+        self.children=[];self.child_records={}
 
     def check(self):
         require(not STOP and not (self.out/'STOP').exists(),'Study stop requested; source/block checkpoints retained')
@@ -55,16 +55,107 @@ class Owner:
             p=subprocess.Popen([str(self.native if gpu else self.phy),'-B',*[str(x) for x in args]],cwd=self.root,
                 env=self.environment(gpu),stdin=subprocess.DEVNULL,stdout=f,stderr=subprocess.STDOUT,start_new_session=True)
         self.children.append(p)
-        write(self.out/'active_child.json',dict(name=name,pid=p.pid,args=[str(x) for x in args],gpu=gpu,time=time.time()))
+        self.child_records[p.pid]=dict(name=name,pid=p.pid,args=[str(x) for x in args],gpu=gpu,time=time.time())
+        self.record_children()
         return p
+
+    def record_children(self):
+        active=[self.child_records[p.pid] for p in self.children if p.poll() is None]
+        write(self.out/'active_children.json',dict(owner_pid=os.getpid(),children=active,time=time.time()))
+        # Keep the old single-child view without hiding one side of a parallel pair.
+        value=active[0] if len(active)==1 else dict(name='parallel' if active else 'idle',pid=None,
+            gpu=any(row['gpu'] for row in active),children=active,owner_pid=os.getpid(),time=time.time())
+        write(self.out/'active_child.json',value)
+
+    def cleanup_children(self):
+        """Stop only Popen children started by this owner; never an external GPU PID."""
+        live=[p for p in self.children if p.poll() is None]
+        for p in live:p.terminate()
+        deadline=time.monotonic()+30.
+        for p in live:
+            try:p.wait(timeout=max(0.,deadline-time.monotonic()))
+            except subprocess.TimeoutExpired:pass
+        for p in live:
+            if p.poll() is None:p.kill()
+        for p in live:
+            if p.poll() is None:p.wait(timeout=5.)
+        self.record_children()
 
     def wait(self,children):
         while any(p.poll() is None for p in children):
-            self.check();time.sleep(15)
+            self.check()
+            require(all(p.poll() in (None,0) for p in children),'Worker failed; inspect immutable stage logs and receipts')
+            time.sleep(15)
+        self.record_children()
         require(all(p.returncode==0 for p in children),'Worker failed; inspect immutable stage logs and receipts')
 
     def run(self,name,args,gpu=False):
         self.status('RUNNING_'+name.upper());self.wait([self.start(name,args,gpu)])
+
+    def valid_parallel_receipt(self,step,required=False):
+        path=Path(step['receipt'])
+        if not path.exists():
+            require(not required,'Missing parallel completion receipt: '+str(path))
+            return False
+        value=read(path);expected=step.get('expected_status')
+        require(isinstance(expected,str) and expected and isinstance(value,dict)
+            and value.get('status')==expected,'Invalid parallel completion status: '+str(path))
+        outputs=value.get('outputs')
+        if isinstance(outputs,dict):
+            for output,digest in outputs.items():
+                require(isinstance(output,str) and isinstance(digest,str) and len(digest)==64
+                    and all(c in '0123456789abcdef' for c in digest),'Invalid parallel output SHA256 mapping: '+str(path))
+                target=Path(output)
+                if not target.is_absolute():target=self.root/target
+                require(target.is_file() and sha(target)==digest,'Parallel completion output changed: '+str(target))
+        return True
+
+    def parallel_cpu_gpu(self,name,cpu_steps,gpu_step):
+        """One ordered CPU chain beside at most one exclusive GPU child.
+
+        Completion receipts, not process exit alone, release dependencies. Only
+        scheduling changes: every worker retains its original command and files.
+        """
+        require(cpu_steps and all(not s.get('gpu',False) for s in cpu_steps)
+            and gpu_step.get('gpu') is True,'Parallel stage must be one CPU chain plus one GPU command')
+        require(gpu_step['name']!='receiver_cost','Receiver timing requires isolated execution')
+        steps=[*cpu_steps,gpu_step]
+        require(len({s['name'] for s in steps})==len(steps)
+            and all(isinstance(s.get('expected_status'),str) and s['expected_status'] for s in steps),
+            'Distinct parallel steps need registered completion statuses')
+        # Reject stale/failed receipts before launching either expensive worker.
+        completed={s['name'] for s in steps if self.valid_parallel_receipt(s)}
+        pending=list(cpu_steps);running={};gpu_pending=True
+        try:
+            while pending or gpu_pending or running:
+                self.check()
+                for lane,(process,step) in list(running.items()):
+                    code=process.poll()
+                    if code is None:continue
+                    require(code==0,'Parallel worker failed: '+step['name'])
+                    self.valid_parallel_receipt(step,required=True);completed.add(step['name'])
+                    del running[lane]
+                if 'cpu' not in running:
+                    while pending and pending[0]['name'] in completed:pending.pop(0)
+                    if pending:
+                        step=pending.pop(0);running['cpu']=(self.start(step['name'],step['args'],False),step)
+                if gpu_pending:
+                    gpu_pending=False
+                    if gpu_step['name'] not in completed:
+                        running['gpu']=(self.start(gpu_step['name'],gpu_step['args'],True),gpu_step)
+                self.record_children()
+                self.status('RUNNING_PARALLEL_'+name.upper(),lanes={lane:dict(name=s['name'],pid=p.pid)
+                    for lane,(p,s) in running.items()},cpu_pending=[s['name'] for s in pending])
+                if running:time.sleep(2.)
+        except BaseException:
+            self.cleanup_children();raise
+
+    def delivery_step(self,item,selected,bler,bundle,qout,codebook):
+        args=[str(x).replace('{ROOT}',str(self.root)).replace('{OUT}',str(self.out)).replace('{CODE}',str(self.code))
+            .replace('{POLICIES}',str(selected)).replace('{BLER}',str(bler)).replace('{QUALITY_BUNDLE}',str(bundle))
+            .replace('{QUALITY_COMPLETION}',str(qout/'completion.json')).replace('{CODEBOOK}',str(codebook)) for x in item['args']]
+        expected=item.get('expected_status',{'P1024':'P1024_BASELINE_EVALUATION_COMPLETE'}.get(item['name']))
+        return dict(name=item['name'],args=args,gpu=item.get('gpu',False),receipt=self.out/item['completion_relative'],expected_status=expected)
 
     def wait_coarse(self):
         self.status('WAITING_FOR_CPU_COARSE')
@@ -90,6 +181,13 @@ class Owner:
         if selection:args+=['--selection',selection]
         self.run('merge_'+destination.stem,args)
 
+    def merge_coarse_if_ready(self):
+        merged=self.out/'bler_coarse.json'
+        if merged.exists() or not all((d/'coarse_completion.json').exists() for d in self.shards):return False
+        self.merge('coarse',merged)
+        require(merged.exists(),'CPU coarse merge returned without its immutable table')
+        return True
+
     def wait_old_gpu_delivery(self):
         upstream=Path(self.config['upstream_completion'])
         self.status('WAITING_FOR_M1_N2048_DELIVERY',upstream=str(upstream),CPU_lookup_continues=True)
@@ -97,6 +195,9 @@ class Owner:
             self.check()
             for failure in self.config['upstream_failure_files']:
                 require(not Path(failure).exists(),'Existing M1 task failed; GPU queue retained for review')
+            if self.merge_coarse_if_ready():
+                self.status('WAITING_FOR_M1_N2048_DELIVERY',upstream=str(upstream),CPU_lookup_continues=False,
+                    CPU_coarse_verified_and_merged=True)
             time.sleep(15)
         value=read(upstream)
         require(value.get('status')==self.config['upstream_required_status'],'Existing M1 was not successfully delivered')
@@ -167,19 +268,27 @@ class Owner:
         shared=['--policies',selected,'--quality-bundle',bundle,'--quality-completion',qout/'completion.json','--bler',bler,'--codebook',codebook]
         tx=self.out/'tx_tokens';events=self.out/'actual_events';scores=self.out/'actual_scores'
         if not (tx/'manifest.json').exists():self.run('tx_export',[self.code/'tx_export.py','--root',self.root,'--output',tx,*shared],True)
-        if not (events/'completion.json').exists():self.run('actual_link',[self.code/'evaluate.py','--root',self.root,'--out',events,
+        delivery=[self.delivery_step(item,selected,bler,bundle,qout,codebook) for item in self.config['delivery_commands']]
+        by_name={item['name']:item for item in delivery};require(len(by_name)==len(delivery),'Duplicate delivery command names')
+        overlap=self.config.get('parallel_cpu_gpu_stages',False)
+        require(type(overlap)is bool,'Parallel scheduling flag must be explicit boolean')
+        actual=dict(name='actual_link',gpu=False,receipt=events/'completion.json',expected_status='UEP_ACTUAL_EVENTS_COMPLETE',args=[self.code/'evaluate.py','--root',self.root,'--out',events,
             '--qualification',self.out/'ldpc_qualification.json','--device','cpu','--tx-manifest',tx/'manifest.json',*shared])
+        if overlap:
+            require(all(k in by_name for k in ('P1024','receiver_cost','model_validation','extension_gate')),
+                'Parallel queue requires the original registered delivery commands')
+            self.parallel_cpu_gpu('actual_link_and_P1024',[actual],by_name['P1024'])
+        elif not actual['receipt'].exists():self.run(actual['name'],actual['args'])
         if not (scores/'completion.json').exists():self.run('actual_scoring',[self.code/'score_actual.py','--root',self.root,'--events',events,
             '--output',scores,'--convnext-weights',self.out/'weights/convnext_tiny-983f1562.pth',*shared],True)
+        # Receiver latency is measured alone: a concurrent bootstrap would alter
+        # host submission and entropy-sort cost even with an otherwise idle GPU.
         # Delivery has its own immutable commands, tests, scope and publication
         # receipts. A missing delivery registration cannot be called completion.
-        for item in self.config['delivery_commands']:
-            receipt=self.out/item['completion_relative']
+        for item in delivery:
+            receipt=item['receipt']
             if receipt.exists():continue
-            args=[str(x).replace('{ROOT}',str(self.root)).replace('{OUT}',str(self.out)).replace('{CODE}',str(self.code))
-                .replace('{POLICIES}',str(selected)).replace('{BLER}',str(bler)).replace('{QUALITY_BUNDLE}',str(bundle))
-                .replace('{QUALITY_COMPLETION}',str(qout/'completion.json')).replace('{CODEBOOK}',str(codebook)) for x in item['args']]
-            self.run(item['name'],args,item.get('gpu',False));require(receipt.exists(),'Missing delivery receipt: '+str(receipt))
+            self.run(item['name'],item['args'],item['gpu']);require(receipt.exists(),'Missing delivery receipt: '+str(receipt))
         require(self.config['delivery_commands'],'No final delivery registered; scientific outputs require review')
         gate=read(self.out/'extension_gate.json')
         self.status('N1024_DELIVERED_N2048_EXTENSION_REQUIRED' if gate['N2048_extension_allowed'] else 'REGISTERED_STUDY_DELIVERED_AND_STOPPED',
@@ -200,8 +309,7 @@ def main():
                 proc=Path('/proc')/str(job['pid'])/'stat'
                 if proc.exists() and proc.read_text().split()[21]==job['proc_start_ticks']:
                     os.kill(job['pid'],signal.SIGTERM)
-        for child in owner.children:
-            if child.poll() is None:child.terminate()
+        owner.cleanup_children()
         owner.status('STOPPED_REQUIRES_REVIEW',error=repr(error));write(out/'owner_failure.json',dict(error=repr(error),time=time.time(),pid=os.getpid()));raise
 
 if __name__=='__main__':main()
