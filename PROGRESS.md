@@ -1,5 +1,10 @@
 ## M2 scale-causal study delivered 2026-10-02
 
+## 2026-10-04: M1 headline fixed16 and complete N2048 grid
+
+The N1024 / 16QAM / 13 dB fixed16 replay and four-method comparison are complete: [report](reports/m1_headline_16qam13_20261004.md). The selected M1 action is m8/K0 (whole); actual 16QAM energy is reported. The new N2048 full-grid protocol and qualified execution are documented in [the experiment README](experiments/m1-n2048-full-grid-20261004/README.md). Scientific completion remains determined by the run receipts. Same-scale adapter training remains deferred.
+
+
 Zero neural training updates. Frozen calibration choices, original100 development sources and failure-inclusive metrics. See [complete report](reports/scale_causal_m2_20261002.md); historical models and queues are preserved. The two-method authorized pipeline stops after this verified publication; actual-link branch status is explicit in the report.
 
 ## M1 scale-causal study delivered 2026-10-02

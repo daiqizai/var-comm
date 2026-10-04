@@ -1,0 +1,91 @@
+{
+  "run_id": "M1-N2048-FULL-GRID-20261004",
+  "status": "FROZEN_BEFORE_CALIBRATION",
+  "N": 2048,
+  "phy_families": [
+    "QPSK",
+    "16QAM"
+  ],
+  "snrs_db": [
+    1,
+    4,
+    7,
+    13,
+    19
+  ],
+  "methods": [
+    "whole",
+    "raster",
+    "random",
+    "entropy",
+    "oracle"
+  ],
+  "same_k_ablations": [
+    "raster",
+    "random",
+    "oracle"
+  ],
+  "grid": "unchanged original action_grid: whole m4-m8; partial m4-m7 with quarter/half/three-quarter/max-legal K for each order",
+  "expected_actions_per_phy": 69,
+  "expected_actions_total": 138,
+  "selection": "exhaustive full calibration; unchanged m1_runner.rank PSNR-feasible then LPIPS/failure/action-id rule; no shortlist",
+  "calibration_sources": 1000,
+  "calibration_noise_seeds": [
+    4101,
+    4102,
+    4103
+  ],
+  "calibration_physical_frames": 2070000,
+  "development_sources": 100,
+  "development_noise_seeds": [
+    2001,
+    2002,
+    2003
+  ],
+  "development_methods_per_phy_snr": 8,
+  "development_method_rows": 24000,
+  "qualification_sources": 1,
+  "qualification_all_actions_noiseless": true,
+  "benchmark_sources": 2,
+  "benchmark_entire_calibration_grid": true,
+  "benchmark_rows": 4140,
+  "encoder_VQ_VAR_Dc": "same frozen identity as completed original M1 calibration",
+  "decoder": "Dc",
+  "class_condition": "unconditional class1000; no transmitted or free source label",
+  "noise_namespace": "original SCALE-CAUSAL-PARTIAL-RESIDUAL-20261002/M1/N2048|source_id",
+  "header_uses": 68,
+  "body_uses": 1980,
+  "QPSK_frame_energy": 4096,
+  "16QAM_energy": "unchanged fixed constellation; actual per-frame E reported separately",
+  "oracle": "original mismatch-first ordering and explicitly paid full next-scale mask; not image-optimal oracle",
+  "crc_and_failure": "unchanged original partial_phy and partial_receiver; CRC acceptance is not correctness proof",
+  "gpu_reuse": "same-source actual received_cache_key and latent hash only; no source-truth substitution in RX",
+  "save_development_float_rgb": true,
+  "save_fixed_png": true,
+  "fixed_source_indices": [
+    0,
+    25,
+    50,
+    75,
+    4,
+    21,
+    24,
+    29,
+    33,
+    41,
+    52,
+    60,
+    64,
+    87,
+    92,
+    95
+  ],
+  "fixed_noise_seed": 2001,
+  "source_checkpoint": "one complete original source; sealed hashes and exact grid validation on resume",
+  "report_uncertainty": "paired source bootstrap, average three noises within source, 10000 resamples, seed20261002",
+  "training_updates": 0,
+  "holdout_access": false,
+  "old_outputs_modified": false,
+  "stop_after": "full N2048 M1 calibration/development and report; no same-scale adapter training",
+  "registered_grid_boundary": "whole m4-m8; partial m4-m7; no new m9 or partial-m8 codec actions"
+}
