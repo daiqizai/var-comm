@@ -1,0 +1,91 @@
+"""Read-only old calibration audit; no GPU, inference or strategy selection."""
+import argparse
+import csv
+import hashlib
+import importlib.util
+import json
+import math
+from pathlib import Path
+import sys
+import time
+
+
+def load(name, path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--root', required=True)
+    parser.add_argument('--out', required=True)
+    args = parser.parse_args()
+    root, out = Path(args.root).resolve(), Path(args.out).resolve()
+    original = root/'outputs/M1-N2048-FULL-GRID-20261004-FAST-R1'
+    sys.path.insert(0, str(root/'src'))
+    u = load('_m9_legacy_audit_common', root/'experiments/m1-n2048-full-grid-20261004/m1_common.py')
+    phy = load('_m9_legacy_audit_phy', root/'experiments/m1-n2048-full-grid-20261004/m1_phy.py')
+    out.mkdir(parents=True, exist_ok=True)
+    publication = u.read(original/'publication_completion.json')
+    u.require(publication['status'] == 'PUSHED_AND_STOPPED', 'Published original result required')
+    completion = u.read(original/'calibrate_completion.json')
+    u.require(completion['sources'] == 1000 and completion['physical_frames'] == 2070000,
+              'Original full calibration missing')
+    calreg = original/'calibrate_registration.json'
+    binding = u.identity(u.read(calreg))
+    actions = phy.action_grid(2048, '16QAM')
+    u.require(len(actions) == 69 and max(a.m for a in actions) == 8, 'Unexpected original grid')
+    inventory = [dict(number=i+1, **a.to_dict(), **{k:v for k,v in phy.action_record(a).items()
+                 if k not in a.to_dict()}) for i,a in enumerate(actions)]
+    u.write_csv(out/'ORIGINAL_69_ACTIONS.csv', inventory)
+    u.write(out/'ORIGINAL_69_ACTIONS.json', inventory)
+    expected = {(u.action_id(a), snr, seed) for a in actions for snr in [7,13,19]
+                for seed in u.CAL_SEEDS}
+    paths, incompatible, frame_count = {}, [], 0
+    header_crc_failed = header_accepted = 0
+    begun = time.time()
+    for index in range(1000):
+        path = original/'calibrate/source_checkpoints'/('%04d.json' % index)
+        digest = u.sha(path)
+        u.require(completion['outputs'][str(path)] == digest, 'Original checkpoint file hash changed')
+        cp = u.checkpoint(path, binding, index)
+        rows = [r for r in cp['rows'] if r['phy_family'] == '16QAM' and r['snr_db'] in [7,13,19]]
+        keys = [(r['action_id'], r['snr_db'], r['noise_seed']) for r in rows]
+        u.require(len(rows) == 621 and len(set(keys)) == 621 and set(keys) == expected,
+                  'Original source/action/noise scope differs')
+        for row in rows:
+            u.require(row['source_index'] == index and row['N'] == 2048, 'Original row identity differs')
+            u.require(all(math.isfinite(float(row[k])) for k in ['psnr_db','lpips_alex','dino_cosine','E']),
+                      'Nonfinite old calibration quality')
+            if row['header_crc_ok'] and not row['header_fields_legal']:
+                incompatible.append({k:row[k] for k in ['source_index','action_id','snr_db','noise_seed']})
+            header_crc_failed += not row['header_crc_ok']
+            header_accepted += bool(row['header_ok'])
+        paths[str(path)] = digest
+        frame_count += len(rows)
+        if (index+1) % 25 == 0:
+            u.write(out/'legacy_audit_status.json', dict(status='AUDITING', sources=index+1,
+                total_sources=1000, target_rows=frame_count, incompatible_headers=len(incompatible)))
+    proof = dict(status='LEGACY_CALIBRATION_REUSE_AUDITED' if not incompatible else 'INCOMPATIBLE_HEADERS_REVIEW_REQUIRED',
+        original_out=str(original), calibration_registration_sha256=u.sha(calreg), calibration_binding=binding,
+        source_checkpoint_sha256=paths, incompatible_header_count=len(incompatible), incompatible_headers=incompatible,
+        sources=1000, target_snrs=[7,13,19], target_rows=frame_count, header_crc_failed=header_crc_failed,
+        header_accepted=header_accepted, original_publication_sha256=u.sha(original/'publication_completion.json'),
+        original_calibration_completion_sha256=u.sha(original/'calibrate_completion.json'),
+        original_calibration_summary_sha256=u.sha(original/'calibration_summary.csv'),
+        original_policy_sha256=u.sha(original/'m1_policy.json'), audit_source_sha256=u.sha(__file__),
+        original_grid_max_m=8, original_partial_max_m=7, elapsed_seconds=time.time()-begun,
+        inference_calls=0, development_read=False, training_updates=0,
+        reuse_scope='Quality and accepted received content only; legacy diagnostic fields retain original protocol provenance.',
+        reasoning='Old69 transmitted waveforms remain identical. CRC-rejected headers produce gray regardless of legal flag. Every old CRC-passed header is old-legal with unchanged fields. Thus the extended header vocabulary cannot change these cached quality outputs.')
+    u.seal(out/'legacy_compatibility.json', proof)
+    u.write(out/'legacy_audit_status.json', {k:v for k,v in proof.items() if k not in ['source_checkpoint_sha256']})
+    u.require(not incompatible, 'CRC-passed old-illegal headers require explicit rescore, never blind reuse')
+    print(json.dumps({k:v for k,v in proof.items() if k != 'source_checkpoint_sha256'}))
+
+
+if __name__ == '__main__':
+    main()

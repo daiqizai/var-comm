@@ -1,0 +1,193 @@
+"""CPU-only guards for the one-off UEP source-boundary handoff.
+
+All process/GPU/subprocess calls are mocked. These tests cannot launch a job.
+"""
+from contextlib import ExitStack, redirect_stdout
+import io
+import importlib.util
+from pathlib import Path
+import sys
+import tempfile
+import types
+import unittest
+from unittest.mock import patch
+
+try:
+    import fcntl  # noqa: F401
+except ImportError:  # Linux locking itself is checked by the real helper.
+    sys.modules.setdefault("fcntl", types.SimpleNamespace(LOCK_EX=2, LOCK_NB=4, LOCK_UN=8,
+                                                          flock=lambda *_: None))
+
+import m9_common as u
+
+spec = importlib.util.spec_from_file_location("uep_m9_resume_under_test",
+                                             Path(__file__).with_name("uep_resume_after_m9.py"))
+h = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(h)
+
+
+class ResumeGuards(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.out = self.root / "outputs/M1-N2048-M9"
+        self.target = self.root / "outputs/PRIOR-AWARE-UEP-20261004-V1"
+        self.quality = self.target / "quality_final1000"
+        self.out.mkdir(parents=True)
+        self.quality.mkdir(parents=True)
+        self.code = self.root / "experiments/prior-aware-grouped-mcs-v1"
+        self.code.mkdir(parents=True)
+        self.bound = self.code / "bound.py"
+        self.bound.write_text("frozen code\n")
+        self.config = self.target / "owner_config_r3.json"
+        self.qreg = self.quality / "driver_registration.json"
+        u.write(self.config, {"source_bindings": {str(self.bound): u.sha(self.bound)}})
+        u.write(self.qreg, {"source_bindings": {str(self.bound): u.sha(self.bound)}})
+        self.cp = self.quality / "source_checkpoints/0000.json"
+        u.write(self.cp, {"source_index": 0, "sealed": True})
+        self.owner = dict(pid=101, start_ticks="1001", uid=1000,
+            argv=[str(self.target / "ldpc_environment/bin/python"), "-B",
+                  str(self.code / "study_owner.py"), "--config", str(self.config)])
+        self.child = dict(pid=102, start_ticks="1002", uid=1000,
+            argv=[str(self.root / "outputs/UNIFIED-METRICS-20261002/environment/bin/python"), "-B",
+                  str(self.code / "quality_driver.py"), "--root", str(self.root), "--states",
+                  str(self.target / "quality_states_registered.json"), "--output", str(self.quality),
+                  "--stage", "run", "--source-limit", "1000"])
+        self.stop = self.quality / "STOP"
+        self.failure = self.target / "owner_failure.json"
+        u.write(self.stop, {"owner": "M1_N2048_M9_SUPPLEMENT"})
+        u.write(self.failure, {"pid": 101,
+            "error": "RuntimeError('Quality worker returned without a completion receipt')"})
+        self.saved = dict(status="UEP_SAFELY_YIELDED_AT_SOURCE_BOUNDARY", target=str(self.target),
+            quality=str(self.quality), config=str(self.config), config_sha256=u.sha(self.config),
+            quality_registration=str(self.qreg), quality_registration_sha256=u.sha(self.qreg),
+            source_checkpoint_sha256={str(self.cp): u.sha(self.cp)}, retained_sources=1,
+            stop_file=str(self.stop), stop_sha256=u.sha(self.stop),
+            expected_owner_failure_sha256=u.sha(self.failure), tracked_inputs=["frozen.py"],
+            original_owner=self.owner, original_child=self.child)
+        u.write(self.out / "uep_pause_receipt.json", self.saved)
+        u.write(self.out / "publication_completion.json", dict(status="PUSHED_AND_STOPPED", commit="abc123"))
+        self.stack = ExitStack()
+        self.addCleanup(self.stack.close)
+        self.stack.enter_context(patch.object(h, "tracked_inputs", return_value=["frozen.py"]))
+        self.stack.enter_context(patch.object(h, "same_process", return_value=False))
+        self.stack.enter_context(patch.object(h, "gpu_empty", return_value=None))
+        self.stack.enter_context(patch.object(h.os, "getuid", return_value=1000, create=True))
+        self.stack.enter_context(patch.object(h.subprocess, "check_output", return_value="abc123\trefs/heads/main\n"))
+        self.popen = self.stack.enter_context(patch.object(h.subprocess, "Popen",
+                                      side_effect=AssertionError("No GPU/owner launch is allowed in guard tests")))
+
+    def assert_guard_preserves_inputs(self, pattern):
+        stop_sha, failure_sha = u.sha(self.stop), u.sha(self.failure)
+        with self.assertRaisesRegex(RuntimeError, pattern):
+            h.resume(self.root, self.out)
+        self.assertEqual(u.sha(self.stop), stop_sha)
+        self.assertEqual(u.sha(self.failure), failure_sha)
+        self.assertFalse((self.out / "uep_resume_state.json").exists())
+        self.assertFalse((self.out / "uep_resume_launch.json").exists())
+        self.popen.assert_not_called()
+
+    def test_unpublished_m9_does_not_move_stop_or_failure(self):
+        u.write(self.out / "publication_completion.json", dict(status="REPORT_ONLY", commit="abc123"))
+        self.assert_guard_preserves_inputs("Publish m9")
+
+    def test_root_user_stop_is_never_removed(self):
+        flag = self.target / "STOP"
+        flag.write_text("user stop")
+        self.assert_guard_preserves_inputs("User/root UEP STOP")
+        self.assertEqual(flag.read_text(), "user stop")
+
+    def test_gpu_owner_rejects_resume_before_mutation(self):
+        with patch.object(h, "gpu_empty", side_effect=RuntimeError("GPU still has a compute process: 222")):
+            self.assert_guard_preserves_inputs("GPU still")
+
+    def test_changed_driver_code_rejects_resume_before_mutation(self):
+        self.bound.write_text("changed code\n")
+        self.assert_guard_preserves_inputs("Bound artifact changed")
+
+    def test_changed_checkpoint_rejects_resume_before_mutation(self):
+        u.write(self.cp, {"source_index": 0, "sealed": False})
+        self.assert_guard_preserves_inputs("Bound artifact changed")
+
+    def test_changed_owner_failure_is_preserved(self):
+        u.write(self.failure, dict(pid=101, error="Some other failure"))
+        self.assert_guard_preserves_inputs("Yield evidence changed")
+
+    def test_changed_stop_is_preserved(self):
+        u.write(self.stop, dict(owner="USER", reason="keep stopped"))
+        self.assert_guard_preserves_inputs("Yield evidence changed")
+
+    def test_added_tracked_python_rejects_resume(self):
+        with patch.object(h, "tracked_inputs", return_value=["frozen.py", "new_m9.py"]):
+            self.assert_guard_preserves_inputs("Tracked source inventory changed")
+
+    def test_recorded_launch_rejects_reused_pid(self):
+        launch = dict(self.owner, log="retained.log")
+        u.write(self.out / "uep_resume_launch.json", launch)
+        with patch.object(h, "process", return_value=dict(self.owner, start_ticks="different")):
+            with self.assertRaisesRegex(RuntimeError, "identity differs"):
+                h.resume(self.root, self.out)
+        self.popen.assert_not_called()
+
+    def test_recorded_launch_exact_identity_does_not_launch_again(self):
+        launch = dict(self.owner, log="retained.log")
+        u.write(self.out / "uep_resume_launch.json", launch)
+        with patch.object(h, "process", return_value=self.owner):
+            self.assertEqual(h.resume(self.root, self.out), launch)
+        self.popen.assert_not_called()
+
+    def prepare_pause(self):
+        (self.out / "uep_pause_receipt.json").unlink()
+        self.stop.unlink()
+        self.failure.unlink()
+        u.write(self.target / "owner_status.json", dict(status="RUNNING_Q_QUALITY_FINAL1000", pid=101))
+        u.write(self.target / "active_child.json", dict(name="Q_quality_final1000", pid=102))
+        u.write(self.quality / "status.json", dict(status="RUNNING", sources=1))
+        log = self.target / "owner_resume.log"
+        log.write_text("retained old log\n")
+        u.write(self.target / "owner_resume_after_m1_launch.json", dict(pid=101, log=str(log)))
+        self.stack.enter_context(patch.object(h, "process", side_effect=lambda pid: {101: self.owner, 102: self.child}.get(pid)))
+
+    def test_pause_rejects_wrong_command_before_creating_stop(self):
+        self.prepare_pause()
+        self.child["argv"] = ["unrelated.py"]
+        with self.assertRaisesRegex(RuntimeError, "command or UID"):
+            h.pause(self.root, self.out)
+        self.assertFalse(self.stop.exists())
+        self.assertFalse((self.out / "uep_pause_requested.json").exists())
+        self.popen.assert_not_called()
+
+    def test_pause_final_source_race_requires_review_and_does_not_kill(self):
+        self.prepare_pause()
+        u.write(self.quality / "completion.json", dict(status="SOURCE_QUALITY_COMPLETE"))
+        with patch.object(h, "same_process", return_value=True), patch.object(h.time, "sleep") as sleep:
+            with self.assertRaisesRegex(RuntimeError, "finished its final source"):
+                h.pause(self.root, self.out)
+        sleep.assert_not_called()
+        self.assertTrue(self.stop.exists())
+        self.assertFalse((self.out / "uep_pause_receipt.json").exists())
+        self.popen.assert_not_called()
+
+    def test_pause_seals_source_boundary_and_retains_originals(self):
+        self.prepare_pause()
+        def exited(_):
+            u.write(self.quality / "status.json", dict(status="PAUSED_AT_SOURCE_BOUNDARY", sources=1))
+            u.write(self.failure, {"pid": 101,
+                "error": "RuntimeError('Quality worker returned without a completion receipt')"})
+            return False
+        with patch.object(h, "same_process", side_effect=exited), redirect_stdout(io.StringIO()):
+            h.pause(self.root, self.out)
+        value = u.read(self.out / "uep_pause_receipt.json")
+        self.assertEqual(value["status"], "UEP_SAFELY_YIELDED_AT_SOURCE_BOUNDARY")
+        self.assertEqual(value["retained_sources"], 1)
+        self.assertEqual(value["source_checkpoint_sha256"], {str(self.cp): u.sha(self.cp)})
+        self.assertTrue(value["no_signals_or_kills"])
+        self.assertTrue(self.stop.exists())
+        self.assertTrue(self.failure.exists())
+        u.verify({copy["path"]: copy["sha256"] for copy in value["post_copies"].values()})
+        self.popen.assert_not_called()
+
+
+if __name__ == "__main__":
+    unittest.main()

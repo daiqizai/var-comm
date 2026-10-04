@@ -1,0 +1,219 @@
+"""Audited source-boundary UEP yield/resume; no frozen scientific edits."""
+import argparse
+import fcntl
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import time
+
+import m9_common as u
+
+
+def process(pid):
+    try:
+        p = Path('/proc')/str(pid)
+        raw = (p/'stat').read_text()
+        tail = raw[raw.rfind(')')+2:].split()
+        if tail[0] == 'Z':
+            return None
+        return dict(pid=pid, start_ticks=tail[19], uid=p.stat().st_uid,
+                    argv=[os.fsdecode(x) for x in (p/'cmdline').read_bytes().split(b'\0') if x])
+    except (FileNotFoundError, ProcessLookupError):
+        return None
+
+
+def same_process(identity):
+    return process(identity['pid']) == identity
+
+
+def tracked_inputs(root):
+    return subprocess.check_output(['git', 'ls-files', '*.py', '*.cpp', 'configs/*.yaml',
+                                    'configs/*.json'], cwd=root, text=True).splitlines()
+
+
+def gpu_empty():
+    text = subprocess.check_output(['nvidia-smi', '--id=0', '--query-compute-apps=pid',
+                                   '--format=csv,noheader,nounits'], text=True).strip()
+    u.require(not text, 'GPU still has a compute process: '+text)
+
+
+def archive(paths, directory):
+    copies = {}
+    directory.mkdir(parents=True, exist_ok=True)
+    for path in paths:
+        if not path.exists():
+            continue
+        target = directory/path.name
+        digest = u.sha(path)
+        shutil.copy2(path, target)
+        u.require(u.sha(target) == digest and u.sha(path) == digest, 'Audit copy changed')
+        copies[str(path)] = dict(path=str(target), sha256=digest)
+    return copies
+
+
+def pause(root, out):
+    target = root/'outputs/PRIOR-AWARE-UEP-20261004-V1'
+    quality = target/'quality_final1000'
+    receipt = out/'uep_pause_receipt.json'
+    pending = out/'uep_pause_requested.json'
+    u.require(not receipt.exists() and not pending.exists(), 'A UEP yield is already recorded; inspect, do not duplicate')
+    owner = u.read(target/'owner_status.json')
+    child = u.read(target/'active_child.json')
+    u.require(owner['status'] == 'RUNNING_Q_QUALITY_FINAL1000'
+              and child['name'] == 'Q_quality_final1000', 'UEP is no longer in the planned quality stage')
+    owner_proc, child_proc = process(owner['pid']), process(child['pid'])
+    u.require(owner_proc and child_proc, 'Expected UEP processes are not alive')
+    code = root/'experiments/prior-aware-grouped-mcs-v1'
+    expected_owner = [str(target/'ldpc_environment/bin/python'), '-B', str(code/'study_owner.py'),
+                      '--config', str(target/'owner_config_r3.json')]
+    expected_child = [str(root/'outputs/UNIFIED-METRICS-20261002/environment/bin/python'), '-B',
+        str(code/'quality_driver.py'), '--root', str(root), '--states', str(target/'quality_states_registered.json'),
+        '--output', str(quality), '--stage', 'run', '--source-limit', '1000']
+    u.require(owner_proc['argv'] == expected_owner and child_proc['argv'] == expected_child
+              and owner_proc['uid'] == child_proc['uid'] == os.getuid(), 'UEP process command or UID differs')
+    u.require(not (target/'STOP').exists() and not (quality/'STOP').exists()
+              and not (target/'owner_failure.json').exists(), 'Existing stop/failure requires review')
+    config_path = target/'owner_config_r3.json'
+    config = u.read(config_path)
+    u.verify(config['source_bindings'])
+    qreg = quality/'driver_registration.json'
+    registration = u.read(qreg)
+    u.verify(registration['source_bindings'])
+    pre_paths = [config_path, qreg, target/'owner_status.json', target/'active_child.json',
+                 target/'owner_resume_after_m1_launch.json', quality/'status.json']
+    details = dict(status='REQUESTED_SOURCE_BOUNDARY_YIELD_FOR_M9', root=str(root), target=str(target),
+        quality=str(quality), config=str(config_path), config_sha256=u.sha(config_path),
+        quality_registration=str(qreg), quality_registration_sha256=u.sha(qreg),
+        tracked_inputs=tracked_inputs(root), original_owner=owner_proc, original_child=child_proc,
+        pre_copies=archive(pre_paths, out/'uep_yield/pre'), time=time.time(),
+        reason='User requested m9 fairness supplement; preserve UEP and resume unchanged R3 afterward')
+    u.seal(pending, details)
+    stop = dict(owner='M1_N2048_M9_SUPPLEMENT', requested_by=str(pending), request_sha256=u.sha(pending),
+                behavior='finish current source, retain sealed checkpoints, no forced termination')
+    with (quality/'STOP').open('x', encoding='utf-8') as handle:
+        json.dump(stop, handle)
+    deadline = time.monotonic()+600
+    while same_process(owner_proc) or same_process(child_proc):
+        u.require(not (quality/'completion.json').exists(),
+                  'UEP finished its final source before yielding; inspect the next stage without killing it')
+        u.require(time.monotonic() < deadline, 'UEP source-boundary exit exceeded ten minutes; no forced kill')
+        time.sleep(2)
+    status = u.read(quality/'status.json')
+    u.require(status['status'] == 'PAUSED_AT_SOURCE_BOUNDARY', 'Unexpected UEP child exit; preserve state for review')
+    failure = u.read(target/'owner_failure.json')
+    u.require(failure.get('pid') == owner_proc['pid'] and
+              'Quality worker returned without a completion receipt' in failure.get('error', ''),
+              'UEP did not stop solely because the requested partial run lacks completion')
+    gpu_empty()
+    checkpoints = {str(p):u.sha(p) for p in sorted((quality/'source_checkpoints').glob('*.json'))}
+    u.require(checkpoints, 'No retained UEP source checkpoints')
+    copies = archive([target/'owner_failure.json', target/'owner_status.json', quality/'status.json',
+                      quality/'STOP', Path(u.read(target/'owner_resume_after_m1_launch.json')['log'])], out/'uep_yield/post')
+    value = dict(details, status='UEP_SAFELY_YIELDED_AT_SOURCE_BOUNDARY', retained_sources=len(checkpoints),
+                 source_checkpoint_sha256=checkpoints, stop_file=str(quality/'STOP'), stop_sha256=u.sha(quality/'STOP'),
+                 expected_owner_failure_sha256=u.sha(target/'owner_failure.json'), post_copies=copies,
+                 no_signals_or_kills=True, yielded_time=time.time())
+    u.seal(receipt, value)
+    print(json.dumps({k:value[k] for k in ['status','retained_sources','no_signals_or_kills']}))
+
+
+def resume(root, out):
+    receipt = out/'uep_pause_receipt.json'
+    state_path = out/'uep_resume_state.json'
+    launch_path = out/'uep_resume_launch.json'
+    if launch_path.exists():
+        launch = u.read(launch_path)
+        expected = {k:launch[k] for k in ['pid','start_ticks','uid','argv']}
+        u.require(process(launch['pid']) == expected, 'Recorded resumed owner identity differs; inspect without duplicate restart')
+        return launch
+    u.require(not state_path.exists(), 'An incomplete resume attempt exists; inspect without automatic retry')
+    saved = u.read(receipt)
+    u.require(saved['status'] == 'UEP_SAFELY_YIELDED_AT_SOURCE_BOUNDARY', 'Audited UEP yield required')
+    target, quality = Path(saved['target']), Path(saved['quality'])
+    u.require(target == root/'outputs/PRIOR-AWARE-UEP-20261004-V1'
+              and quality == target/'quality_final1000', 'Unexpected UEP target')
+    completion = u.read(out/'publication_completion.json')
+    u.require(completion['status'] == 'PUSHED_AND_STOPPED', 'Publish m9 report before resuming UEP')
+    tip = subprocess.check_output(['git','ls-remote','origin','refs/heads/main'],cwd=root,text=True).split()[0]
+    if tip != completion['commit']:
+        subprocess.run(['git','fetch','--no-tags','origin','main'],cwd=root,check=True)
+        subprocess.run(['git','merge-base','--is-ancestor',completion['commit'],tip],cwd=root,check=True)
+    u.require(not same_process(saved['original_owner']) and not same_process(saved['original_child']),
+              'Prior UEP process still exists')
+    gpu_empty()
+    u.require(not (target/'STOP').exists(), 'User/root UEP STOP remains; never remove it automatically')
+    u.require(u.sha(saved['config']) == saved['config_sha256'] and
+              u.sha(saved['quality_registration']) == saved['quality_registration_sha256'], 'Frozen UEP config changed')
+    u.require(tracked_inputs(root) == saved['tracked_inputs'], 'Tracked source inventory changed while UEP yielded')
+    config = u.read(saved['config'])
+    u.verify(config['source_bindings'])
+    u.verify(u.read(saved['quality_registration'])['source_bindings'])
+    u.verify(saved['source_checkpoint_sha256'])
+    u.require(u.sha(saved['stop_file']) == saved['stop_sha256'] and
+              u.sha(target/'owner_failure.json') == saved['expected_owner_failure_sha256'], 'Yield evidence changed')
+    lock = (target/'study_owner.lock').open('a+')
+    fcntl.flock(lock, fcntl.LOCK_EX|fcntl.LOCK_NB)
+    recovery = out/'uep_yield/resume'
+    recovery.mkdir(parents=True, exist_ok=True)
+    u.seal(state_path, dict(status='PREPARED', pause_receipt_sha256=u.sha(receipt), time=time.time()))
+    try:
+        os.replace(saved['stop_file'], recovery/'quality_STOP.original')
+        os.replace(target/'owner_failure.json', recovery/'owner_failure.original.json')
+        python = target/'ldpc_environment/bin/python'
+        checks = root/'outputs/UNIFIED-METRICS-20261002/environment/bin'
+        code = root/'experiments/prior-aware-grouped-mcs-v1'
+        env = os.environ.copy()
+        env.update(CUDA_VISIBLE_DEVICES='', OMP_NUM_THREADS='2', MKL_NUM_THREADS='2', OPENBLAS_NUM_THREADS='2',
+                   VAR_COMM_ROOT=str(root), PYTHONDONTWRITEBYTECODE='1',
+                   PYTHONPATH=str(code)+':'+str(root/'src'), PATH=str(checks)+':'+env.get('PATH',''))
+        args = [str(python), '-B', str(code/'study_owner.py'), '--config', saved['config']]
+        fcntl.flock(lock, fcntl.LOCK_UN)
+        lock.close()
+        log = recovery/'owner.log'
+        with log.open('ab') as stream:
+            child = subprocess.Popen(args, cwd=root, env=env, stdin=subprocess.DEVNULL,
+                stdout=stream, stderr=subprocess.STDOUT, start_new_session=True, close_fds=True)
+        identity = process(child.pid)
+        u.require(identity is not None, 'Resumed owner exited during launch')
+        launch = dict(identity, config=saved['config'], config_sha256=saved['config_sha256'], log=str(log),
+                      retained_sources=saved['retained_sources'], m9_publication_commit=completion['commit'], time=time.time())
+        u.seal(launch_path, launch)
+        deadline = time.monotonic()+30
+        while time.monotonic() < deadline:
+            u.require(child.poll() is None, 'Resumed UEP owner exited; inspect retained log')
+            status = u.read(target/'owner_status.json')
+            if status.get('pid') == child.pid:
+                u.require(status['status'] != 'STOPPED_REQUIRES_REVIEW', 'Resumed UEP immediately stopped')
+                u.write(state_path, dict(status='RESUMED', owner_status=status, launch=launch))
+                print(json.dumps(dict(status='UEP_RESUMED', pid=child.pid, retained_sources=saved['retained_sources'])))
+                return launch
+            time.sleep(.5)
+        raise RuntimeError('Resumed owner has no fresh status; do not relaunch blindly')
+    finally:
+        if not lock.closed:
+            lock.close()
+
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument('--root', required=True)
+    p.add_argument('--out', required=True)
+    p.add_argument('--stage', choices=['pause','resume'], default='resume')
+    args = p.parse_args()
+    root, out = Path(args.root).resolve(), Path(args.out).resolve()
+    u.require(root in out.parents, 'M9 output must remain within repository')
+    lock = (out/'uep_yield_resume.lock').open('a+')
+    fcntl.flock(lock, fcntl.LOCK_EX|fcntl.LOCK_NB)
+    try:
+        (pause if args.stage == 'pause' else resume)(root, out)
+    except BaseException as error:
+        u.write(out/('uep_'+args.stage+'_failure.json'), dict(error=repr(error), time=time.time(), automatic_retry=False))
+        raise
+    finally:
+        lock.close()
+
+
+if __name__ == '__main__':
+    main()

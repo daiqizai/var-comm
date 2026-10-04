@@ -1,0 +1,83 @@
+# N2048 M1：m9 候选扩充
+
+本次只补 16QAM 的7/13/19dB。沿用原1000张校准集、100张development和登记噪声种子；不训练、不更换损失、不按development选策。
+
+**本次扩范围由查看旧development结果后提出。复用同一development的区间用于描述这组数据，不是独立holdout验证，也不作为未经选择的确认性显著性证据。**
+
+## 新增范围
+
+旧69个动作增加13个：m9 whole一个；m9+partial10的raster/random/entropy各K=64/128/166；付费oracle为K=64/128/144。共同82候选在原校准集按原rank规则重选。未补m8 partial或其他整数K，因此并非全部数学可能动作。
+
+统一68次头、1980次正文；12bit兼容头登记mode5/mode6，未增加头部资源。raw token、CRC/tail、rate matching与oracle位置掩码全部计费，合法费率上限保持0.9。
+
+校准逻辑帧738000，其中旧621000帧复用，新增117000帧。本次实际development方法行6900，上限7200；非法same-K oracle不产生重建、灰图或伪造指标。
+
+## 校准选中的动作
+
+| SNR | 方法 | m | K | 解释 |
+| --- | --- | --- | --- | --- |
+| 7 | whole_policy | 8 | 0 | whole-scale; no partial-token or ordering contribution |
+| 7 | entropy_policy | 8 | 0 | whole-scale; no partial-token or ordering contribution |
+| 13 | whole_policy | 9 | 0 | m9 whole-scale extension; no partial-token or ordering contribution |
+| 13 | entropy_policy | 9 | 64 | partial scale 10 |
+| 19 | whole_policy | 9 | 0 | m9 whole-scale extension; no partial-token or ordering contribution |
+| 19 | entropy_policy | 9 | 166 | partial scale 10 |
+
+K=0时只传完整尺度。m9 whole带来的收益只能归为扩充分辨率范围，不能归为partial传输或熵排序；partial贡献须看扩充entropy相对扩充whole，排序贡献须看同m/K控制。
+
+## 主表与配对差值
+
+[主表](MAIN_TABLE.md) · [所有方法完整均值和区间](MAIN_TABLE.csv) · [全部源配对差值](metrics_paired_intervals.csv)
+
+差值A−B；PSNR、DINO、CLIP正值更好，LPIPS、DISTS负值更好。每个SNR先对每张源图的3个噪声平均，再以100张源图为单位配对bootstrap10000次，seed20261002。
+
+| SNR | 对比 | ΔPSNR [95%CI] | ΔLPIPS [95%CI] | ΔDINOv2-L [95%CI] | ΔCLIP [95%CI] | ΔDISTS [95%CI] |
+| --- | --- | --- | --- | --- | --- | --- |
+| 7 | 扩充whole−旧whole | 0.0000 [-0.0000, 0.0000] | 0.0000 [-0.0000, 0.0000] | -0.0000 [-0.0000, 0.0000] | 0.0000 [-0.0000, 0.0000] | 0.0000 [-0.0000, 0.0000] |
+| 7 | 扩充entropy−旧entropy | 0.0000 [-0.0000, 0.0000] | 0.0000 [-0.0000, 0.0000] | -0.0000 [-0.0000, 0.0000] | 0.0000 [-0.0000, 0.0000] | 0.0000 [-0.0000, 0.0000] |
+| 7 | 扩充entropy−扩充whole | 0.0000 [0.0000, 0.0000] | 0.0000 [0.0000, 0.0000] | 0.0000 [0.0000, 0.0000] | 0.0000 [0.0000, 0.0000] | 0.0000 [0.0000, 0.0000] |
+| 7 | 扩充entropy−P2048 | -1.7392 [-1.8981, -1.5849] | 0.0326 [0.0294, 0.0359] | 0.0052 [-0.0126, 0.0242] | 0.0123 [0.0032, 0.0212] | -0.0010 [-0.0039, 0.0019] |
+| 13 | 扩充whole−旧whole | 1.6183 [1.4917, 1.7522] | -0.0400 [-0.0429, -0.0370] | 0.0476 [0.0337, 0.0615] | 0.0207 [0.0124, 0.0296] | -0.0203 [-0.0223, -0.0184] |
+| 13 | 扩充entropy−旧entropy | 1.9508 [1.8140, 2.0964] | -0.0462 [-0.0493, -0.0431] | 0.0542 [0.0425, 0.0655] | 0.0247 [0.0160, 0.0340] | -0.0233 [-0.0255, -0.0213] |
+| 13 | 扩充entropy−扩充whole | 0.3325 [0.2958, 0.3729] | -0.0063 [-0.0071, -0.0054] | 0.0066 [-0.0007, 0.0137] | 0.0041 [0.0005, 0.0080] | -0.0030 [-0.0039, -0.0022] |
+| 13 | 扩充entropy−P2048 | -0.4949 [-0.6099, -0.3733] | 0.0056 [0.0035, 0.0075] | 0.0278 [0.0158, 0.0404] | 0.0169 [0.0090, 0.0254] | -0.0128 [-0.0154, -0.0103] |
+| 19 | 扩充whole−旧whole | 1.6186 [1.4921, 1.7523] | -0.0400 [-0.0429, -0.0370] | 0.0474 [0.0334, 0.0613] | 0.0206 [0.0124, 0.0295] | -0.0203 [-0.0223, -0.0184] |
+| 19 | 扩充entropy−旧entropy | 2.6513 [2.4838, 2.8278] | -0.0590 [-0.0625, -0.0555] | 0.0704 [0.0579, 0.0833] | 0.0321 [0.0227, 0.0422] | -0.0286 [-0.0308, -0.0264] |
+| 19 | 扩充entropy−扩充whole | 1.0327 [0.9619, 1.1080] | -0.0191 [-0.0204, -0.0177] | 0.0230 [0.0135, 0.0325] | 0.0115 [0.0052, 0.0181] | -0.0083 [-0.0096, -0.0070] |
+| 19 | 扩充entropy−P2048 | -0.0006 [-0.1211, 0.1294] | -0.0023 [-0.0043, -0.0003] | 0.0355 [0.0229, 0.0481] | 0.0191 [0.0098, 0.0287] | -0.0143 [-0.0170, -0.0117] |
+
+## 同K排序控制
+
+| SNR | m | K | 控制 | 解释 | ΔPSNR [95%CI] | ΔLPIPS [95%CI] | ΔDINOv2-L [95%CI] |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 7 | 8 | 0 | raster_at_entropy | K0: identical whole action; no ordering test | 0.0000 [0.0000, 0.0000] | 0.0000 [0.0000, 0.0000] | 0.0000 [0.0000, 0.0000] |
+| 7 | 8 | 0 | random_at_entropy | K0: identical whole action; no ordering test | 0.0000 [0.0000, 0.0000] | 0.0000 [0.0000, 0.0000] | 0.0000 [0.0000, 0.0000] |
+| 7 | 8 | 0 | oracle_at_entropy | K0: identical whole action; no ordering test | 0.0000 [0.0000, 0.0000] | 0.0000 [0.0000, 0.0000] | 0.0000 [0.0000, 0.0000] |
+| 13 | 9 | 64 | raster_at_entropy | same m/K; oracle mask is charged | 0.0549 [0.0158, 0.0962] | -0.0015 [-0.0024, -0.0007] | 0.0022 [-0.0041, 0.0083] |
+| 13 | 9 | 64 | random_at_entropy | same m/K; oracle mask is charged | 0.0048 [-0.0282, 0.0379] | -0.0003 [-0.0011, 0.0005] | 0.0019 [-0.0057, 0.0097] |
+| 13 | 9 | 64 | oracle_at_entropy | same m/K; oracle mask is charged | 0.0265 [-0.0134, 0.0688] | -0.0011 [-0.0023, -0.0002] | 0.0011 [-0.0014, 0.0036] |
+| 19 | 9 | 166 | raster_at_entropy | same m/K; oracle mask is charged | 0.0249 [-0.0357, 0.0873] | -0.0004 [-0.0013, 0.0006] | 0.0026 [-0.0056, 0.0115] |
+| 19 | 9 | 166 | random_at_entropy | same m/K; oracle mask is charged | 0.0497 [0.0067, 0.0952] | -0.0011 [-0.0020, -0.0002] | 0.0036 [-0.0030, 0.0104] |
+| 19 | 9 | 166 | oracle_at_entropy | N/A: same K166 exceeds paid oracle mask budget | N/A | N/A | N/A |
+
+当entropy选K166时，付费oracle最多只能传K144，因此同K oracle标N/A；不降到K144冒充同K、不放宽编码率，也不能据此宣称已接近oracle上界。
+
+## 指标、能量和历史对照
+
+统一13项指标包括DINOv2 ViT-S/14和独立列ViT-L/14、CLIP、DISTS、DreamSim、MS-SSIM、ResNet50两种准确率、错配特异性与分类错误诊断。具体评测骨干/权重见[模型元数据](MODEL_METADATA.json)。分类器不一致是自动代理指标，不等同人工判断语义错误。
+
+16QAM保留固定星座，表中分别给实际E均值、区间和范围，不能称逐帧与连续P严格同E。P2048使用历史最终模型及其训练seed2026092304；保留其原模型和解码口径，不宣称训练seed匹配。P与数字链只按相同源图和名义噪声种子配对，噪声命名空间不同。
+
+原69策略指标按已完成回执复制。历史P只从已保存float RGB补缺少的指标，不重新生成图像或覆盖旧指标；补算项在逐帧provenance列中标明。F误差在无有效latent时使用登记的零擦除代理，二者不混称真实恢复误差。
+
+CRC通过率、partial实际使用率、能量和F项在[完整主表](MAIN_TABLE.csv)，阶段成本在[COSTS](COSTS.json)。缓存批处理总时间不能除以方法行数当在线单帧时延。
+
+## 固定16图
+
+每个SNR四页，列为原图/P/旧whole/旧entropy/扩充whole/扩充entropy，seed2001。固定例子仅辅助看图，不替代100×3统计。
+
+- 7dB：[PNG第1页](figures/fixed16_16QAM_snr7_page1.png) / [PDF](figures/fixed16_16QAM_snr7_page1.pdf), [PNG第2页](figures/fixed16_16QAM_snr7_page2.png) / [PDF](figures/fixed16_16QAM_snr7_page2.pdf), [PNG第3页](figures/fixed16_16QAM_snr7_page3.png) / [PDF](figures/fixed16_16QAM_snr7_page3.pdf), [PNG第4页](figures/fixed16_16QAM_snr7_page4.png) / [PDF](figures/fixed16_16QAM_snr7_page4.pdf)
+- 13dB：[PNG第1页](figures/fixed16_16QAM_snr13_page1.png) / [PDF](figures/fixed16_16QAM_snr13_page1.pdf), [PNG第2页](figures/fixed16_16QAM_snr13_page2.png) / [PDF](figures/fixed16_16QAM_snr13_page2.pdf), [PNG第3页](figures/fixed16_16QAM_snr13_page3.png) / [PDF](figures/fixed16_16QAM_snr13_page3.pdf), [PNG第4页](figures/fixed16_16QAM_snr13_page4.png) / [PDF](figures/fixed16_16QAM_snr13_page4.pdf)
+- 19dB：[PNG第1页](figures/fixed16_16QAM_snr19_page1.png) / [PDF](figures/fixed16_16QAM_snr19_page1.pdf), [PNG第2页](figures/fixed16_16QAM_snr19_page2.png) / [PDF](figures/fixed16_16QAM_snr19_page2.pdf), [PNG第3页](figures/fixed16_16QAM_snr19_page3.png) / [PDF](figures/fixed16_16QAM_snr19_page3.pdf), [PNG第4页](figures/fixed16_16QAM_snr19_page4.png) / [PDF](figures/fixed16_16QAM_snr19_page4.pdf)
+
+所有科学结论分别报告语义、像素和感知取舍；某一指标胜出不等同全面优势。

@@ -1,0 +1,92 @@
+"""CPU checks for the narrow report-only recovery."""
+import json
+from pathlib import Path
+from types import SimpleNamespace
+import tempfile
+import unittest
+import report_recovery as r
+
+
+def write(path, value):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(value, indent=2) + '\n', encoding='utf-8')
+
+
+def fixture(root):
+    out = root / 'out'; rec = out / 'recovery_v1'; code = out / 'code'
+    write(code / 'protocol.json', {'N': 2048})
+    for path in [code / 'm9_score_report.py', rec / 'report_recovery.py', rec / 'test_report_recovery.py', rec / 'deliver_recovery.py']:
+        path.parent.mkdir(parents=True, exist_ok=True); path.write_text('# frozen\n', encoding='utf-8')
+    write(out / 'registration.json', {'protocol_sha256': r.sha(code / 'protocol.json'),
+        'source_bindings': {str(p): r.sha(p) for p in code.iterdir()}})
+    write(out / 'score_completion.json', {'status': 'M1_N2048_M9_METRICS_COMPLETE', 'sources': 100,
+        'rows': 15000, 'expanded_rows': 6900, 'synthetic': False})
+    pre = {}
+    for name in ('owner_failure.json', 'report_failure.json'):
+        archive = rec / ('original_' + name)
+        write(archive, {'error': "KeyError('protocol_path')"})
+        pre[str(out / name)] = r.sha(archive)
+    for name in ('archive_plan.json', 'archive_completion.json'):
+        write(rec / name, {'status': 'COMPLETE'})
+    paths = [out / 'registration.json', out / 'score_completion.json', *code.iterdir(), *rec.glob('*.py')]
+    write(rec / 'recovery_registration.json', {'status': 'REGISTERED_REPORT_ONLY_RECOVERY',
+        'bindings': {str(p): r.sha(p) for p in paths}, 'pre_failure_bindings': pre})
+    return out
+
+
+class RecoveryTests(unittest.TestCase):
+    def test_virtual_lookup_leaves_serialization_unchanged(self):
+        original = {'protocol_sha256': 'hash', 'some_key': [1, 2]}
+        located = r.LocatedRegistration(original, '/out/code/protocol.json')
+        self.assertEqual(located['protocol_path'], '/out/code/protocol.json')
+        self.assertNotIn('protocol_path', located)
+        self.assertEqual(json.dumps(located), json.dumps(original))
+        with self.assertRaises(KeyError):
+            located['unexpected']
+
+    def test_admission_uses_preserved_failures_and_rejects_changed_protocol(self):
+        with tempfile.TemporaryDirectory() as temp:
+            out = fixture(Path(temp)); a = r.admit(out)
+            self.assertEqual(len(a['failures']), 2)
+            self.assertFalse((out / 'report_failure.json').exists())
+            (out / 'code/protocol.json').write_text('{}', encoding='utf-8')
+            with self.assertRaisesRegex(RuntimeError, 'changed'):
+                r.admit(out)
+
+    def test_precise_original_registration_snapshot_and_separate_sources(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp); out = fixture(root); a = r.admit(out)
+            bindings = {}
+            class Inputs:
+                runreg = a['runreg']
+                def bind(self, path, expected=None):
+                    if expected is not None:
+                        self_test.assertEqual(r.sha(path), expected)
+                    bindings[str(path)] = r.sha(path)
+            class Report:
+                def __init__(self):
+                    self.result = root / 'result'; self.result.mkdir(); self.outputs = {}
+                def load(self):
+                    self.inputs = Inputs(); return self
+                def output(self, path):
+                    self.outputs[str(path.relative_to(self.result))] = r.sha(path)
+                def write_tables(self):
+                    self_test.assertEqual(self.inputs.runreg['protocol_path'], str(out / 'code/protocol.json'))
+                    p = self.result / 'RUN_REGISTRATION.json'; write(p, self.inputs.runreg); self.output(p)
+                    p = self.result / 'source_snapshot/m9_score_report.py.txt'
+                    p.parent.mkdir(); p.write_bytes((out / 'code/m9_score_report.py').read_bytes()); self.output(p)
+            self_test = self
+            obj = r.recovery_report_class(SimpleNamespace(Report=Report, write=write), a)()
+            obj.load(); obj.write_tables()
+            self.assertEqual((obj.result / 'RUN_REGISTRATION.json').read_bytes(), (out / 'registration.json').read_bytes())
+            self.assertEqual(obj.outputs['RUN_REGISTRATION.json'], r.sha(out / 'registration.json'))
+            self.assertEqual(len(list((obj.result / 'source_snapshot').iterdir())), 1)
+            self.assertEqual(len(list((obj.result / 'recovery_source_snapshot').iterdir())), 3)
+            proof = r.read(obj.result / 'REPORT_RECOVERY.json')
+            self.assertFalse(proof['scientific_values_changed'])
+            self.assertFalse(proof['metric_recomputation'])
+            self.assertIn(str(a['receipt']), bindings)
+
+
+if __name__ == '__main__':
+    unittest.main()

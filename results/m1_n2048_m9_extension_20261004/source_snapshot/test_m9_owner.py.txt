@@ -1,0 +1,222 @@
+"""CPU-only boundary tests: no scientific stages, GPU calls or Git mutation."""
+from pathlib import Path
+import os
+import tempfile
+import unittest
+from unittest import mock
+
+import m9_owner as owner
+
+
+class OwnerTests(unittest.TestCase):
+    def setUp(self):
+        owner.STOP = False
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name).resolve()
+        self.code = self.root / 'runtime'; self.code.mkdir()
+        self.out = self.root / 'outputs/new'; self.out.mkdir(parents=True)
+        self.legacy = self.root / 'outputs/old'; self.legacy.mkdir()
+        for name in ('m9_owner.py', 'test_m9_owner.py', 'm9_run.py', 'm9_score_report.py', 'uep_resume_after_m9.py'):
+            (self.code / name).write_text('# frozen ' + name + '\n', encoding='utf-8')
+        self.input = self.root / 'input.json'; owner.write(self.input, {'input': True})
+        owner.write(self.code / 'protocol.json', {'original_output': str(self.legacy)})
+        self.registration = dict(status='REGISTERED', protocol_sha256=owner.sha(self.code / 'protocol.json'),
+            source_bindings={str(p): owner.sha(p) for p in self.code.glob('*.py')},
+            input_bindings={str(self.input): owner.sha(self.input)})
+        owner.write(self.out / 'registration.json', self.registration)
+        old_cp = self.legacy / 'checkpoint.json'; owner.write(old_cp, {'source_index': 0})
+        owner.write(self.out / 'legacy_compatibility.json', dict(status='LEGACY_CALIBRATION_REUSE_AUDITED',
+            incompatible_header_count=0, sources=1000, target_rows=621000, target_snrs=[7, 13, 19],
+            source_checkpoint_sha256={str(old_cp): owner.sha(old_cp)}))
+        self.worker = owner.Owner(self.root, self.out, self.code)
+        owner.write(self.out / 'm1_policy.json', {'frozen_policy': True})
+
+    def completion(self, stage):
+        artifact = self.out / (stage + '_artifact.json'); owner.write(artifact, {'stage': stage})
+        value = dict(status='COMPLETE', stage=stage, registration_sha256=self.worker.registration_sha256,
+            outputs={str(artifact): owner.sha(artifact)}, synthetic=False, training_updates=0, development_read=False)
+        if stage == 'qualify': value.update(sources=1, physical_frames=13)
+        if stage == 'benchmark': value.update(sources=2, physical_frames=234)
+        if stage == 'calibrate': value.update(sources=1000, physical_frames=738000, newly_evaluated_frames=117000, legacy_reused_frames=621000)
+        if stage == 'development': value.update(sources=100, method_rows=6300, max_method_rows=7200, development_used_for_selection=False)
+        if stage in ('calibrate', 'development'): value['policy_sha256'] = owner.sha(self.out / 'm1_policy.json')
+        if stage == 'score':
+            reg = self.out / 'metrics/registration.json'; owner.write(reg, {'models': 'frozen'})
+            value.update(status='M1_N2048_M9_METRICS_COMPLETE', sources=100, expanded_rows=6300,
+                max_expanded_rows=7200, legacy_rows=7200, P_rows=900, rows=14400, selection_updates=0,
+                registration_sha256=owner.sha(reg), input_bindings={str(self.input): owner.sha(self.input)})
+        owner.write(self.out / (stage + '_completion.json'), value)
+        return value
+
+    def report(self):
+        self.completion('score')
+        result = self.worker.result; result.mkdir(parents=True)
+        (result / 'source_snapshot').mkdir()
+        (result / 'REPORT.md').write_text('# Actual report\n', encoding='utf-8')
+        (result / 'protocol.json').write_bytes((self.code / 'protocol.json').read_bytes())
+        for source in self.worker.source_paths:
+            (result / 'source_snapshot' / (source.name + '.txt')).write_bytes(source.read_bytes())
+        def metadata(path): return dict(sha256=owner.sha(path), bytes=path.stat().st_size)
+        outputs = {p.relative_to(result).as_posix(): metadata(p) for p in result.rglob('*') if p.is_file()}
+        manifest = dict(status='M1_N2048_M9_STATIC_REPORT_COMPLETE', sources=100, outputs=outputs,
+            model_inference=False, metric_recomputation=False, training_updates=0,
+            input_bindings={str(self.input): owner.sha(self.input)})
+        owner.write(result / 'MANIFEST.json', manifest)
+        mirror = self.worker.mirror; mirror.parent.mkdir(parents=True)
+        mirror.write_text('# Mirrored report\n', encoding='utf-8')
+        all_metadata = {str(result / name): info for name, info in outputs.items()}
+        all_metadata[str(result / 'MANIFEST.json')] = metadata(result / 'MANIFEST.json')
+        all_metadata[str(mirror)] = metadata(mirror)
+        done = dict(status='M1_N2048_M9_REPORT_COMPLETE', sources=100, expanded_rows=6300,
+            model_inference=False, training_updates=0, score_completion_sha256=owner.sha(self.out / 'score_completion.json'),
+            manifest_path=str(result / 'MANIFEST.json'), manifest_sha256=owner.sha(result / 'MANIFEST.json'),
+            outputs={p: info['sha256'] for p, info in all_metadata.items()}, output_metadata=all_metadata,
+            input_bindings={str(self.input): owner.sha(self.input)})
+        owner.write(self.out / 'report_completion.json', done)
+        return manifest, done
+
+    def test_all_stage_completion_scopes_and_dynamic_unavailable_oracle(self):
+        for stage in owner.STAGES[:-1]:
+            self.completion(stage)
+            self.assertIsNotNone(self.worker.receipt(stage))
+        self.report()
+        self.assertIsNotNone(self.worker.receipt('report'))
+
+    def test_complete_status_alone_cannot_hide_changed_output(self):
+        self.completion('qualify')
+        (self.out / 'qualify_artifact.json').write_text('changed')
+        with self.assertRaisesRegex(RuntimeError, 'Bound artifact changed'):
+            self.worker.receipt('qualify')
+
+    def test_incomplete_scope_and_synthetic_receipt_rejected(self):
+        for change in ({'physical_frames': 233}, {'synthetic': True}, {'development_read': True}):
+            value = self.completion('benchmark'); value.update(change)
+            owner.write(self.out / 'benchmark_completion.json', value)
+            with self.assertRaises(RuntimeError): self.worker.receipt('benchmark')
+
+    def test_protocol_and_source_changes_are_rejected_before_launch(self):
+        (self.code / 'm9_run.py').write_text('# changed')
+        with self.assertRaisesRegex(RuntimeError, 'Bound artifact changed'): self.worker.check()
+
+    def test_new_unregistered_source_is_rejected(self):
+        (self.code / 'extra.py').write_text('# unregistered')
+        with self.assertRaisesRegex(RuntimeError, 'inventory changed'): self.worker.check()
+
+    def test_stop_prevents_new_stage(self):
+        (self.out / 'STOP').touch()
+        with mock.patch.object(self.worker, 'execute') as execute:
+            with self.assertRaisesRegex(RuntimeError, 'stop requested'): self.worker.run()
+            execute.assert_not_called()
+
+    def test_previous_failure_refuses_blind_restart(self):
+        owner.write(self.out / 'owner_failure.json', {'error': 'retained'})
+        with self.assertRaisesRegex(RuntimeError, 'requires explicit review'):
+            owner.Owner(self.root, self.out, self.code)
+
+    def test_native_environment_restores_threads_and_cpu_hides_gpu(self):
+        with mock.patch.dict(os.environ, {'OMP_NUM_THREADS': '99', 'CUDA_VISIBLE_DEVICES': '8', 'PYTHONPATH': 'wrong'}):
+            gpu, cpu = self.worker.environment(True), self.worker.environment(False)
+        for environment in (gpu, cpu):
+            for name in ('OMP_NUM_THREADS', 'MKL_NUM_THREADS', 'OPENBLAS_NUM_THREADS'): self.assertEqual(environment[name], '6')
+            self.assertTrue(environment['PATH'].startswith(str(self.worker.native.parent)))
+            self.assertNotIn('wrong', environment['PYTHONPATH'])
+        self.assertEqual(gpu['CUDA_VISIBLE_DEVICES'], '0'); self.assertEqual(cpu['CUDA_VISIBLE_DEVICES'], '')
+
+    def test_stage_cli_matches_original_output_and_score_contracts(self):
+        run = list(map(str, self.worker.stage_argv('benchmark')))
+        self.assertIn('--output', run); self.assertIn('--protocol', run); self.assertNotIn('--out', run)
+        score = list(map(str, self.worker.stage_argv('score')))
+        self.assertIn('--out', score); self.assertIn('--legacy-out', score)
+
+    def test_sequential_stage_gate_and_no_later_stage_after_failure(self):
+        events = []
+        def execute(stage, *args, **kwargs):
+            events.append(stage)
+            if stage == 'calibrate': raise RuntimeError('scientific stage failed')
+            self.completion(stage)
+        with (mock.patch.object(self.worker, 'execute', side_effect=execute), mock.patch.object(self.worker, 'publish') as publish,
+                mock.patch.object(self.worker, 'resume_uep') as resume):
+            with self.assertRaisesRegex(RuntimeError, 'scientific stage failed'): self.worker.run()
+            self.assertEqual(events, ['qualify', 'benchmark', 'calibrate'])
+            publish.assert_not_called(); resume.assert_not_called()
+
+    def test_live_child_prevents_a_second_launch(self):
+        self.worker.child = mock.Mock(); self.worker.child.poll.return_value = None
+        with mock.patch.object(owner.subprocess, 'Popen') as popen:
+            with self.assertRaisesRegex(RuntimeError, 'Single-child'): self.worker.execute('bad', ['fake'], gpu=True)
+            popen.assert_not_called()
+
+    def test_gpu_busy_does_not_signal_or_launch_external_owner(self):
+        with mock.patch.object(owner.subprocess, 'check_output', return_value='1234\n'), mock.patch.object(owner.subprocess, 'Popen') as popen:
+            with self.assertRaisesRegex(RuntimeError, 'Existing GPU compute owner'): self.worker.execute('gpu', ['fake'], gpu=True)
+            popen.assert_not_called()
+
+    def test_publication_inventory_contains_text_snapshots_never_python(self):
+        self.report()
+        inventory = self.worker.publication_files()
+        self.assertTrue(any(name.endswith('.py.txt') for name in inventory))
+        self.assertFalse(any(name.endswith('.py') for name in inventory))
+        self.assertIn('results/m1_n2048_m9_extension_20261004/MANIFEST.json', inventory)
+        self.assertIn('reports/m1_n2048_m9_extension_20261004.md', inventory)
+
+    def test_modified_published_snapshot_is_rejected(self):
+        self.report()
+        (self.worker.result / 'source_snapshot/m9_run.py.txt').write_text('# altered')
+        with self.assertRaisesRegex(RuntimeError, 'digest or byte count'): self.worker.publication_files()
+
+    def test_nested_metadata_exact_bytes_and_digest(self):
+        path = self.input; info = dict(sha256=owner.sha(path), bytes=path.stat().st_size)
+        owner.validate_metadata(path, info)
+        for invalid in (dict(info, bytes=info['bytes'] + 1), dict(info, sha256='0' * 64), dict(info, bytes=True), info['sha256']):
+            with self.assertRaises(RuntimeError): owner.validate_metadata(path, invalid)
+
+    def test_relative_manifest_escape_paths_rejected(self):
+        for name in ('../input.json', '/input.json', 'C:/input.json', 'nested/../input.json', './input.json', 'nested\\file', 'nested//file'):
+            with self.subTest(name=name), self.assertRaises(RuntimeError): owner.relative_file(self.root, name)
+
+    def test_missing_source_snapshot_is_rejected_even_with_consistent_manifest(self):
+        manifest, done = self.report()
+        key = 'source_snapshot/m9_run.py.txt'
+        manifest['outputs'].pop(key)
+        owner.write(self.worker.result / 'MANIFEST.json', manifest)
+        with self.assertRaisesRegex(RuntimeError, 'Missing or changed executable text snapshot'): self.worker.publication_files()
+
+    def legacy_report(self):
+        directory = self.root / 'results/m1_n2048_full_grid_20261004'; directory.mkdir(parents=True)
+        report = directory / 'REPORT.md'; report.write_text('# Original\n[table](MAIN_TABLE.md)\n', encoding='utf-8')
+        owner.write(directory / 'MANIFEST.json', {'outputs': {'REPORT.md': {'sha256': owner.sha(report), 'bytes': report.stat().st_size}}})
+        mirror = self.root / 'reports/m1_n2048_full_grid_20261004.md'; mirror.parent.mkdir(parents=True, exist_ok=True)
+        # Production mirror was written on Linux: preserve LF bytes here too.
+        mirror.write_bytes(b'# Original\n[table](../results/m1_n2048_full_grid_20261004/MAIN_TABLE.md)\n')
+        self.worker.result.mkdir(parents=True, exist_ok=True)
+        return report, mirror
+
+    def test_legacy_scope_correction_is_exact_idempotent_and_preserves_original(self):
+        report, mirror = self.legacy_report(); original_sha = owner.sha(report); before = owner.sha(mirror)
+        first = self.worker.correct_legacy_mirror()
+        second = self.worker.correct_legacy_mirror()
+        self.assertEqual(first, second); self.assertEqual(owner.sha(report), original_sha)
+        evidence = owner.read(self.worker.result / 'LEGACY_SCOPE_CORRECTION.json')
+        self.assertEqual(evidence['previous_mirror_sha256'], before)
+        self.assertEqual(evidence['corrected_mirror_sha256'], owner.sha(mirror))
+        self.assertIn('69', mirror.read_text(encoding='utf-8'))
+
+    def test_legacy_scope_correction_refuses_user_edits(self):
+        report, mirror = self.legacy_report(); mirror.write_text('# User edit')
+        with self.assertRaisesRegex(RuntimeError, 'independent edits'): self.worker.correct_legacy_mirror()
+        self.assertEqual(mirror.read_text(), '# User edit')
+
+    def test_validated_uep_resumption_failure_retains_publication(self):
+        publication = dict(status='PUSHED_AND_STOPPED', commit='a' * 40)
+        owner.write(self.out / 'publication_completion.json', publication)
+        with (mock.patch.object(self.worker, 'receipt', return_value={'already': 'complete'}),
+              mock.patch.object(self.worker, 'publish', return_value=publication),
+              mock.patch.object(self.worker, 'resume_uep', side_effect=RuntimeError('UEP binding changed'))):
+            with self.assertRaisesRegex(RuntimeError, 'UEP binding changed'): self.worker.run()
+        self.assertEqual(owner.read(self.out / 'publication_completion.json'), publication)
+        self.assertFalse(owner.read(self.out / 'uep_resume_failure.json')['automatic_retry'])
+
+
+if __name__ == '__main__':
+    unittest.main()

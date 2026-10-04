@@ -1,0 +1,680 @@
+"""Score sealed m9-extension RGB and report source-paired comparisons.
+
+No transmitter, decoder, prior, calibration or model-selection path is exposed.
+Old M1 metrics are copied. Only absent historical P2048 metrics are added from
+its existing lossless RGB; old result files remain unchanged.
+"""
+from __future__ import annotations
+import argparse
+from collections import defaultdict
+import csv
+import gzip
+import hashlib
+import importlib.util
+import json
+import math
+import os
+from pathlib import Path
+import signal
+import sys
+import time
+import numpy as np
+
+SNRS=(7,13,19);SEEDS=(2001,2002,2003);PHY='16QAM'
+METHODS=('whole_policy','raster_policy','random_policy','entropy_policy','oracle_policy',
+         'raster_at_entropy','random_at_entropy','oracle_at_entropy')
+METRICS=('psnr_db','lpips_alex','dino_cosine','dinov2_vitl14_cosine','clip_image_cosine',
+         'dists','dreamsim','ms_ssim','dino_specificity','resnet50_top1_label',
+         'resnet50_top1_source_prediction','semantic_error','confidently_wrong')
+EXTRA=('E','latent_sq_err_final','zero_erasure_proxy_sq_error','F_sq_error_zero_erasure_proxy')
+EVENTS=('header_ok','prefix_crc_ok','body_crc_ok','partial_used','prefix_false_accept','latent_valid')
+FIXED=(0,25,50,75,4,21,24,29,33,41,52,60,64,87,92,95)
+LIMIT=10_000_000
+STOP=False
+
+
+def require(ok,message):
+    if not ok:raise RuntimeError(message)
+
+def sha(path):
+    h=hashlib.sha256()
+    with Path(path).open('rb') as f:
+        for b in iter(lambda:f.read(8*1024*1024),b''):h.update(b)
+    return h.hexdigest()
+
+def read(path):return json.loads(Path(path).read_text(encoding='utf-8-sig'))
+def ident(value):return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
+def write(path,value):
+    p=Path(path);p.parent.mkdir(parents=True,exist_ok=True);tmp=p.with_name(p.name+'.tmp')
+    tmp.write_text(json.dumps(value,indent=2,ensure_ascii=False,allow_nan=False)+'\n',encoding='utf-8');os.replace(tmp,p)
+def seal(path,value):
+    if Path(path).exists():require(read(path)==value,'Immutable receipt differs: '+str(path))
+    else:write(path,value)
+def verify(bindings):
+    for p,h in bindings.items():require(sha(p)==h,'Bound input changed: '+str(p))
+def pixels(a):
+    a=np.asarray(a);require(a.dtype==np.float32 and a.shape==(3,256,256) and np.isfinite(a).all()
+        and a.min()>=0 and a.max()<=1,'Expected unchanged float32 CHW256 RGB');return np.ascontiguousarray(a)
+def rgb_sha(a):return hashlib.sha256(b'float32:3,256,256:RGB\0'+pixels(a).tobytes()).hexdigest()
+def read_csv(path):
+    opener=gzip.open if str(path).endswith('.gz') else open
+    with opener(path,'rt',encoding='utf-8-sig',newline='') as f:return list(csv.DictReader(f))
+def csv_write(path,rows):
+    p=Path(path);p.parent.mkdir(parents=True,exist_ok=True);fields=list(dict.fromkeys(k for r in rows for k in r))
+    opener=gzip.open if str(path).endswith('.gz') else open
+    with opener(path,'wt',encoding='utf-8',newline='') as f:
+        w=csv.DictWriter(f,fieldnames=fields);w.writeheader();w.writerows(rows)
+def pause():
+    if STOP:raise InterruptedError('Requested pause at source boundary')
+def module(name,path):
+    spec=importlib.util.spec_from_file_location(name,path);m=importlib.util.module_from_spec(spec)
+    sys.modules[name]=m;spec.loader.exec_module(m);return m
+def row_key(r):return(int(r['source_index']),int(r['snr_db']),int(r['noise_seed']),r['method'])
+
+
+def legacy_header_compatibility(rows):
+    for row in rows:
+        require(type(row.get('header_crc_ok')) is bool and type(row.get('header_fields_legal')) is bool,
+            'Original target development rows lack explicit CRC/header-legality diagnostics')
+        require(not(row['header_crc_ok'] and not row['header_fields_legal']),
+            'Original target development has a CRC-passed illegal header; extended header dictionary may change its output')
+
+
+def validate_source(cp,index,excluded=()):
+    require(cp['source_index']==index and cp['payload_sha256']==ident({k:v for k,v in cp.items() if k!='payload_sha256'}),
+        'Source checkpoint seal differs')
+    rows=cp['rows'];expected={(index,s,n,m) for s in SNRS for n in SEEDS for m in METHODS if (s,m) not in excluded}
+    require(len(rows)==len(expected) and {row_key(r) for r in rows}==expected,'Expanded source omits a legal frame or fabricates an unavailable oracle')
+    proof=cp['float_reconstructions'];require(sha(proof['path'])==proof['sha256'],'Expanded float archive changed')
+    with np.load(proof['path'],allow_pickle=False) as z:
+        require(set(z.files)=={'images','source_rgb','row_ids','image_slots'},'Float archive schema differs')
+        images=z['images'].copy();target=pixels(z['source_rgb']).copy();slots=z['image_slots'].tolist();ids=z['row_ids'].tolist()
+    require(images.dtype==np.float32 and images.ndim==4 and images.shape[1:]==(3,256,256),'Invalid float archive images')
+    require(len(slots)==len(expected) and ids==[r['replay_row_id'] for r in rows] and len(set(ids))==len(expected),'Expanded row mapping differs')
+    hashes=[rgb_sha(a) for a in images];reference=rgb_sha(target)
+    for row,slot in zip(rows,slots):
+        require(type(slot) is int and 0<=slot<len(images) and row.get('image_slot',slot)==slot,'Invalid image slot')
+        require(row['image_sha256']==hashes[slot] and row['reference_sha256']==reference,'Expanded RGB/source hash differs')
+        require(int(row['N'])==2048 and row['phy_family']==PHY and row.get('label_conditioned',False) is False,
+                'Expanded N/PHY/class conditioning differs')
+        require(row['source_id']==cp['record']['image_id'] and row['preprocessing_id']==cp['record']['preprocessing_id'],
+                'Expanded source identity differs')
+    return rows,images,target,slots
+
+
+def policy_index(policy,expanded):
+    require(policy['sources']==1000 and policy['noise_seeds']==[4101,4102,4103]
+        and policy['full_grid'] is True and policy['development_read'] is False,'Original full calibration policy required')
+    rows=[r for r in policy['cells'] if r['phy_family']==PHY and int(r['snr_db']) in SNRS]
+    result={(int(r['snr_db']),r['method']):r for r in rows}
+    require(len(rows)==len(result)==15 and set(result)=={(s,m) for s in SNRS for m in ('whole','raster','random','entropy','oracle')},
+            'Policy cells are missing or duplicated')
+    for row in rows:
+        action=row['action'];m,k=int(action['m']),int(action['q'])
+        require(4<=m<=(9 if expanded else 8) and k>=0,'Policy outside registered scale range')
+        if m==9:
+            legal=(0,64,128,144) if action['order']=='oracle' else (0,64,128,166)
+            require(k in legal,'Unregistered m9 partial count')
+        require((k==0)==(action['order']=='whole'),'Whole/partial action annotation differs')
+    return result
+
+
+def action_for(policy,snr,method):
+    if method.endswith('_at_entropy'):
+        action=dict(policy[snr,'entropy']['action'])
+        action['order']='whole' if action['q']==0 else method.removesuffix('_at_entropy')
+        return action
+    return dict(policy[snr,method.removesuffix('_policy')]['action'])
+
+
+def action_interpretation(action):
+    m,k=int(action['m']),int(action['q'])
+    if k==0:return 'm9 whole-scale extension; no partial-token or ordering contribution' if m==9 else 'whole-scale; no partial-token or ordering contribution'
+    return 'partial scale 10' if m==9 else 'partial next scale within previous range'
+
+
+def unavailable_cells(policy,receipt):
+    expected={(s,'oracle_at_entropy') for s in SNRS if int(policy[s,'entropy']['action']['m'])==9
+              and int(policy[s,'entropy']['action']['q'])==166}
+    rows=receipt['rows'];seen=set()
+    for row in rows:
+        key=(int(row['snr_db']),row['method'])
+        require(key not in seen and key in expected and row['phy_family']==PHY and isinstance(row['reason'],str) and row['reason'],
+                'Unregistered unavailable action')
+        require(int(row['N'])==2048 and int(row['m'])==9 and int(row['q'])==166
+                and row['maximum_legal_q']==144 and row['status']=='NOT_FEASIBLE',
+                'Unavailable action must preserve exact selected entropy m/K and paid-mask limit')
+        seen.add(key)
+    require(seen==expected,'Unavailable same-K receipt differs from paid-mask legality')
+    return expected
+
+
+def interval(values,draws):
+    a=np.asarray(values,np.float64);require(a.shape==(100,) and np.isfinite(a).all(),'Complete finite source vector required')
+    lo,hi=np.quantile(a[draws].mean(1),[.025,.975])
+    return dict(mean=float(a.mean()),ci_low=float(lo),ci_high=float(hi),n_sources=100,n_frames=300,
+        bootstrap_unit='source_mean_over_three_noise_repeats',bootstrap_replicates=10000,bootstrap_seed=20261002)
+
+
+def analyze(rows,excluded=()):
+    expected={(scope,s,m) for scope in ('expanded','legacy69') for s in SNRS for m in METHODS
+              if scope!='expanded' or (s,m) not in excluded}
+    expected|={('P2048',s,'P2048') for s in SNRS};groups=defaultdict(dict)
+    for r in rows:
+        g=(r['comparison_scope'],int(r['snr_db']),r['method']);key=(int(r['source_index']),int(r['noise_seed']))
+        require(g in expected and key not in groups[g],'Unexpected or duplicated scored comparison frame')
+        groups[g][key]=r
+    require(set(groups)==expected and len(rows)==15300-300*len(excluded),'All legal expanded +7200 old +900 P rows required')
+    population={(i,n) for i in range(100) for n in SEEDS};draws=np.random.default_rng(20261002).integers(0,100,(10000,100))
+    means={};summary=[]
+    for (scope,snr,method),by in sorted(groups.items()):
+        require(set(by)==population,'Incomplete source/noise comparison group')
+        for metric in METRICS+EXTRA:
+            values=[by[i,n].get(metric) for i in range(100) for n in SEEDS]
+            if any(x in (None,'') for x in values):
+                require(metric not in METRICS,'Missing mandatory unified comparison metric: '+metric);continue
+            arr=np.asarray(values,np.float64).reshape(100,3).mean(1);means[scope,snr,method,metric]=arr
+            summary.append(dict(N=2048,phy_family='continuous' if scope=='P2048' else PHY,comparison_scope=scope,
+                snr_db=snr,method=method,metric=metric,**interval(arr,draws)))
+        for field in EVENTS:
+            if not all(field in r for r in by.values()):continue
+            require(all(type(r[field]) is bool for r in by.values()),'Event fractions require actual boolean decisions')
+            arr=np.array([by[i,n][field] for i in range(100) for n in SEEDS],float).reshape(100,3).mean(1)
+            summary.append(dict(N=2048,phy_family=PHY,comparison_scope=scope,snr_db=snr,method=method,
+                metric=field+'_fraction',**interval(arr,draws)))
+    contrasts=[('expanded',m,'legacy69',m,'expanded_action_set_minus_original69') for m in METHODS]
+    contrasts += [('expanded',m,'expanded','whole_policy','partial_policy_minus_expanded_whole') for m in METHODS[1:]]
+    contrasts += [('expanded','entropy_policy','expanded',m,'same_m_K_order_control') for m in METHODS[5:]]
+    contrasts += [(scope,m,'P2048','P2048','digital_minus_historical_continuous') for scope in ('expanded','legacy69') for m in METHODS]
+    paired=[]
+    for snr in SNRS:
+        for sa,ma,sb,mb,contrast in contrasts:
+            if (sa,snr,ma) not in groups or (sb,snr,mb) not in groups:continue
+            a,b=groups[sa,snr,ma],groups[sb,snr,mb]
+            for key in population:
+                require(all(a[key][f]==b[key][f] for f in ('source_id','preprocessing_id','reference_sha256')),
+                    'Paired methods use different sources or float reference inputs')
+            for metric in METRICS+EXTRA:
+                ka,kb=(sa,snr,ma,metric),(sb,snr,mb,metric)
+                if ka not in means or kb not in means:continue
+                paired.append(dict(N=2048,phy_family=PHY,snr_db=snr,scope_A=sa,method_A=ma,scope_B=sb,method_B=mb,
+                    contrast=contrast,metric=metric,delta='A_minus_B',**interval(means[ka]-means[kb],draws),
+                    pairing='same source and nominal noise seed; P uses its original different noise namespace' if sb=='P2048'
+                    else 'same source and registered M1 channel-noise convention; waveform depends on action'))
+    return summary,paired
+
+
+class Inputs:
+    def __init__(self,root,out,legacy):
+        self.root,self.out,self.legacy=map(lambda p:Path(p).resolve(),(root,out,legacy));self.bindings={}
+    def bind(self,path,expected=None):
+        p=Path(path);digest=sha(p);require(expected is None or digest==expected,'Input receipt hash differs: '+str(p))
+        self.bindings[str(p)]=digest;return p
+    def load(self):
+        self.dev=read(self.bind(self.out/'development_completion.json'));self.cal=read(self.bind(self.out/'calibrate_completion.json'))
+        self.reg=read(self.bind(self.out/'development_registration.json',self.dev['outputs'][str(self.out/'development_registration.json')]))
+        self.runreg=read(self.bind(self.out/'registration.json',self.dev['registration_sha256']))
+        require(self.dev['status']==self.cal['status']=='COMPLETE' and self.dev['sources']==100
+            and self.dev.get('max_method_rows')==7200 and self.dev.get('synthetic') is False,'Incomplete expanded development')
+        require(self.cal['sources']==1000 and self.cal['physical_frames']==738000
+            and self.cal['newly_evaluated_frames']==117000,'Expanded calibration must combine 69 old and13 new actions on1000 sources')
+        self.policy=read(self.bind(self.out/'m1_policy.json',self.dev['policy_sha256']))
+        require(self.reg['policy_sha256']==self.cal['policy_sha256']==self.dev['policy_sha256'],'Policy changed after calibration')
+        self.expanded_policy=policy_index(self.policy,True)
+        self.unavailable=read(self.bind(self.out/'unavailable_actions.json',self.dev['outputs'][str(self.out/'unavailable_actions.json')]))
+        self.excluded=unavailable_cells(self.expanded_policy,self.unavailable)
+        require(self.unavailable['status']=='SAME_K_FEASIBILITY_REGISTERED'
+            and self.unavailable['policy_sha256']==self.dev['policy_sha256']
+            and self.reg['unavailable_actions_sha256']==self.dev['unavailable_actions_sha256']==sha(self.out/'unavailable_actions.json')
+            and self.unavailable['no_resource_relaxation'] is True,'Unavailable-action registration changed')
+        self.expanded_rows=7200-300*len(self.excluded)
+        require(self.dev.get('method_rows',self.dev.get('rows'))==self.expanded_rows,'Actual expanded row count differs from legal policy grid')
+        self.old_done=read(self.bind(self.legacy/'score_completion.json'))
+        require(self.old_done['status']=='M1_N2048_METRICS_COMPLETE' and self.old_done['sources']==100
+            and self.old_done['rows']==24000 and self.old_done['synthetic'] is False,'Original complete69-action metrics required')
+        self.old_reg=read(self.bind(self.legacy/'metrics/registration.json',self.old_done['registration_sha256']))
+        self.old_dev=read(self.bind(self.legacy/'development_completion.json'))
+        self.old_devreg=read(self.bind(self.legacy/'development_registration.json',self.old_dev['outputs'][str(self.legacy/'development_registration.json')]))
+        self.old_policy=read(self.bind(self.legacy/'m1_policy.json',self.old_dev['policy_sha256']))
+        self.legacy_policy=policy_index(self.old_policy,False)
+        self.checkpoints=[];self.records=[];self.targets=[];self.old_rows={}
+        for i in range(100):
+            p=self.out/'development/source_checkpoints'/f'{i:04d}.json';cp=read(self.bind(p,self.dev['outputs'][str(p)]))
+            require(cp['binding']==ident(self.reg),'Expanded source has a different development registration')
+            _,images,target,_=validate_source(cp,i,self.excluded);del images
+            self.bind(cp['float_reconstructions']['path'],self.dev['outputs'][cp['float_reconstructions']['path']])
+            self.checkpoints.append(cp);self.records.append(cp['record']);self.targets.append(target)
+            oldp=self.legacy/'metrics/source_checkpoints'/f'{i:04d}.json'
+            old=read(self.bind(oldp,self.old_done['outputs'][str(oldp)]))
+            require(old['binding']==ident(self.old_reg) and old['payload_sha256']==ident({k:v for k,v in old.items() if k!='payload_sha256'}),
+                'Original scored source seal differs')
+            rows=[dict(r,comparison_scope='legacy69') for r in old['rows'] if r['phy_family']==PHY and int(r['snr_db']) in SNRS]
+            require(len(rows)==72 and {row_key(r) for r in rows}=={(i,s,n,m) for s in SNRS for n in SEEDS for m in METHODS},
+                'Original comparison source scope differs')
+            legacy_header_compatibility(rows)
+            self.old_rows[i]=rows
+        path=self.legacy/'metrics/historical_controls.csv.gz'
+        self.p_rows=[dict(r,comparison_scope='P2048') for r in read_csv(self.bind(path,self.old_done['outputs'][str(path)]))
+            if r['method']=='P2048' and int(r['N'])==2048 and int(r['snr_db']) in SNRS]
+        require(len(self.p_rows)==900,'Original900 P reference frames required')
+        return self
+
+
+class HistoricalP:
+    def __init__(self,inputs):
+        from step0_reference_prepare import admitted
+        import step0_cache_export as cache
+        self.inputs=inputs;self.cache=cache;_,self.receipt,bindings=admitted(inputs.root,'FINAL_P2048_P3060')
+        for p,h in bindings.items():inputs.bind(p,h)
+        path=inputs.root/'results/historical_metrics_r2_20261003/FINAL_P2048_P3060/registration.json'
+        self.reg=read(inputs.bind(path,self.receipt['bindings'][str(path)]))
+        self.folder=inputs.root/'outputs/HISTORICAL-METRICS-R2-20261003/FINAL_P2048_P3060'
+        inputs.bind(cache.__file__)
+    def source(self,index):
+        cp_path=self.folder/'source_checkpoints'/f'{index:04d}.json';npz=self.folder/'reconstructions'/f'{index:04d}.npz'
+        cp=read(self.inputs.bind(cp_path,self.receipt['bindings'][str(cp_path)]));self.inputs.bind(npz,self.receipt['bindings'][str(npz)])
+        record=self.inputs.records[index]
+        target,images,slots=self.cache.verified_arrays(cp,self.reg,dict(source_index=index,**record),'FINAL_P2048_P3060',npz)
+        require(np.array_equal(target,self.inputs.targets[index]),'Historical P and M1 reference RGB differ')
+        rows={}
+        for row in cp['rows']:
+            meta=json.loads(row['history_metadata_json'])
+            if meta.get('method_id')!='P2048' or int(float(row['snr_db'])) not in SNRS:continue
+            require(meta['N']==2048 and meta['decoder']=='Dc' and meta['training_seed']==2026092304
+                    and meta['label_conditioned'] is False,'Historical P model/conditioning differs')
+            key=int(float(row['snr_db'])),int(row['noise_seed'])
+            require(key not in rows,'Duplicate historical P float frame')
+            rows[key]=(images[slots[row['history_row_id']]],row)
+        require(set(rows)=={(s,n) for s in SNRS for n in SEEDS},'Historical P float coverage differs')
+        return rows
+
+
+def fill_p_missing(rows,images,features,index,mismatch,evaluator,metric,native,dino,torch,batch,record):
+    """Compute only absent P metrics; existing numbers are copied unchanged."""
+    from batch_speed import qualified_chunks
+    target=images.pop('source_rgb');prepared=evaluator.prepare_reference(torch.from_numpy(target[None]));source_pred=int(prepared['resnet50'][0])
+    need=[r for r in rows if any(r.get(m) in (None,'') for m in METRICS)]
+    allowed={'dino_specificity','confidently_wrong'}
+    require(all({m for m in METRICS if r.get(m) in (None,'')}<=allowed for r in need),'Unexpected missing historical P metric')
+    rgb=[images[int(r['snr_db']),int(r['noise_seed'])][0] for r in need];computed=[];offset=0
+    for count in qualified_chunks(len(rgb),batch['chosen_batch_size'],batch['qualified_batch_sizes']):
+        with torch.inference_mode():
+            tensor=torch.from_numpy(np.stack(rgb[offset:offset+count])).to('cuda:0')
+            embed=native.dino_features(dino,tensor)
+            negative=torch.from_numpy(features[mismatch[index]][None]).to('cuda:0').expand_as(embed)
+            wrongcos=torch.nn.functional.cosine_similarity(embed,negative,dim=1).cpu().tolist()
+            prob,pred=evaluator.models['resnet50'](metric.preprocess_resnet50(tensor)).float().softmax(-1).max(-1)
+            computed.extend(zip(wrongcos,prob.cpu().tolist(),pred.cpu().tolist()))
+        offset+=count
+    for r,(wrongcos,prob,pred) in zip(need,computed):
+        require(int(float(r['resnet50_top1_source_prediction']))==int(pred==source_pred)
+            and int(float(r['resnet50_top1_label']))==int(pred==int(record['class_index'])),
+            'Historical P classifier prediction differs while supplementing missing metrics')
+        supplied=[]
+        if r.get('dino_specificity') in (None,''):
+            r['dino_specificity']=float(r['dino_cosine'])-wrongcos;supplied.append('dino_specificity')
+        if r.get('confidently_wrong') in (None,''):
+            r['confidently_wrong']=int(prob>=.5 and pred!=source_pred);supplied.append('confidently_wrong')
+        r['supplemented_metrics']=','.join(supplied)
+        r['supplement_origin']='existing admitted historical float RGB; no reconstruction, training or selection'
+    for r in rows:
+        require(all(r.get(m) not in (None,'') and math.isfinite(float(r[m])) for m in METRICS),'P mandatory metric unavailable')
+        rgb,old=images[int(r['snr_db']),int(r['noise_seed'])]
+        require(r['image_sha256']==rgb_sha(rgb) and r['reference_sha256']==rgb_sha(target),'P copied metric row does not match admitted RGB')
+        r.update(source_index=index,snr_db=int(r['snr_db']),noise_seed=int(r['noise_seed']),N=2048,
+            historical_model_seed=2026092304,source_class_index=int(record['class_index']))
+    return rows
+
+
+def score(root,out,legacy):
+    root,out,legacy=map(lambda p:Path(p).resolve(),(root,out,legacy));metrics=out/'metrics';metrics.mkdir(parents=True,exist_ok=True)
+    for path in (root/'outputs/EXTERNAL-COMPARISON-20261004/runtime',root/'experiments/unified-metrics-20261002'):sys.path.insert(0,str(path))
+    inputs=Inputs(root,out,legacy).load();os.environ.setdefault('CUBLAS_WORKSPACE_CONFIG',':4096:8')
+    from step0_reference_metrics import load_suite,numeric_flags
+    import torch,runner,replay
+    from batch_speed import qualify_and_select_batch,qualified_chunks
+    evaluator,metric,native,lpips,dino,model_bindings,flags=load_suite(root,'cuda:0')
+    manifest=root/'outputs/UNIFIED-METRICS-20261002/modelmanifest.json';manifest_sha=sha(manifest)
+    require(inputs.old_reg['modelmanifest_sha256']==manifest_sha,'Old and expanded metric models differ')
+    history=HistoricalP(inputs)
+    batch=qualify_and_select_batch(evaluator,torch.device('cuda:0'),manifest,metrics,
+        runtime_context=dict(study='M1_N2048_M9_EXTENSION_20261004',development_sha256=sha(out/'development_completion.json'),
+            model_bindings=model_bindings,numerical_runtime=flags))
+    registration=dict(version='M1_N2048_M9_UNIFIED_METRICS_V1',sources=100,expanded_rows=inputs.expanded_rows,max_expanded_rows=7200,legacy_rows=7200,P_rows=900,
+        methods=list(METHODS),snrs=list(SNRS),phy_family=PHY,noise_seeds=list(SEEDS),input_bindings=dict(inputs.bindings),
+        source_sha256=sha(__file__),model_bindings=model_bindings,numerical_runtime=flags,metric_evaluator_identity=evaluator.identity(),
+        modelmanifest_sha256=manifest_sha,source_records=inputs.records,bootstrap_seed=20261002,bootstrap_replicates=10000,
+        bootstrap_unit='source_mean_over_three_noise_repeats',metric_batch_qualification_sha256=sha(metrics/'metric_batch_qualification.json'),
+        batch_size=batch['chosen_batch_size'],qualified_batch_sizes=batch['qualified_batch_sizes'],
+        DINO='DINOv2 ViT-S/14',additional_DINO='DINOv2 ViT-L/14',selection_used_new_metrics=False,
+        legacy_header_dictionary_compatibility='all7200 target old rows explicitly checked; no CRC-passed illegal header',
+        generation='original frozen unconditional greedy VAR; no training',historical_P_missing_metrics_only=True,
+        training_updates=0,holdout_access=False,KID='DEFERRED_HOLDOUT',FID='NOT_EVALUATED')
+    seal(metrics/'registration.json',registration);seal(metrics/'model_metadata.json',evaluator.metadata);binding=ident(registration)
+    features=[]
+    for target in inputs.targets:
+        pause()
+        with torch.no_grad():features.append(native.dino_features(dino,torch.from_numpy(target[None]).to('cuda:0'))[0].cpu().numpy())
+    features=np.stack(features);mismatch=replay.ReplayEngine._derangement();allrows=[];outputs={};started=time.monotonic()
+    for i,(cp,record) in enumerate(zip(inputs.checkpoints,inputs.records)):
+        pause();require(numeric_flags(torch)==flags,'Frozen metric numerical runtime changed')
+        dest=metrics/'source_checkpoints'/f'{i:04d}.json';raw,images,target,slots=validate_source(cp,i,inputs.excluded)
+        if dest.exists():
+            saved=read(dest);require(saved['binding']==binding and saved['payload_sha256']==ident({k:v for k,v in saved.items() if k!='payload_sha256'}),
+                'Scored source resume receipt differs');verify(saved['historical_float_input_bindings'])
+        else:
+            target_tensor=torch.from_numpy(target[None]);prepared=evaluator.prepare_reference(target_tensor);prediction=int(prepared['resnet50'][0])
+            quality,observed,embeddings=native.quality_metrics(target,list(images),lpips,dino,torch.device('cuda:0'))
+            np.testing.assert_allclose(observed,features[i],rtol=1e-6,atol=1e-6)
+            with torch.no_grad():
+                negative=torch.from_numpy(features[mismatch[i]][None]).to('cuda:0').expand(len(images),-1)
+                mismatched=torch.nn.functional.cosine_similarity(torch.from_numpy(embeddings).to('cuda:0'),negative,dim=1).cpu().tolist()
+            scorer=runner.PendingMetricScorer(evaluator,torch,target_tensor,prepared,int(record['class_index']),batch['chosen_batch_size'],batch['qualified_batch_sizes'])
+            rows=[]
+            for r,j in zip(raw,slots):
+                row=dict(r,comparison_scope='expanded',**quality[j],dino_mismatched=mismatched[j],
+                    dino_specificity=quality[j]['dino_cosine']-mismatched[j],mismatch_source_id=inputs.records[mismatch[i]]['image_id'],
+                    modelmanifest_sha256=manifest_sha,native_quality_json=json.dumps({k:r.get(k) for k in ('psnr_db','lpips_alex','dino_cosine','dino_mismatched')},sort_keys=True))
+                require(type(r['latent_valid']) is bool,'Explicit latent availability required')
+                row['F_sq_error_zero_erasure_proxy']=float(r['latent_sq_err_final'] if r['latent_valid'] else r['zero_erasure_proxy_sq_error'])
+                rows.append(row);scorer.add(replay.metric_cache_key(images[j],target,evaluator.identity()),images[j],row)
+            scorer.flush();confidence=[];offset=0
+            for count in qualified_chunks(len(images),batch['chosen_batch_size'],batch['qualified_batch_sizes']):
+                with torch.inference_mode():
+                    tensor=torch.from_numpy(images[offset:offset+count]).to('cuda:0')
+                    prob,pred=evaluator.models['resnet50'](metric.preprocess_resnet50(tensor)).float().softmax(-1).max(-1)
+                    confidence.extend(zip(prob.cpu().tolist(),pred.cpu().tolist()))
+                offset+=count
+            for row,j in zip(rows,slots):
+                prob,pred=confidence[j];require(pred==row['resnet50_prediction'],'Classifier confidence prediction changed')
+                row.update(resnet50_top1_probability=prob,semantic_error=int(pred!=prediction),confidently_wrong=int(prob>=.5 and pred!=prediction))
+                require(all(math.isfinite(float(row[k])) for k in METRICS),'Missing expanded metric')
+            before=dict(inputs.bindings);pimages=history.source(i);pimages['source_rgb']=target
+            prows=[dict(r) for r in inputs.p_rows if int(r['source_index'])==i]
+            prows=fill_p_missing(prows,pimages,features,i,mismatch,evaluator,metric,native,dino,torch,batch,record)
+            saved=dict(binding=binding,source_index=i,rows=rows,legacy_rows=inputs.old_rows[i],P_rows=prows,
+                unique_images=len(images),historical_float_input_bindings={p:h for p,h in inputs.bindings.items() if p not in before})
+            saved['payload_sha256']=ident(saved);seal(dest,saved)
+        require([row_key(r) for r in saved['rows']]==[row_key(r) for r in raw],'Scored expanded row order differs')
+        require(saved['legacy_rows']==inputs.old_rows[i],'Copied old M1 row changed')
+        require(len(saved['rows'])==inputs.expanded_rows//100 and len(saved['legacy_rows'])==72 and len(saved['P_rows'])==9,'Scored comparison source coverage differs')
+        allrows.extend(saved['rows']+saved['legacy_rows']+saved['P_rows']);outputs[str(dest)]=sha(dest)
+        inputs.bindings.update(saved['historical_float_input_bindings'])
+        write(out/'score_status.json',dict(status='RUNNING',pid=os.getpid(),sources=i+1,expanded_rows=(inputs.expanded_rows//100)*(i+1),
+            comparison_rows=len(allrows),elapsed_seconds=time.monotonic()-started))
+    summary,paired=analyze(allrows,inputs.excluded)
+    for name,rows in [('metrics_per_frame.csv.gz',allrows),('metrics_summary.csv',summary),('metrics_paired_intervals.csv',paired)]:
+        path=metrics/name;csv_write(path,rows);outputs[str(path)]=sha(path)
+    seal(metrics/'historical_float_input_bindings.json',{p:h for p,h in inputs.bindings.items() if p not in registration['input_bindings']})
+    verify(inputs.bindings);verify(model_bindings)
+    for name in ('registration.json','model_metadata.json','historical_float_input_bindings.json','metric_batch_qualification.json'):
+        path=metrics/name;outputs[str(path)]=sha(path)
+    done=dict(status='M1_N2048_M9_METRICS_COMPLETE',sources=100,expanded_rows=inputs.expanded_rows,max_expanded_rows=7200,
+        legacy_rows=7200,P_rows=900,rows=inputs.expanded_rows+8100,
+        outputs=outputs,registration_sha256=sha(metrics/'registration.json'),input_bindings=inputs.bindings,
+        elapsed_seconds=time.monotonic()-started,synthetic=False,training_updates=0,selection_updates=0)
+    seal(out/'score_completion.json',done);write(out/'score_status.json',dict(status='COMPLETE',sources=100,rows=done['rows']));return done
+
+
+def markdown(headers,rows):
+    def cell(x):return str(x).replace('|','\\|').replace('\n',' ')
+    return '\n'.join(['| '+' | '.join(map(cell,headers))+' |','| '+' | '.join('---' for _ in headers)+' |']+
+        ['| '+' | '.join(map(cell,r))+' |' for r in rows])
+def fmt(x):return 'N/A' if x in (None,'') else f'{float(x):.4f}'
+def ci(r):return 'N/A' if r is None else f"{float(r['mean']):.4f} [{float(r['ci_low']):.4f}, {float(r['ci_high']):.4f}]"
+
+
+def artifact_metadata(path):
+    path=Path(path);size=path.stat().st_size
+    require(size<LIMIT,'Publication file exceeds10MB: '+str(path))
+    return dict(sha256=sha(path),bytes=size)
+
+
+def fixed_page(snr,page,indices,saved,legacy_policy,expanded_policy):
+    """One unchanged-float comparison page; also used for synthetic layout QA."""
+    from PIL import Image,ImageDraw,ImageFont
+    require(snr in SNRS and 0<=page<4 and len(indices)==4,'Fixed page scope differs')
+    fontpath=next((p for p in (Path('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'),Path('C:/Windows/Fonts/arial.ttf')) if p.exists()),None)
+    font=ImageFont.truetype(str(fontpath),18) if fontpath else ImageFont.load_default()
+    small=ImageFont.truetype(str(fontpath),14) if fontpath else ImageFont.load_default()
+    cols=[('Original','original','original'),('P2048','P2048','P2048'),('Old whole','legacy69','whole_policy'),
+          ('Old entropy','legacy69','entropy_policy'),('Expanded whole','expanded','whole_policy'),('Expanded entropy','expanded','entropy_policy')]
+    canvas=Image.new('RGB',(1696,1326),'white');draw=ImageDraw.Draw(canvas)
+    draw.text((20,12),f'N2048 | 16QAM {snr} dB | seed2001 | fixed16 sources | page{page+1}/4',fill='black',font=font)
+    draw.text((20,38),'Actual QAM energy varies; P uses original noise namespace. K0 = whole-scale, no partial contribution.',fill='#444444',font=small)
+    proof=[]
+    for c,(label,_,_) in enumerate(cols):draw.text((20+c*276,66),label,fill='black',font=small)
+    for rowidx,index in enumerate(indices):
+        target,by=saved[index]
+        for column,(_,scope,method) in enumerate(cols):
+            image=target if scope=='original' else by[scope,snr,method][0]
+            rgb=np.rint(np.clip(pixels(image),0,1).transpose(1,2,0)*255).astype(np.uint8);x,y=20+column*276,92+rowidx*302
+            canvas.paste(Image.fromarray(rgb),(x,y))
+            if scope=='original':caption=f'source {index:03d}'
+            elif scope=='P2048':caption='P2048 | historical final model'
+            else:
+                pol=legacy_policy if scope=='legacy69' else expanded_policy;action=action_for(pol,snr,method)
+                caption=f"m{action['m']} K{action['q']}"+(' | whole-scale' if action['q']==0 else ' | partial')
+            draw.text((x,y+261),caption,fill='#303030',font=small)
+            proof.append(dict(source_index=index,scope=scope,method=method,image_sha256=rgb_sha(image)))
+    return canvas,proof,[x[0] for x in cols]
+
+
+class Report:
+    def __init__(self,root,out,legacy,result):
+        self.root,self.out,self.legacy,self.result=map(lambda p:Path(p).resolve(),(root,out,legacy,result))
+        require(self.result!=self.out and self.out not in self.result.parents,'Report artifacts must be separate from runtime')
+        self.result.mkdir(parents=True,exist_ok=True);(self.result/'figures').mkdir(exist_ok=True)
+        self.outputs={};self.figure_manifest=[]
+    def output(self,path):
+        path=Path(path);self.outputs[str(path.relative_to(self.result))]=artifact_metadata(path);return path
+    def load(self):
+        self.inputs=Inputs(self.root,self.out,self.legacy).load();self.done=read(self.inputs.bind(self.out/'score_completion.json'))
+        require(self.done['status']=='M1_N2048_M9_METRICS_COMPLETE' and self.done['sources']==100
+            and self.done['expanded_rows']==self.inputs.expanded_rows and self.done['rows']==self.inputs.expanded_rows+8100
+            and self.done['synthetic'] is False,'Complete real m9 comparison metrics required')
+        self.metricreg=read(self.inputs.bind(self.out/'metrics/registration.json',self.done['registration_sha256']))
+        self.tables={}
+        for name in ('metrics_summary.csv','metrics_paired_intervals.csv'):
+            path=self.out/'metrics'/name;self.tables[name]=read_csv(self.inputs.bind(path,self.done['outputs'][str(path)]))
+        self.summary={}
+        for r in self.tables['metrics_summary.csv']:
+            key=r['comparison_scope'],int(r['snr_db']),r['method'],r['metric']
+            require(key not in self.summary and int(r['n_sources'])==100 and int(r['n_frames'])==300,'Invalid summary group')
+            require(all(math.isfinite(float(r[k])) for k in ('mean','ci_low','ci_high')),'Nonfinite reported interval')
+            self.summary[key]=r
+        self.metric_rows={}
+        for index in range(100):
+            path=self.out/'metrics/source_checkpoints'/f'{index:04d}.json'
+            cp=read(self.inputs.bind(path,self.done['outputs'][str(path)]))
+            require(cp['binding']==ident(self.metricreg) and cp['source_index']==index
+                and cp['payload_sha256']==ident({k:v for k,v in cp.items() if k!='payload_sha256'}),'Metric source seal differs')
+            self.metric_rows[index]=cp['rows']+cp['legacy_rows']+cp['P_rows']
+        return self
+    def write_tables(self):
+        main=[]
+        for snr in SNRS:
+            for scope in ('P2048','legacy69','expanded'):
+                for method in (('P2048',) if scope=='P2048' else METHODS):
+                    unavailable=scope=='expanded' and (snr,method) in self.inputs.excluded
+                    action={} if scope=='P2048' else action_for(self.inputs.legacy_policy if scope=='legacy69' else self.inputs.expanded_policy,snr,method)
+                    r=dict(N=2048,phy_family='continuous' if scope=='P2048' else PHY,snr_db=snr,comparison_scope=scope,method=method,
+                        m=action.get('m',''),K=action.get('q',''),order=action.get('order',''),
+                        status='NOT_FEASIBLE_PAID_MASK' if unavailable else 'MEASURED',n_sources=0 if unavailable else 100,
+                        n_frames=0 if unavailable else 300,interpretation='historical final continuous model' if scope=='P2048'
+                        else ('same K166 oracle exceeds paid-mask budget; no image or metric' if unavailable else action_interpretation(action)))
+                    if not unavailable:
+                        for metric in METRICS+EXTRA+tuple(f+'_fraction' for f in EVENTS):
+                            value=self.summary.get((scope,snr,method,metric))
+                            if value:
+                                for field in ('mean','ci_low','ci_high'):r[metric+'_'+field]=float(value[field])
+                        require(all(m+'_mean' in r for m in METRICS),'Mandatory comparison metric missing from report')
+                        energies=[float(x['E']) for rows in self.metric_rows.values() for x in rows
+                                  if x['comparison_scope']==scope and int(x['snr_db'])==snr and x['method']==method]
+                        require(len(energies)==300,'Actual frame-energy population incomplete')
+                        r['E_min']=min(energies);r['E_max']=max(energies)
+                    main.append(r)
+        path=self.result/'MAIN_TABLE.csv';csv_write(path,main);self.output(path);self.main=main
+        for name in self.tables:
+            path=self.result/name;csv_write(path,self.tables[name]);self.output(path)
+        rows=[]
+        for r in main:
+            if r['method'] not in ('P2048','whole_policy','entropy_policy'):continue
+            label=('P2048' if r['comparison_scope']=='P2048' else ('原69 ' if r['comparison_scope']=='legacy69' else '扩充82 ')+r['method'])
+            rows.append([r['snr_db'],label,f"{r['m']}/{r['K']}" if r['m']!='' else '—',
+                *[fmt(r.get(m+'_mean')) for m in ('E','psnr_db','lpips_alex','dinov2_vitl14_cosine','clip_image_cosine','dists')]])
+        text='# N2048 / 16QAM：m9 扩充对比\n\n每个测量行100张源图×3噪声；均值见下表，全部方法和95%源配对区间见CSV。\n\n'
+        text+=markdown(['SNR','方法','m/K','实际E','PSNR↑','LPIPS↓','DINOv2-L↑','CLIP↑','DISTS↓'],rows)+'\n'
+        path=self.result/'MAIN_TABLE.md';path.write_text(text,encoding='utf-8');self.output(path)
+        snapshots={'POLICY_EXPANDED.json':self.inputs.policy,'POLICY_LEGACY69.json':self.inputs.old_policy,
+            'UNAVAILABLE_ACTIONS.json':self.inputs.unavailable,'EVALUATION_REGISTRATION.json':self.metricreg,
+            'RUN_REGISTRATION.json':self.inputs.runreg,'CALIBRATION_COMPLETION.json':self.inputs.cal}
+        metapath=self.out/'metrics/model_metadata.json'
+        snapshots['MODEL_METADATA.json']=read(self.inputs.bind(metapath,self.done['outputs'][str(metapath)]))
+        protocol=Path(self.inputs.runreg['protocol_path'])
+        if not protocol.is_absolute():protocol=self.root/protocol
+        self.inputs.bind(protocol,self.inputs.runreg['protocol_sha256'])
+        costs=dict(new_actions=13,old_actions=69,combined_actions=82,calibration_sources=1000,
+            calibration_logical_frames=738000,reused_original_calibration_frames=621000,new_calibration_frames=117000,
+            development_method_rows=self.inputs.expanded_rows,development_max_method_rows=7200,
+            development_saved_source_seconds_sum=sum(float(c.get('seconds',0)) for c in self.inputs.checkpoints),
+            scoring_elapsed_seconds=self.done['elapsed_seconds'],online_single_frame_latency='NOT_MEASURED',
+            interpretation='Saved source workloads include cached PHY/decoding/scoring/I/O; do not divide by method labels to claim online latency')
+        snapshots['COSTS.json']=costs
+        for name,value in snapshots.items():path=self.result/name;write(path,value);self.output(path)
+        protocol_copy=self.result/'protocol.json';protocol_copy.write_bytes(protocol.read_bytes());self.output(protocol_copy)
+        sourcefolder=Path(__file__).resolve().parent
+        for source in sorted(sourcefolder.glob('*.py')):
+            self.inputs.bind(source);dest=self.result/'source_snapshot'/(source.name+'.txt');dest.parent.mkdir(exist_ok=True)
+            dest.write_bytes(source.read_bytes());self.output(dest)
+    def fixed_figures(self):
+        runtime=self.root/'outputs/EXTERNAL-COMPARISON-20261004/runtime';sys.path.insert(0,str(runtime))
+        history=HistoricalP(self.inputs)
+        saved={}
+        for i in FIXED:
+            cp=self.inputs.checkpoints[i];rows,images,target,slots=validate_source(cp,i,self.inputs.excluded)
+            by={('expanded',int(r['snr_db']),r['method']):(images[j],r) for r,j in zip(rows,slots) if int(r['noise_seed'])==2001}
+            path=self.legacy/'development/source_checkpoints'/f'{i:04d}.json'
+            old=read(self.inputs.bind(path,self.inputs.old_dev['outputs'][str(path)]))
+            require(old['binding']==ident(self.inputs.old_devreg) and old['payload_sha256']==ident({k:v for k,v in old.items() if k!='payload_sha256'}),
+                'Original float source checkpoint changed')
+            proof=old['float_reconstructions'];self.inputs.bind(proof['path'],self.inputs.old_dev['outputs'][proof['path']])
+            require(sha(proof['path'])==proof['sha256'],'Original float proof differs')
+            with np.load(proof['path'],allow_pickle=False) as z:
+                require(np.array_equal(target,z['source_rgb']) and z['row_ids'].tolist()==[r['replay_row_id'] for r in old['rows']],
+                    'Original/expanded float source mapping differs')
+                for r,j in zip(old['rows'],z['image_slots'].tolist()):
+                    if r['phy_family']==PHY and int(r['snr_db']) in SNRS and int(r['noise_seed'])==2001:
+                        image=z['images'][j].copy();require(rgb_sha(image)==r['image_sha256'],'Original image hash changed')
+                        by['legacy69',int(r['snr_db']),r['method']]=(image,r)
+            for (snr,seed),(image,row) in history.source(i).items():
+                if seed==2001:by['P2048',snr,'P2048']=(image,row)
+            saved[i]=target,by
+        for snr in SNRS:
+            for page in range(4):
+                indices=FIXED[page*4:page*4+4]
+                canvas,proof,columns=fixed_page(snr,page,indices,saved,self.inputs.legacy_policy,self.inputs.expanded_policy)
+                stem=f'fixed16_16QAM_snr{snr}_page{page+1}'
+                for ext in ('png','pdf'):
+                    path=self.result/'figures'/(stem+'.'+ext)
+                    if ext=='png':canvas.save(path,optimize=True)
+                    else:canvas.save(path,'PDF',resolution=180.)
+                    self.output(path)
+                self.figure_manifest.append(dict(png=f'figures/{stem}.png',pdf=f'figures/{stem}.pdf',N=2048,snr_db=snr,
+                    source_indices=list(indices),noise_seed=2001,columns=columns,float_inputs=proof,
+                    display_conversion='round(clamp(float32RGB,0,1)*255); existing float images only'))
+                canvas.close()
+        path=self.result/'FIGURE_MANIFEST.json';write(path,self.figure_manifest);self.output(path)
+    def report(self):
+        paired=self.tables['metrics_paired_intervals.csv'];comparisons=[];samek=[]
+        def find(snr,sa,ma,sb,mb,metric):return next((r for r in paired if int(r['snr_db'])==snr and
+            (r['scope_A'],r['method_A'],r['scope_B'],r['method_B'],r['metric'])==(sa,ma,sb,mb,metric)),None)
+        for snr in SNRS:
+            action=action_for(self.inputs.expanded_policy,snr,'entropy_policy')
+            for sa,ma,sb,mb,label in [('expanded','whole_policy','legacy69','whole_policy','扩充whole−旧whole'),
+                ('expanded','entropy_policy','legacy69','entropy_policy','扩充entropy−旧entropy'),
+                ('expanded','entropy_policy','expanded','whole_policy','扩充entropy−扩充whole'),
+                ('expanded','entropy_policy','P2048','P2048','扩充entropy−P2048')]:
+                comparisons.append([snr,label,*[ci(find(snr,sa,ma,sb,mb,m)) for m in
+                    ('psnr_db','lpips_alex','dinov2_vitl14_cosine','clip_image_cosine','dists')]])
+            for method in METHODS[5:]:
+                note='N/A: same K166 exceeds paid oracle mask budget' if (snr,method) in self.inputs.excluded else (
+                    'K0: identical whole action; no ordering test' if action['q']==0 else 'same m/K; oracle mask is charged')
+                samek.append([snr,action['m'],action['q'],method,note,*[ci(find(snr,'expanded','entropy_policy','expanded',method,m))
+                    for m in ('psnr_db','lpips_alex','dinov2_vitl14_cosine')]])
+        choices=[]
+        for snr in SNRS:
+            for method in ('whole_policy','entropy_policy'):
+                action=action_for(self.inputs.expanded_policy,snr,method)
+                choices.append([snr,method,action['m'],action['q'],action_interpretation(action)])
+        text='\n\n'.join(['# N2048 M1：m9 候选扩充',
+            '本次只补 16QAM 的7/13/19dB。沿用原1000张校准集、100张development和登记噪声种子；不训练、不更换损失、不按development选策。',
+            '**本次扩范围由查看旧development结果后提出。复用同一development的区间用于描述这组数据，不是独立holdout验证，也不作为未经选择的确认性显著性证据。**',
+            '## 新增范围',
+            '旧69个动作增加13个：m9 whole一个；m9+partial10的raster/random/entropy各K=64/128/166；付费oracle为K=64/128/144。共同82候选在原校准集按原rank规则重选。未补m8 partial或其他整数K，因此并非全部数学可能动作。',
+            '统一68次头、1980次正文；12bit兼容头登记mode5/mode6，未增加头部资源。raw token、CRC/tail、rate matching与oracle位置掩码全部计费，合法费率上限保持0.9。',
+            f'校准逻辑帧738000，其中旧621000帧复用，新增117000帧。本次实际development方法行{self.inputs.expanded_rows}，上限7200；非法same-K oracle不产生重建、灰图或伪造指标。',
+            '## 校准选中的动作',markdown(['SNR','方法','m','K','解释'],choices),
+            'K=0时只传完整尺度。m9 whole带来的收益只能归为扩充分辨率范围，不能归为partial传输或熵排序；partial贡献须看扩充entropy相对扩充whole，排序贡献须看同m/K控制。',
+            '## 主表与配对差值',
+            '[主表](MAIN_TABLE.md) · [所有方法完整均值和区间](MAIN_TABLE.csv) · [全部源配对差值](metrics_paired_intervals.csv)',
+            '差值A−B；PSNR、DINO、CLIP正值更好，LPIPS、DISTS负值更好。每个SNR先对每张源图的3个噪声平均，再以100张源图为单位配对bootstrap10000次，seed20261002。',
+            markdown(['SNR','对比','ΔPSNR [95%CI]','ΔLPIPS [95%CI]','ΔDINOv2-L [95%CI]','ΔCLIP [95%CI]','ΔDISTS [95%CI]'],comparisons),
+            '## 同K排序控制',markdown(['SNR','m','K','控制','解释','ΔPSNR [95%CI]','ΔLPIPS [95%CI]','ΔDINOv2-L [95%CI]'],samek),
+            '当entropy选K166时，付费oracle最多只能传K144，因此同K oracle标N/A；不降到K144冒充同K、不放宽编码率，也不能据此宣称已接近oracle上界。',
+            '## 指标、能量和历史对照',
+            '统一13项指标包括DINOv2 ViT-S/14和独立列ViT-L/14、CLIP、DISTS、DreamSim、MS-SSIM、ResNet50两种准确率、错配特异性与分类错误诊断。具体评测骨干/权重见[模型元数据](MODEL_METADATA.json)。分类器不一致是自动代理指标，不等同人工判断语义错误。',
+            '16QAM保留固定星座，表中分别给实际E均值、区间和范围，不能称逐帧与连续P严格同E。P2048使用历史最终模型及其训练seed2026092304；保留其原模型和解码口径，不宣称训练seed匹配。P与数字链只按相同源图和名义噪声种子配对，噪声命名空间不同。',
+            '原69策略指标按已完成回执复制。历史P只从已保存float RGB补缺少的指标，不重新生成图像或覆盖旧指标；补算项在逐帧provenance列中标明。F误差在无有效latent时使用登记的零擦除代理，二者不混称真实恢复误差。',
+            'CRC通过率、partial实际使用率、能量和F项在[完整主表](MAIN_TABLE.csv)，阶段成本在[COSTS](COSTS.json)。缓存批处理总时间不能除以方法行数当在线单帧时延。',
+            '## 固定16图',
+            '每个SNR四页，列为原图/P/旧whole/旧entropy/扩充whole/扩充entropy，seed2001。固定例子仅辅助看图，不替代100×3统计。',
+            '\n'.join(f'- {s}dB：'+', '.join(f'[PNG第{p}页](figures/fixed16_16QAM_snr{s}_page{p}.png) / [PDF](figures/fixed16_16QAM_snr{s}_page{p}.pdf)' for p in range(1,5)) for s in SNRS),
+            '所有科学结论分别报告语义、像素和感知取舍；某一指标胜出不等同全面优势。'])+'\n'
+        path=self.result/'REPORT.md';path.write_text(text,encoding='utf-8');self.output(path)
+        mirror=self.root/'reports/m1_n2048_m9_extension_20261004.md';mirror.parent.mkdir(parents=True,exist_ok=True)
+        prefix='../results/m1_n2048_m9_extension_20261004/'
+        for name in ('MAIN_TABLE.md','MAIN_TABLE.csv','metrics_paired_intervals.csv','MODEL_METADATA.json','COSTS.json','figures/'):
+            text=text.replace('('+name,'('+prefix+name)
+        mirror.write_text(text,encoding='utf-8');self.mirror=mirror
+    def build(self):
+        self.load();self.write_tables();self.fixed_figures();self.report();verify(self.inputs.bindings)
+        manifest=dict(status='M1_N2048_M9_STATIC_REPORT_COMPLETE',sources=100,expanded_rows=self.inputs.expanded_rows,
+            legacy_rows=7200,P_rows=900,outputs=self.outputs,input_bindings=self.inputs.bindings,
+            mirror_report=dict(path=str(self.mirror),**artifact_metadata(self.mirror)),fixed_source_indices=list(FIXED),
+            png_pages=12,pdf_pages=12,model_inference=False,metric_recomputation=False,training_updates=0,
+            intervals='descriptive on reused development after candidate-range revision',maximum_file_bytes_exclusive=LIMIT)
+        path=self.result/'MANIFEST.json';write(path,manifest);artifact_metadata(path)
+        metadata={str(self.result/name):value for name,value in self.outputs.items()}
+        metadata[str(path)]=artifact_metadata(path);metadata[str(self.mirror)]=artifact_metadata(self.mirror)
+        done=dict(status='M1_N2048_M9_REPORT_COMPLETE',sources=100,expanded_rows=self.inputs.expanded_rows,
+            score_completion_sha256=sha(self.out/'score_completion.json'),manifest_path=str(path),manifest_sha256=sha(path),
+            outputs={p:v['sha256'] for p,v in metadata.items()},output_metadata=metadata,input_bindings=self.inputs.bindings,
+            model_inference=False,training_updates=0)
+        seal(self.out/'report_completion.json',done);return done
+
+
+def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--stage',choices=('score','report'),required=True)
+    for name in ('root','out','legacy-out'):parser.add_argument('--'+name,type=Path,required=True)
+    parser.add_argument('--result',type=Path);a=parser.parse_args()
+    def stop(*_):
+        global STOP
+        STOP=True
+    signal.signal(signal.SIGTERM,stop);signal.signal(signal.SIGINT,stop)
+    import fcntl
+    a.out.mkdir(parents=True,exist_ok=True);lock=(a.out/'m9_score_report.lock').open('a+')
+    fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+    try:
+        if a.stage=='score':done=score(a.root,a.out,a.legacy_out)
+        else:done=Report(a.root,a.out,a.legacy_out,a.result or a.root/'results/m1_n2048_m9_extension_20261004').build()
+        print(done['status'],flush=True);return 0
+    except InterruptedError as error:
+        write(a.out/(a.stage+'_status.json'),dict(status='PAUSED',reason=str(error)));return 75
+    except Exception as error:
+        write(a.out/(a.stage+'_failure.json'),dict(status='FAILED_REQUIRES_REVIEW',error=repr(error)));raise
+    finally:lock.close()
+
+
+if __name__=='__main__':raise SystemExit(main())

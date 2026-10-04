@@ -1,0 +1,146 @@
+"""CPU-only source pairing, unavailable-oracle and lossless publication contracts."""
+import copy
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import unittest
+from unittest.mock import patch
+import numpy as np
+import m9_score_report as s
+
+
+def policy(k=166):
+    cells=[]
+    for snr in s.SNRS:
+        for method in ('whole','raster','random','entropy','oracle'):
+            q=0 if method=='whole' else k if method=='entropy' and snr==7 else 128
+            action=dict(N=2048,phy='16QAM',m=9,q=q,order='whole' if q==0 else method)
+            cells.append(dict(phy_family='16QAM',snr_db=snr,method=method,action=action))
+    return dict(sources=1000,noise_seeds=[4101,4102,4103],full_grid=True,development_read=False,cells=cells)
+
+
+def unavailable():
+    return dict(rows=[dict(N=2048,phy_family='16QAM',snr_db=7,method='oracle_at_entropy',m=9,q=166,
+        maximum_legal_q=144,status='NOT_FEASIBLE',reason='same_K_exceeds_paid_oracle_mask_budget')])
+
+
+def fixture(directory,excluded=()):
+    source=np.zeros((3,256,256),np.float32);images=np.stack([source+.25,source+.5]);rows=[]
+    for snr in s.SNRS:
+        for seed in s.SEEDS:
+            for method in s.METHODS:
+                if (snr,method) in excluded:continue
+                slot=len(rows)%2
+                rows.append(dict(source_index=0,source_id='source',preprocessing_id='preprocess',N=2048,
+                    phy_family='16QAM',snr_db=snr,noise_seed=seed,method=method,replay_row_id='r'+str(len(rows)),
+                    image_slot=slot,image_sha256=s.rgb_sha(images[slot]),reference_sha256=s.rgb_sha(source),label_conditioned=False))
+    archive=Path(directory)/'source.npz';np.savez(archive,images=images,source_rgb=source,
+        row_ids=np.asarray([r['replay_row_id'] for r in rows]),image_slots=np.asarray([r['image_slot'] for r in rows],np.int64))
+    cp=dict(source_index=0,record=dict(image_id='source',preprocessing_id='preprocess'),rows=rows,
+        float_reconstructions=dict(path=str(archive),sha256=s.sha(archive)))
+    cp['payload_sha256']=s.ident(cp)
+    return cp
+
+
+def population(excluded=()):
+    result=[]
+    for i in range(100):
+        for snr in s.SNRS:
+            for seed in s.SEEDS:
+                for scope,methods in (('expanded',s.METHODS),('legacy69',s.METHODS),('P2048',('P2048',))):
+                    for method in methods:
+                        if scope=='expanded' and (snr,method) in excluded:continue
+                        value=i*10+(seed-2001)*100+(3 if scope=='expanded' else 0)
+                        row=dict(source_index=i,source_id=f'source{i}',preprocessing_id=f'pre{i}',reference_sha256=f'ref{i}',
+                            N=2048,snr_db=snr,noise_seed=seed,comparison_scope=scope,method=method,
+                            phy_family='continuous' if scope=='P2048' else '16QAM')
+                        row.update({m:value for m in s.METRICS});result.append(row)
+    return result
+
+
+class Contracts(unittest.TestCase):
+    def test_legacy_header_dictionary_change_cannot_reuse_accepted_illegal_header(self):
+        s.legacy_header_compatibility([dict(header_crc_ok=False,header_fields_legal=False),
+            dict(header_crc_ok=True,header_fields_legal=True)])
+        with self.assertRaises(RuntimeError):s.legacy_header_compatibility([dict(header_crc_ok=True,header_fields_legal=False)])
+        with self.assertRaises(RuntimeError):s.legacy_header_compatibility([dict(header_crc_ok=True)])
+
+    def test_new_grid_and_unavailable_oracle_keep_requested_K(self):
+        chosen=s.policy_index(policy(),True)
+        self.assertEqual(s.unavailable_cells(chosen,unavailable()),{(7,'oracle_at_entropy')})
+        bad=unavailable();bad['rows'][0]['q']=144
+        with self.assertRaises(RuntimeError):s.unavailable_cells(chosen,bad)
+        with self.assertRaises(RuntimeError):s.unavailable_cells(chosen,dict(rows=[]))
+        bad=policy();bad['cells'][0]['action']['q']=192;bad['cells'][0]['action']['order']='entropy'
+        with self.assertRaises(RuntimeError):s.policy_index(bad,True)
+
+    def test_K0_is_not_partial_or_ordering_contribution(self):
+        text=s.action_interpretation(dict(m=9,q=0))
+        self.assertIn('whole-scale',text);self.assertIn('no partial-token',text)
+        self.assertEqual(s.action_interpretation(dict(m=9,q=128)),'partial scale 10')
+        chosen=s.policy_index(policy(0),True)
+        self.assertEqual(s.action_for(chosen,7,'oracle_at_entropy')['order'],'whole')
+
+    def test_dynamic_source_has_only_real_legal_rows(self):
+        excluded={(7,'oracle_at_entropy')}
+        with tempfile.TemporaryDirectory() as d:
+            cp=fixture(d,excluded);rows,_,_,_=s.validate_source(cp,0,excluded)
+            self.assertEqual(len(rows),69)
+            with self.assertRaises(RuntimeError):s.validate_source(cp,0)
+            bad=copy.deepcopy(cp);bad['rows'][0]['image_slot']=1-bad['rows'][0]['image_slot']
+            bad['payload_sha256']=s.ident({k:v for k,v in bad.items() if k!='payload_sha256'})
+            with self.assertRaises(RuntimeError):s.validate_source(bad,0,excluded)
+
+    def test_wrong_reference_or_quantized_images_rejected(self):
+        with tempfile.TemporaryDirectory() as d:
+            cp=fixture(d);cp['rows'][0]['reference_sha256']='0'*64
+            cp['payload_sha256']=s.ident({k:v for k,v in cp.items() if k!='payload_sha256'})
+            with self.assertRaises(RuntimeError):s.validate_source(cp,0)
+        with self.assertRaises(RuntimeError):s.rgb_sha(np.zeros((3,256,256),np.uint8))
+
+    def test_paired_means_use_sources_after_three_noise_repeats(self):
+        excluded={(7,'oracle_at_entropy')};rows=population(excluded);original=s.interval
+        # Small test draw count; production interval receives the registered10000 draws.
+        with patch.object(s,'METRICS',('psnr_db',)),patch.object(s,'EXTRA',()),patch.object(s,'EVENTS',()),\
+             patch.object(s,'interval',lambda v,draws:original(v,draws[:32])):
+            summary,paired=s.analyze(rows,excluded)
+            selected=[r for r in paired if r['scope_A']=='expanded' and r['scope_B']=='legacy69']
+            self.assertEqual(len(selected),23)
+            self.assertTrue(all(r['mean']==r['ci_low']==r['ci_high']==3 for r in selected))
+            self.assertFalse(any(r['scope_A']=='expanded' and r['snr_db']==7 and r['method_A']=='oracle_at_entropy' for r in paired))
+            self.assertEqual(len(summary),50)
+
+    def test_pairing_rejects_mismatched_source_identity_and_missing_frames(self):
+        rows=population();original=s.interval
+        with patch.object(s,'METRICS',('psnr_db',)),patch.object(s,'EXTRA',()),patch.object(s,'EVENTS',()),\
+             patch.object(s,'interval',lambda v,draws:original(v,draws[:2])):
+            with self.assertRaises(RuntimeError):s.analyze(rows[:-1])
+            rows[0]['reference_sha256']='wrong'
+            with self.assertRaises(RuntimeError):s.analyze(rows)
+
+    def test_mandatory_P_metrics_cannot_be_imputed_as_zero(self):
+        rows=population();next(r for r in rows if r['comparison_scope']=='P2048')['psnr_db']=None
+        with patch.object(s,'METRICS',('psnr_db',)),patch.object(s,'EXTRA',()),patch.object(s,'EVENTS',()):
+            with self.assertRaises(RuntimeError):s.analyze(rows)
+
+    def test_artifact_manifest_records_exact_bytes(self):
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/'REPORT.md';path.write_bytes(b'first\n')
+            first=s.artifact_metadata(path);self.assertEqual(first,dict(sha256=s.sha(path),bytes=6))
+            path.write_bytes(b'changed\n')
+            self.assertNotEqual(first,s.artifact_metadata(path))
+
+    def test_report_method_not_shadowed_by_loaded_table_dictionary(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);report=s.Report(root,root/'out',root/'old',root/'results')
+            report.tables={}
+            self.assertTrue(callable(report.write_tables))
+
+    def test_cpu_import_does_not_load_metric_models(self):
+        script='import sys,m9_score_report; assert "torch" not in sys.modules; assert "torchvision" not in sys.modules'
+        result=subprocess.run([sys.executable,'-c',script],cwd=Path(__file__).parent,capture_output=True,text=True)
+        self.assertEqual(result.returncode,0,result.stderr)
+
+
+if __name__=='__main__':unittest.main()

@@ -1,0 +1,290 @@
+"""Reviewed CPU-only report recovery; never run inference, scoring or training.
+
+The original failed owner and report receipts are archived with their original
+hashes before constructing the unchanged owner. Only its publish/resume methods
+are used. Recovery executables remain outside the frozen fourteen-file code tree.
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import shutil
+import signal
+import subprocess
+import sys
+import time
+from types import SimpleNamespace
+
+VERSION = 'M1_M9_DELIVERY_RECOVERY_V1'
+STAGES = ('qualify', 'benchmark', 'calibrate', 'development', 'score')
+PARTIAL_NAMES = {'MAIN_TABLE.csv', 'MAIN_TABLE.md', 'metrics_summary.csv', 'metrics_paired_intervals.csv'}
+STOP = False
+
+
+def require(test, message):
+    if not test:
+        raise RuntimeError(message)
+
+
+def read(path):
+    return json.loads(Path(path).read_text(encoding='utf-8-sig'))
+
+
+def sha(path):
+    digest = hashlib.sha256()
+    with Path(path).open('rb') as stream:
+        for block in iter(lambda: stream.read(8 * 1024 * 1024), b''):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def write(path, value):
+    path = Path(path); path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(path.name + '.%d.tmp' % os.getpid())
+    temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + '\n', encoding='utf-8')
+    os.replace(temporary, path)
+
+
+def seal(path, value):
+    if Path(path).exists():
+        require(read(path) == value, 'Sealed recovery evidence differs: ' + str(path))
+    else:
+        write(path, value)
+
+
+def verify(bindings, root=None):
+    require(isinstance(bindings, dict) and bindings, 'Nonempty hash bindings required')
+    resolved = {}
+    for name, digest in bindings.items():
+        require(isinstance(name, str) and isinstance(digest, str) and len(digest) == 64
+                and all(c in '0123456789abcdef' for c in digest), 'Malformed file SHA256 binding')
+        path = Path(name)
+        if not path.is_absolute():
+            require(root is not None, 'Absolute recovery binding required')
+            path = Path(root) / path
+        path = path.resolve()
+        require(path.is_file() and sha(path) == digest, 'Recovery bound file missing or changed: ' + str(path))
+        resolved[path] = digest
+    return resolved
+
+
+def process_identity(pid):
+    try:
+        directory = Path('/proc') / str(pid)
+        fields = (directory / 'stat').read_text().rsplit(')', 1)[1].split()
+        if fields[0] == 'Z':
+            return None
+        return dict(pid=pid, start_ticks=int(fields[19]), uid=directory.stat().st_uid,
+                    argv=[os.fsdecode(x) for x in (directory / 'cmdline').read_bytes().split(b'\0') if x])
+    except (FileNotFoundError, ProcessLookupError):
+        return None
+
+
+def load_owner(code):
+    path = code / 'm9_owner.py'
+    spec = importlib.util.spec_from_file_location('_frozen_m9_owner_recovery', path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def validate_registration(root, out, recovery, registration_path):
+    registration = read(registration_path)
+    require(registration.get('status') == 'REGISTERED_REPORT_ONLY_RECOVERY', 'Reviewed report-only recovery registration required')
+    code = out / 'code'
+    for field, expected in dict(root=root, out=out, code=code, recovery_dir=recovery).items():
+        require(registration.get(field) == str(expected), 'Recovery target mismatch: ' + field)
+    require(root in out.parents and out in code.parents and recovery == out / 'recovery_v1', 'Unexpected recovery location')
+    bound = verify(registration['bindings'])
+    reg_path = out / 'registration.json'
+    require(bound.get(reg_path) == registration['original_registration_sha256'] == sha(reg_path), 'Original registration differs')
+    original = read(reg_path)
+    require(original.get('status') == 'REGISTERED' and 'protocol_path' not in original,
+            'This recovery is only for the registered missing protocol_path report field')
+    source_bound = verify(original['source_bindings'], root)
+    verify(original['input_bindings'], root)
+    sources = sorted(p.resolve() for p in code.glob('*.py'))
+    require(len(sources) == 14 and all(source_bound.get(p) == sha(p) for p in sources), 'Frozen fourteen-source inventory differs')
+    protocol = code / 'protocol.json'
+    require(bound.get(protocol) == original.get('protocol_sha256') == sha(protocol)
+            and source_bound.get(protocol) == sha(protocol), 'Frozen protocol path/hash binding differs')
+    for path in sources + sorted(p.resolve() for p in recovery.glob('*.py')):
+        require(bound.get(path) == sha(path), 'Executable missing from recovery registration: ' + str(path))
+    require(bound.get(recovery / 'deliver_recovery.py') == sha(__file__)
+            and (recovery / 'report_recovery.py') in bound, 'Recovery entry points must both be frozen')
+    expected_completions = {out / (stage + '_completion.json') for stage in STAGES}
+    completions = verify(registration['completion_bindings'])
+    require(set(completions) == expected_completions and all(bound.get(p) == h for p, h in completions.items()),
+            'Exactly five original complete stages must be bound')
+    failures = verify(registration['pre_failure_bindings'])
+    require(set(failures) == {out / 'owner_failure.json', out / 'report_failure.json'}, 'Exact original failure receipts required')
+    report_failure = read(out / 'report_failure.json')
+    require(report_failure.get('status') == 'FAILED_REQUIRES_REVIEW'
+            and report_failure.get('error') == "KeyError('protocol_path')", 'Report did not fail with the reviewed exact KeyError')
+    owner_failure = read(out / 'owner_failure.json')
+    expected_owner_error = repr(RuntimeError('Child failed (exit 1); preserve log and receipts: ' + str(out / 'logs/report.log')))
+    require(owner_failure.get('status') == 'FAILED_REQUIRES_REVIEW'
+            and owner_failure.get('version') == 'M1_M9_OWNER_V1'
+            and owner_failure.get('error') == expected_owner_error, 'Owner did not fail solely on the reviewed report subprocess')
+    partials = verify(registration['partial_result_bindings'])
+    result = root / 'results/m1_n2048_m9_extension_20261004'
+    require(set(partials) == {result / name for name in PARTIAL_NAMES}, 'Unexpected partial report artifact set')
+    identity = registration['original_owner_identity']
+    require(set(('pid', 'start_ticks', 'uid', 'argv')) <= set(identity)
+            and type(identity['pid']) is int and identity['pid'] > 1
+            and type(identity['uid']) is int and isinstance(identity['argv'], list) and identity['argv'], 'Invalid original owner identity')
+    expected_identity = {key: identity[key] for key in ('pid', 'start_ticks', 'uid', 'argv')}
+    expected_identity['start_ticks'] = int(expected_identity['start_ticks'])
+    require(process_identity(identity['pid']) != expected_identity, 'Original owner identity is still alive')
+    require(not (out / 'STOP').exists() and not STOP, 'Recovery stop requested')
+    for name in ('publication_completion.json', 'report_completion.json', 'publication_inventory.json'):
+        require(not (out / name).exists(), 'Unexpected later-stage receipt exists; inspect instead of retrying: ' + name)
+    for name in ('archive_plan.json', 'archive_completion.json', 'recovery_failure.json', 'recovery_completion.json'):
+        require(not (recovery / name).exists(), 'Previous recovery attempt exists; no automatic retry: ' + name)
+    head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip()
+    require(head == registration['original_git_head'], 'Repository HEAD changed since the reviewed recovery inventory')
+    return registration, sources
+
+
+def archive_original(out, recovery, registration):
+    failures = [dict(source=name, archive=str(recovery / ('original_' + Path(name).name)), sha256=digest)
+                for name, digest in sorted(registration['pre_failure_bindings'].items())]
+    partials = [dict(source=name, archive=str(recovery / 'partial_results_before' / Path(name).name), sha256=digest)
+                for name, digest in sorted(registration['partial_result_bindings'].items())]
+    require(all(not Path(item['archive']).exists() for item in failures + partials), 'Archive target already exists')
+    plan = dict(status='SEALED_BEFORE_ARCHIVE', version=VERSION, failures=failures, partial_results=partials,
+        recovery_registration_sha256=sha(recovery / 'recovery_registration.json'),
+        failure_action='move; original bytes preserved', partial_result_action='copy; original bytes retained in place')
+    seal(recovery / 'archive_plan.json', plan)
+    for item in partials:
+        source, target = Path(item['source']), Path(item['archive'])
+        require(sha(source) == item['sha256'], 'Partial result changed before archival')
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+        require(sha(target) == sha(source) == item['sha256'], 'Partial result archival failed')
+    for item in failures:
+        source, target = Path(item['source']), Path(item['archive'])
+        require(sha(source) == item['sha256'], 'Failure evidence changed before archival')
+        os.replace(source, target)
+        require(not source.exists() and sha(target) == item['sha256'], 'Failure receipt archival failed')
+    completed = dict(status='ORIGINAL_FAILURES_AND_PARTIAL_RESULTS_ARCHIVED', version=VERSION,
+        archive_plan_sha256=sha(recovery / 'archive_plan.json'), failures=failures, partial_results=partials,
+        source_inference=False, metric_computation=False, training_updates=0)
+    seal(recovery / 'archive_completion.json', completed)
+    return completed
+
+
+def run(root, out):
+    recovery = out / 'recovery_v1'; code = out / 'code'
+    registration_path = recovery / 'recovery_registration.json'
+    registration_sha = sha(registration_path)
+    registration, sources = validate_registration(root, out, recovery, registration_path)
+    original_owner = load_owner(code)
+    def stop(*_):
+        global STOP
+        STOP = True; original_owner.STOP = True
+    signal.signal(signal.SIGTERM, stop); signal.signal(signal.SIGINT, stop)
+    original_owner.STOP = False
+    def guard():
+        require(not STOP and not (out / 'STOP').exists(), 'Recovery stop requested')
+        require(sha(registration_path) == registration_sha, 'Recovery registration changed')
+        verify(registration['bindings']); verify(registration['completion_bindings'])
+        require(sorted(p.resolve() for p in code.glob('*.py')) == sources, 'Frozen code inventory changed')
+    # Validate every original scientific result before moving the failure gate.
+    probe = SimpleNamespace(out=out, registration_sha256=registration['original_registration_sha256'])
+    for stage in STAGES:
+        original_owner.Owner.receipt(probe, stage)
+    original_owner.Owner.gpu_idle(probe)
+    guard()
+    # No scientific or scoring process may retain the output locks. The report
+    # wrapper acquires its own report lock after these preflight locks release.
+    import fcntl
+    preflight_locks = []
+    try:
+        for name in ('execution.lock', 'm9_score_report.lock'):
+            lock = (out / name).open('a+'); preflight_locks.append(lock)
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        archive_original(out, recovery, registration)
+    finally:
+        for lock in preflight_locks:
+            lock.close()
+    owner = None
+    try:
+        guard()
+        owner = original_owner.Owner(root, out, code=code)
+        write(recovery / 'recovery_identity.json', dict(version=VERSION, **process_identity(os.getpid())))
+        for stage in STAGES:
+            owner.receipt(stage)
+        owner.status('REPORT_ONLY_RECOVERY', recovery_registration_sha256=registration_sha,
+                     inference=False, metric_computation=False, training_updates=0)
+        owner.execute('report_recovery', [owner.native, '-B', recovery / 'report_recovery.py',
+            '--root', root, '--out', out, '--legacy-out', owner.legacy], gpu=False)
+        guard(); owner.receipt('report')
+        publication = owner.publish()
+        guard()
+        owner.resume_uep()
+        guard()
+        require(read(out / 'uep_resume_state.json').get('status') == 'RESUMED', 'UEP helper has no verified RESUMED state')
+        archive = read(recovery / 'archive_completion.json')
+        for item in archive['failures'] + archive['partial_results']:
+            require(sha(item['archive']) == item['sha256'], 'Archived evidence changed during recovery')
+        receipt = dict(status='RECOVERED_PUBLISHED_AND_UEP_RESUMED', version=VERSION,
+            recovery_registration_sha256=registration_sha, original_registration_sha256=registration['original_registration_sha256'],
+            original_completed_stage_sha256=registration['completion_bindings'],
+            archive_completion_sha256=sha(recovery / 'archive_completion.json'),
+            report_completion_sha256=sha(out / 'report_completion.json'),
+            publication_completion_sha256=sha(out / 'publication_completion.json'),
+            commit=publication['commit'], remote_commit=publication['remote_commit'], checks=publication['checks'],
+            uep_resume_state_sha256=sha(out / 'uep_resume_state.json'),
+            uep_resume_launch_sha256=sha(out / 'uep_resume_launch.json'),
+            training_updates=0, model_inference=False, metric_recomputation=False, source_image_redecode=False,
+            figure_regeneration_from_saved_rgb=True, original_scientific_and_score_receipts_unchanged=True,
+            original_failures_preserved=True, live_python_sources_staged=False, time=time.time())
+        seal(recovery / 'recovery_completion.json', receipt)
+        owner.status('RECOVERED_PUBLISHED_AND_UEP_RESUMED', commit=publication['commit'],
+                     recovery_completion_sha256=sha(recovery / 'recovery_completion.json'))
+        return receipt
+    except BaseException:
+        if owner is not None:
+            owner.cleanup()
+        raise
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--root', required=True); parser.add_argument('--out', required=True)
+    args = parser.parse_args()
+    root, out = Path(args.root).resolve(), Path(args.out).resolve()
+    require(root in out.parents and out.is_dir(), 'Existing output inside repository required')
+    require(Path(__file__).resolve() == out / 'recovery_v1/deliver_recovery.py', 'Run the registered recovery entry point in its declared directory')
+    import fcntl
+    lock = (out / 'owner.lock').open('a+')
+    # A lock failure performs no filesystem mutation beyond opening the lock.
+    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    try:
+        receipt = run(root, out)
+        print(json.dumps(dict(status=receipt['status'], commit=receipt['commit'])), flush=True)
+    except BaseException as error:
+        failure = dict(status='FAILED_REQUIRES_REVIEW', version=VERSION, error=repr(error), time=time.time(),
+            automatic_retry=False, existing_results_retained=True, scientific_stages_restarted=False,
+            publication_complete=(out / 'publication_completion.json').is_file(),
+            uep_resume_state_present=(out / 'uep_resume_state.json').is_file())
+        path = out / 'recovery_v1/recovery_failure.json'
+        if not path.exists():
+            write(path, failure)
+        # Never overwrite the old failure if preflight/archival failed before
+        # its move; after archival this is a distinct new failure at the gate.
+        if not (out / 'owner_failure.json').exists():
+            write(out / 'owner_failure.json', dict(failure, recovery_failure_path=str(path), recovery_failure_sha256=sha(path)))
+        raise
+    finally:
+        lock.close()
+
+
+if __name__ == '__main__':
+    main()

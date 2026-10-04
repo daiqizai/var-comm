@@ -1,0 +1,194 @@
+"""CPU-only scope, legacy reuse admission and paid same-K feasibility tests."""
+import copy
+from pathlib import Path
+import tempfile
+from types import SimpleNamespace
+import unittest
+
+import m9_common as u
+from m9_run import Runner,PauseRequested
+from m9_native import Native
+
+
+def new_actions():
+    result=[SimpleNamespace(N=2048,phy='16QAM',m=9,q=0,order='whole')]
+    for order in ('raster','random','entropy','oracle'):
+        for k in (64,128,144 if order=='oracle' else 166):
+            result.append(SimpleNamespace(N=2048,phy='16QAM',m=9,q=k,order=order))
+    return result
+
+
+def old_actions():
+    result=[SimpleNamespace(N=2048,phy='16QAM',m=m,q=0,order='whole') for m in range(4,9)]
+    for order in ('raster','random','entropy','oracle'):
+        for m,counts in ((4,(6,12,18,24)),(5,(9,18,27,35)),(6,(16,32,48,63)),(7,(25,50,75,99))):
+            for k in counts:result.append(SimpleNamespace(N=2048,phy='16QAM',m=m,q=k,order=order))
+    return result
+
+
+def source_rows(actions,index=0):
+    return [dict(phy_family=a.phy,snr_db=snr,action_id=u.action_id(a),noise_seed=seed,
+                 source_index=index,source_id='source'+str(index),preprocessing_id='pixels'+str(index),N=2048,
+                 m=a.m,q=a.q,order=a.order,psnr_db=20.,lpips_alex=.25,dino_cosine=.5,E=4096.,
+                 header_ok=True,body_crc_ok=True,header_crc_ok=True,header_fields_legal=True)
+            for a,snr,seed in Runner.task_grid(actions,u.CAL_SEEDS)]
+
+
+class GridTests(unittest.TestCase):
+    def test_new_grid_is117_physical_frames_and_combined738(self):
+        new=Runner.task_grid(new_actions(),u.CAL_SEEDS);old=Runner.task_grid(old_actions(),u.CAL_SEEDS)
+        self.assertEqual((len(new),len(old)),(117,621))
+        keys={(u.action_id(a),s,n) for a,s,n in new+old}
+        self.assertEqual(len(keys),738);self.assertEqual({s for _,s,_ in new},{7,13,19})
+
+    def test_new_source_missing_duplicate_or_wrong_identity_is_rejected(self):
+        runner=Runner.__new__(Runner);rows=source_rows(new_actions());data=dict(records=[dict(image_id='source0',preprocessing_id='pixels0')])
+        runner.validate_calibration_rows(rows,data,0,new_actions())
+        for changed in (rows[:-1],rows[:-1]+rows[:1]):
+            with self.assertRaises(RuntimeError):runner.validate_calibration_rows(changed,data,0,new_actions())
+        wrong=copy.deepcopy(rows);wrong[0]['source_id']='foreign'
+        with self.assertRaises(RuntimeError):runner.validate_calibration_rows(wrong,data,0,new_actions())
+
+    def test_native_actions_admit_only_registered13_and_disjoint69(self):
+        native=Native.__new__(Native)
+        def make(**values):return SimpleNamespace(**values)
+        native.phy=SimpleNamespace(ORDERS=('raster','random','entropy','oracle'),action_grid=lambda *a,**k:new_actions(),Action=make)
+        native.legacy_phy=SimpleNamespace(ORDERS=native.phy.ORDERS,action_grid=lambda *a,**k:old_actions())
+        self.assertEqual(len(native.actions()),13);self.assertEqual(len(native.combined_actions()),82)
+        native.phy.action_grid=lambda *a,**k:new_actions()[:-1]
+        with self.assertRaises(RuntimeError):native.actions()
+
+    def test_streaming_summary_has246_cells_and_preserves_failure_definition(self):
+        rows=source_rows(old_actions())+source_rows(new_actions());rows[0]['header_ok']=False;rows[1]['body_crc_ok']=False
+        accumulated,first={},{};Runner.aggregate_rows(accumulated,first,rows);summary=Runner.summaries(accumulated,first)
+        self.assertEqual(len(summary),246);self.assertTrue(all(r['rows']==3 for r in summary))
+        row=next(r for r in summary if r['action_id']==rows[0]['action_id'] and r['snr_db']==7)
+        self.assertEqual(row['failure_fraction'],2/3)
+
+    def test_requested_stop_is_source_boundary_pause(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runner=Runner.__new__(Runner);runner.out=Path(tmp);runner.stop=False;runner.guard()
+            runner.stopped()
+            with self.assertRaises(PauseRequested):runner.guard()
+
+
+class LegacyTests(unittest.TestCase):
+    def make_source(self,folder):
+        runner=Runner.__new__(Runner);runner.original_out=folder/'old'
+        path=runner.original_out/'calibrate/source_checkpoints/0000.json'
+        target=source_rows(old_actions());other=[dict(phy_family='QPSK',snr_db=1) for _ in range(1449)]
+        payload=dict(binding='frozen',source_index=0,rows=target+other,synthetic=False,development_read=False)
+        u.sealed_checkpoint(path,payload)
+        audit=dict(calibration_binding='frozen',source_checkpoint_sha256={str(path):u.sha(path)})
+        data=dict(records=[dict(image_id='source0',preprocessing_id='pixels0')])
+        return runner,path,payload,audit,data
+
+    def test_legacy_target621_rows_are_reused_without_scoring(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runner,path,payload,audit,data=self.make_source(Path(tmp));before=u.sha(path)
+            rows=runner.legacy_source(audit,data,0,old_actions())
+            self.assertEqual(len(rows),621);self.assertEqual(u.sha(path),before)
+
+    def test_legacy_checkpoint_changes_fail_before_reuse(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runner,path,payload,audit,data=self.make_source(Path(tmp));value=u.read(path);value['rows'][0]['psnr_db']=30.;u.write(path,value)
+            with self.assertRaisesRegex(RuntimeError,'Audited legacy source changed'):runner.legacy_source(audit,data,0,old_actions())
+
+    def test_crc_accepted_illegal_legacy_header_is_never_silently_reused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runner,path,payload,audit,data=self.make_source(Path(tmp));payload['rows'][0]['header_fields_legal']=False
+            value=dict(payload,payload_sha256=u.identity(payload));u.write(path,value);audit['source_checkpoint_sha256'][str(path)]=u.sha(path)
+            with self.assertRaisesRegex(RuntimeError,'illegal header'):runner.legacy_source(audit,data,0,old_actions())
+
+    def test_legacy_wrong_source_and_incomplete_action_coverage_fail(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runner,path,payload,audit,data=self.make_source(Path(tmp));payload['rows'][0]['source_id']='different'
+            u.write(path,dict(payload,payload_sha256=u.identity(payload)));audit['source_checkpoint_sha256'][str(path)]=u.sha(path)
+            with self.assertRaisesRegex(RuntimeError,'population differs'):runner.legacy_source(audit,data,0,old_actions())
+            payload['rows'][0]=payload['rows'][1]
+            u.write(path,dict(payload,payload_sha256=u.identity(payload)));audit['source_checkpoint_sha256'][str(path)]=u.sha(path)
+            with self.assertRaisesRegex(RuntimeError,'coverage changed'):runner.legacy_source(audit,data,0,old_actions())
+
+    def test_legacy_audit_requires_all1000_hashes_and_exact_scope(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder=Path(tmp);runner=Runner.__new__(Runner);runner.original_out=folder/'old';runner.compatibility_path=folder/'audit.json'
+            reg=runner.original_out/'calibrate_registration.json';u.write(reg,dict(stage='calibrate'))
+            audit=dict(status='LEGACY_CALIBRATION_REUSE_AUDITED',sources=1000,target_snrs=u.SNRS,target_rows=621000,
+                incompatible_header_count=0,original_out=str(runner.original_out),calibration_registration_sha256=u.sha(reg),
+                calibration_binding=u.identity(u.read(reg)),source_checkpoint_sha256={
+                    str(runner.original_out/'calibrate/source_checkpoints'/('%04d.json'%i)):'a'*64 for i in range(1000)})
+            u.write(runner.compatibility_path,audit);runner.legacy_audit()
+            audit['source_checkpoint_sha256'].pop(next(iter(audit['source_checkpoint_sha256'])));u.write(runner.compatibility_path,audit)
+            with self.assertRaisesRegex(RuntimeError,'all1000'):runner.legacy_audit()
+
+    def summary_fixture(self,folder):
+        runner=Runner.__new__(Runner);runner.original_out=folder
+        accumulated,first={},{};Runner.aggregate_rows(accumulated,first,source_rows(old_actions()))
+        summary=Runner.summaries(accumulated,first)
+        for row in summary:row['rows']=3000
+        def rank(group):
+            reference=min(group,key=lambda r:(r['failure_fraction'],-r['m'],-r['q'],r['action_id']))
+            return sorted(group,key=lambda r:(r['lpips_alex'],r['failure_fraction'],r['action_id'])),reference
+        native=SimpleNamespace(m1=SimpleNamespace(rank=rank),action=lambda record:SimpleNamespace(**record))
+        mapping={u.action_id(a):a for a in old_actions()};cells=[]
+        for snr in u.SNRS:
+            for method in u.METHODS:
+                group=[r for r in summary if r['snr_db']==snr and (r['q']==0 if method=='whole' else r['q']==0 or r['order']==method)]
+                ranked,reference=rank(group)
+                cells.append(dict(phy_family='16QAM',snr_db=snr,method=method,
+                    action=u.action_dict(mapping[ranked[0]['action_id']]),reliability_reference=reference))
+        u.write_csv(folder/'calibration_summary.csv',summary);u.write(folder/'m1_policy.json',dict(cells=cells))
+        return runner,native,summary,cells
+
+    def test_legacy_summary_and_all15_original_winners_must_reproduce(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runner,native,summary,cells=self.summary_fixture(Path(tmp))
+            result=runner.verify_legacy_rank(summary,native)
+            self.assertEqual(result['status'],'LEGACY69_SUMMARY_AND_WINNERS_EXACT');self.assertEqual(len(result['cells']),15)
+            cells[0]['action']=u.action_dict(old_actions()[4]);u.write(runner.original_out/'m1_policy.json',dict(cells=cells))
+            with self.assertRaisesRegex(RuntimeError,'original winner'):runner.verify_legacy_rank(summary,native)
+
+    def test_changed_legacy_summary_cannot_be_merged_as_original_quality(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runner,native,summary,_=self.summary_fixture(Path(tmp));altered=copy.deepcopy(summary);altered[0]['lpips_alex']+=.001
+            u.write_csv(runner.original_out/'calibration_summary.csv',altered)
+            with self.assertRaisesRegex(RuntimeError,'original summary'):runner.verify_legacy_rank(summary,native)
+
+
+class SameKTests(unittest.TestCase):
+    def runner(self,quantities):
+        runner=Runner.__new__(Runner)
+        def action(N,phy,m,q,order):
+            if order=='oracle' and m==9 and q>144:raise ValueError('paid oracle mask exceeds budget')
+            return SimpleNamespace(N=N,phy=phy,m=m,q=q,order='whole' if q==0 else order)
+        native=SimpleNamespace(action=lambda d:action(**d),phy=SimpleNamespace(Action=action,max_legal_q=lambda *args:144))
+        runner.load=lambda:native
+        cells={('16QAM',snr,method):dict(action=dict(N=2048,phy='16QAM',m=9,q=quantities[snr] if method=='entropy' else 0,
+            order='entropy' if method=='entropy' else 'whole')) for snr in u.SNRS for method in u.METHODS}
+        return runner,cells
+
+    def test_illegal_oracle_at_entropy_is_missing_without_truncation(self):
+        runner,cells=self.runner({7:166,13:166,19:166});choices=runner.development_choices(cells)
+        self.assertEqual(sum(len(v)*3 for v in choices.values()),63);self.assertEqual(len(runner.unavailable_actions),3)
+        for methods in choices.values():
+            self.assertNotIn('oracle_at_entropy',methods);self.assertEqual(methods['entropy_policy'].q,166)
+            self.assertEqual(methods['raster_at_entropy'].q,166);self.assertEqual(methods['random_at_entropy'].q,166)
+        self.assertTrue(all(row['q']==166 and row['maximum_legal_q']==144 for row in runner.unavailable_actions))
+
+    def test_legal128_sameK_and_whole_degeneracy_are_preserved(self):
+        runner,cells=self.runner({7:128,13:166,19:0});choices=runner.development_choices(cells)
+        self.assertEqual(sum(len(v)*3 for v in choices.values()),69)
+        self.assertEqual(choices['16QAM',7]['oracle_at_entropy'].q,128)
+        self.assertEqual(choices['16QAM',19]['oracle_at_entropy'].order,'whole')
+        self.assertEqual(len(runner.unavailable_actions),1)
+
+    def test_unexpected_failure_in_a_deployable_order_is_not_hidden(self):
+        runner,cells=self.runner({7:64,13:64,19:64});native=runner.load();original=native.phy.Action
+        def broken(*args):
+            if args[-1]=='random':raise ValueError('unexpected')
+            return original(*args)
+        native.phy.Action=broken
+        with self.assertRaisesRegex(RuntimeError,'Unexpected invalid'):runner.development_choices(cells)
+
+
+if __name__=='__main__':unittest.main(verbosity=2)

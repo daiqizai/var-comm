@@ -1,0 +1,170 @@
+"""Private frozen M1 assets with the registered m9 header/domain extension."""
+from __future__ import annotations
+import os
+from pathlib import Path
+import signal
+import sys
+import time
+
+import numpy as np
+import m9_common as u
+
+
+class Native:
+    def __init__(self, root, signal_handler):
+        self.root = Path(root).resolve()
+        os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+        sys.path.insert(0, str(self.root/"src"))
+        original_source = self.root/"experiments/scale-causal-partial-residual-20261002"
+        replay_path = self.root/"experiments/unified-metrics-20261002/replay.py"
+        registered = u.read(self.root/"outputs/UNIFIED-METRICS-20261002/supervisor_registration.json")
+        u.require(registered["source_bindings"].get(str(replay_path)) == u.sha(replay_path), "Original replay loader changed")
+        replay = u.load_module("_m9_original_replay", replay_path)
+        load = replay.load_file_module
+        old = self.root/"experiments/extreme-bandwidth-20261001-N1024"
+        self.assets = load("_m9_original_assets", old/"assets.py")
+        oldphy = load("_m9_old_digital_phy", old/"digital_protocol.py")
+        digital = load("_m9_old_digital", old/"digital.py", {"assets": self.assets, "digital_protocol": oldphy})
+        self.common = load("_m9_original_common", original_source/"common.py", {"assets": self.assets, "digital": digital})
+        self.legacy_phy = u.load_module("_m9_original69_phy", self.root/"experiments/m1-n2048-full-grid-20261004/m1_phy.py")
+        self.phy = u.load_module("_m9_phy", Path(__file__).with_name("m9_phy.py"))
+        self.receiver = load("_m9_extended_receiver", Path(__file__).with_name("m9_receiver.py"),
+                             {"partial_phy": self.phy, "m9_phy": self.phy})
+        self.m1 = load("_m9_original_runner", original_source/"m1_runner.py",
+                       {"common": self.common, "partial_phy": self.phy, "partial_receiver": self.receiver})
+        signal.signal(signal.SIGTERM, signal_handler)
+        signal.signal(signal.SIGINT, signal_handler)
+        import torch
+        self.torch = torch
+        self.loaded = self.common.setup()
+        self.original_out = self.root/"outputs/SCALE-CAUSAL-PARTIAL-RESIDUAL-20261002"
+        old_registration = u.read(self.original_out/"m1_calibration_registration.json")
+        u.require(self.loaded["identity"] == old_registration["identity"], "Original M1 frozen visual/quality assets changed")
+        u.require(str(self.loaded["device"]) == "cuda:0" and not torch.is_autocast_enabled()
+                  and not torch.backends.cuda.matmul.allow_tf32 and not torch.backends.cudnn.allow_tf32
+                  and torch.are_deterministic_algorithms_enabled(), "Original deterministic FP32 backend required")
+        self.flags = dict(torch=torch.__version__, cuda=torch.version.cuda, device=torch.cuda.get_device_name(0),
+                          deterministic=torch.are_deterministic_algorithms_enabled(),
+                          matmul_tf32=torch.backends.cuda.matmul.allow_tf32,
+                          cudnn_tf32=torch.backends.cudnn.allow_tf32,
+                          threads=torch.get_num_threads(), interop_threads=torch.get_num_interop_threads(),
+                          cudnn_benchmark=torch.backends.cudnn.benchmark,
+                          cudnn_deterministic=torch.backends.cudnn.deterministic,
+                          precision=torch.get_float32_matmul_precision())
+        performance = u.load_module("_m9_original_performance", self.root/"experiments/m1-n2048-full-grid-20261004/m1_performance.py")
+        probe = self.assets.old.b
+        u.require(probe.SAFETY is not None, "Original safety monitor absent")
+        probe.SAFETY = performance.HealthyPolling(probe.SAFETY, interval=5.)
+        self.health_polling = probe.SAFETY
+        self._data = {}
+        self.proofs = {}
+        self.timings = {"health_query": self.health_polling.timing}
+        for name, module, attribute in (("physical_receive", self.phy, "receive"),
+                                        ("var_complete", self.receiver, "complete_partial"),
+                                        ("quality", self.common, "quality")):
+            original = getattr(module, attribute)
+            self.timings[name] = dict(calls=0, seconds=0.0)
+            def measured(*args, _original=original, _name=name, **kwargs):
+                started = time.perf_counter()
+                result = _original(*args, **kwargs)
+                self.timings[_name]["calls"] += 1
+                self.timings[_name]["seconds"] += time.perf_counter()-started
+                return result
+            setattr(module, attribute, measured)
+
+    def data(self, role):
+        u.require(role in ("calibration", "development"), "No training or holdout access")
+        if role not in self._data:
+            data = self.common.data(role, self.loaded)
+            path = self.original_out/("m1_%s_registration.json" % role)
+            original = u.read(path)
+            ids = [r["image_id"] for r in data["records"]]
+            preprocessing = [r["preprocessing_id"] for r in data["records"]]
+            u.require(ids == original["source_ids"] and preprocessing == original["preprocessing_ids"],
+                      "Original M1 source identities/order/preprocessing changed")
+            u.require(data.get("bindings", {}) == original["data_bindings"], "Original data bindings changed")
+            u.require(len(ids) == (1000 if role == "calibration" else 100) and len(set(ids)) == len(ids),
+                      "Original source population incomplete")
+            self.proofs[role] = dict(original_registration=str(path), original_registration_sha256=u.sha(path),
+                                    source_ids=ids, preprocessing_ids=preprocessing,
+                                    data_bindings=data.get("bindings", {}))
+            self._data[role] = data
+        return self._data[role]
+
+    def actions(self):
+        result = self.phy.action_grid(2048, "16QAM", orders=tuple(self.phy.ORDERS), include_whole=True)
+        u.require(len(result) == 13 and all(a.m == 9 and a.phy == "16QAM" for a in result)
+                  and len({u.action_id(a) for a in result}) == 13, "Registered thirteen m9 actions changed")
+        return result
+
+    def legacy_actions(self):
+        original = self.legacy_phy.action_grid(2048, "16QAM", orders=tuple(self.legacy_phy.ORDERS), include_whole=True)
+        u.require(len(original) == 69, "Original sixty-nine-action grid changed")
+        return [self.action(u.action_dict(a)) for a in original]
+
+    def combined_actions(self):
+        result = self.legacy_actions()+self.actions()
+        u.require(len({u.action_id(a) for a in result}) == 82, "Legacy and m9 grids overlap")
+        return result
+
+    def action(self, record):
+        return self.phy.Action(**{k: record[k] for k in ("N", "phy", "m", "q", "order")})
+
+    @staticmethod
+    def memo():
+        return dict(tx=dict(waves={}, logits={}), render={}, metric={})
+
+    def score(self, data, index, action, snr, seed, memo, images=False):
+        self.common.check()
+        with self.torch.no_grad():
+            return self.m1.score_one(self.loaded, data, index, action, snr, seed,
+                                      memo["tx"], memo["render"], memo["metric"], images=images)
+
+    def frozen(self):
+        self.common.assert_frozen(self.loaded)
+
+    def qualify(self):
+        data = self.data("calibration")
+        source = data["records"][0]
+        scales = self.common.split_tokens(data["T"][0].numpy())
+        tx_logits = {}
+        render_memo = {}
+        checks = []
+        with self.torch.no_grad():
+            for action in self.actions():
+                self.common.check()
+                positions = self.m1.tx_positions(self.loaded, scales, action, tx_logits)
+                wave, ledger = self.phy.transmit(scales, action, positions)
+                event = self.phy.receive(wave, 60, action.N, action.phy)
+                u.require(event["header_ok"] and event["prefix_crc_ok"] and event["body_crc_ok"]
+                          and event["action"] == action, "Actual noiseless N2048 PHY roundtrip failed")
+                u.require(all(np.array_equal(a, b) for a, b in zip(event["prefix"], scales[:action.m])),
+                          "Noiseless complete-prefix tokens differ")
+                u.require(ledger["N_header"] == 68 and ledger["N_body"] == 1980, "Paid allocations changed")
+                if action.phy == "QPSK":
+                    u.require(ledger["E"] == 4096, "QPSK frame energy is not 2N")
+                else:
+                    u.require(np.isclose(ledger["E"], np.square(wave).sum(), rtol=0, atol=1e-9), "16QAM actual energy is misreported")
+                key = self.receiver.received_cache_key(event)
+                if key not in render_memo:
+                    render_memo[key] = self.receiver.complete_partial(self.loaded["vae"], self.loaded["var"], event, self.loaded["device"])
+                result = render_memo[key]
+                if action.q:
+                    diag = result["diagnostics"]
+                    expected_positions = np.sort(positions) if action.order == "oracle" else positions
+                    u.require(diag["known_tokens_fixed"] and diag["partial_used"]
+                              and np.array_equal(diag["known_positions"], expected_positions)
+                              and np.array_equal(diag["known_values"], scales[action.m][expected_positions]),
+                              "Original ordering/partial clamp changed")
+                else:
+                    old = self.common.legacy.complete_latent(self.loaded["vae"], self.loaded["var"], event["prefix"], 1000, self.loaded["device"]).float().cpu()
+                    u.require(self.torch.equal(old, result["fhat"]), "Whole-prefix q0 differs from original completion")
+                checks.append(dict(action=u.action_dict(action), action_id=u.action_id(action), E=ledger["E"],
+                                   mask_bits=ledger["mask_bits"], actual_phy_roundtrip=True,
+                                   q0_original_exact=not bool(action.q), partial_clamp_exact=bool(action.q)))
+        self.frozen()
+        return dict(status="M9_REAL_NATIVE_QUALIFICATION_PASS", synthetic=False, engineering_only=True,
+                    source_role="calibration", sources=1, source_id=source["image_id"], cases=len(checks),
+                    distinct_receiver_events=len(render_memo), checks=checks,
+                    frozen_identity=self.loaded["identity"], numerical_runtime=self.flags,
+                    training_updates=0, development_read=False)

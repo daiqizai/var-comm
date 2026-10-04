@@ -1,0 +1,151 @@
+"""Report-only recovery of the missing protocol_path in the frozen m9 report."""
+from __future__ import annotations
+import argparse
+import hashlib
+import importlib.util
+import json
+from pathlib import Path
+import sys
+
+
+def require(ok, message):
+    if not ok:
+        raise RuntimeError(message)
+
+
+def sha(path):
+    h = hashlib.sha256()
+    with Path(path).open('rb') as f:
+        for block in iter(lambda: f.read(8 * 1024 * 1024), b''):
+            h.update(block)
+    return h.hexdigest()
+
+
+def read(path):
+    return json.loads(Path(path).read_text(encoding='utf-8-sig'))
+
+
+class LocatedRegistration(dict):
+    """A virtual lookup; no new registration key is serialized."""
+    def __init__(self, value, protocol):
+        super().__init__(value)
+        self.protocol = str(protocol)
+
+    def __missing__(self, key):
+        if key == 'protocol_path':
+            return self.protocol
+        raise KeyError(key)
+
+
+def admit(out):
+    out = Path(out).resolve()
+    recovery = out / 'recovery_v1'
+    registration_path = recovery / 'recovery_registration.json'
+    registration = read(registration_path)
+    require(registration['status'] == 'REGISTERED_REPORT_ONLY_RECOVERY', 'Recovery is not registered')
+    bindings = registration['bindings']
+    for path, digest in bindings.items():
+        require(sha(path) == digest, 'Recovery bound input changed: ' + path)
+    run_path, score_path = out / 'registration.json', out / 'score_completion.json'
+    protocol, source = out / 'code/protocol.json', out / 'code/m9_score_report.py'
+    recovery_sources = sorted(recovery.glob('*.py'))
+    require({p.name for p in recovery_sources} >= {'report_recovery.py', 'test_report_recovery.py'},
+            'Recovery source or test missing')
+    for path in [run_path, score_path, protocol, source, *recovery_sources]:
+        require(bindings.get(str(path)) == sha(path), 'Unbound recovery input: ' + str(path))
+    runreg = read(run_path)
+    require('protocol_path' not in runreg, 'Recovery only admits the registered missing-path failure')
+    require(sha(protocol) == runreg['protocol_sha256'] == runreg['source_bindings'].get(str(protocol)),
+            'Frozen protocol hash/source binding differs')
+    require(sha(source) == runreg['source_bindings'].get(str(source)), 'Frozen report source differs')
+    frozen_sources = sorted((out / 'code').glob('*.py'))
+    for path in frozen_sources:
+        require(sha(path) == runreg['source_bindings'].get(str(path)), 'Frozen source changed: ' + str(path))
+    failures = {}
+    require(set(registration['pre_failure_bindings']) == {str(out / 'owner_failure.json'), str(out / 'report_failure.json')},
+            'Both original failures must be retained')
+    for original, digest in registration['pre_failure_bindings'].items():
+        archive = recovery / ('original_' + Path(original).name)
+        require(sha(archive) == digest, 'Archived original failure changed')
+        failures[str(archive)] = digest
+    report_failure = read(recovery / 'original_report_failure.json')
+    require(report_failure['error'] == "KeyError('protocol_path')", 'A different report failure needs review')
+    score = read(score_path)
+    require(score['status'] == 'M1_N2048_M9_METRICS_COMPLETE' and score['sources'] == 100
+            and score['rows'] == score['expanded_rows'] + 8100 and score['synthetic'] is False,
+            'Real completed metrics required')
+    return dict(out=out, recovery=recovery, receipt=registration_path, bindings=bindings,
+                run_path=run_path, runreg=runreg, protocol=protocol, source=source,
+                recovery_sources=recovery_sources, frozen_sources=frozen_sources, failures=failures,
+                score_path=score_path, score=score)
+
+
+def recovery_report_class(original, admission):
+    class RecoveryReport(original.Report):
+        def load(self):
+            super().load()
+            require(self.inputs.runreg == admission['runreg'], 'Loaded registration differs')
+            self.inputs.runreg = LocatedRegistration(self.inputs.runreg, admission['protocol'])
+            self.inputs.bind(admission['receipt'])
+            for path, digest in {**admission['bindings'], **admission['failures']}.items():
+                self.inputs.bind(path, digest)
+            for name in ('archive_plan.json', 'archive_completion.json'):
+                self.inputs.bind(admission['recovery'] / name)
+            return self
+
+        def write_tables(self):
+            super().write_tables()
+            # Preserve even whitespace/key ordering in the actual frozen registration.
+            snapshot = self.result / 'RUN_REGISTRATION.json'
+            snapshot.write_bytes(admission['run_path'].read_bytes())
+            self.output(snapshot)
+            require(sha(snapshot) == sha(admission['run_path']), 'Frozen registration snapshot differs')
+            for source in admission['recovery_sources']:
+                dest = self.result / 'recovery_source_snapshot' / (source.name + '.txt')
+                dest.parent.mkdir(exist_ok=True)
+                dest.write_bytes(source.read_bytes())
+                self.output(dest)
+            evidence = dict(status='REPORT_ONLY_RECOVERY', original_error="KeyError('protocol_path')",
+                explanation='Resolve the already bound OUT/code/protocol.json in memory; retain frozen registration bytes.',
+                original_registration_sha256=sha(admission['run_path']),
+                original_score_completion_sha256=sha(admission['score_path']),
+                original_report_source_sha256=sha(admission['source']),
+                protocol_sha256=sha(admission['protocol']),
+                recovery_registration_sha256=sha(admission['receipt']),
+                recovery_registration=read(admission['receipt']),
+                archived_original_failures=admission['failures'],
+                archived_failure_contents={p: read(p) for p in admission['failures']},
+                frozen_source_snapshot_count=len(admission['frozen_sources']),
+                recovery_source_snapshot_count=len(admission['recovery_sources']),
+                scientific_values_changed=False, frozen_registration_modified=False,
+                model_inference=False, metric_recomputation=False, training_updates=0)
+            path = self.result / 'REPORT_RECOVERY.json'
+            original.write(path, evidence)
+            self.output(path)
+    return RecoveryReport
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    for name in ('root', 'out', 'legacy-out'):
+        parser.add_argument('--' + name, type=Path, required=True)
+    args = parser.parse_args(argv)
+    a = admit(args.out)
+    require(Path(__file__).resolve() == a['recovery'] / 'report_recovery.py', 'Run the registered recovery copy')
+    import fcntl
+    with (a['out'] / 'm9_score_report.lock').open('a+') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        spec = importlib.util.spec_from_file_location('m9_report_frozen_recovery', a['source'])
+        original = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = original
+        spec.loader.exec_module(original)
+        result = args.root.resolve() / 'results/m1_n2048_m9_extension_20261004'
+        done = recovery_report_class(original, a)(args.root, args.out, args.legacy_out, result).build()
+        for path, digest in {**a['bindings'], **a['failures']}.items():
+            require(sha(path) == digest, 'Recovery changed a bound input: ' + path)
+        print(done['status'], flush=True)
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

@@ -1,0 +1,1059 @@
+{
+  "version": "M1_N2048_M9_UNIFIED_METRICS_V1",
+  "sources": 100,
+  "expanded_rows": 6900,
+  "max_expanded_rows": 7200,
+  "legacy_rows": 7200,
+  "P_rows": 900,
+  "methods": [
+    "whole_policy",
+    "raster_policy",
+    "random_policy",
+    "entropy_policy",
+    "oracle_policy",
+    "raster_at_entropy",
+    "random_at_entropy",
+    "oracle_at_entropy"
+  ],
+  "snrs": [
+    7,
+    13,
+    19
+  ],
+  "phy_family": "16QAM",
+  "noise_seeds": [
+    2001,
+    2002,
+    2003
+  ],
+  "input_bindings": {
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development_completion.json": "6318cbe791ea30a7c9c6e239c5bcd7c55cc08d37fe539ce4d3419122434488d3",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/calibrate_completion.json": "1ff0754625ff137772286946d2a1f0070c8be6a24da00b50738bd3eee567b1c8",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development_registration.json": "7b10c916aacc41c63ac0367bd03a45db61e30a1bd14b7659f1c31d6e9df1a88d",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/registration.json": "b035f3cef059ce4812df9b5cdfe3b170ce461101017ae5f242c03155053d95fb",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/m1_policy.json": "37a6972389a203fdf50a4734e8f3fc29e44626e0d968a016a9899ea1d256dbf7",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/unavailable_actions.json": "bd6a3c0313ffe038218377b0e4b86d8584e5dd8d6a6a999f9a5f4e4348bdd4a8",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/score_completion.json": "ed00a027997b67956d532058b57dd6e49deb78a54a50c097ae398024b63fa001",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/registration.json": "2cea558e84e2042fcdbcb1b1d8910c1a3e7f7ed5875dd0151da2477514d8bbaf",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/development_completion.json": "20df1ae079889c605d3d34b20ab4e3d4dcf0a57e0e7edc6ebede182ef39b0309",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/development_registration.json": "49b8e877e32ecfdebc47a1b0384f62074b32891752e70235c30e05444887cac3",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/m1_policy.json": "773fc5b845be982b27690451cb6acfe8ef1a42c4e70a16db5bd3ff6144bd190f",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0000.json": "5b56d49b50a78712b43752b285fd9e49ccaaeb50ea31d31ce1125df5ce67b56c",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0000.npz": "749b20462315ad7884d63050fb59d455a9b1038142acf515583621244f88e680",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0000.json": "2086abde06789ec071f71b5649b49286cebde1b5e15f1fac461c8cf1866b20e8",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0001.json": "8ea2e8766d5d74ad0a3156243870419d1a6fea6e53bf1e261b44acfe28db9ce2",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0001.npz": "4966c1afde4d5ca96a469625c252268fc7ca2335e7767ea9448dedde19761e62",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0001.json": "4f561808b0e194e0f6c815389fe736d6a653000fd30fafef5d250ce83dd3dacf",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0002.json": "537d0e2a3cee20143dab5fed1b7234070e897725f20c0bf9bfcb62bcd28537fd",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0002.npz": "23a9721e62e31bd3909c1c039f64c1dd80746e40e221decfdb23595180aeb59d",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0002.json": "884272104edb7c6157124a9db33368a6a0710d26ad31c85d43d220d968255a20",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0003.json": "2004571cf47904f9fc36f5250172d78e0058edd91fd8a3ab4390767741a0cf32",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0003.npz": "89c5baaf9102502bd0a26e9665fac9cc5dfb96e21819f6676a8baffa0f1d914e",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0003.json": "8d0602314bf2ce15f10f472bc247ea9d25cee9c71897bb4e31a7ccbea439791c",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0004.json": "4131705f8fae549d8d9b098ad44cd3aec3ae41ed0dd1ea742871acdac34885e8",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0004.npz": "33ccf54eb2a09596cca4dfd8ebbadacb4464ffcd54e71ed03d6e883654256021",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0004.json": "2fc56c5e45ffc003faa344e86f5d441eeeb43dd079ec5f3ae9722e02159b296e",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0005.json": "b3d5fd8b62f1b300ec21212013d374d412d5274047f1c4280cbb08160dc6b1d8",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0005.npz": "71da8ab64ed546bcce50cac0089f289e6b79b8ab59648bf4ea980f2baf1e3c8a",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0005.json": "da7e17e3479b80888fb496019693fcdec3a3ecfa857300d1e3c2a299abb2b784",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0006.json": "44e685091ebee1d8899e2fa3db904e82632f61547a03629f575664658df6c5a2",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0006.npz": "e8c8c6941ed52697c6dd775c7916485637f284887484df7123a58ee4b3dfae02",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0006.json": "6fed40ced5aabb4d726fd742b78dac9c22930d78fa562cb8a731c17b2b9e0269",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0007.json": "544fc4e16f696685f42fdd83437d43ee67f55bf34b4e0e3687c106700739e0a2",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0007.npz": "db46eed3b7d0cb343a9deb84369d5094b9ec38a68b48254ea4adf369ea75aca1",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0007.json": "e23b6577811bfc7916878b63b7bda03cfd9a63ffc0dfbf070f0bfb5d4f396171",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0008.json": "b7d04554426ac2fcc8b1b59c81871db433c1b4df07f813f39c39e2c95129352a",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0008.npz": "6a15890c4d5d843129137617c6c94ff7f18bbe989994061ef987437779e2d646",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0008.json": "331ed0e0be74f926d026804ac59d217006c46adaa3c0e87d5f1450545a1ad0e7",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0009.json": "f804c171ee50d6cf1abc71ab02c7fe0a2f2b3f3e3911548b9e560efa2c27e887",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0009.npz": "3272c0d5e59241722f0a136a575d1cc584a6941f79bc32e8a4590cda3e153b86",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0009.json": "03f8c6ceb35fbdc42f004c74a09884859b2e3fbdeb8a664562889295ea1bc59f",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0010.json": "56a44fcedfb10ce7a097d4858510b17f28494c77b86370747dcb8fc55c93d688",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0010.npz": "e1f0986864066adf5e4ae6cacf135e21d86bc0045f194266481e5bbb72e3008c",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0010.json": "b397a5bb438ebd6907fe89ba83f8c91bc55afe3202251d41e24c0bd3f5464034",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0011.json": "9867d95dae5bd978c3a5cceb9ea402ef4475346c6dbad03b4e1dfd2a1d3f7164",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0011.npz": "31b5002ce664868a7afef3e512553e69785e3f154f638796775ddf78cc3dfa6f",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0011.json": "91ffe256ad03026ca992dc09f51e9854c2c19b87a94ba9f8e38221a2883bea4a",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0012.json": "c6f997d37994a33f5c21d232c85eb43f96ac3e015d65c37d4ffc8b34e6b16b35",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0012.npz": "89e35850e9826291b8a4453aa3e383d2c059879034fa0b236f4907e12c17382d",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0012.json": "59ab14f000de36dc7fa42da9cf22d7e41f19f10e5c9ad21cd621c01dfe37d7f4",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0013.json": "d86b4f573eec29d1f647609854d589eeaa161d2d35f13f3e1a3b12d345b5834d",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0013.npz": "4d1dc857f52546ad403b2479de0b341bb1dea4a631a5e665c574af98fab20644",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0013.json": "5cb6c824c90268e9b80b4e6bcdb0f4a505341b7f866557dd7200ca2cdaca3eba",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0014.json": "1d801f09adab9fa6aff82e3969c91d20351e2d56e5e950ec06cff19ae99b3328",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0014.npz": "4294d6a34a9f904867c47eabca8969ef212842e6bd12e245ecfbcacc381215c0",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0014.json": "626a268aeeb706a8765f3ab33fc59c8c5c9a8446eb5b0c0a31d97b4747a05fc0",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0015.json": "c39e167e54e4069d5b511b3a3c1e2b4b799a5f1cdeee478d44bd3a9c0e91fb52",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0015.npz": "bdb24f3f1d7aa8e3c2719ac5c65e331c7109de44bfb5da145ddc0f5ade98b308",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0015.json": "31a7a0a08a187426e474a686549368ae1aeafd7d4980c6cd0c9cbd9a51e45161",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0016.json": "b0b516cc8d331bcc773d72819cecb2b8dd049f4774b0a7503dd39c96e4d16a2d",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0016.npz": "5fc35baf0ff8211660fe63fece9d2ce6d3a872ba3f6e06da76f853985ef6a0a3",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0016.json": "094f707d8693cf39b568bfbc31138af71ddaf602444492b516693ca434fa66cb",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0017.json": "ed12e4ff3b581502265c6dc7bdbd5b4038927628fa23c47747df88859bed7b5b",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0017.npz": "aeae51f3c0ff5068452ed02bbadc2d4758c1e920a1c2650f69c91a862eef7b14",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0017.json": "5a20d63547b8b62f7af76df0608f1fd6440e36c42d378027763bcdfabfbadcea",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0018.json": "2600bd1240315545e16b8e2fcabbaff8f22094a78487f4b619f56c77425a86ed",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0018.npz": "bfcbf1cd834491435bb301c40e485f6e58e5e19aefc90b670262c88a5962b1f9",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0018.json": "bffe24f901696800f822d8fcddfc9228817d2699a84f44ab076d493e7bf1f2b6",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0019.json": "5ee01e0ba2bfec6470c094608b1e4afdb282251f036c51ed5e2ccedd20c02100",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0019.npz": "f7ef54fb7385d5fc1258a0f2a1f980d72f1121b4ac581ba8ba3a5c4fea16e6cd",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0019.json": "7e8870cbd4021af82d806f4ee707d0821dcffff9f9d5995c75644e7c7751d906",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0020.json": "bd14655f3c89d2b4eccf65299c81a9352ce0dff85411c03fd43ceaf919a6fd41",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0020.npz": "ed771164f0b45ce7db5750fcecdde3a8705b2c89b1a5aa729946a110dfc510e7",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0020.json": "2ba132cac493c04ac6820ed96826b8dbfda70e1171a1ccb8fbac2f91fb40157f",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0021.json": "148a51bb9a5b0b3b310406f07d8b4d92269697b2269aaab9b94694f7ea8c4bdb",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0021.npz": "6d71867ca164c1199a0f34e71943d7879306b416e70af61b6abd57408bdf03ab",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0021.json": "219c8bdc37419f7c48e7fc38fa7eee053e899ce5a623d3096370981185c106a0",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0022.json": "b695716f102419f407cbb273b570f7bebdd73e8c923f27e37b60b10a0018a3a2",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0022.npz": "c84aab34989e55afc8809fdf6edb1dc8dc6a16eb0a7417ebc42f6c40b6722c61",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0022.json": "3cc2d6d7c8341c6605762ab459cee2b01032da6bc68e672752e6a9ab59e1bf25",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0023.json": "25fcf27dec0413c881fa6cf0c0a427cf815d16c7c52c5c9ac894e1e7eff436a7",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0023.npz": "1635d58cc47ae6a8157ae8a1367c80ba6416882ac8810fd22c398b787707e949",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0023.json": "b03929760c3d53d9318082256fc84acbb055d330d42ed40c0f38e0182170da9b",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0024.json": "0f6f85cfa812da63e585f46a64fea8c8c408dc34521a159730d357976d005e2e",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0024.npz": "949184268a93b68b2261546ed743411279c2a70116c8e9b688f489f4ecc1e3be",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0024.json": "f0fbd882e69345410d01d0d7778582a5bf41c63164d0d70803e1a6590cca195b",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0025.json": "d54ae6956b8a69682e9db3799c3b3ffd07dfc1bf3d3660292c3b67f4d7436866",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0025.npz": "3a4281417f23b6e3463b75a14fd4159a02d807d7dceb5fdd0d2b97989c333538",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0025.json": "dbd108427944df9aac6678b98538b6a0d64d0618b4d72daf742a2345d3211e95",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0026.json": "7f8b675ae0f477af779225694703ff16336b12539a581c6b9aaf83d21cc5f845",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0026.npz": "1b83e9860afd1216bf9fdb2edadb671a79122762a96ed8ca4e3bbbbba658f84f",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0026.json": "c285763f3ffb7d68dd6422d438df50d1862360a1d1d6ea6ea688b99f098ec339",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0027.json": "2764848c40cc4dbfebccd777a2e12bf1e52b641ff47e221da5f95405eb6966dc",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0027.npz": "f836805b7ae050d2ee75a5c5d29d8a682bb287d2b3fbca49180366255c55a8ca",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0027.json": "9dedde4b481765836d46a161f26eb1a4affde87de1d358f77ea69275ea72a2a3",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0028.json": "bb19d3010ef07a75c7664aa472c267ea086bd2a7a0e88e02a3c557a5bf3d48c0",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0028.npz": "1674d549b0adcdeb34fc8e1f593bfb12157d635d666488b74dab813f4fecb050",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0028.json": "25e28fdecac1e9a13716f378b6b1bee88e57e099407e31dfca3e19f932cb8ab0",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0029.json": "75f999b55b36f6d7672d2b4f64196cf8c9e3bf6253f66575c10571639e09b787",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0029.npz": "f4094a4e9e4ed0b1ede4ffebd40076c00a579a069c6f75b8f3334639b7ca1fb2",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0029.json": "338eaadfc68a4f13d5d27547d912e9de5cdd97fd9d175524f50d14c31d967e89",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0030.json": "a1b8b3f29e8d1b3534294a6ff49cbbfa0e4925b9b577a260d24ddca263e9148b",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0030.npz": "11f3c2892496f88dd07d92dc0296306f94fa5110d101b6b8d1921bd0ae0713d2",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0030.json": "b4e68bace7288f5fbdfac47f44fcab1bcfea8a78a7e7a350bf894f1e3bf36b16",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0031.json": "f8b5e6709f53141ce4350500fb93d01fc740c2276449ed588eca5c06b9065972",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0031.npz": "5a3b2c970cf87edd112ae863fbb4b0f3aae0326630f3f293876b2708dbeab584",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0031.json": "677117738876fc749d964d306006784c99ce384580c3f2216e9f97c60fd1d0cb",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0032.json": "a4e352d1c67a7087dea384ac86cd45e9380a615db40e657554cd540c31e12082",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0032.npz": "a9d8e7a542294d3acfd10fa9332daea382d2daf2ca39048d01acb8cc4896df49",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0032.json": "4545747f619b8457edbaaf89e526a37ba60703faee55904564b09a17129095c8",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0033.json": "f2404c2cd349da64f4d4043dbc386075a2d14edb152ece44e00df67a7cdb91cf",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0033.npz": "525243c0c264ee4c3314e936743d254d130d43f5f9a411c65cef57a0282ba3ab",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0033.json": "002428ee80603ad128ab18b79ed12dcc74f0f49a7b6522e9f1779357e9b07d93",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0034.json": "0e5fedeef699f770c35e931fccf00d472d1fd9a8bc5db65bc1524c16a4f4b64f",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0034.npz": "0b2204892d062cbc7ab307d3272824bc047461c413d64250b5d6c0b0e3ed10bc",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0034.json": "618670982d4ea53fad1a8a3d4768162cd7a0bef855f05fadcb8b7781014bb5c9",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0035.json": "222bc1f7e84816bcc460b71656abed4ebfbf6fa60e8ebf50b3f8bdcf1f1f95b0",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0035.npz": "488f5ea5fd69c053a9d7418adeac7e7d03db6f1c420997a80fdd51caaebe28b0",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0035.json": "90b9bb55b0917fdd6669a94821a8f02629ee7a738c00bb647d8e00d106ace2a6",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0036.json": "469fc9c61031a9eab05da664275b55f8db69b062ce7053c546acd519efac2c0b",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0036.npz": "e1d575fd35f0b7085e68d5fb3a58e9c6ce7bd708aecd382c3e2a23e3e1fdbaf6",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0036.json": "c2587ee7b72e33216a93eee9ec41a7f79474d3b764b819fc36dd172f8dd47f39",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0037.json": "cab7086ea8a8966ff120cc86017f72a4a6641531262c8bcb9aad9bf1d8bfad8b",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0037.npz": "7588f7cfb5b643d4f1e94ae5bbba6d1ee52eb0262b8d2101001a04bc6c053677",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0037.json": "7c64d81924f4f843df31ce103526f5a18fa15b3619b55a291ecd71dd6ac33764",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0038.json": "901cb1f6b4308954e6470b2d8b42dbbdfe94bc533d29147c56da779cc19f1c47",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0038.npz": "875bc65d69a52be1457d25dbc570136a721eac0055adc2561602cbf17482e19d",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0038.json": "b227d77aea607362210c6ed97dab4c3e7d0cd5a7c070977700e0620f2fa20aab",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0039.json": "1eab5d7d0d8ba80bb646d81dfc9c48cddd77fa29343c22a5d561117ab3216ea1",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0039.npz": "e09640bf2d6ba0b84947e3fec4ca54aea99705fed241f1e8849886ded4b763a5",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0039.json": "f8dbc6fc47145b1975fb801962f3798aafcddb9117731933958dc17723ee735f",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0040.json": "0153a3cc5662bb62a907868cdd683f03610d8d8ae4085c5abc54421cd7985e7d",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0040.npz": "bb3f5990681a40451ba564599f3b8b1c8f12eaa56bdc395251b207d030b8de4f",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0040.json": "58c0bb086eca6418ce850efba1cd75ac18d116e2dc7b904c82b8ace905325786",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0041.json": "c3b0694fc83406a22cd1de339ab816c1a807700df885ea7e7dc84c8ac059d0f7",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0041.npz": "421253880acc19054e1684d391f8d0c455ec08b33e829207338781da558741f4",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0041.json": "b9ce39570bc6eb5dae937bd6d90167ee3b53236cbc7f35d0aa7c07cec1f82a29",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0042.json": "5345ad1adaf2e1c5d6f3df6a337cdd32419b285cebc946d083004308c4f2a839",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0042.npz": "25cb22d3cfbb12332304e932747df7ebf11f8f30afae754b3b5e79ec265fd3b4",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0042.json": "94ae785487db9141765f10f71a7a86cceb053e7fe4543aacd192e3e21ea69467",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0043.json": "85b7a4f36be6f5b5332430b792a3c858c534954089d203992666d6e6d8db3310",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0043.npz": "de67afbdf22b64c451615398861748581d0dc4180af8a1f6e372476d444753c8",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0043.json": "2f67253dcb2bd8e7258fa86f75f48e519182b5d248632ded954e24a22e37cd10",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0044.json": "f6de85436ed2a0e8a97128287f643733f6ba3d7154648beaa360e00a79435b9b",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0044.npz": "7c38c4983ebcaa70b93ea3dd007207dbebc3f5205733d822208380b48d9cf1b3",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0044.json": "bda55f4aec5d9ccd798877ad852f992d6c79095fdc597cec166a47d9021cd047",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0045.json": "2d180bddc63ae47321ed81c7968f8331bdeefbeeb6abbad572fcf0da3e52d1c9",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0045.npz": "03ac11be690cfe51aedf20bcc1e6ef9618120323b43313496294c12c849857c9",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0045.json": "0bb5d6d18c169e1eb0a061ec9d14fd6cff9545459a752f4377428960cb26c00b",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0046.json": "c58d8c58d21f15b9cd017c9ff1f374eafff7cbcbd47bee491676fe5ec46a9135",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0046.npz": "b34cf0167a0985089d5b3f33ae00b92402967016870304c609e2ddedba6abc42",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0046.json": "afaca5f3d3d444789ea00531dc9e59c5db674a6819bb3d564084f77986e6d925",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0047.json": "e7d81b85ded38878cebf7b6fe0c26b7323988ef277ad5c52d64959bd99807406",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0047.npz": "af505020cfba1294a6f4ee421cf563dc5dce4f0552033c18f0313176b016035d",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0047.json": "db1cc105bac4f9bff1c9b4ab4daa7521183cb00b526e791e4028b72fbcb5cc5e",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0048.json": "88088ccb51f5bd897a29af504aefc2fe8fe8a1aff117792b3467105a77af3919",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0048.npz": "d2323aac72612718f50bdc53ed450fc167a44ae734626847d38553866299bdd7",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0048.json": "3e93d4b9aaeb5c91750d992a2b240bba32f1d098664c85e440487518a10b3af0",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0049.json": "67f7d1e1a039228def27434a7ab957343258c2d24a96f702866df0d9494b19f1",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0049.npz": "4e8f43cd7605105934af97d821905989ffba7df588f732856875f8bd20fe9431",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0049.json": "40e08257d01b386a50e35e0448c135b4841b2bc74e0bf42c13ddfd9362de5562",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0050.json": "573a41f1cc3c19ed861c6b0044b567c3321d1a84e30bc83e88d0970d907bddac",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0050.npz": "15d307271db09b04f3e38fb771d62a6c05198fa8b6c6708ec4951eb499886fa3",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0050.json": "8c4f4c662298c2a28bfbfb67c2fc5407441663f6806da0eb4b009f05ef128c36",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0051.json": "88605d0da3c0f0b17cdd4de1316aea5be8aef77b3c17ab7cd6411326590cf719",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0051.npz": "e44e6f865072e9feb0658212f31596b4979660a119ee7c8be494726e13f51463",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0051.json": "5f31f3e44e2d88f5f7d1b59685e460ae7d3a5eb95c1fefc8a4237873dcb48412",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0052.json": "de1fd9ecc119c4b70000e5dca0d2bcae07836ebc6d0e73b4d6f05e4250455d15",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0052.npz": "3c5a7a7e7e1549aa03e3a5aabcf7e141736d4086546cc98bbc963bbbfdea69e4",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0052.json": "810c387384e3a96dc251aaf7fbfc90c95733f6283a01a6530f87d85e4980d324",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0053.json": "e9ed55e6f9e828e5e44277c6069787b436f02ff975e5b5810392b4b361409d7c",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0053.npz": "d303a649b20ef1910c047b2de073426f1591166f0e9f596b4fcbe9ec5a5f7378",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0053.json": "c8aab02adb08bc2f40e5361922c766695f6e3ee38b5167878d5bf0b9c9b2b868",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0054.json": "d8dadc1728d5d09acfc8e52eda39f15617a9ddb2adc50fd002b6d1338b973328",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0054.npz": "29fe5bf6b03225ed080be518b174d42b63127a261154aac98e05d8b14dc6010a",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0054.json": "83792110716d992d1125b39a78aa4958d7854545298b3e648ca5cb0bff077d3f",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0055.json": "fe3e6fc8ae224cc3d7cbde57d36e564b4f71ef0124c826c5082df734b97fe8e9",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0055.npz": "a8318123c98844e28428075b457055a592da0c1822167c5558ca7cd56561c6be",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0055.json": "5e30a808d1922801369c7b16c4d07e3b190d4bacdc2925bb43b020974c71d279",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0056.json": "959deed68269426bf51450c68eafee47f44c63fc4d2bf4080e0750187cb18c57",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0056.npz": "8fd54861c0b1bcd8441478b14fdfe51e75478116507d0858bc50c9d1d11c7510",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0056.json": "4dc2ded81cd5ccf1113c68eec376e3792e19a2405369b080bd507552296d7d03",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0057.json": "225e5d8f42c27f91a2e522ffc3822759b3eb36b738c7d57831d032e72dded14c",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0057.npz": "bed06751404cc47af2b2e3104a1af64d72028bba9c0d052759688e889b54e71f",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0057.json": "e8c8cc2dac4af837fe52f3a130a269ff1c63c5c844c75725d3d8b61e1b19a67e",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0058.json": "85c8bc1f6a966a456249e9d9ab41dfcf567e8f90466b33a5ba6f2e25200ba15f",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0058.npz": "90095080e6ac66380e821cdbba18b536e959280362cf26d7c4944f0dc045c28b",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0058.json": "b75ff2b629bf06693205c7b670354c8fd20c7938b9c6b36336c24f3a117c3705",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0059.json": "8ef41b543ab48b9546bc3b4cda2b884db02c3e2c7f7fcafe0cfd735df01aea64",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0059.npz": "808cc237e16890ad0469cb382b53c5839b4bdf01d2ced8dbd841232be8afc8b7",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0059.json": "bcc4b7abbe095fdc349fbf9eb41cfd5bfc110bc01c16819f2aa3313919eb44b1",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0060.json": "b59f5eff8573352c14ad4e1e3a8850573f9d83e8777a6ae791c03316f9bf2b69",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0060.npz": "63c4142bb2aa36e4000e9b0004c9708a03a263b8151bf2d8dd4506c7d5243f92",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0060.json": "d03ab793ac618ef2d6e81ff5accf0fe252250e57139e27f5b4856a35389af30d",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0061.json": "02f15f89357add3a249b1a2862746f556fabafaab9ab045461c1cb798e3ecdda",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0061.npz": "1bd1efd07e674913e5b9ca894971152f0df2661f99fb42872c171d167f6a28ae",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0061.json": "f61a11350655629a198e7fa98ea828bddebee9fb7504456fd25ede861cba5997",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0062.json": "530297d3624782a14cb104000a52b6f130c55145b0b31a750ffdb8e1462e1793",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0062.npz": "824ce43f6c330de9051c6c7eaad797cb491c0953d6c50750f24eacc855e649b7",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0062.json": "060e19d5ca489178ed2629a6b0fd627a89ba2c9101f4122f437bbc7321250e4c",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0063.json": "01cfca598856b020638dc21df93e3d8f44acb598813600622471a2c83e7ab51c",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0063.npz": "d9eff6b5d1de253db21ea3bb0b15132d4af4a5192b9f40f79f5bfd50664a3756",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0063.json": "d40aae6f765cd80189d9a153b0b852a6efee4c1ae9ba039bfa5cd6363d4a426d",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0064.json": "41890f9384c9043df5a3887db42fe0236b08015d328cd8dbec8f82d86ba073cb",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0064.npz": "aceccb0b46b9e648525a878325d14da1e867f805afeecc450ee8cf224ea056f1",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0064.json": "38e8045104378442ac2383ad80d4f972cccb4ee3e62d52c0ae44acc10c83df3e",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0065.json": "acde7a73748963f1cb0e2777b2d9e92553272ea3ab1d3ef634d5fd20e4bf9baf",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0065.npz": "e4b4b0db8f87e2c51d73d4180278e1cf6f6012194616b538775990aecdf03a43",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0065.json": "a772ff8d5e02d15a2bbb17216f8fda055e21408e6878602023ae82c1cc5fc31e",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0066.json": "4ab9ae612e75e1ece7821c940d8690c3291923cf54ba71d5c05b8b4d63690bed",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0066.npz": "446ed9bc7f808442af113f416b001d0e704c1e5a7f6b05fe21495c8bc916de33",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0066.json": "aafa5767699c9c5c9166670248070e1f5839d91292e97a2cab075565fed1b1dd",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0067.json": "b058baf60dc7442599c2b9160bd805eec4a38ca449944f7e766b62b884bf9557",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0067.npz": "7c033e67307bc9d695e5378cb2460781e9791f15974af5c283e06f0c669fa99d",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0067.json": "d6a312c325f6e8f3c64a7fb1d37c8b8c78c4ca4df93caf9629df346919d9eff1",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0068.json": "b761c7210be11e6ece968c58ecbdec63ec4dcab5b901a6a907a166b4db38df2e",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0068.npz": "8639d9ffaab5d46b29f71f1c2f34de21917b35eca196c619e7c1076805c97c54",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0068.json": "a6af7978359da118f34048135cf8aaf25c40a34b77f74ee6493fb939922169b6",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0069.json": "612ccddc583736ec9c6990061b5c27cf1949c4b06aeb32750fbbc263bef18b92",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0069.npz": "da5eae82a9bc9d64163d90d372378e90ef5d8d606d8c618dd9ab9553463460d3",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0069.json": "d963a2dee41e8ea1cb3db52fadc7cf5a23f75ec69d169063f470785d9e4ce5e5",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0070.json": "c84f4416576fcebb21eae105b51666c8530bf1b4e769384a528b7ae48af10d1f",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0070.npz": "901c6fa0f2c1f199c9fb509ab95fea2d2c7d7b398e6ab2704ed97939d02ed004",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0070.json": "e518e4e5d3d9221e7878391faada5e923fd046edef98510929108e262cff4a52",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0071.json": "aac336c6e65062813757037d9320b5cce653aad19d91c94a400a6ac884498833",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0071.npz": "f13c618798bf94373e4d2b4ecb0ec1f43178d515594a21f471733c4f76811f44",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0071.json": "ad68eb9d3a5d5486e8c1c1b35ea19f192a1d95de02293c5206fe99c061213450",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0072.json": "e93a22003bddef678cd7f1e2ac0bd28f951b820a0d878d1ad431a943b360d9f4",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0072.npz": "898171ba0500ee343d2f0ec87c58b337b93ee687b9a5a6e71f8d2831325bbd01",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0072.json": "bb163834823139a8e663d8ef90728b6cb785b0430d108217d18f9b3f8423e92f",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0073.json": "ff50958116c74ab198ebab6c1df8d2671749b62c65898b870e2937784ce3ca20",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0073.npz": "a029b17484e178a87688d5c08013b9e858bbbcc9df8a88846a1f442772b0c633",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0073.json": "a5f64aa237f8535fe3122c0aded6b2565189a9dbbbb974416015db81fa1dd024",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0074.json": "e55e6551f5b31ba8ce4a0dfe2795b2d14932574773d1f38186a32d761530700d",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0074.npz": "e65eecf603c6cab228c9d9ee934321713b84cf60f0dc6fbc602c12bcb4be31cb",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0074.json": "ef6fe54adb13d11fd7e8f1a7da13123bea0ae07320eb5c49e308ae38879b513d",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0075.json": "d8d4474779c3eaba4ce2d9676da610900ff9f533a50f55e535b3fc30625d2002",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0075.npz": "127b857789a377c38a0ef188fac6117ade0c389ab71fbde28b57f8d8f485b518",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0075.json": "40a34219e27cf63466a0e587524d95d253f04de4125cbedc0d424e8cc5243e9b",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0076.json": "9f9b47cc282efd6e9969316744717536f07b193fccf36ef07aa1e2dadecf5516",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0076.npz": "8c3a5146bb0bf6841b6bb9e1bffea0643ff8ff9982551482ebcc116d2264b5b6",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0076.json": "1259e27afbc5e47b992aa070ff591af8356f3cf37f6c0356d4f7dcea2e41318a",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0077.json": "d30b3b274bd831d73e0ec8f43b40911ff50574c86af5d9e1e904e70f50f8c303",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0077.npz": "fb5782a1d306e2fda43b3c88036139921b31d1d8284dd7d88cc53455ba4262d0",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0077.json": "e503b4fcbe635d6d57635ae1ecded93a8c29a89c2a03d78112b26f709184daf4",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0078.json": "c37867da2879ac6036139983d4d7c58d3ab09e72d758483caa65d0518aadfad2",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0078.npz": "cd27a8a2be9a31b3c2517f2a69e0bbeccaeb2404dc43d598d65ac9a31dc1bf64",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0078.json": "3ed6b62c55737f9a7bc91b25f274c7ac31ba61b78884eb83ee9d6685981f6369",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0079.json": "c9b4f17ae4512bab0c4466b1aa88c153fe5151dbd02f3a35b54143a03c33aca2",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0079.npz": "9ccc37969d04e924f291b48c2a803ab24858088e08956466a2dc6b535aaaa01a",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0079.json": "e9cc5f3bdae66b3d449972d1d58d5cb416d0f676e2a173f89bb963b7ed274105",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0080.json": "2001ff10c225fa39ffe5ed4ccefaec856fc2295c78fa799a3631419d0c3682e4",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0080.npz": "398db67b6a94e18e3fd969f7764fd660958ade6299f8573898f0430af21caab6",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0080.json": "e71f3c523fc7348749f13aac8609ef1b41fa482a8e485f9f7bd188b33e00e814",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0081.json": "608e5828a973d5da9650a7caf01cdbd3a20b61ded8f877e4a74418f564682657",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0081.npz": "5427fa64bbc2f3f01f2dc642e0bc1c9ad655aa07985912c6ef25ac0e83c78f53",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0081.json": "36fe4b2caa8830ef673bd8dc2c25509da1cc2c0e44a823fc6fadf4cf2c39f821",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0082.json": "74b635e12761b218d1e0ec74fd160b378ce6294d53db24fe97129e2ee3ca03e8",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0082.npz": "bc84dd0a40d918ae88038a3db974994b0eff1aeb5f2d6afe727c92d830639efe",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0082.json": "3b09b6a56fbf0edd7e6d404fde2d0ce923fc40a94ac4d5fb91c7636ffcdaa3dd",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0083.json": "9745f33d45b24b8284ddc618204656e5e8b24086d1f562d3bdc26750eb7b700c",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0083.npz": "94d8d9a61fbba4055f161830543c739446389a80275d41e821fa83a407235495",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0083.json": "864add7318a21d0fd9f79032b369dfbd537d3977be79d7b881696a4b4e89eb30",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0084.json": "5c4fd3e151c6340ffd38b455a9442bd3da550ffa9767d55da605bd9dc1a9a699",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0084.npz": "4233d5bd7b8019206f93634f2d726dc4328ea9aba5f04d03ce6c1f93b0380307",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0084.json": "4942897a53e04564e5171d1fe998bd9041c820fdba4d781f0914f97659f9249e",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0085.json": "b0fe77b3a3c6c0b246017e1bd934fe66bee770c47d247bd7254d4c6503d32427",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0085.npz": "5df272505aa6b9c96e43825d5bff36da00400e275de82ca575d2654d4130d952",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0085.json": "e585a86f519e77e95a5a28ed6464dc3e3d384f93bbf82f76e6015d779a9e469a",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0086.json": "fb96882f79634e02b9baddccea6e6a765be7e16a94e9c980846f530ff07ef212",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0086.npz": "2b2bf7c52df4c97bc3f63de1a2440a4dae100c4b00a69926ba529dcde71ad78c",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0086.json": "c08c9423e408000e16fca5fe57c2f747ea7f9a9dfe0b02300667058de3fc8123",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0087.json": "053fae4699ef376d4350721b4043bbc13b26a9611082bc6408468bffeac2381c",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0087.npz": "91309366ea629440dd28c6524745f003b9f003c24a6702333b48375974e90305",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0087.json": "00d033ebda01b505436d7ee090736b9917fbb98ac998e3310926a849d89dd2d5",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0088.json": "6d67427ef646c0863764b68da78af47ecb38063e7e2565bde3e869da1e474a4f",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0088.npz": "8394d30007a8deb0efe1ff502c7caf3800dfb8065c711f29517a92360c96fc75",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0088.json": "cf81b276860eac01b046ad4ed9f3a7c15e8dffd3d5b8b647dd9d960db8471123",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0089.json": "00ffd20abe3fc40e9ea507394a545e68aed6389c2644474a4ac6839db8dfd9c2",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0089.npz": "0928bf0adf39a9e0af01d4a0f80ce0be575b513190341e5ff3a8d21009d96d18",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0089.json": "906e08d85ddc66986d76d02ed7508d77a3920017124810264f1ebbe5a5b3da19",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0090.json": "e6f3d0de03f2a7ebafc3909e5332b24d59a86323e5f8c3434da96016a681288b",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0090.npz": "2b764c31eb72b546b24c937457a92eaf9d4854a0b5d2aab99cece946f395de7e",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0090.json": "e427622747b961da472f8f36fb9fa1573b122c44932b85eaae7a51fef0f6f8ef",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0091.json": "38020e99404bd26ae442d47dd3c4b14d58ffedf1b02c32d0b8cd3dc91ec57790",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0091.npz": "d2e483958faa86ea55c0d7efa31776e42829750cc0117ca37191bfb742ccee22",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0091.json": "b88450845f0ef68087a70102db2acfb8f1c3eadca7334a3445e97ae5eb821d88",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0092.json": "28053c0cd8706841606b638b611a43b4196d0482ffbe5faf69c93e0172c5e548",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0092.npz": "86073bbb917fb56e90a34bd379a444bab9da8ecb31a8b7f62c3e398b7914494c",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0092.json": "8a9b8525b0039f30485774eff6fecfb94448700a6b7a7ccab4be9a9c2662dfc0",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0093.json": "140f7ef6e07e44e20798b51dc6d847e278bac123c6d8cd0046f3b038caf92631",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0093.npz": "cc55d385a2199297d3148ddbe172a11e3fecc9b6694535722ff41d9ddac8e7a1",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0093.json": "f9501d9b0428748beda29b9bb4925d21eba89079837b01f93c9fdbe3d1c4f88d",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0094.json": "360b82150479077fffb81d2de3b6ed35a3d23d373f81cb9b5850ed0828479072",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0094.npz": "1cdc117306ea7ed2688266ea1979fbfd21366d2b4b3c4d5327a6318b069a3636",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0094.json": "65bb3b2c60a3c3c032440fe7acaeced22ada5ce63150414996d7e7a8eaa7e8e9",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0095.json": "acf87b69c1097982a5a7bf2c717823c396c46e6ec433185d71864d40134217b9",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0095.npz": "b66f6281ff7fca2eb7ff4224d1f1a0681b8da0277425748d10ad6cb3598984b9",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0095.json": "9d7e807d0d0d9904ed6e08a3eac958f29cba3c7316e399544abd78c9dc9988b1",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0096.json": "058c315daf21720402df06d5986539ad4117b9fedf5c420139d1840bc8d69a45",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0096.npz": "e131c3f33d4ef4be1b485c35fd418dc8348198f1df142d3c1d410100a435990e",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0096.json": "68b1cc344782b99220502a1454d2cfe1a586fdd723839825357eed617a4519f0",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0097.json": "194d6e30b0896094237c1d817ee4e1039bb3dd7bde8fbb0d4fd50006e96ef9f7",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0097.npz": "03adf296cfe60375559f0565ba46c330bb530eee81e749ef5fc92c5e26e55685",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0097.json": "fb94dcc1a49e21f71f4b7f41d810e13d5615879603406c7f8a075966c7b38b3f",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0098.json": "7f6cdfcfd395091c2ce9c076614ec6a01913d68f2090c2a88402a86f64bd7502",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0098.npz": "5bccc88884efcce088390e09a0469135ac9e21612b5d7b6b18c79325b79f61f6",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0098.json": "6f042fd25b8bf8ce791a4d3575123456d874fbc0e2853c873cef927373eab5e4",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/source_checkpoints/0099.json": "620b54525ac4c4cf3c1706f7c1d4d125fbb36eb585a8862fd73fe7e5fe6268f5",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-M9-EXTENSION-20261004/development/reconstructions/0099.npz": "9d6b447310864a32d367a5043309eb008af5505f155d1337c884759bb0b3aafe",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/source_checkpoints/0099.json": "565c641abd3a6d743aefb0a696877d6e05af19a7698e7214a85cf3a448c4b487",
+    "/home/liulu/projects/VAR_COMM/outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/metrics/historical_controls.csv.gz": "e69362351e1aafb9ca03dc71ec57885e1d786d69e7396588a37747804b267de0",
+    "/home/liulu/projects/VAR_COMM/outputs/HISTORICAL-METRICS-R3-20261003/queue_registration.json": "07a576e9ebd0dad1e135b6bde30445271b80edec908e9d75cf398a9b554dde64",
+    "/home/liulu/projects/VAR_COMM/outputs/HISTORICAL-METRICS-R3-20261003/inheritance/FINAL_P2048_P3060.json": "e44de003240e94cd5611f72e9071ab1fb72ad3c76e4490ad0ceed134c815c2cf",
+    "/home/liulu/projects/VAR_COMM/results/historical_metrics_r2_20261003/FINAL_P2048_P3060/registration.json": "80a77b70c82d7a5b0a83e37de3030625094745a752c1a5c2db06743c1ee84097",
+    "/home/liulu/projects/VAR_COMM/outputs/EXTERNAL-COMPARISON-20261004/runtime/step0_cache_export.py": "7b3c868964af528656c6bf46267b9cc29ed76df53899b8c94e75e6dd8d10426b"
+  },
+  "source_sha256": "ad9f0cb9c4675d0646eb45929db444d1743624795442ba56292d5161e037761c",
+  "model_bindings": {
+    "/home/liulu/projects/VAR_COMM/outputs/HISTORICAL-METRICS-R3-20261003/queue_registration.json": "07a576e9ebd0dad1e135b6bde30445271b80edec908e9d75cf398a9b554dde64",
+    "/home/liulu/projects/VAR_COMM/outputs/HISTORICAL-METRICS-R3-20261003/inheritance/LEGACY_N3060_FINAL.json": "0026e6ae77ea90ee94f1e9f406b1d89167e497c0d2afbbaa27ea4ce16fffad62",
+    "/home/liulu/projects/VAR_COMM/experiments/unified-metrics-20261002/runner.py": "165e0559a8f0c145cdd22ca2d2fa38a9e72f6ceada8c2c65eb8cfc650423f5f9",
+    "/home/liulu/projects/VAR_COMM/experiments/unified-metrics-20261002/replay.py": "9582ce2f89c430369b7b19fd7810d1f90e56240f6d7b9845506fc57ded00bcbd",
+    "/home/liulu/projects/VAR_COMM/experiments/unified-metrics-20261002/metric_models.py": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066",
+    "/home/liulu/projects/VAR_COMM/experiments/unified-metrics-20261002/batch_speed.py": "f2650a8d700b0b7de737cc25cab55fd1f48b58551726f8d5b23ac827d001a509",
+    "/home/liulu/projects/VAR_COMM/experiments/unified-metrics-20261002/publish.py": "e2fee65f83aa7785c3a332993e3130211d35d639a717ac7dbe80c6f93d608df2",
+    "/home/liulu/projects/VAR_COMM/experiments/unified-metrics-20261002/qualify_models.py": "9d4675e8e707ee09e68daf1ad630af778a69fc54cd7ff486ddefcf0e0a37b5dc",
+    "/home/liulu/projects/VAR_COMM/results/unified_metrics_20261002/metrics_registration.json": "61b6b89f3bf0c0886025d57bfb415f7a880bc1ab6e7e0b68d111ce02ea0ab004",
+    "/home/liulu/projects/VAR_COMM/outputs/UNIFIED-METRICS-20261002/modelmanifest.json": "851a92682162e2b2be6e4e53498c50c7c3a9a1d2ea9e559b13cb9215f658ea9f",
+    "/home/liulu/projects/VAR_COMM/outputs/UNIFIED-METRICS-20261002/models_qualification.json": "ee256e63cc809ce6f6b3ac6c9d036e02bbae22a95c9c14e48bd01f61ea392b2c",
+    "/home/liulu/projects/VAR_COMM/outputs/HISTORICAL-METRICS-20261003/cached_studies.json": "a72cb5e1c2e29e93aa4c1fc604139a90521ffb3fcc75e7ef02755e3ac1532360",
+    "/home/liulu/projects/VAR_COMM/src/var_comm/quality.py": "589d43a9dede2327c67d363f3b8b879cfb184e40e6a58b1aa2ae9b675d63a1a5",
+    "/home/liulu/projects/CAP-VPR/artifacts/checkpoints/dinov2/dinov2_vits14_pretrain.pth": "b938bf1bc15cd2ec0feacfe3a1bb553fe8ea9ca46a7e1d8d00217f29aef60cd9",
+    "/home/liulu/.cache/torch/hub/checkpoints/alexnet-owt-7be5be79.pth": "7be5be791159472b1fbf3c69796f7cb30dca7ad8466c2df70058c37116cdee02",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/__init__.py": "0d2b87b7e71c7f7279ccc4b4f8b541d26071425284a0ea01a5a435fac4511cfe",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/configs/__init__.py": "be6503fea5e43bf81c504247a35f731f12541e567b18607152eff102137f8dc0",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/data/__init__.py": "a3d422bc188029270a69b231306eed8482093c0317b0ba406867a115f2e67f01",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/data/accumulators.py": "f7b8677699afbaaef17bb42573db0d45e1bc9a5e6f7da16573672a35f1f9a06f",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/data/adapters.py": "1d24004ce6ead1e35408f590867d0b1c09a4a3a65278771f574f1a3ba0d7ccba",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/data/augmentations.py": "10e949f266c7cffa57ffc8c5cf9dc094a8e701cdc74f1a3fefd2e02f78f8cdf7",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/data/cell_dino/augmentations.py": "b87c8283f717945c8429f220a769aeb0278604a38ded1c75b8adadfa1d2f3ddf",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/data/cell_dino/transforms.py": "18f435ff0a346d972a95c66d8b20bb1fee2fa275740e0fcc99253d982f5e3cd8",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/data/collate.py": "0d2bb0060094b8c86838ad5af2572a9ff0e66c73660b61be70d60f64b9508570",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/data/datasets/__init__.py": "00057731a94738bf3fdbc15af2bcc64f8c21e954e7ff79c0e48dae38b79202f2",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/data/datasets/cell_dino/chammi_cp.py": "bd35d07dec62ab3b5f99c78d97cdfa3fad8a617db5b844e81ded17142ef90361",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/data/datasets/cell_dino/chammi_hpa.py": "dc40cfc28ae02d2275b896189520c85c0c5d8aa9ad1d06f0ed3cd4a760ef488a",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/data/datasets/cell_dino/chammi_wtc.py": "e90ddea42e9273495f294ef584c467667bb8002758707cb154da55d37a24dc37",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/data/datasets/cell_dino/hpafov.py": "065108a515651ef21411e6951fa64197646e2887c8b772185673d3df65c4a779",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/data/datasets/cell_dino/hpaone.py": "16b080fd09d61c8241409d0e444d0b23464f7590f11df612e45efd354526ffe2",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/data/datasets/decoders.py": "a43ca26d46b973943ff17c5e6d0d4115cd07e01851e4fc9d46e4b13738da17f8",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/data/datasets/extended.py": "4f042450ff939a13d284df30a859a16f8c13ac8e3ece48e3437b8bca473980f0",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/data/datasets/image_net.py": "748a6d9f39b1ca9e94a2bdd61a78c40d1655508fcfae40057057fe8c74bb611b",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/data/datasets/image_net_22k.py": "e94c0bffc3f1aa78d770c871ecb72fbbf66a5dfcd0703f8319b263708698e351",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/data/loaders.py": "1f6c2f709f880c8b94717fc3ee2531f18e034ff98986c0a7e90096dc42b82b6e",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/data/masking.py": "4fcbc5aa4cfa069a32200b3eb39f86e09de3ac476afa7a12a2fbdfb160a892c3",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/data/samplers.py": "5f19029f6da99de6c81ec5e8d313d85739c66020cf8447b5b35e7f80c9071ebb",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/data/transforms.py": "725823be317c6a549810740c6566a2a448ba1eba85eea87769c10b986dda2e5b",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/distributed/__init__.py": "b6aaa4151999c88a4ff031e786dc66bb2ecbc8b5421ffe72169c9c305c1414e5",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/__init__.py": "2932e94a2d67be87b717c49468214c1127be7864aedf37f5891d26be7bc1437f",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/cell_dino/knn.py": "1360aaaf72fa561315e269e1c714d431aa6e5aa0ec64abe4d1c26be14b4c1750",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/cell_dino/linear.py": "0f103e6a5578138c614a445fc36c8555a74751cc5b6a90218fe0a417baf43df8",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/cell_dino/utils.py": "4117190b6b216f0ad48b2dab91cea55a09a861d27cb8d8993677274b01a76fd6",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/depth/__init__.py": "2932e94a2d67be87b717c49468214c1127be7864aedf37f5891d26be7bc1437f",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/depth/models/__init__.py": "6d2d9aa7396eafa2c3d04d5609b39c068b210a5ca8368d2f7cd47f5fc3e7d152",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/depth/models/backbones/__init__.py": "e6e25365ad291aad30d8bce4c9f9b906580f204c141d62be4bcc3699e563d901",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/depth/models/backbones/vision_transformer.py": "9aa72220970247ccb8399e5a95d82721679c479e0f0c0096c4ef0bdff4fe6735",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/depth/models/builder.py": "0b1dcd672ba5a6b5acec2fa70cfea70ee280aba264a3236e7c1139976b2d02dc",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/depth/models/decode_heads/__init__.py": "38268a3d08272273b7a1cf03b88b1eff6604cbef519637476e9652dcef4f43bc",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/depth/models/decode_heads/decode_head.py": "4d163967518b4ef251dbd400792a295033983a7c3eb9ce2b362df32f1bc57046",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/depth/models/decode_heads/dpt_head.py": "4de04fd7fd8681d0bb5977f250be89d76314f97d626f717d1d09eeff14e059f7",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/depth/models/decode_heads/linear_head.py": "bf6c448f2635a5db0eb0423bf7854899c1e36f0e0897107c14dfb2bf064d0160",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/depth/models/depther/__init__.py": "a00bcccdea87b79d23b0085ad3db9728169103c236749dfda09184dc0fefa8aa",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/depth/models/depther/base.py": "59233aeb2bdf0266937213d5d1f12628835bc5a204f11a7b6982838f61adf28f",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/depth/models/depther/encoder_decoder.py": "96d0d2ff321707888191b52ee9180ef6f38d6b7212f5d604891c764b4b46d248",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/depth/models/losses/__init__.py": "5dacc4c02607b64ee63906bbda9de9158d59d50fc2d1e4cf360455f6f749bee0",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/depth/models/losses/gradientloss.py": "61d625dd618ca3fb2443d1e831949f1e79c2bc4081d72355ff932a41c8b47f89",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/depth/models/losses/sigloss.py": "97ff67edf57ebfd6570be45859545580171cfbca489803429005529ccc0e4135",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/depth/ops/__init__.py": "1640dd76d0d09a1db46df8a1c767ff04d2a0d6004d9c9b6134d80a0f53f6c4e7",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/depth/ops/wrappers.py": "85d58e303eff9a0a306d97101c8b35c24196bfe55e8da019df1e4817411a4dc7",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/knn.py": "5f59977c5d697579d64b1acb19244d819c54a253cdcf1b023b818418bdf841e1",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/linear.py": "cd6cb057561ab180557711b20d2f5f4916393a848375b0cefae11ff61d339865",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/log_regression.py": "273648c0937183af4b2f516b8009e7ef4ffda91b599e8512422e2c3b51829615",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/metrics.py": "2f436b2a67949955bddce0b6b58d73fe338ba362a3de4834290593f7a134e9aa",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation/__init__.py": "2932e94a2d67be87b717c49468214c1127be7864aedf37f5891d26be7bc1437f",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation/hooks/__init__.py": "590638a03129a24077f4dff2477b3d9326e234f23590d5c5715c37dff26b5638",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation/hooks/optimizer.py": "1c116c35dfad8fa9abdfa5738c7e621e75c9277304fd009f48c2592571204ab1",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation/models/__init__.py": "8d3601782bc10c5477243d1d6760c94e78a8ef8e7028476c70ee4781a693fd36",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation/models/backbones/__init__.py": "e6e25365ad291aad30d8bce4c9f9b906580f204c141d62be4bcc3699e563d901",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation/models/backbones/vision_transformer.py": "ed687476a2381bc708c6035b5f77e7b2560baaee36313c55f5e26aa5253adbb7",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation/models/decode_heads/__init__.py": "f440e7a342f485db7c5766359f5b747f0ed810172e89521b218e50057a94c5e4",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation/models/decode_heads/linear_head.py": "14500d7aa301797f77774348bd6912ee2ee3e68909c9f511a2730ff340349340",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation/utils/__init__.py": "2932e94a2d67be87b717c49468214c1127be7864aedf37f5891d26be7bc1437f",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation/utils/colormaps.py": "5c421de6f63e74b098fa9bd75f5410d816336bb3bcee0194e483682766aa4036",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/__init__.py": "7fb45f0041dd007542578ecf31414a883a9e028a591f9570eec0d25afd928e9d",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/core/__init__.py": "99e3920edbb8635012e51b583c4264556f540f098a80dee90534a454c34b4c68",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/core/anchor/__init__.py": "cd269c97e28579d99706f3f31241173b22210429249742005b8a00bc8528d366",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/core/anchor/builder.py": "fa8456a4f2941fb3b6bc88d210c6ce43298d0b081d00af9ac0ea9050edf6d16e",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/core/anchor/point_generator.py": "23ff9cf80fef4472cf8a361d2df8f211fab4092925d6bb9cce18bb68a60cd6f0",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/core/box/__init__.py": "7b0b68761110103819b5e8ef0733327021bcca5ac78168e8f27a5a721b1bfa43",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/core/box/builder.py": "93ad53a18707547dc53c28c52ae616da19e43064d7e4f30240d08ea50dfb955f",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/core/box/samplers/__init__.py": "b3383233672410d9f13fdfb9dc47ae4543a98c45ee2361a0cc825afc5dd00e32",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/core/box/samplers/base_sampler.py": "91fd7bc656e0519b6f732a55a0f00457ba339bd98c6d3393d7ba35280442a1ed",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/core/box/samplers/mask_pseudo_sampler.py": "3ac44707526239d782a1653ad641d447ecb1003eea399e0a718790a92a476305",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/core/box/samplers/mask_sampling_result.py": "527d952b5001c86ca285a3f7895d804d12dd47b9d3c07535b6494a8b35e21d39",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/core/box/samplers/sampling_result.py": "c4b34191ab9589a098b0e46116ca9a53eedeae3adda515b8078f635096b1d492",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/core/utils/__init__.py": "17ecc2ee748e92194c272e63a0db74dae0bb2ef921cecedc9cffe5c23b86dea9",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/core/utils/dist_utils.py": "a3747a307397dbc10c09838d44fa90438f758977254ed305647ce96bd16bd045",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/core/utils/misc.py": "97409a32ac290d34da2bb7d28a3f6ecbc975537a3aa76060fd16ab5924de400f",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/models/__init__.py": "2c8e40b6362d507e4d1ad18700feb53897ec7403e32033065d7927dae6ccf818",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/models/backbones/__init__.py": "f35535dbddb96f998a9bd1a7734cbc02abb652c18a5c6df7a47e7548ac33440c",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/models/backbones/adapter_modules.py": "e103c8bdff5c3427a59a0bf84dc70677d5fef5ac9d43445815da16537944ccbe",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/models/backbones/drop_path.py": "068b166f953c0939f5479ef1735736116d91bc9942990472b60d104d95f9c83a",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/models/backbones/vit.py": "7ad30e14310c5bee54743459f128b076195554760eefd60e1593fbfde2234021",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/models/backbones/vit_adapter.py": "cb89b1d4943049c0ee3e3993738fb56806239221dce72345ea054fc7fa8785b0",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/models/builder.py": "e96e68e45a5139d16e3238c7f5690d72d4e7838c9fe9fc85273215a3b7a0115f",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/models/decode_heads/__init__.py": "8bea632762d84b954373d0fb2e35a224786eb4692f2bf6acf4b61b0c5fc89c06",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/models/decode_heads/mask2former_head.py": "c7b5d0d307da7737ac087b368de5d8160053d2e7fb9c705e805e7930ad9446ad",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/models/losses/__init__.py": "ca75161c95771d281968c329697642f7f84e0deaa6ec780262f4fe2c4a33fd4c",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/models/losses/cross_entropy_loss.py": "b5cf193e70a20c9a0936222dab0546918940b9dee714cac2c4836197ed6bf940",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/models/losses/dice_loss.py": "d6dc52a33494d569b98dc165f176c1444060d2f6bd8c8f458aabcea72d2edeee",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/models/losses/match_costs.py": "4cccb76ea151a0c38581f73d4da727ecb1d95a4b92ac294680adb588e6534046",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/models/plugins/__init__.py": "80ed4eab0a7f3c8a03c96a328a94cd972fb804cff30ccfc68e87b066ffb08fb5",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/models/plugins/msdeformattn_pixel_decoder.py": "66fc2f5a58638747576492250ce43e076bb119fe54a5e82569f4e6bd88a5a95b",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/models/segmentors/__init__.py": "02bc4c748360de2f9b4fe61b112fbd49cfcd943265f0c6f78afc2802b0d11a96",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/models/segmentors/encoder_decoder_mask2former.py": "06fdad9b0f24a0a3af4e4213bc1beb288fca7ad9010b24b3284103f2b9ea4e04",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/models/utils/__init__.py": "091931518ac32103e9ef30be7a7b57839c1970bb4a8658f5bce0643735c73bb2",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/models/utils/assigner.py": "47d015ce3a022c720fa5c8d37260c1bd39b19f77808b51dae25a0a9c7fdd70f3",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/models/utils/point_sample.py": "e4f2dc0a1a4d5db984a590a85a0fb4ef224cfbfa013c1a212ee9cbcb8b49a9ae",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/models/utils/positional_encoding.py": "3b07f2b2127f03048dcd10266e3d14818334becb56970a8cfe9ac680ec0b8753",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/models/utils/transformer.py": "6bc659898dd0d4e75bbb941bb1720f696eb840667cda52fbac46feab1eac20ab",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/ops/modules/__init__.py": "2b1c15f2a30741376faebf09ac22e3fdf672b768c1717a3b7bbffaa844c0f111",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/segmentation_m2f/ops/modules/ms_deform_attn.py": "ef8d800b0e3139b6ec2dbe22de3a39da653dcc88129bc246239fc47abf6524ec",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/setup.py": "629eea62ca20ad2694b4979a91fb85e644cda429049580360a3a86be4bbe477c",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/eval/utils.py": "3eb42fa16c97b21c8e69c229e71388b2db04923097912e42c29676c82f03ed44",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/fsdp/__init__.py": "672fc23d385c86530e439c42f8c73abb585a5bb96ce87c6ad5e8fb004e631efa",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/hub/__init__.py": "2932e94a2d67be87b717c49468214c1127be7864aedf37f5891d26be7bc1437f",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/hub/backbones.py": "871fca671b12a9ff02e810654baf509e97ccf461bf8196ce5ddeefff2fd87d3e",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/hub/cell_dino/backbones.py": "5e2be2a84f04bab20050f8e9c6e14870d5a2d3e7894631dd8747e00f3b5299d2",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/hub/classifiers.py": "e2dcf8c2aaec1c695bb20dae8f808811e28f27032338f3450f2ac17e309e0e1d",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/hub/depth/__init__.py": "de8f3fbecabae6552ebb8f3d7dee27987b1dbc11e94143c95137c438e86a9123",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/hub/depth/decode_heads.py": "04eb9639a4441409b80651c3d019a6e850c32b7e709236ceb6dbbaeb9fa17713",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/hub/depth/encoder_decoder.py": "1baf6f59269fb99faf274900f12910a22e038a3bb6d81c6fc712c0c482041a57",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/hub/depth/ops.py": "85d58e303eff9a0a306d97101c8b35c24196bfe55e8da019df1e4817411a4dc7",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/hub/depthers.py": "098e10859c1e8188d5245318911025eef1c5f37331d01e6014167027b25cd5b7",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/hub/dinotxt.py": "9124df0f7f8f21995f33a86a4e6545c11e25591f7bafcbe96a299ae6bd070677",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/hub/text/dinotxt_model.py": "7ef7bfceaacfd1566a3984038a691edeaf9b9f42910583e5de62a00e3cf852d0",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/hub/text/dinov2_wrapper.py": "834423f869038ce7c2b1794564018e0d3ca8194faa6d4c17f0d208b1625d0c64",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/hub/text/text_tower.py": "fa591e45ad0e7400290e716ff0ddca102fd646edc2da448807c1006a5b94744f",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/hub/text/text_transformer.py": "7138271bc95251d33a172cead1392434b9f8f7b1401fe1e0b4c37e64ff2bf354",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/hub/text/tokenizer.py": "85078188841107932343123f29104288615b41ca4e5d1eb2d8623e02a8ac749a",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/hub/text/vision_tower.py": "2496418c885c01ba7b7b9172d72906911ad950211c08a6e085ef2ee574405ebb",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/hub/utils.py": "579613e3d7b82c2a387eddc215ad9f076b8740f9618229628395fe5755dbd131",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/hub/xray_dino/backbones.py": "23c4513ac900815772d6076d2dd8c6e8564cd85ec11873c8ebe62e5de0647d03",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/layers/__init__.py": "1b55deed39d5ab0b589bef421bbfe06f24a10cd590a0f8403234c9ee4e34109d",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/layers/attention.py": "79c7be7a452b3aad96698ec38d5d5150b9f4d8ac084fa93324510dc9f624775d",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/layers/block.py": "60c0ac7dfa4474be313fabfa5a23d82faf6f0cecd4e720a88be35de9788cb636",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/layers/dino_head.py": "9fdb1fa61c0609dc0876f711f9d0d828c33bf9fd972aab3d9c968d44e16b98d1",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/layers/drop_path.py": "b9f8236e86054b9d9a71275efcad2a9ecaa1f86b529d4b8d6109ddb5e806f67a",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/layers/layer_scale.py": "dadd5aafe178f1bf72a205a02a6645c7e635cacbad585d4a7369c200c6e89135",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/layers/mlp.py": "255825c73b60a916dd00eb1e38aacbcdbf316e40d6a005efb46e245b7edb43aa",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/layers/patch_embed.py": "40da6add3d811198ea3e17cb99cdd4e5cda59e369efbbe3d18d89308618cf142",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/layers/swiglu_ffn.py": "e46d2948fb97e497cf991ff82ce30cb59b59fdf2e12a19568417113716b4f119",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/logging/__init__.py": "fff00c7e5d5381b55d8f820ba3a1f8f0902af15dacb3159fe5c6e3b542771c40",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/logging/helpers.py": "5c2ee4b35f6c160836c7f5e7f3db1246662499ecc6ec8e53d06f14fef71504ae",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/loss/__init__.py": "e5ae2143dd98108f81d26c276e2048fa339cde5f5fe369e2d6797acea09912bf",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/loss/dino_clstoken_loss.py": "49f0b2b75c2feba83b3fc9dfb40ef5eb4e3db350ab1e12a63d75d3060a88f7df",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/loss/ibot_patch_loss.py": "19c0ffc85c8af01657ad2e6cffc2d4d311415b10807f63c2d6341195c7a62ddb",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/loss/koleo_loss.py": "ddccd75b7985d5e584f0fe6f3fb1ac474b9cbd9a6fd6fb6c6ae471ca479085d1",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/models/__init__.py": "b93329ce676f3eb0c9a7790d1b3b2b114a0855ea8dc76e32e262d1a7dc6c55ae",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/models/vision_transformer.py": "7799a260f2d7d0fe197331d08502fb8c542f9b7424723650f6a39b64fa2639ea",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/run/__init__.py": "2932e94a2d67be87b717c49468214c1127be7864aedf37f5891d26be7bc1437f",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/run/eval/cell_dino/knn.py": "944113cdf344910011150a52e7874dce69640e0afb8e438a4c7e582349bbe1ff",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/run/eval/cell_dino/linear.py": "efb20708485a41bacd8db2a6a274988fac3e1e7cfec5290050293a8b587e7601",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/run/eval/knn.py": "21d1ed25bc9206b412e2d17bac150549f69929f5d0c924b7400a72d1bd295c31",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/run/eval/linear.py": "f89eb0a2eccdd2f35e27f7a5ca91ded95e4a5699f57e8e568c58547625f87ac5",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/run/eval/log_regression.py": "b4c4ddd086408c681b8b5642a26858b6c9e1a798c483a5283a983f2cd2b44c46",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/run/submit.py": "64597db2041e9c16a7640eeac00a299cb2761329af980f33f26a6dd025ffb541",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/run/train/train.py": "b469e29aaa460e509d52f19c787aad50963265d242200cad5f9ee3ce85938ba5",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/thirdparty/CLIP/clip/simple_tokenizer.py": "47b4a3678fed8a7a8b9ca614e7728c33c6ccda5aea3bd2acebf24c081cb25b64",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/train/__init__.py": "64dde70804b782a876524b529b00b9775559314a88d738cf4aee914bd4dbb9c4",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/train/ssl_meta_arch.py": "a97cdcc721e9312f5e088f78257dbbeb98cb3af40e3e3b975aefbd6bfd1996c4",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/train/train.py": "04c4829d6cb428df546536cba4b2a313fae38bac084abf82758bf69483b03e89",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/utils/__init__.py": "2932e94a2d67be87b717c49468214c1127be7864aedf37f5891d26be7bc1437f",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/utils/checkpoint.py": "36335648d4574417c41e0fe82ddb8cc23653bbbc251b580541167b73a83b8eff",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/utils/cluster.py": "be49f48f01edbc7d209941e1078be309bef7d06631da851cafcfdec7112d269f",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/utils/config.py": "588574a78951ccfe7ffaad9ef7cab53d37e837e3ae98cfc1b6a976189073d87c",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/utils/dtype.py": "610251537bcf55de8961a17dd625560eae5cfa5082e9382bbd9ded86db92e1c6",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/utils/param_groups.py": "ec1daae9eb7c50492091504f97087e3179d46a080d7b7f131967c07cb15cf6d4",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/dinov2/utils/utils.py": "4e1419e8dd4a24d48689357ca48d304d1f895fa49f5dbf42d400ac941216e9f7",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/hubconf.py": "c1f5090e78ff940b72c076d2bf9c0310d1707c946b3d10e2d6f2b0bdf56a6f64",
+    "/home/liulu/projects/VAR-MAP-GATE0/third_party/dinov2/setup.py": "8ec72d3be027aee099a7b7b1c36c874be6d7ade4dd9eb69baff3975b586820ae",
+    "/home/liulu/.local/lib/python3.10/site-packages/lpips/weights/v0.1/alex.pth": "df73285e35b22355a2df87cdb6b70b343713b667eddbda73e1977e0c860835c0"
+  },
+  "numerical_runtime": {
+    "matmul_tf32": false,
+    "cudnn_tf32": false,
+    "precision": "highest",
+    "cudnn_benchmark": false,
+    "cudnn_deterministic": true,
+    "deterministic": true,
+    "threads": 6,
+    "interop_threads": 2
+  },
+  "metric_evaluator_identity": "d424ccf018ad26257b17e655244fa1725f336b57dacc53d7c288df565dce0b1e",
+  "modelmanifest_sha256": "851a92682162e2b2be6e4e53498c50c7c3a9a1d2ea9e559b13cb9215f658ea9f",
+  "source_records": [
+    {
+      "image_id": "n01440764/ILSVRC2012_val_00003014_n01440764",
+      "preprocessing_id": "ba4269f89fdfc1ec6596d3da2afb4e19a03b1eca4a1722e30eed3d2a2bd8f7ec",
+      "class_index": 0
+    },
+    {
+      "image_id": "n01601694/ILSVRC2012_val_00021656_n01601694",
+      "preprocessing_id": "37b82f0d861ae3605d674a2cbb64be7cf20587648637da943b3560bfecd7ae35",
+      "class_index": 20
+    },
+    {
+      "image_id": "n01664065/ILSVRC2012_val_00014316_n01664065",
+      "preprocessing_id": "835f79111e775834cb13588324bfd6b10fbdc1daf6dc7b4f72089c82175a910c",
+      "class_index": 33
+    },
+    {
+      "image_id": "n01689811/ILSVRC2012_val_00020598_n01689811",
+      "preprocessing_id": "1246570f41f66a19917cee1a8df75396e46c1432ca4c8f58e321a310b321915b",
+      "class_index": 44
+    },
+    {
+      "image_id": "n01735189/ILSVRC2012_val_00006699_n01735189",
+      "preprocessing_id": "94658fdd83ae6734124089a0da860094f78c13469d89519dbe2f21027a4d01d0",
+      "class_index": 57
+    },
+    {
+      "image_id": "n01744401/ILSVRC2012_val_00032663_n01744401",
+      "preprocessing_id": "7cd8922d351c72ca0e054807bf7621a297c52a9b1114bd0c0df22ed2f8a4f66f",
+      "class_index": 62
+    },
+    {
+      "image_id": "n01751748/ILSVRC2012_val_00033157_n01751748",
+      "preprocessing_id": "83149bf37e64c45c4c66758e8f8a09068ddae230eee2229359b65dada673f84b",
+      "class_index": 65
+    },
+    {
+      "image_id": "n01775062/ILSVRC2012_val_00036589_n01775062",
+      "preprocessing_id": "b2d5003b689d41aae33350a9998fe67c924460940402a10b7c4f865434b3d5ed",
+      "class_index": 77
+    },
+    {
+      "image_id": "n01843383/ILSVRC2012_val_00005901_n01843383",
+      "preprocessing_id": "bf69dd09dadfb949dc2d90d20cb7f37908bb912676f698d73819557a49f31ce1",
+      "class_index": 96
+    },
+    {
+      "image_id": "n01860187/ILSVRC2012_val_00021594_n01860187",
+      "preprocessing_id": "64a3034f4043379fad126e4f69b4f653f00c0fef8cadcef0ee65d293ad7bb37a",
+      "class_index": 100
+    },
+    {
+      "image_id": "n01882714/ILSVRC2012_val_00019996_n01882714",
+      "preprocessing_id": "b2bb1bfcc62415aa32d898a4dc5e48c533b895d5a507861a0f4e2c2d93d34bc2",
+      "class_index": 105
+    },
+    {
+      "image_id": "n01943899/ILSVRC2012_val_00005706_n01943899",
+      "preprocessing_id": "4cb2373a0b87de6658118b3baa34de89add3bab2489fae317287223b68d543fa",
+      "class_index": 112
+    },
+    {
+      "image_id": "n01955084/ILSVRC2012_val_00001857_n01955084",
+      "preprocessing_id": "5442a63232a5b147e6e6963b607fff43aef017769ebe03bd258ed378ad261cb0",
+      "class_index": 116
+    },
+    {
+      "image_id": "n01983481/ILSVRC2012_val_00019856_n01983481",
+      "preprocessing_id": "ff963d160b1d9d93ee7f149d4db1c8a86cd2d237d99116bf51262d3313a9fdef",
+      "class_index": 122
+    },
+    {
+      "image_id": "n02013706/ILSVRC2012_val_00003168_n02013706",
+      "preprocessing_id": "451d1b57bce58847eb2ea84a22871b68d6ca8b3c17d99d6c939bce0e851c9bfd",
+      "class_index": 135
+    },
+    {
+      "image_id": "n02027492/ILSVRC2012_val_00007524_n02027492",
+      "preprocessing_id": "10d9138059c8e8abd1ae55a396b4dad03de21ea77e019e7d37491f53a17eb18d",
+      "class_index": 140
+    },
+    {
+      "image_id": "n02088094/ILSVRC2012_val_00005507_n02088094",
+      "preprocessing_id": "9bcfe25d894ad5fa8d48fa21098e648d640e9456d17d9f3cdc7f15baa61f64b3",
+      "class_index": 160
+    },
+    {
+      "image_id": "n02090622/ILSVRC2012_val_00006265_n02090622",
+      "preprocessing_id": "5235a32da64ab784a577e24b77bc0b99ddf463730a208c821f0635343baa878a",
+      "class_index": 169
+    },
+    {
+      "image_id": "n02096177/ILSVRC2012_val_00019083_n02096177",
+      "preprocessing_id": "8e9862e54da0674de014e4486c163d6ad5f9730544f6931874a778220bace808",
+      "class_index": 192
+    },
+    {
+      "image_id": "n02098286/ILSVRC2012_val_00038253_n02098286",
+      "preprocessing_id": "909d7e0743c18bdcc46352a8ce22b40b3c6300daa8db6b13ea4a7d6cbd6d82d9",
+      "class_index": 203
+    },
+    {
+      "image_id": "n02102480/ILSVRC2012_val_00010261_n02102480",
+      "preprocessing_id": "38bf5ab4d8bead9f1f215e246c57b2622687e3802dbe623372a59b9360124263",
+      "class_index": 220
+    },
+    {
+      "image_id": "n02105641/ILSVRC2012_val_00018762_n02105641",
+      "preprocessing_id": "3c66584ece5c46a50e84a58166f6dc576f95302d99a27b9caf6db2771cf248a1",
+      "class_index": 229
+    },
+    {
+      "image_id": "n02106550/ILSVRC2012_val_00014315_n02106550",
+      "preprocessing_id": "4d74095324045d8f79e913400e79b35c1d4966121268d279670f7b781201720e",
+      "class_index": 234
+    },
+    {
+      "image_id": "n02107683/ILSVRC2012_val_00010786_n02107683",
+      "preprocessing_id": "fa0a929e8186ffeb826e91bdccee23a649868c49cab59617144ade56bf9f52b3",
+      "class_index": 239
+    },
+    {
+      "image_id": "n02110806/ILSVRC2012_val_00030364_n02110806",
+      "preprocessing_id": "7979fe01c4abe94a4d916a11520399c7e8ed8c805e7490fff5b6cf9579ce9dbe",
+      "class_index": 253
+    },
+    {
+      "image_id": "n02113799/ILSVRC2012_val_00007866_n02113799",
+      "preprocessing_id": "304f20c62753839162b2f26b666a6d1f5d9582476f0cb2cde601e47842f40b68",
+      "class_index": 267
+    },
+    {
+      "image_id": "n02123159/ILSVRC2012_val_00025723_n02123159",
+      "preprocessing_id": "ed441e8839af44206a68e2c3c7607146d77cc39acae0fcae80e5b60f68929113",
+      "class_index": 282
+    },
+    {
+      "image_id": "n02134084/ILSVRC2012_val_00020332_n02134084",
+      "preprocessing_id": "92afe5c6ba9b6add49a7b8d5f69014be0bbc2393759fb85a99ead66e153f0edb",
+      "class_index": 296
+    },
+    {
+      "image_id": "n02168699/ILSVRC2012_val_00040132_n02168699",
+      "preprocessing_id": "caae24a36e6f26c363f5e4a7594fcd5c9d22864fe233e8d449d53a726a8100a4",
+      "class_index": 303
+    },
+    {
+      "image_id": "n02233338/ILSVRC2012_val_00016160_n02233338",
+      "preprocessing_id": "d2d64df0e26c9602d937a190b46ccd9f9c7541916cdbba9441e0999a09343c62",
+      "class_index": 314
+    },
+    {
+      "image_id": "n02264363/ILSVRC2012_val_00027803_n02264363",
+      "preprocessing_id": "a9982d467f83d50ace36a56207d894db4c5d2535cb160188c286c3846a0c7385",
+      "class_index": 318
+    },
+    {
+      "image_id": "n02277742/ILSVRC2012_val_00015608_n02277742",
+      "preprocessing_id": "bd678c112e5c027a0d5a9dd67e8a15db14f8eb5dff986394ab6f936a11498a62",
+      "class_index": 322
+    },
+    {
+      "image_id": "n02325366/ILSVRC2012_val_00024858_n02325366",
+      "preprocessing_id": "6fc21bdab6b7976bdc452d81a324ab7d99d2600516cb80ca2e8b092352eeabf5",
+      "class_index": 330
+    },
+    {
+      "image_id": "n02398521/ILSVRC2012_val_00018354_n02398521",
+      "preprocessing_id": "52f645427565641f0c2186bc45125f58be9c5ef2aada5442f0d1310afbbaa6e6",
+      "class_index": 344
+    },
+    {
+      "image_id": "n02410509/ILSVRC2012_val_00022568_n02410509",
+      "preprocessing_id": "2b417ecf21402198f7fcd411e02b2f21634bf799800e8edf5ab4da19924a9fc4",
+      "class_index": 347
+    },
+    {
+      "image_id": "n02437312/ILSVRC2012_val_00006245_n02437312",
+      "preprocessing_id": "b2c841099c6c55c4f812a51a7a7c8cf2455f30d3ef0d1dbb16c6c6bc060c760d",
+      "class_index": 354
+    },
+    {
+      "image_id": "n02486410/ILSVRC2012_val_00009799_n02486410",
+      "preprocessing_id": "40fb5083489542d2366609fcc4468b19bd62505e86a7a9c1d18574670f53e564",
+      "class_index": 372
+    },
+    {
+      "image_id": "n02509815/ILSVRC2012_val_00014423_n02509815",
+      "preprocessing_id": "52636d0a3f2d227327400178c05edcc551d6213c012fa6a8b03a1bb6db4e6b99",
+      "class_index": 387
+    },
+    {
+      "image_id": "n02708093/ILSVRC2012_val_00024690_n02708093",
+      "preprocessing_id": "9cf3493e4dbd81b11f4a70b76adce387c9cf2550f6758f10cb801befcbcea8a3",
+      "class_index": 409
+    },
+    {
+      "image_id": "n02776631/ILSVRC2012_val_00028186_n02776631",
+      "preprocessing_id": "144e6a5ac66f329d2a7b5fb658deecf277f46cc77aeba1a3a27f69ba24a10751",
+      "class_index": 415
+    },
+    {
+      "image_id": "n02788148/ILSVRC2012_val_00012264_n02788148",
+      "preprocessing_id": "d77f825c1f142e1b256614bde8db32959914f48d12284b929e20a1a0b9c5a5ce",
+      "class_index": 421
+    },
+    {
+      "image_id": "n02834397/ILSVRC2012_val_00010741_n02834397",
+      "preprocessing_id": "7e296a31245bc9af585ab76c42d861b0727530e951052bf54cc1a65562b49f69",
+      "class_index": 443
+    },
+    {
+      "image_id": "n02841315/ILSVRC2012_val_00014601_n02841315",
+      "preprocessing_id": "b19f30a7cd526ca652bf3bfc1deb42f07c00fbd53c9feea68ff4447f8d9e8bb7",
+      "class_index": 447
+    },
+    {
+      "image_id": "n02910353/ILSVRC2012_val_00017543_n02910353",
+      "preprocessing_id": "c27e162eeb52bdd42f8afb9b5faed79a866cf4780dd2868324fc795fecdab836",
+      "class_index": 464
+    },
+    {
+      "image_id": "n02951585/ILSVRC2012_val_00008336_n02951585",
+      "preprocessing_id": "6287e5124249bc06487c026c7ef680074a0e54fccdb9e9796fb43e1bae73b987",
+      "class_index": 473
+    },
+    {
+      "image_id": "n02980441/ILSVRC2012_val_00023472_n02980441",
+      "preprocessing_id": "431d4041c6610691fb229a8e04d9675487a0d0f1f248d24f907f412a19b59b4d",
+      "class_index": 483
+    },
+    {
+      "image_id": "n03028079/ILSVRC2012_val_00031446_n03028079",
+      "preprocessing_id": "68d3b9ce94abf8f4587927a53677c949e781d6c4cd367b6ba90426a9025a44b8",
+      "class_index": 497
+    },
+    {
+      "image_id": "n03109150/ILSVRC2012_val_00032588_n03109150",
+      "preprocessing_id": "6c166713f4445234d77bec983d9a58df6991ae7fb4edc7c41f3bba855677a401",
+      "class_index": 512
+    },
+    {
+      "image_id": "n03127747/ILSVRC2012_val_00003732_n03127747",
+      "preprocessing_id": "08d575ca78e8ec0d619123ef77779908752bd32d2173c1fe1f1c67e82a018e5e",
+      "class_index": 518
+    },
+    {
+      "image_id": "n03220513/ILSVRC2012_val_00006359_n03220513",
+      "preprocessing_id": "6c47747b22fef34c608caa6ff8c1bf614884668716eea442f2a7c7c6ba1256cf",
+      "class_index": 538
+    },
+    {
+      "image_id": "n03372029/ILSVRC2012_val_00034937_n03372029",
+      "preprocessing_id": "65b3cd96fc2b315ee48cdd65d9b09dd8138ccdc48fae27960eca02056c707408",
+      "class_index": 558
+    },
+    {
+      "image_id": "n03388549/ILSVRC2012_val_00022928_n03388549",
+      "preprocessing_id": "2eb9a156db0d46e65186b4aefc4fe0099a6ec0a60280cc661bd37e4b238fbb39",
+      "class_index": 564
+    },
+    {
+      "image_id": "n03424325/ILSVRC2012_val_00006147_n03424325",
+      "preprocessing_id": "20025cb5e1981e398a9afa6ccd1d1d2b846a627f61e99a50c1eb2f7116615db9",
+      "class_index": 570
+    },
+    {
+      "image_id": "n03447721/ILSVRC2012_val_00006942_n03447721",
+      "preprocessing_id": "a028f47aa5cd8b04454d26b7c2fbca3a7259b6d3d2c712bdb3164717eb7b7d11",
+      "class_index": 577
+    },
+    {
+      "image_id": "n03485794/ILSVRC2012_val_00010782_n03485794",
+      "preprocessing_id": "6cb18ac7a6f1c139799a90785b3695b670a64a978aff1ca14d3922f3a55e1bfc",
+      "class_index": 591
+    },
+    {
+      "image_id": "n03527444/ILSVRC2012_val_00035251_n03527444",
+      "preprocessing_id": "fd1996afa6b044e353d02c5d5d9d88bbe67cf8b17860630837a7bf646dd4ad7c",
+      "class_index": 597
+    },
+    {
+      "image_id": "n03584254/ILSVRC2012_val_00016384_n03584254",
+      "preprocessing_id": "07bcf32feff7608562a15a061ceeeabdd1a360f60464acf875102797b198242b",
+      "class_index": 605
+    },
+    {
+      "image_id": "n03623198/ILSVRC2012_val_00019928_n03623198",
+      "preprocessing_id": "81d6a474eecb501903c3e94b06b8e249955cf4c113fd1da261dc132ce386fecc",
+      "class_index": 615
+    },
+    {
+      "image_id": "n03657121/ILSVRC2012_val_00000359_n03657121",
+      "preprocessing_id": "a3f1ce0a0a826b7e4bf7f9376a96bedfadf32990d1e0e44b5346a70442b58586",
+      "class_index": 622
+    },
+    {
+      "image_id": "n03706229/ILSVRC2012_val_00017460_n03706229",
+      "preprocessing_id": "8e3b858b0513ad838965208bb580abe8a508cb57740c0505ccbc8cf050b0c838",
+      "class_index": 635
+    },
+    {
+      "image_id": "n03759954/ILSVRC2012_val_00010804_n03759954",
+      "preprocessing_id": "7a1498cebe035004705d9ede2d2cfecfdc25e8e2db8841b990fec0d4b834b3d1",
+      "class_index": 650
+    },
+    {
+      "image_id": "n03775071/ILSVRC2012_val_00002420_n03775071",
+      "preprocessing_id": "1300a7a060a680cbb93440b49303a8d52c9ff2d49cb9d0d5a5d642ea948009d0",
+      "class_index": 658
+    },
+    {
+      "image_id": "n03782006/ILSVRC2012_val_00004758_n03782006",
+      "preprocessing_id": "81c7629baa1e0573a341cb7530061c978f2dd27d0be5ee68dc23399e1119f3d8",
+      "class_index": 664
+    },
+    {
+      "image_id": "n03796401/ILSVRC2012_val_00025827_n03796401",
+      "preprocessing_id": "9b21385c64696f5ac47bcbcec19404b19a48abc9bdcc5c0843cd0946b1a798a2",
+      "class_index": 675
+    },
+    {
+      "image_id": "n03866082/ILSVRC2012_val_00003554_n03866082",
+      "preprocessing_id": "60562c0929f93a4daaecb86a36c36db3a1ed774950e0bb4ab9d3b89153eae016",
+      "class_index": 689
+    },
+    {
+      "image_id": "n03876231/ILSVRC2012_val_00022714_n03876231",
+      "preprocessing_id": "e5fb75ea19743794b97420b0a84dd1ed44e00b335e89467578a629395e979d2f",
+      "class_index": 696
+    },
+    {
+      "image_id": "n03929660/ILSVRC2012_val_00012300_n03929660",
+      "preprocessing_id": "505f23aed8d3e96d4497a443edb34645a75ad2773b26e3a2bfe8a41501c74e37",
+      "class_index": 714
+    },
+    {
+      "image_id": "n03950228/ILSVRC2012_val_00019039_n03950228",
+      "preprocessing_id": "606ce0cbbbddaa18c5ae0e6b670ac1a18aaa6bf2945e31f99868290a41ead38c",
+      "class_index": 725
+    },
+    {
+      "image_id": "n03977966/ILSVRC2012_val_00027383_n03977966",
+      "preprocessing_id": "5a1f23f6a5c2c26f0bc8e72f9b77fdea74e75d81b45e24991a36792991b4d352",
+      "class_index": 734
+    },
+    {
+      "image_id": "n03983396/ILSVRC2012_val_00012891_n03983396",
+      "preprocessing_id": "62a65414a700886fce201470942a341bd6f772787a7603b59ffefcea12cdf8a3",
+      "class_index": 737
+    },
+    {
+      "image_id": "n04044716/ILSVRC2012_val_00039752_n04044716",
+      "preprocessing_id": "4684500d0ef929418c32a7620e97d9f1d5422991f5a2ca2e06a12af1232ec4c3",
+      "class_index": 755
+    },
+    {
+      "image_id": "n04067472/ILSVRC2012_val_00007618_n04067472",
+      "preprocessing_id": "50fc28951f4b1851b0854487090b20120b57db13ecec51f6e3e92ba56b2954a7",
+      "class_index": 758
+    },
+    {
+      "image_id": "n04111531/ILSVRC2012_val_00013982_n04111531",
+      "preprocessing_id": "bf3dcc257672ac223943ff82ef51ebf2915e31dedf8d5adc1446c0aebc47b061",
+      "class_index": 766
+    },
+    {
+      "image_id": "n04131690/ILSVRC2012_val_00002728_n04131690",
+      "preprocessing_id": "a4f0ce87454301b9469c70fbe6b41ffe2efe961d876273779860662e88fdeb06",
+      "class_index": 773
+    },
+    {
+      "image_id": "n04153751/ILSVRC2012_val_00008426_n04153751",
+      "preprocessing_id": "97b815265374ec1d6426380e5a710dd1bb8cc13320799468805e6c7c665f568d",
+      "class_index": 783
+    },
+    {
+      "image_id": "n04204347/ILSVRC2012_val_00018921_n04204347",
+      "preprocessing_id": "bb0919028da5d8113228b4ea2031f03cae14b6805b1a3078dbd2d6f04c5b7ab8",
+      "class_index": 791
+    },
+    {
+      "image_id": "n04235860/ILSVRC2012_val_00004033_n04235860",
+      "preprocessing_id": "d97a5615f039b7023b17570a301aea94aeaf383e5cf8b6337c8c41d92f68a91e",
+      "class_index": 797
+    },
+    {
+      "image_id": "n04252077/ILSVRC2012_val_00012989_n04252077",
+      "preprocessing_id": "23d5d73078c0a822663f12dae1fdcc88fb421d9b7d25631165b606ee3f992794",
+      "class_index": 802
+    },
+    {
+      "image_id": "n04310018/ILSVRC2012_val_00003156_n04310018",
+      "preprocessing_id": "b9de11c7fd9f074f8fd637aa4988d21f533d12b9ff435507616ba87af0016608",
+      "class_index": 820
+    },
+    {
+      "image_id": "n04328186/ILSVRC2012_val_00014795_n04328186",
+      "preprocessing_id": "f822c4f2096441c446fa8e48678c4cc20d5e828fdfcca53b878f2f0839ec33d6",
+      "class_index": 826
+    },
+    {
+      "image_id": "n04346328/ILSVRC2012_val_00003305_n04346328",
+      "preprocessing_id": "8ba9271b2cefde59a78ee52bbe2eaadb785be47197c8db08e4e237aa6f610e0a",
+      "class_index": 832
+    },
+    {
+      "image_id": "n04357314/ILSVRC2012_val_00009430_n04357314",
+      "preprocessing_id": "f348b9659d2f9737c634e1c8e04d69326eab1e1ff6e293bb58c5b2ba85e0022e",
+      "class_index": 838
+    },
+    {
+      "image_id": "n04371774/ILSVRC2012_val_00030870_n04371774",
+      "preprocessing_id": "49b1816119ba26ff673b81c34491bc4eeb544234d35b2c25b2c8a1803180c5b8",
+      "class_index": 843
+    },
+    {
+      "image_id": "n04392985/ILSVRC2012_val_00029362_n04392985",
+      "preprocessing_id": "cfcb8324932845752a4e5dcfb047ba397dc9f277981229461b08d4a261c7204b",
+      "class_index": 848
+    },
+    {
+      "image_id": "n04456115/ILSVRC2012_val_00002331_n04456115",
+      "preprocessing_id": "f6cd31c9feb497a4b3658818a4d832bbd47d6f5d7030c2abbca99f8b8c55c97e",
+      "class_index": 862
+    },
+    {
+      "image_id": "n04485082/ILSVRC2012_val_00000955_n04485082",
+      "preprocessing_id": "76448a0ae2e3610a8107e3b73ca3eac575cc8d56a2512cd9773ea885b09ef16c",
+      "class_index": 872
+    },
+    {
+      "image_id": "n04515003/ILSVRC2012_val_00002400_n04515003",
+      "preprocessing_id": "f7c501808f10c0aa95e7f0597b424b7198e2db59608194573af6bc7789d4e45d",
+      "class_index": 881
+    },
+    {
+      "image_id": "n04540053/ILSVRC2012_val_00007665_n04540053",
+      "preprocessing_id": "25dbb8c23badf34480230cc90a350df359f1eab82bdf05a6dcda7da28dba4814",
+      "class_index": 890
+    },
+    {
+      "image_id": "n04560804/ILSVRC2012_val_00029830_n04560804",
+      "preprocessing_id": "a11fec68e0d01588aa4a816aaa7c41a4a8fe1042d3f447133cf33b25cba6e3c2",
+      "class_index": 899
+    },
+    {
+      "image_id": "n04596742/ILSVRC2012_val_00007608_n04596742",
+      "preprocessing_id": "7662b17a07456b833c5ff8821945d8e94f525da05a7585fdefa69b35294f230f",
+      "class_index": 909
+    },
+    {
+      "image_id": "n07583066/ILSVRC2012_val_00001378_n07583066",
+      "preprocessing_id": "4ef8d7654f413fc4c954518cbccd29a113420341a0d8e90382f62e6d689a1aa3",
+      "class_index": 924
+    },
+    {
+      "image_id": "n07590611/ILSVRC2012_val_00030972_n07590611",
+      "preprocessing_id": "9c48e6f2ebe13ddb403d08c32bf75e310519ee41d0ce439b7e8fe60fd1f4d2db",
+      "class_index": 926
+    },
+    {
+      "image_id": "n07714990/ILSVRC2012_val_00008416_n07714990",
+      "preprocessing_id": "fa679471f22e180ea849cf5603d78bf57767d47fa978e63d5b4fc7a16cf1c58e",
+      "class_index": 937
+    },
+    {
+      "image_id": "n07716906/ILSVRC2012_val_00011140_n07716906",
+      "preprocessing_id": "f5bb633b7ca92a84ca97938ec4618656e2d6c0c3276cce9e41ce3a9dc5201b68",
+      "class_index": 940
+    },
+    {
+      "image_id": "n07720875/ILSVRC2012_val_00000423_n07720875",
+      "preprocessing_id": "94c61912cfaf43eb86fef5f9db09de3f28c217adde3eb95d1e48babd448b9893",
+      "class_index": 945
+    },
+    {
+      "image_id": "n07860988/ILSVRC2012_val_00010848_n07860988",
+      "preprocessing_id": "ab3fd1840a939a1fefbb0669c3678defc0c18d07886a9283fc4e357eeb609b40",
+      "class_index": 961
+    },
+    {
+      "image_id": "n09288635/ILSVRC2012_val_00001270_n09288635",
+      "preprocessing_id": "395c9c967ef9c7d6df3793270822b636d0ea3102c5beb3b455eb5d1d84992499",
+      "class_index": 974
+    },
+    {
+      "image_id": "n09468604/ILSVRC2012_val_00030741_n09468604",
+      "preprocessing_id": "c3ce3780f589689f70061a32c01d4cddde53cc93f13c72d6da0f606f6be56ae3",
+      "class_index": 979
+    },
+    {
+      "image_id": "n11939491/ILSVRC2012_val_00034896_n11939491",
+      "preprocessing_id": "5d503e995423b79fedecacd5389da614cd1fde446e0a222677d4ad33e0179cdd",
+      "class_index": 985
+    },
+    {
+      "image_id": "n15075141/ILSVRC2012_val_00005846_n15075141",
+      "preprocessing_id": "ce31aa6dd81ff9b435997c347d185e440fc323084b9ff3782ff8a8c869dcf5b6",
+      "class_index": 999
+    }
+  ],
+  "bootstrap_seed": 20261002,
+  "bootstrap_replicates": 10000,
+  "bootstrap_unit": "source_mean_over_three_noise_repeats",
+  "metric_batch_qualification_sha256": "2e5fe50bd1658417142d0474ef5ee54d8d364a2179c0292c7b69ab9ccb8c1c5c",
+  "batch_size": 16,
+  "qualified_batch_sizes": [
+    1,
+    2,
+    4,
+    8,
+    16
+  ],
+  "DINO": "DINOv2 ViT-S/14",
+  "additional_DINO": "DINOv2 ViT-L/14",
+  "selection_used_new_metrics": false,
+  "legacy_header_dictionary_compatibility": "all7200 target old rows explicitly checked; no CRC-passed illegal header",
+  "generation": "original frozen unconditional greedy VAR; no training",
+  "historical_P_missing_metrics_only": true,
+  "training_updates": 0,
+  "holdout_access": false,
+  "KID": "DEFERRED_HOLDOUT",
+  "FID": "NOT_EVALUATED"
+}
