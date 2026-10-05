@@ -1,0 +1,311 @@
+"""Recover only the frozen publisher's CSV payload-length metadata filter.
+
+Scientific inputs, ledger, old source and failure evidence remain byte-identical.
+This entry point never starts an experiment or edits the frozen publisher.
+"""
+from __future__ import annotations
+import argparse
+from contextlib import contextmanager
+import csv
+import hashlib
+import importlib.util
+import io
+import json
+import os
+from pathlib import Path
+import re
+import sys
+import time
+
+VERSION = 'CONTENT_FEEDBACK_PUBLICATION_RECOVERY_R1'
+RECOVERY_NAME = 'publication_recovery_r1'
+DYNAMIC_NAMES = {'status.json', 'preflight.json', 'completion.json', 'failure.json',
+                 'publication_wait.json', 'publication_completion.json',
+                 'publication_inventory.json', 'publication_state.json'}
+
+
+def require(condition, message):
+    if not condition:
+        raise RuntimeError(message)
+
+
+def read(path):
+    return json.loads(Path(path).read_text(encoding='utf-8-sig'))
+
+
+def sha(path):
+    digest = hashlib.sha256()
+    with Path(path).open('rb') as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b''):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def contained(path, base):
+    path = Path(path).resolve()
+    require(path.is_relative_to(Path(base).resolve()), 'Recovery path outside scope: ' + str(path))
+    return path
+
+
+def bind(descriptor, base=None):
+    require(isinstance(descriptor, dict) and set(descriptor) >= {'path', 'sha256'},
+            'A bound path and SHA256 are required')
+    path = Path(descriptor['path']).resolve()
+    if base is not None:
+        path = contained(path, base)
+    require(path.is_file() and sha(path) == descriptor['sha256'], 'Bound evidence changed: ' + str(path))
+    return path
+
+
+def verify_bindings(bindings, base):
+    require(isinstance(bindings, dict), 'SHA binding map is required')
+    return [bind(dict(path=path, sha256=digest), base) for path, digest in bindings.items()]
+
+
+def load_publisher(path):
+    spec = importlib.util.spec_from_file_location('_content_feedback_frozen_publisher', path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def validate_registration(root, out, runtime, final, registration, wrapper_path=None):
+    root = Path(root).resolve()
+    out = contained(out, root / 'outputs')
+    require(out.name == 'CONTENT-FEEDBACK-PROBE-20261005', 'Wrong independent task directory')
+    recovery = out / RECOVERY_NAME
+    registration = contained(registration, recovery)
+    require(registration.name == 'execution_registration.json', 'Use the registered recovery entry point')
+    record = read(registration)
+    require(record.get('version') == VERSION, 'Unknown publication recovery version')
+    original = bind(record['original_publisher'], out)
+    require(original == Path(runtime).resolve() / 'publish_probe.py', 'Wrong frozen publisher')
+    science = bind(record['science_receipt'], out)
+    require(science == Path(final).resolve() / 'completion.json', 'Wrong scientific completion receipt')
+    completed = read(science)
+    require(completed.get('status') == 'COMPLETE'
+            and completed.get('scope') == 'C_R_BOUNDED_PROBE_DELIVERY', 'Scientific delivery is incomplete')
+    bind(record['diagnosis'], recovery)
+    require(record.get('failure_bindings'), 'Original publication failure must remain bound')
+    failures = verify_bindings(record['failure_bindings'], out)
+    require(out / 'owner/failure.json' in failures
+            and out / 'owner_stages/publication/failure.json' in failures,
+            'Both original owner and publication-stage failures are required')
+    sources = verify_bindings(record['source_bindings'], recovery)
+    wrapper = Path(wrapper_path or __file__).resolve()
+    require(wrapper in sources, 'Recovery wrapper is not registered')
+    require(any(p.name == 'test_publisher_recovery_r1.py' for p in sources), 'Recovery tests must be registered')
+    require('protected_bindings' in record, 'Explicit protected scientific/ledger bindings are required')
+    verify_bindings(record['protected_bindings'], out)
+    evidence = []
+    for item in record['publication_evidence_paths']:
+        path = bind(item, recovery)
+        # Archive names may be failure.json under original_attempt. Only live
+        # recovery-root bookkeeping is excluded; no directory-wide discovery.
+        require(not (path.parent == recovery and path.name in DYNAMIC_NAMES),
+                'Mutable recovery record is not publishable: ' + str(path))
+        require(path.suffix.lower() in {'.json', '.md', '.txt', '.py'},
+                'Only explicitly bound light recovery evidence is publishable')
+        require(not any(part in {'__pycache__', 'source_checkpoints', 'reconstructions'}
+                        for part in path.relative_to(recovery).parts), 'Raw recovery evidence is forbidden')
+        evidence.append(path)
+    require(bind(record['diagnosis']) in evidence, 'Diagnosis must be published')
+    require(all(path in evidence for path in sources), 'Registered recovery source/tests must be published')
+    require(registration not in evidence, 'Registration cannot contain its own SHA')
+    return record, original, [registration, *evidence]
+
+
+def csv_count_normalizer(original_normalized_text, forbidden_keys):
+    """Only CSV payload_bits changes; all other inputs use the original code."""
+    def normalize(source):
+        source = Path(source)
+        if source.suffix.lower() != '.csv':
+            return original_normalized_text(source)
+        raw = source.read_bytes()
+        require(b'\0' not in raw, 'Binary data disguised as text')
+        raw_text = raw.decode('utf-8-sig')
+        rows = list(csv.reader(io.StringIO(raw_text, newline='')))
+        if not rows or 'payload_bits' not in rows[0]:
+            return original_normalized_text(source)
+        header = rows[0]
+        require(len(header) == len(set(header)), 'Duplicate CSV columns are not accepted')
+        require(not (set(forbidden_keys) - {'payload_bits'}).intersection(header),
+                'CSV contains other forbidden raw/source payload columns')
+        require(len(rows) > 1, 'Payload-length CSV requires at least one data row')
+        index = header.index('payload_bits')
+        for number, row in enumerate(rows[1:], 2):
+            require(len(row) == len(header), 'CSV column count differs at row ' + str(number))
+            require(re.fullmatch(r'[0-9]+', row[index]) is not None,
+                    'CSV payload_bits must be nonnegative decimal integers at row ' + str(number))
+        normal = raw.replace(b'\r\n', b'\n')
+        normalized_rows = list(csv.reader(io.StringIO(normal.decode('utf-8-sig'), newline='')))
+        require(rows == normalized_rows, 'CSV field content changed by newline normalization')
+        crlf = []
+        start = removed = 0
+        while True:
+            offset = raw.find(b'\r\n', start)
+            if offset < 0:
+                break
+            crlf.append(offset - removed)
+            start = offset + 2
+            removed += 1
+        return raw, normal, crlf
+    return normalize
+
+
+@contextmanager
+def recovery_overrides(publisher, evidence, out):
+    original_normalize, original_collect = publisher.normalized_text, publisher.collect
+    normalizer = csv_count_normalizer(original_normalize, publisher.FORBIDDEN_KEYS)
+    recovery = Path(out).resolve() / RECOVERY_NAME
+
+    def collect(*args, **kwargs):
+        completed, sources = original_collect(*args, **kwargs)
+        mapping = {target: source for source, target in sources}
+        for path in evidence:
+            path = contained(path, recovery)
+            target = (publisher.EXPERIMENT + '/provenance/' + RECOVERY_NAME + '/'
+                      + path.relative_to(recovery).as_posix()
+                      + ('.txt' if path.suffix == '.py' else ''))
+            publisher.allowed_destination(target)
+            require(target not in mapping or mapping[target] == path, 'Recovery destination collision')
+            mapping[target] = path
+        return completed, [(path, target) for target, path in sorted(mapping.items())]
+
+    publisher.normalized_text, publisher.collect = normalizer, collect
+    try:
+        yield original_normalize
+    finally:
+        publisher.normalized_text, publisher.collect = original_normalize, original_collect
+
+
+def preflight(publisher, original_normalize, out, runtime, final):
+    _, sources = publisher.collect(out, runtime, final)
+    rows = []
+    recovered = []
+    for source, destination in sources:
+        before = sha(source)
+        raw, normalized, offsets = publisher.normalized_text(source)
+        require(hashlib.sha256(raw).hexdigest() == before and sha(source) == before,
+                'Read-only preflight changed a source')
+        status = 'ORIGINAL_FILTER_PASS'
+        try:
+            original_normalize(source)
+        except RuntimeError as error:
+            require(Path(source).suffix.lower() == '.csv'
+                    and str(error) == 'CSV contains raw/source payload columns',
+                    'An additional original export-filter failure is outside this recovery')
+            status = 'RECOVERED_PAYLOAD_LENGTH_COLUMN'
+            recovered.append(str(source))
+        rows.append(dict(path=str(source), sha256=before, destination=destination,
+                         status=status, normalized_bytes=len(normalized), restored_CR_count=len(offsets)))
+    return dict(status='PUBLICATION_PREFLIGHT_PASS', version=VERSION,
+                source_count=len(rows), recovered_count=len(recovered), recovered_csv_paths=recovered,
+                source_files=rows, input_sources_unchanged=True, git_mutations=0, scientific_jobs_started=0)
+
+
+def verify_unchanged_snapshot(record, registration, registration_sha, root, out, runtime, final, wrapper_path=None):
+    require(sha(registration) == registration_sha, 'Recovery registration changed during publication')
+    current, _, _ = validate_registration(root, out, runtime, final, registration, wrapper_path)
+    require(current == record, 'Recovery registration changed')
+
+
+def finalize(publisher, root, out, final, registration, record, registration_sha, commands=None):
+    out, root, final = Path(out).resolve(), Path(root).resolve(), Path(final).resolve()
+    publication_path = out / 'publication_completion.json'
+    publication = read(publication_path)
+    commit = publication.get('commit', '')
+    require(publication.get('status') == 'PUBLISHED' and re.fullmatch('[0-9a-f]{40}', commit),
+            'Publication has no successful commit receipt')
+    require(publication.get('remote_commit') == commit and publication.get('normal_push') is True
+            and publication.get('force_push') is False, 'Publication was not a verified normal push')
+    require(publication.get('outputs'), 'Publication output hashes are required')
+    for path, digest in publication['outputs'].items():
+        bind(dict(path=path, sha256=digest), root)
+    require(publication['outputs'].get(str(final / 'completion.json')) == record['science_receipt']['sha256'],
+            'Publication does not bind the original scientific receipt')
+    inventory = read(out / 'publication_inventory.json')
+    require(publication.get('inventory_sha256') == sha(out / 'publication_inventory.json'),
+            'Publication inventory changed')
+    for path, digest in inventory['sources'].items():
+        bind(dict(path=path, sha256=digest), out)
+    command = commands or publisher.Commands(root, out)
+    remote = command.git('ls-remote', 'origin', 'refs/heads/main').split()[0]
+    require(remote == commit, 'Remote publication is not currently verified')
+    require(sha(registration) == registration_sha, 'Recovery registration changed before completion')
+    verify_bindings(record['failure_bindings'], out)
+    verify_bindings(record['protected_bindings'], out)
+    bind(record['original_publisher'], out)
+    bind(record['science_receipt'], out)
+    outputs = {str(publication_path): sha(publication_path), str(final / 'completion.json'): sha(final / 'completion.json'),
+               str(registration): registration_sha, **record['failure_bindings'], **record['protected_bindings']}
+    recovery_done = dict(status='PUBLICATION_RECOVERY_COMPLETE', scope='PUBLICATION_ONLY_RECOVERY', version=VERSION,
+                         commit=commit, remote_commit=remote, original_failure_preserved=True,
+                         scientific_receipt_unchanged=True, frozen_publisher_unchanged=True,
+                         scientific_jobs_started=0, ledger_unchanged=True, outputs=outputs)
+    recovery_completion = out / RECOVERY_NAME / 'completion.json'
+    publisher.write(recovery_completion, recovery_done, immutable=True)
+    original_done = read(final / 'completion.json')
+    overall = dict(status='COMPLETE', scope='C_R_BOUNDED_PROBE_DELIVERY_WITH_PUBLICATION', version=VERSION,
+                   commit=commit, remote_commit=remote, publication_recovered=True,
+                   original_owner_status='FAILED_DURING_PUBLICATION_PRESERVED',
+                   C_model_complete=original_done['C_model_complete'], R_model_complete=original_done['R_model_complete'],
+                   V_disposition=original_done['V_disposition'],
+                   V_physical_probe_complete=original_done['V_physical_probe_complete'],
+                   V_any_physical_results=original_done['V_any_physical_results'],
+                   new_visual_validation_complete=False, independent_ConvNeXt_complete=False,
+                   automatic_GPU_launch=False, A1_A2_complete_not_asserted=True, old_F1_status_unchanged=True,
+                   outputs={**outputs, str(recovery_completion): sha(recovery_completion)})
+    publisher.write(out / 'completion.json', overall, immutable=True)
+    return overall
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    for name in ('root', 'out', 'runtime-dir', 'final-dir', 'registration'):
+        parser.add_argument('--' + name, required=True)
+    parser.add_argument('--stage', choices=['preflight', 'publish'], required=True)
+    args = parser.parse_args()
+    record, original, evidence = validate_registration(args.root, args.out, args.runtime_dir,
+                                                       args.final_dir, args.registration)
+    registration = Path(args.registration).resolve()
+    registration_sha = sha(registration)
+    publisher = load_publisher(original)
+    publisher.limits()
+    recovery = Path(args.out).resolve() / RECOVERY_NAME
+    try:
+        with recovery_overrides(publisher, evidence, args.out) as old_normalize:
+            checked = preflight(publisher, old_normalize, args.out, args.runtime_dir, args.final_dir)
+            publisher.write(recovery / 'preflight.json', checked)
+            verify_unchanged_snapshot(record, registration, registration_sha, args.root,
+                                      args.out, args.runtime_dir, args.final_dir)
+            if args.stage == 'preflight':
+                print(json.dumps({key: checked[key] for key in ('status', 'source_count', 'recovered_count')}))
+                return
+            previous_argv = sys.argv
+            try:
+                sys.argv = [str(original), '--root', args.root, '--out', args.out,
+                            '--runtime-dir', args.runtime_dir, '--final-dir', args.final_dir, '--stage', 'publish']
+                publisher.main()
+            finally:
+                sys.argv = previous_argv
+            verify_unchanged_snapshot(record, registration, registration_sha, args.root,
+                                      args.out, args.runtime_dir, args.final_dir)
+            if not (Path(args.out) / 'publication_completion.json').is_file():
+                waiting = read(Path(args.out) / 'publication_wait.json')
+                require(waiting.get('status') == 'WAITING_FOR_PUBLICATION', 'Publisher did not complete or explicitly wait')
+                print(json.dumps(dict(status='WAITING_FOR_PUBLICATION', scientific_jobs_started=0)))
+                return
+            completed = finalize(publisher, args.root, args.out, args.final_dir, registration, record, registration_sha)
+            print(json.dumps({key: completed[key] for key in ('status', 'commit', 'remote_commit')}))
+    except Exception as error:
+        # New failure evidence is isolated. The original owner failure and all
+        # scientific receipts remain unchanged for diagnosis and safe retry.
+        publisher.write(recovery / 'failure.json', dict(status='FAILED', version=VERSION,
+                        stage=args.stage, error_type=type(error).__name__, error=str(error), time=time.time(),
+                        original_failures_preserved=True, scientific_jobs_started=0))
+        raise
+
+
+if __name__ == '__main__':
+    main()

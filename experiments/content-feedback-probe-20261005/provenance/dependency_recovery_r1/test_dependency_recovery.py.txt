@@ -1,0 +1,66 @@
+"""Pure fixtures only: no native decoder, experiment, or remote access."""
+import copy
+from pathlib import Path
+import sys
+import tempfile
+import unittest
+from unittest.mock import Mock
+
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'runtime'))
+import budget_ledger as b
+import qualification_dependency_recovery_r1 as r
+
+
+class RecoveryTests(unittest.TestCase):
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
+        self.out=Path(self.temp.name);self.ledger=b.BudgetLedger(self.out/'budget.sqlite','same-registration')
+        self.ledger.register_configuration('header',dict(bits=12),False);self.request=dict(observation='same-array')
+        with self.assertRaises(FileNotFoundError):
+            self.ledger.decode_once('planning',r.OLD_EVENT,'header','header',self.request,Mock(side_effect=FileNotFoundError('missing native source')))
+        self.row=r.ledger_row(self.ledger.path,r.OLD_EVENT)
+        self.reg=dict(out=str(self.out),failed_event=dict(event_id=r.OLD_EVENT,new_event_id=r.NEW_EVENT,row=self.row))
+    def install(self):
+        old=r.install_retry(b.BudgetLedger,self.reg);self.addCleanup(setattr,b.BudgetLedger,'decode_once',old)
+    def test_original_reserved_stays_byte_equal_and_new_attempt_is_charged(self):
+        self.install();decode=Mock(return_value=dict(header_ok=True))
+        self.assertEqual(self.ledger.decode_once('planning',r.OLD_EVENT,'header','header',self.request,decode),dict(header_ok=True))
+        self.assertEqual(r.ledger_row(self.ledger.path,r.OLD_EVENT),self.row)
+        self.assertEqual(r.ledger_row(self.ledger.path,r.NEW_EVENT)['status'],'COMPLETE')
+        self.assertEqual(self.ledger.snapshot()['charged'],2);decode.assert_called_once()
+    def test_restart_reuses_new_complete_without_third_charge(self):
+        self.install();decode=Mock(return_value=dict(header_ok=True))
+        for _ in range(2):self.ledger.decode_once('planning',r.OLD_EVENT,'header','header',self.request,decode)
+        self.assertEqual(self.ledger.snapshot()['charged'],2);decode.assert_called_once()
+    def test_changed_request_refuses_before_new_charge(self):
+        self.install();decode=Mock()
+        with self.assertRaisesRegex(RuntimeError,'exact reviewed'):
+            self.ledger.decode_once('planning',r.OLD_EVENT,'header','header',dict(observation='different'),decode)
+        self.assertEqual(self.ledger.snapshot()['charged'],1);decode.assert_not_called()
+    def test_only_registered_event_is_remapped(self):
+        self.install();decode=Mock(return_value={})
+        self.ledger.decode_once('planning','qualification/header/1','header','header',{},decode)
+        self.assertIsNotNone(r.ledger_row(self.ledger.path,'qualification/header/1'))
+        self.assertIsNone(r.ledger_row(self.ledger.path,r.NEW_EVENT))
+    def test_wrong_reviewed_row_or_event_is_rejected(self):
+        for change in ('row','event_id'):
+            reg=copy.deepcopy(self.reg)
+            if change=='row':reg['failed_event']['row']['request_sha']='other'
+            else:reg['failed_event']['event_id']='unreviewed'
+            with self.assertRaises(RuntimeError):r.install_retry(b.BudgetLedger,reg)
+    def test_failed_recovery_retains_second_charge_without_automatic_third(self):
+        self.install();decode=Mock(side_effect=RuntimeError('new unrelated failure'))
+        with self.assertRaisesRegex(RuntimeError,'unrelated'):
+            self.ledger.decode_once('planning',r.OLD_EVENT,'header','header',self.request,decode)
+        with self.assertRaisesRegex(b.BudgetError,'Unresolved'):
+            self.ledger.decode_once('planning',r.OLD_EVENT,'header','header',self.request,decode)
+        self.assertEqual(self.ledger.snapshot()['charged'],2);decode.assert_called_once()
+    def test_no_refund_when_budget_is_already_exhausted(self):
+        with self.ledger.transaction() as c:c.execute('UPDATE counters SET charged=50000 WHERE phase="planning"')
+        self.install();decode=Mock()
+        with self.assertRaisesRegex(b.BudgetError,'exhausted'):
+            self.ledger.decode_once('planning',r.OLD_EVENT,'header','header',self.request,decode)
+        self.assertEqual(r.ledger_row(self.ledger.path,r.OLD_EVENT),self.row);decode.assert_not_called()
+
+
+if __name__=='__main__':unittest.main()

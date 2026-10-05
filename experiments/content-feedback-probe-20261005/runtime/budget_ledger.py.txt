@@ -1,0 +1,104 @@
+"""One atomic, persistent decode budget for all new C/R planning and verification."""
+import contextlib
+import hashlib
+import json
+from pathlib import Path
+import sqlite3
+import time
+
+LIMITS={'total':250000,'planning':50000,'verification':200000,'new_phy':48}
+
+
+def canonical(value):return json.dumps(value,sort_keys=True,separators=(',',':'),allow_nan=False)
+def digest(value):return hashlib.sha256(canonical(value).encode()).hexdigest()
+
+
+class BudgetError(RuntimeError):pass
+
+
+class BudgetLedger:
+    """Charge before execution; failed or interrupted decodes retain their charge.
+
+    Completed exact requests reuse a sealed actual result. An unresolved charge
+    requires explicit review, so a restart cannot silently double-decode a block.
+    """
+    def __init__(self,path,binding):
+        self.path=Path(path);self.path.parent.mkdir(parents=True,exist_ok=True);self.binding=str(binding)
+        with self.transaction() as c:
+            c.execute('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY,value TEXT NOT NULL)')
+            c.execute('CREATE TABLE IF NOT EXISTS configs (phy_key TEXT PRIMARY KEY,configuration TEXT NOT NULL,new INTEGER NOT NULL)')
+            c.execute('CREATE TABLE IF NOT EXISTS decodes (event_id TEXT PRIMARY KEY,phase TEXT NOT NULL,kind TEXT NOT NULL,phy_key TEXT NOT NULL,request_sha TEXT NOT NULL,status TEXT NOT NULL,result TEXT,result_sha TEXT,time REAL NOT NULL)')
+            c.execute('CREATE INDEX IF NOT EXISTS decode_phase_status ON decodes(phase,status)')
+            c.execute('CREATE TABLE IF NOT EXISTS counters (phase TEXT PRIMARY KEY,charged INTEGER NOT NULL)')
+            for phase in ('planning','verification'):
+                c.execute('INSERT OR IGNORE INTO counters SELECT ?,count(*) FROM decodes WHERE phase=?',(phase,phase))
+            wanted={'binding':self.binding,'limits':canonical(LIMITS)}
+            for k,v in wanted.items():
+                old=c.execute('SELECT value FROM meta WHERE key=?',(k,)).fetchone()
+                if old and old[0]!=v:raise BudgetError('Ledger registration changed: '+k)
+                c.execute('INSERT OR IGNORE INTO meta VALUES (?,?)',(k,v))
+
+    @contextlib.contextmanager
+    def transaction(self):
+        c=sqlite3.connect(str(self.path),timeout=60,isolation_level=None)
+        try:
+            c.execute('PRAGMA busy_timeout=60000');c.execute('PRAGMA synchronous=FULL');c.execute('BEGIN IMMEDIATE')
+            yield c;c.execute('COMMIT')
+        except BaseException:
+            if c.in_transaction:c.execute('ROLLBACK')
+            raise
+        finally:c.close()
+
+    def register_configuration(self,phy_key,configuration,new=None):
+        encoded=canonical(configuration)
+        with self.transaction() as c:
+            old=c.execute('SELECT configuration,new FROM configs WHERE phy_key=?',(phy_key,)).fetchone()
+            if old:
+                if old[0]!=encoded:raise BudgetError('Physical configuration identity changed')
+                # The first registered new/reused disposition is immutable. A
+                # later verification reader does not create a second admission.
+                if new is True and not old[1]:raise BudgetError('Reused PHY cannot later become a new configuration')
+                return
+            if new and c.execute('SELECT count(*) FROM configs WHERE new=1').fetchone()[0]>=LIMITS['new_phy']:
+                raise BudgetError('48 new physical configurations exhausted')
+            c.execute('INSERT INTO configs VALUES (?,?,?)',(phy_key,encoded,int(bool(new))))
+
+    def freeze_artifact(self,role,value):
+        checksum=digest(value)
+        with self.transaction() as c:
+            key='artifact:'+role;old=c.execute('SELECT value FROM meta WHERE key=?',(key,)).fetchone()
+            if old and old[0]!=checksum:raise BudgetError('Frozen '+role+' changed after budget admission')
+            c.execute('INSERT OR IGNORE INTO meta VALUES (?,?)',(key,checksum))
+        return checksum
+
+    def decode_once(self,phase,event_id,kind,phy_key,request,decode):
+        if phase not in ('planning','verification') or kind not in ('header','body'):raise BudgetError('Unregistered charge category')
+        request_sha=digest(request)
+        with self.transaction() as c:
+            if c.execute('SELECT 1 FROM configs WHERE phy_key=?',(phy_key,)).fetchone() is None:
+                raise BudgetError('Physical configuration was not admitted')
+            old=c.execute('SELECT phase,kind,phy_key,request_sha,status,result,result_sha FROM decodes WHERE event_id=?',(event_id,)).fetchone()
+            if old:
+                if old[:4]!=(phase,kind,phy_key,request_sha):raise BudgetError('Decode event collision')
+                if old[4]!='COMPLETE':raise BudgetError('Unresolved charged decode requires review: '+event_id)
+                result=json.loads(old[5])
+                if digest(result)!=old[6]:raise BudgetError('Saved actual decode result changed')
+                return result
+            counters=dict(c.execute('SELECT phase,charged FROM counters').fetchall());total=sum(counters.values());used=counters[phase]
+            if total>=LIMITS['total'] or used>=LIMITS[phase]:raise BudgetError('Registered decode budget exhausted: '+phase)
+            c.execute('INSERT INTO decodes VALUES (?,?,?,?,?,?,?,?,?)',(event_id,phase,kind,phy_key,request_sha,'RESERVED',None,None,time.time()))
+            c.execute('UPDATE counters SET charged=charged+1 WHERE phase=?',(phase,))
+        # Never hold the database lock while a real decoder runs.
+        result=decode();encoded=canonical(result);checksum=digest(result)
+        with self.transaction() as c:
+            row=c.execute('SELECT status,request_sha FROM decodes WHERE event_id=?',(event_id,)).fetchone()
+            if row!=('RESERVED',request_sha):raise BudgetError('Decode completion reservation changed')
+            c.execute('UPDATE decodes SET status=?,result=?,result_sha=? WHERE event_id=?',('COMPLETE',encoded,checksum,event_id))
+        return result
+
+    def snapshot(self):
+        with self.transaction() as c:
+            rows=c.execute('SELECT phase,kind,status,count(*) FROM decodes GROUP BY phase,kind,status').fetchall()
+            return dict(binding=self.binding,limits=LIMITS,charged=sum(x[3] for x in rows),
+                counts=[dict(phase=p,kind=k,status=s,count=n) for p,k,s,n in rows],
+                new_physical_configurations=c.execute('SELECT count(*) FROM configs WHERE new=1').fetchone()[0])

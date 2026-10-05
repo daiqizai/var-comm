@@ -1,0 +1,225 @@
+"""Pure delivery fixtures: no neural models, channel jobs, or real selection."""
+import copy
+import csv
+import json
+import tempfile
+from pathlib import Path
+import unittest
+import analysis as a
+
+
+def models():
+    cells = []
+    for snr in a.SNRS:
+        for cost in (0, 16, 32, 64):
+            single = dict(profile_id="single", G=1, point=.5)
+            grouped = dict(profile_id="grouped", G=2, point=.51)
+            cells.append(dict(average_snr_db=snr, feedback_symbols=cost,
+                FIXED=dict(best_single=single, best_grouped=grouped, best=grouped, all_candidates=[single, grouped]),
+                ARQ=dict(point=.52), AWARE=dict(point=.53), QCSI=dict(point=.52, status="MODEL_POTENTIAL_ONLY")))
+    r = dict(status="MODEL_POTENTIAL_ONLY", cells=cells, working_model_only=True, no_physical_gain_claim=True,
+             development_read=False, new_images_rendered=0)
+    gate = dict(status="NO_LARGE_GAIN_IN_WORKING_MODEL", CPU_probe_priority=False,
+        per_snr=[dict(average_snr_db=s, full_gain=.005, C8_gain=.004, retention=.8) for s in a.SNRS])
+    completion = dict(status="COMPLETE", scientific_status=gate["status"], development_read=False, neural_inference_calls=0)
+    return gate, completion, r
+
+
+def physical():
+    policies, means, pairs = {}, [], []
+    for snr in a.SNRS:
+        values = [("fixed_single", "R_FIXED", .5, 0, "single"), ("fixed_grouped", "R_FIXED", .51, 0, "grouped"),
+                  ("arq", "R_ARQ", .52, 32, None), ("qcsi", "R_QCSI", .525, 32, None), ("aware", "R_AWARE", .56, 32, None)]
+        policies[str(snr)] = [dict(policy_id=n, family=f, feedback_symbols=c, profile_id=p, average_snr_db=snr) for n,f,q,c,p in values]
+        for name, fam, q, cost, profile in values:
+            means.append(dict(snr_db=snr, policy_id=name, family=fam, mean=q, mean_lower=q, mean_upper=q,
+                unresolved_frames=0, worst_symbols=1024, mean_forward_rounds=2, mean_feedback_rounds=1))
+        for name, fam, q, cost, profile in values[:-1]:
+            # Opposite order deliberately exercises sign flipping.
+            d=q-.56
+            pairs.append(dict(snr_db=snr, method_a=name, method_b="aware", difference_lower=d, difference_upper=d,
+                ci_lower=d-.005, ci_upper=d+.005, paired_sources=64, repetitions_per_source=16, bootstrap_replicates=5000))
+    frozen = dict(status="FROZEN_BEFORE_VERIFICATION", snrs_db=list(a.SNRS), policies_by_snr=policies)
+    receipt = dict(status="CPU_PHYSICAL_PROBE_COMPLETE", sources=64, frames=20*1024, development_read=False,
+        verification_used_for_selection=False, new_visual_inference=False, automatic_GPU_launch=False,
+        frozen_policy_sha256=a.frozen_digest(frozen), missing_policies=[])
+    return receipt, frozen, means, pairs
+
+
+class AnalysisTests(unittest.TestCase):
+    def test_real_gate_requires_two_points_and_all_strong_simple_baselines(self):
+        c, done, r = models();receipt, frozen, means, pairs=physical()
+        result=a.combine(c, done, [], r, v_receipt=receipt, frozen=frozen, means=means, pairs=pairs)
+        self.assertEqual(result["V"]["R_status"], "METHOD_GAIN_CANDIDATE")
+        self.assertEqual(result["V"]["R_passing_snrs"], list(a.SNRS))
+        self.assertFalse(result["recommendation"]["automatic_GPU_launch"])
+        self.assertIsNotNone(result["recommendation"]["task"])
+        # QCSI alone can defeat the result even when fixed and ARQ lose.
+        for row in pairs:
+            if row["method_a"] == "qcsi":
+                row.update(difference_lower=.01, difference_upper=.01, ci_lower=.005, ci_upper=.015)
+        result=a.actual_summary(receipt, frozen, means, pairs, r)
+        self.assertEqual(result["R_status"], "PHYSICAL_GATE_NOT_MET")
+
+    def test_missing_partial_strong_reference_cannot_be_replaced(self):
+        _, _, r=models();receipt, frozen, means, pairs=physical()
+        means=[x for x in means if x["policy_id"] != "fixed_grouped"]
+        receipt.update(status="PARTIAL_PROBE_MISSING_ASSETS", frames=len(means)*1024,
+            missing_policies=[dict(snr_db=s, policy_id="fixed_grouped", family="R_FIXED", status="MISSING_ASSET") for s in a.SNRS])
+        result=a.actual_summary(receipt, frozen, means, pairs, r)
+        self.assertEqual(result["R_status"], "UNCERTAIN")
+        self.assertFalse(result["complete_frozen_physical_scope"])
+        self.assertEqual(result["R_passing_snrs"], [])
+
+    def test_omitted_strong_fixed_profile_is_detected_even_without_missing_record(self):
+        _, _, r=models();receipt, frozen, means, pairs=physical()
+        for values in frozen["policies_by_snr"].values():
+            values[:]=[x for x in values if x["policy_id"] != "fixed_grouped"]
+        receipt["frozen_policy_sha256"]=a.frozen_digest(frozen)
+        means=[x for x in means if x["policy_id"] != "fixed_grouped"]
+        receipt["frames"]=len(means)*1024
+        result=a.actual_summary(receipt, frozen, means, pairs, r)
+        self.assertEqual(result["R_status"], "UNCERTAIN")
+        self.assertEqual(result["R_cells"][0]["omitted_strong_fixed_profile_ids"], ["grouped"])
+
+    def test_actual_unknown_bounds_only_block_if_they_change_conclusion(self):
+        _, _, r=models();receipt, frozen, means, pairs=physical()
+        receipt["status"]="UNSCORABLE_EVENTS_PRESENT"
+        for row in means:
+            if row["policy_id"] == "aware":
+                row.update(unresolved_frames=1, mean=None)
+        # Very small U contribution leaves the registered decision robust.
+        result=a.actual_summary(receipt, frozen, means, pairs, r)
+        self.assertEqual(result["R_status"], "METHOD_GAIN_CANDIDATE")
+        for row in pairs:
+            if row["method_a"] == "qcsi":
+                row.update(difference_lower=-.04, difference_upper=.01, ci_lower=-.045, ci_upper=.015)
+        result=a.actual_summary(receipt, frozen, means, pairs, r)
+        self.assertEqual(result["R_status"], "NEEDS_CORRUPTED_STATE_RENDER")
+
+    def test_positive_mean_without_positive_paired_interval_does_not_pass(self):
+        _, _, r=models();receipt, frozen, means, pairs=physical()
+        for row in pairs:
+            row["ci_upper"]=0
+        self.assertEqual(a.actual_summary(receipt, frozen, means, pairs, r)["R_status"], "PHYSICAL_GATE_NOT_MET")
+
+    def test_no_physical_data_requires_explicit_verified_nonrun_reason(self):
+        c, done, r=models()
+        for row in r["cells"]:
+            row["AWARE"]["point"]=.515
+        disposition=dict(status="NOT_RUN_BY_PREREGISTERED_GATE", verification_started=False,
+            branches={b:dict(status="NOT_RUN_BY_PREREGISTERED_GATE", reason="Registered model gate not met") for b in ("C","R")})
+        result=a.combine(c, done, [], r, disposition=disposition)
+        self.assertFalse(result["V"]["physical_decodes_completed"])
+        self.assertIsNone(result["recommendation"]["task"])
+        with self.assertRaisesRegex(ValueError,"either real V"):
+            a.combine(c, done, [], r)
+        c["CPU_probe_priority"]=True
+        with self.assertRaisesRegex(ValueError,"model gate passed"):
+            a.combine(c, done, [], r, disposition=disposition)
+
+    def test_missing_asset_disposition_requires_evidence_and_is_not_physical_success(self):
+        c, done, r=models();c["CPU_probe_priority"]=True
+        disposition=dict(status="TERMINAL_MISSING_ASSET", verification_started=False,
+            branches={b:dict(status="MISSING_ASSET", reason="Frozen partial entropy orders unavailable", evidence=["asset_admission.json"]) for b in ("C","R")})
+        result=a.combine(c, done, [], r, disposition=disposition)
+        self.assertEqual(result["V"]["status"],"TERMINAL_MISSING_ASSET")
+        self.assertFalse(result["V"]["physical_decodes_completed"])
+        disposition["branches"]["R"]["evidence"]=[]
+        with self.assertRaisesRegex(ValueError,"explicit evidence"):
+            a.combine(c, done, [], r, disposition=disposition)
+
+    def test_empty_actual_probe_does_not_claim_any_completed_physical_frames(self):
+        _, _, r=models();receipt, frozen, means, pairs=physical()
+        receipt.update(status="PARTIAL_PROBE_MISSING_ASSETS", frames=0,
+            missing_policies=[dict(snr_db=s, policy_id=p["policy_id"], family=p["family"], status="MISSING_ASSET")
+                              for s in a.SNRS for p in frozen["policies_by_snr"][str(s)]])
+        result=a.actual_summary(receipt, frozen, [], [], r)
+        self.assertFalse(result["physical_decodes_completed"])
+        self.assertFalse(result["complete_frozen_physical_scope"])
+        self.assertEqual(result["R_status"],"UNCERTAIN")
+
+    def test_incomplete_or_mismatched_verification_is_rejected(self):
+        _, _, r=models();receipt, frozen, means, pairs=physical()
+        with self.assertRaisesRegex(ValueError,"all be measured"):
+            a.actual_summary(receipt, frozen, means[:-1], pairs, r)
+        pairs[0]["paired_sources"]=63
+        with self.assertRaisesRegex(ValueError,"population/bootstrap"):
+            a.actual_summary(receipt, frozen, means, pairs, r)
+
+    def test_report_preserves_six_questions_and_evidence_limits(self):
+        c, done, r=models();receipt, frozen, means, pairs=physical()
+        result=a.combine(c, done, [], r, v_receipt=receipt, frozen=frozen, means=means, pairs=pairs)
+        text=a.render(result)
+        for n in range(1,7):self.assertIn("## "+str(n)+".",text)
+        self.assertIn("ConvNeXt",text);self.assertIn("A1/A2",text);self.assertIn("生成器没有重跑",text)
+        self.assertFalse(result["recommendation"]["automatic_GPU_launch"])
+
+    def test_missing_final_inputs_leave_no_final_named_artifact(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            with self.assertRaisesRegex(ValueError,"not ready"):
+                a.run(root/"C",root/"R",root/"V",root/"protocol.json",root/"final")
+            self.assertFalse((root/"final").exists())
+
+    def test_C_prediction_residual_uses_exact_frozen_64_sources(self):
+        ids=["s"+str(i) for i in range(64)]
+        result=dict(prediction_vs_actual=[])
+        rows=[dict(average_snr_db=4, method="C-8", source_id=s, quality=.6) for s in ids]
+        rows.append(dict(average_snr_db=4, method="C-8", source_id="construction-source",quality=-1))
+        means=[dict(snr_db=4, family="C_8", policy_id="c8", mean_lower=.61, mean_upper=.62)]
+        a.add_content_residuals(result,dict(source_ids=ids),means,rows)
+        self.assertAlmostEqual(result["prediction_vs_actual"][0]["model_mean"],.6)
+        self.assertAlmostEqual(result["prediction_vs_actual"][0]["actual_minus_model_lower"],.01)
+        with self.assertRaisesRegex(ValueError,"alignment missing"):
+            a.add_content_residuals(dict(prediction_vs_actual=[]),dict(source_ids=ids),means,rows[1:])
+
+    def test_complete_nonrun_delivery_is_idempotent_and_does_not_claim_future_metrics(self):
+        c,done,r=models()
+        for row in r["cells"]:row["AWARE"]["point"]=.515
+        r["registered_policy_trees"]={"policies":[]}
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);cd=root/"C";rd=root/"R";vd=root/"V"
+            cd.mkdir();rd.mkdir();vd.mkdir()
+            def write(path,value):path.write_text(json.dumps(value),encoding="utf-8")
+            write(cd/"gate.json",c)
+            costpath=cd/"sender_cost_inventory.csv"
+            with costpath.open("w",newline="") as stream:
+                fields=["average_snr_db","method","distinct_non_gray_states"]
+                writer=csv.DictWriter(stream,fields);writer.writeheader()
+                for snr in a.SNRS:
+                    for method in ("C-UNIFORM","C-BEST-SINGLE","C-FULL","C-8"):
+                        writer.writerow(dict(average_snr_db=snr,method=method,distinct_non_gray_states=2))
+            done["outputs"]={p.name:a.sha(p) for p in cd.iterdir()}
+            write(cd/"completion.json",done)
+            write(rd/"policy_search.json",r);write(rd/"registered_policy_trees.json",r["registered_policy_trees"])
+            write(rd/"completion.json",dict(status=r["status"],stage="R_MODEL_SEARCH",real_decodes_generated_by_search=0,
+                new_images_rendered=0,development_read=False,outputs={p.name:a.sha(p) for p in rd.iterdir()}))
+            write(root/"protocol.json",dict(schema="CONTENT_FEEDBACK_PROBE_20261005_V1",N=1024,average_snrs_db=list(a.SNRS)))
+            disposition=dict(status="NOT_RUN_BY_PREREGISTERED_GATE",verification_started=False,
+                branches={b:dict(status="NOT_RUN_BY_PREREGISTERED_GATE",reason="Frozen gate not met") for b in ("C","R")},
+                input_bindings={str(p):a.sha(p) for p in (cd/"gate.json",rd/"policy_search.json",root/"protocol.json")})
+            write(vd/"disposition.json",disposition)
+            result=a.run(cd,rd,vd,root/"protocol.json",root/"final",disposition_path=vd/"disposition.json")
+            self.assertEqual(result["status"],"COMPLETE")
+            self.assertFalse(result["V_physical_probe_complete"])
+            self.assertFalse(result["independent_ConvNeXt_complete"])
+            self.assertFalse(result["new_visual_validation_complete"])
+            self.assertTrue(result["A1_A2_complete_not_asserted"])
+            self.assertEqual(result,a.run(cd,rd,vd,root/"protocol.json",root/"final",disposition_path=vd/"disposition.json"))
+
+    def test_external_C_missing_preserves_model_potential_and_no_full_scope_claim(self):
+        c,done,r=models();receipt,frozen,means,pairs=physical()
+        frozen['unavailable']=[dict(snr_db=s,policy_id='C-8-'+str(s),family='C-8',status='MISSING_ASSET',reason='Frozen entropy order absent') for s in a.SNRS]
+        receipt['frozen_policy_sha256']=a.frozen_digest(frozen)
+        result=a.combine(c,done,[],r,v_receipt=receipt,frozen=frozen,means=means,pairs=pairs)
+        self.assertEqual(result['V']['R_status'],'METHOD_GAIN_CANDIDATE')
+        self.assertFalse(result['V']['complete_frozen_physical_scope'])
+        self.assertEqual(result['V']['status'],'PARTIAL_PROBE_MISSING_ASSETS')
+        self.assertEqual(len(result['V']['C_cells']),4)
+        self.assertTrue(all(row['status']=='MISSING_ASSET' and row['model_potential_preserved'] for row in result['V']['C_cells']))
+        text=a.render(result)
+        self.assertIn('MISSING_ASSET',text)
+
+
+if __name__=="__main__":unittest.main()

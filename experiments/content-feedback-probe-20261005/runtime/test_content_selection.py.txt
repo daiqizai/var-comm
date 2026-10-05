@@ -1,0 +1,183 @@
+"""CPU fixtures for source separation, same-h integration and paid-codebook use."""
+import copy
+import csv
+import math
+from pathlib import Path
+import tempfile
+import unittest
+import numpy as np
+import content_selection as c
+
+
+def profile(identity,groups=1,m=4,K=0):
+    block=dict(phy_key="body",source_bits=360,information_bits=376,transmitted_bits=600,symbols=300,
+               modulation="QPSK",nominal_rate="2/3",mcs_id="QPSK:r2/3",layout=dict(power_protocol="fixed_constellation_average_Es2"))
+    return dict(stable_id=identity,wire_key=identity,N=1024,G=groups,m=m,K=K,j=4 if groups==2 else None,
+        groups=[copy.deepcopy(block) for _ in range(groups)],encoder_qualified=True,header_phy_key="header",
+        header_symbols=68,header_information_bits=12,used_body_symbols=300*groups,idle_symbols=956-300*groups,
+        order="entropy",receiver_rule="consecutive_crc_accepted_prefix_v1",full_state_id=f"m{m}_K{K}",prefix_state_id="m4_K0" if groups==2 else None)
+
+
+def bler(probabilities=(.8,.19,.01)):
+    rows=[]
+    for key in ("header","body"):
+        for snr in (1,4,7,10,13,19):
+            counts=[int(round(p*10000)) for p in probabilities]
+            rows.append(dict(phy_key=key,snr_db=snr,n_blocks=sum(counts),n_correct=counts[0],n_reject=counts[1],n_undetected=counts[2],
+                p_correct=counts[0]/sum(counts),p_reject=counts[1]/sum(counts),p_undetected=counts[2]/sum(counts),
+                applicability="iid_scrambled_payload_approximation",source_id="*"))
+    return dict(rows=rows,synthetic=False,conditional_group_independence=True)
+
+
+def quality(profiles,count=10):
+    ids=[f"source-{i:03d}" for i in range(count)]
+    states={"gray"}|{p["full_state_id"] for p in profiles}|{p["prefix_state_id"] for p in profiles if p["G"]==2}
+    rows=[]
+    for i,source in enumerate(ids):
+        for state in sorted(states):
+            value=.1 if state=="gray" else (.8 if (i%2==0)==(state=="m4_K0") else .4)
+            rows.append(dict(source_id=source,state_id=state,receiver="gray" if state=="gray" else "VAR",dinov2_vitl14_cosine=value))
+    return dict(population="calibration",development_read=False,synthetic=False,source_ids=ids,rows=rows)
+
+
+class ContentTests(unittest.TestCase):
+    def test_hash_split_is_order_invariant_and_has_fixed_probe_prefix(self):
+        ids=[f"source-{i}" for i in range(1000)]
+        a=c.source_split(ids);b=c.source_split(list(reversed(ids)))
+        self.assertEqual(a,b);self.assertEqual(len(a["construction_source_ids"]),800)
+        self.assertEqual(a["probe_source_ids"],a["verification_source_ids"][:64])
+        self.assertFalse(set(a["construction_source_ids"])&set(a["verification_source_ids"]))
+
+    def test_uniform_dictionary_ignore_verification_winners(self):
+        ps=[profile("a"),profile("b"),profile("c")]
+        scores=np.array([[.8,.7,.6],[.7,.8,.6],[.1,.1,1000.]])
+        uniform,selected,_=c.choose_dictionary(scores,ps,[0,1],maximum=2)
+        changed=scores.copy();changed[2]=[-10000,10000,0]
+        self.assertEqual(c.choose_dictionary(changed,ps,[0,1],maximum=2)[:2],(uniform,selected))
+        self.assertEqual(uniform,0);self.assertEqual(selected,[0,1])
+
+    def test_dictionary_greedy_stops_without_positive_gain(self):
+        ps=[profile("a"),profile("b")]
+        uniform,selected,steps=c.choose_dictionary(np.array([[.7,.6],[.8,.7]]),ps,[0,1])
+        self.assertEqual(selected,[0]);self.assertEqual(steps,[])
+
+    def test_dictionary_contains_distinct_waveforms_and_fixed_ties(self):
+        ps=[profile("a"),profile("b"),profile("c")];ps[1]["wire_key"]="a"
+        scores=np.array([[1.,1.,0.],[0.,0.,1.]])
+        self.assertEqual(c.choose_dictionary(scores,ps,[0,1])[1],[0,2])
+        self.assertEqual(c.choose_rows(np.ones((2,3)),[2,0]).tolist(),[0,0])
+
+    def test_one_shared_h_product_precedes_integration(self):
+        ps=[profile("a")];curve=c.Curves(bler((1,0,0)))
+        x=np.array([1.,19.]);p=np.array([[0.,1.,0.],[1.,0.,0.]])
+        curve.curves={"header":(x,p),"body":(x,p)};curve.knots=[1.,4.,7.,10.,13.,19.]
+        weights,_=c.integrate_profiles(curve,ps,7,32)
+        loc,mass,_=c.quadrature(curve.knots,7,32);success=curve.at("header",loc)[:,0]
+        self.assertAlmostEqual(weights[0,2],float(mass@(success**2)))
+        self.assertGreater(weights[0,2],float(mass@success)**2+.01)
+
+    def test_C_R_U_partition_and_correct_not_acceptance(self):
+        x=np.array([[.7,.2,.1]])
+        weights=c.state_weights(x,x,x)[0]
+        self.assertAlmostEqual(weights.sum(),1)
+        self.assertAlmostEqual(weights[2],.7**3)
+        self.assertNotAlmostEqual(weights[2],.8**3)
+        self.assertAlmostEqual(weights[3],.1+.7*.1+.7*.7*.1)
+
+    def test_negative_source_Q_increment_is_preserved(self):
+        weights=np.array([[.1,.2,.7,0.]])
+        matrices=(np.array([[.1]]),np.array([[.9]]),np.array([[.2]]))
+        self.assertAlmostEqual(c.expected_quality(matrices,weights)[0,0],.33)
+        self.assertAlmostEqual(c.expected_quality(matrices,weights)[0,0],.1+(.9-.1)*.9+(.2-.9)*.7)
+
+    def test_outage_thresholds_source_states_before_mean(self):
+        mats=(np.zeros((2,1)),np.zeros((2,1)),np.array([[.1],[.9]]))
+        weights=np.array([[0.,0.,1.,0.]])
+        point,lo,hi=c.outage(mats,weights,np.array([0,0]),.3)
+        self.assertEqual(float(point.mean()),.5)
+        self.assertFalse(float(mats[2].mean())<.3)
+        self.assertTrue(np.array_equal(point,lo));self.assertTrue(np.array_equal(point,hi))
+
+    def test_U_sensitivity_and_nearzero_retention(self):
+        mats=(np.zeros((1,1)),np.zeros((1,1)),np.ones((1,1)))
+        w=np.array([[0.,0.,.9,.1]])
+        self.assertAlmostEqual(c.expected_quality(mats,w,0)[0,0],.9)
+        self.assertAlmostEqual(c.expected_quality(mats,w,-1)[0,0],.8)
+        self.assertAlmostEqual(c.expected_quality(mats,w,1)[0,0],1.)
+        self.assertIsNone(c.retention(.0001,1e-7));self.assertAlmostEqual(c.retention(.07,.1),.7)
+
+    def test_probability_tail_mass_constant_curve_exact(self):
+        ps=[profile("a"),profile("b",2,5)];curves=c.Curves(bler())
+        weights,tails=c.integrate_profiles(curves,ps,13)
+        expected=c.state_weights(np.array([[.8,.19,.01]]),np.array([[.8,.19,.01]]),np.array([[.8,.19,.01]]))[0]
+        np.testing.assert_allclose(weights[1],expected,atol=1e-14,rtol=0)
+        self.assertGreater(tails["above_max"],.01);self.assertGreater(tails["below_min"],.06)
+
+    def test_public_codebook_aliases_fit_paid_12bits(self):
+        a=profile("a");alias=copy.deepcopy(a);alias["stable_id"]="alias"
+        book=c.codebook([a,alias,profile("b",2,5)])
+        self.assertEqual(len(book["entries"]),2)
+        self.assertEqual(book["stable_id_to_profile_id"]["a"],book["stable_id_to_profile_id"]["alias"])
+        self.assertFalse(book["receiver_uses_source_id"])
+        self.assertEqual(book["actual_header_roundtrip"],"NOT_RUN_IN_C_MODEL")
+
+    def test_missing_Q_or_class_conditioning_is_not_imputed(self):
+        ps=[profile("a"),profile("b",2,5)];q=quality(ps)
+        bad=copy.deepcopy(q);bad["rows"].pop()
+        with self.assertRaises(ValueError):c.Quality(bad,ps,10)
+        bad=copy.deepcopy(q);bad["rows"][0]["label_conditioned"]=True
+        with self.assertRaises(ValueError):c.Quality(bad,ps,10)
+
+    def test_synthetic_full_pipeline_outputs_frozen_decisions_and_no_PHY_claim(self):
+        ps=[profile("a"),profile("b",2,5)];result=c.evaluate(ps,quality(ps),bler(),synthetic=True)
+        self.assertEqual(len(result["selected_dictionaries"]["cells"]),4)
+        self.assertEqual(len(result["per_source"]),4*4*10)
+        self.assertFalse(result["gate"]["actual_channel_result"])
+        self.assertFalse(result["gate"]["visual_GPU_authorized_by_C"])
+        self.assertEqual(result["metric_availability"]["ConvNeXt"],"NOT_READ")
+        for cell in result["selected_dictionaries"]["cells"]:
+            self.assertTrue(cell["dictionary_frozen_before_internal_verification"])
+            self.assertLessEqual(len(cell["dictionary_stable_ids"]),8)
+        self.assertGreater(result["negative_increment_sources"],0)
+
+    def test_auxiliary_csv_only_correct_VAR_states_and_no_U_imputation(self):
+        ps=[profile("a"),profile("b",2,5)];bundle=quality(ps)
+        rows=[]
+        for row in bundle["rows"]:
+            rows.append(dict(row,population="calibration",label_conditioned="False",
+                generation="constant_RGB_0.5" if row["state_id"]=="gray" else "unconditional_class1000_greedy_argmax_no_CFG_no_sampling",
+                psnr_db=20.,resnet50_top1_label="True",lpips_alex=""))
+        # A direct receiver can have a different quality for the same source/state.
+        # It is not part of either the VAR objective or its auxiliary metrics.
+        rows.append(dict(rows[1],receiver="direct",generation="official_partial_zero_embedding_direct",
+                         dinov2_vitl14_cosine=-999.,psnr_db=-999.))
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/"quality.csv"
+            def write():
+                with path.open("w",encoding="utf-8",newline="") as stream:
+                    writer=csv.DictWriter(stream,fieldnames=list(rows[0]),lineterminator="\n")
+                    writer.writeheader();writer.writerows(rows)
+            write();result=c.evaluate(ps,bundle,bler(),synthetic=True,auxiliary_csv=path)
+            baseline=c.evaluate(ps,bundle,bler(),synthetic=True)
+            self.assertEqual(result["selected_dictionaries"],baseline["selected_dictionaries"])
+            self.assertEqual(result["metric_availability"]["available_complete_auxiliary_metrics"],
+                             ["psnr_db","resnet50_top1_label"])
+            self.assertEqual(result["metric_availability"]["incomplete_auxiliary_metrics"],["lpips_alex"])
+            self.assertEqual(len(result["other_metrics"]),4*4*3*2)
+            for row in result["other_metrics"]:
+                target=20. if row["metric"]=="psnr_db" else 1.
+                self.assertGreater(row["unmodelled_probability"],0)
+                self.assertAlmostEqual(row["known_state_weighted_contribution"],target*(1-row["unmodelled_probability"]))
+                self.assertAlmostEqual(row["conditional_on_modelled_state_mean"],target)
+                self.assertEqual(row["total_mean"],"NOT_IDENTIFIED_FOR_U_STATES")
+                self.assertFalse(row["used_for_selection"])
+            rows[0][c.METRIC]=-.7;write()
+            with self.assertRaisesRegex(ValueError,"primary quality differs"):
+                c.Quality(bundle,ps,10).load_auxiliary_csv(path)
+            rows[0][c.METRIC]=bundle["rows"][0][c.METRIC]
+            rows[0]["generation"]="unregistered_sampling";write()
+            with self.assertRaisesRegex(ValueError,"generation/receiver differs"):
+                c.Quality(bundle,ps,10).load_auxiliary_csv(path)
+
+
+if __name__=="__main__":unittest.main()

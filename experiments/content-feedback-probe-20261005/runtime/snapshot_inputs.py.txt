@@ -1,0 +1,176 @@
+"""Create an independent, hash-checked CPU-only input snapshot and S0 audit."""
+import argparse
+import csv
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import time
+
+
+def read(path):
+    return json.loads(Path(path).read_text(encoding='utf-8-sig'))
+
+
+def sha(path):
+    h = hashlib.sha256()
+    with Path(path).open('rb') as f:
+        for block in iter(lambda: f.read(8 * 1024 * 1024), b''):
+            h.update(block)
+    return h.hexdigest()
+
+
+def seal(path, value):
+    path = Path(path)
+    text = json.dumps(value, indent=2, ensure_ascii=False, allow_nan=False) + '\n'
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        if path.read_text(encoding='utf-8') != text:
+            raise ValueError('Immutable artifact differs: ' + str(path))
+    else:
+        path.write_text(text, encoding='utf-8')
+
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument('--root', type=Path, required=True)
+    p.add_argument('--out', type=Path, required=True)
+    args = p.parse_args()
+    root, out = args.root.resolve(), args.out.resolve()
+    if (out / 'INPUT_MANIFEST.json').exists():
+        manifest = read(out / 'INPUT_MANIFEST.json')
+        for entry in manifest['entries'].values():
+            assert sha(entry['path']) == entry['sha256'], entry['path']
+        print('EXISTING_SNAPSHOT_VERIFIED')
+        return
+    assert os.environ.get('CUDA_VISIBLE_DEVICES') == '', 'Explicit CPU-only environment required'
+    baseline = '9f79c23fc5ddc0033f31a556ce6c07c95b64528e'
+    subprocess.run(['git', 'cat-file', '-e', baseline + ':reports/parallel_v2_20261005.md'], cwd=root, check=True)
+    previous = root / 'outputs/PARALLEL-V2-20261005'
+    old = read(previous / 'snapshot_manifest.json')
+    entries = {}
+
+    def copy(name, source, role, expected=None):
+        source = Path(source)
+        digest = sha(source)
+        if expected is not None:
+            assert digest == expected, 'Input lineage changed: ' + str(source)
+        dest = out / 'snapshot' / name
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        if not dest.exists():
+            shutil.copyfile(source, dest)
+        assert sha(dest) == digest
+        entries[name] = dict(path=str(dest), source_path=str(source), sha256=digest,
+                             bytes=dest.stat().st_size, role=role, git_commit=baseline)
+        return str(dest)
+
+    for name, entry in old['entries'].items():
+        # Old development outcome files are diagnostic evidence only; no new
+        # policy receives them through the planning asset interface.
+        copy(name, entry['path'], entry['role'], entry['sha256'])
+    copy('f0_audit.json', previous / 'F0/f0_audit.json', 'old_model_diagnostic_only')
+    copy('F0_REPORT.md', previous / 'F0/F0_REPORT.md', 'old_model_diagnostic_only')
+    copy('old_snapshot_manifest.json', previous / 'snapshot_manifest.json', 'lineage')
+    token_receipt = read(previous / 'A2/assets/a2_calibration_tokens.json')
+    assert token_receipt['role'] == 'calibration' and token_receipt['sources'] == 1000
+    copy('calibration_tokens.npz', token_receipt['archive'], 'calibration_raw_tokens', token_receipt['sha256'])
+    copy('calibration_tokens.json', previous / 'A2/assets/a2_calibration_tokens.json', 'token_lineage')
+    q_completion = read(entries['quality_completion.json']['path'])
+    table_path = root / 'outputs/PRIOR-AWARE-UEP-20261004-V1/quality_final1000/quality_per_source.csv'
+    bundle = read(entries['quality_bundle.json']['path'])
+    copy('quality_per_source.csv', table_path, 'calibration_secondary_metrics', bundle['table_sha256'])
+    a2 = read(previous / 'A2/registration.json')
+    for name in ['m9_phy.py']:
+        source = Path(a2['m1_code']) / name
+        expected = a2['source_bindings'].get(str(source))
+        assert expected, 'Missing original bound physical implementation'
+        copy('m1_code/' + name, source, 'pinned_physical_source', expected)
+    # The header helper imports the existing CPU convolutional channel module.
+    for source in (root / 'src/var_comm').glob('*.py'):
+        expected = a2['source_bindings'].get(str(source))
+        if expected:
+            copy('src/var_comm/' + source.name, source, 'pinned_physical_dependency', expected)
+    reg = read(entries['quality_registration.json']['path'])
+    profiles = read(entries['candidate_profiles_N1024.json']['path'])
+    bler = read(entries['bler.json']['path'])
+    assert len(profiles) == 4041
+    assert sum(x['G'] == 1 for x in profiles) == 209
+    assert sum(x['G'] == 2 for x in profiles) == 3832
+    assert len(bundle['source_ids']) == 1000 and bundle['source_ids'] == reg['source_ids']
+    assert bundle['population'] == 'calibration' and not bundle['development_read']
+    assert reg['label_conditioned'] is False and reg['development_read'] is False
+    assert len(bundle['rows']) == 295000
+    states = {x['state_id'] for x in bundle['rows'] if x['receiver'] == 'VAR'}
+    assert len(states) == 147
+    assert {x['full_state_id'] for x in profiles} <= states
+    assert {x['prefix_state_id'] for x in profiles if x.get('prefix_state_id')} <= states
+    physical_keys = {r['phy_key'] for r in bler['rows']}
+    assert len(bler['rows']) == 16902 and len(physical_keys) == 2817
+    for row in bler['rows']:
+        assert sum(row[k] for k in ('n_correct', 'n_reject', 'n_undetected')) == row['n_blocks']
+        for count, probability in [('n_correct', 'p_correct'), ('n_reject', 'p_reject'), ('n_undetected', 'p_undetected')]:
+            assert abs(row[count] / row['n_blocks'] - row[probability]) < 1e-12
+    for profile in profiles:
+        assert profile['header_symbols'] + profile['used_body_symbols'] + profile['idle_symbols'] == 1024
+        assert profile['header_symbols'] == 68 and profile['order'] == 'entropy'
+        assert profile['header_phy_key'] in physical_keys
+        for group in profile['groups']:
+            assert group['source_bits'] + 16 == group['information_bits']
+            assert group['phy_key'] in physical_keys
+            assert group['layout']['power_protocol'] == 'fixed_constellation_average_Es2'
+    import numpy as np
+    with np.load(entries['calibration_tokens.npz']['path'], allow_pickle=False) as tokens:
+        assert tokens['tokens'].shape == (1000, 680)
+        assert tokens['source_ids'].tolist() == bundle['source_ids']
+        assert tokens['preprocessing_ids'].tolist() == reg['preprocessing_ids']
+        token_fields = list(tokens.files)
+    with table_path.open(newline='') as f:
+        reader = csv.DictReader(f)
+        metric_fields = [c for c in reader.fieldnames if c in (
+            'psnr_db', 'lpips_alex', 'dino_cosine', 'dinov2_vitl14_cosine', 'clip_image_cosine',
+            'dists', 'dreamsim', 'ms_ssim', 'resnet50_top1_label', 'resnet50_top1_source_prediction')]
+        count = 0
+        generations = set()
+        for row in reader:
+            assert row['population'] == 'calibration'
+            assert row['label_conditioned'].lower() == 'false'
+            generations.add(row['generation'])
+            count += 1
+        assert count == 295000
+    assert generations == {'unconditional_class1000_greedy_argmax_no_CFG_no_sampling',
+                           'official_partial_zero_embedding_direct', 'constant_RGB_0.5'}
+    manifest = dict(schema='CONTENT_FEEDBACK_INPUT_SNAPSHOT_V1', baseline_commit=baseline,
+        created_unix=time.time(), entries=entries,
+        runtime=dict(root=str(root), uep_code=str(out / 'snapshot/code'),
+                     m1_phy=str(out / 'snapshot/m1_code/m9_phy.py'),
+                     src=str(out / 'snapshot/src'), ldpc_qualification=entries['ldpc_qualification.json']['path']),
+        assets={name: entries[file] for name, file in {
+            'calibration_tokens': 'calibration_tokens.npz', 'quality_bundle': 'quality_bundle.json',
+            'quality_per_source': 'quality_per_source.csv', 'profiles': 'candidate_profiles_N1024.json',
+            'bler': 'bler.json'}.items()},
+        entropy_orders=dict(status='MISSING_ASSET', source='not persisted by original SourceRenderer',
+            inspected=['original quality_final1000 source_checkpoints/reconstructions',
+                       'original m1_calibration/cells', 'M1 source checkpoint schema', 'A2 token archive fields'],
+            original_source_orders='source_quality.py keeps self.orders in memory; persisted rows keep only accepted_payload_key hash',
+            no_new_visual_inference=True, partial_actual_probe_must_stop_on_missing=True),
+        diagnostics=dict(candidates=4041, single=209, grouped=3832, actual_waveforms=len({p['wire_key'] for p in profiles}),
+                         calibrated_sources=1000, quality_rows=295000, VAR_states=147,
+                         physical_curves=2817, physical_points=16902, token_fields=token_fields,
+                         secondary_metrics=metric_fields, generations=sorted(generations),
+                         original_quality_completion_status=q_completion.get('status')))
+    seal(out / 'INPUT_MANIFEST.json', manifest)
+    # Planning loaders accept the legacy entries shape, but all paths point at
+    # this isolated snapshot rather than live A1/A2 files.
+    seal(out / 'snapshot/snapshot_manifest.json', manifest)
+    report = '''# S0：content-feedback 资产核对\n\n只读固定版本与真实文件 SHA 均通过。新目录不依赖 A1/A2 的中间产物，也不改变原队列。\n\n- 1000 张原 calibration、147 个无条件 VAR 正确接收状态及灰图齐全；295000 行包含 direct 对照。source ID、预处理 ID、完整 token 与质量表逐项匹配。\n- 4041 个配置：209 单组、3832 两组；3761 种实际波形可以放入 12-bit 公开码本。头部还需实际译码资格验证，不能把容纳得下当成验证已通过。\n- 2817 个物理配置、16902 个离散点。正确、拒收、错误接受独立保留，CRC 接受不等于正确。每图 68 个头部符号、正文 CRC16、LDPC 长度、调制与 Es=2 平均功率字段核对通过。\n- 冻结视觉 Encoder/VQ/VAR/Dc 和指标权重由原登记绑定；无条件 class1000、逐尺度 argmax，不新增采样。选择指标为 DINOv2 ViT-L/14。已有其余 calibration 指标用于交叉报告，ConvNeXt 不读。\n- 旧 F0/F1 的 UNCERTAIN 与 UEP 停止结论原样保留。旧记录区分相同波形、接近零的差值与证据不足，不能把未证实失配写成已证实模型正确。本轮用插值工作模型搜索，再以新的真实 CPU 衰落轨迹检查短名单。\n- **部分尺度实链缺项**：原实现只在内存保留 entropy order，持久缓存只有质量/图像和接收载荷哈希，没有排序位置或原发送 bit。不得用光栅序或随机 payload 冒充这些配置的实际源图传输；C 全候选查表可完成，涉及部分尺度的 V 策略按缺资产逐项报告。完整尺度 R 不受此缺项阻断。\n- 新增 R 码块兼容性由独立资源清单登记；不能跨 payload/码长借概率。\n\n详细 lineage、权重、generation、原故障诊断与文件哈希见 INPUT_MANIFEST.json。缓存 CPU 耗时不代表发送端部署延迟。\n'''
+    (out / 'ASSET_STATUS.md').write_text(report, encoding='utf-8')
+    seal(out / 'S0_completion.json', dict(status='ASSET_AUDIT_COMPLETE_WITH_PARTIAL_ORDER_GAP',
+        input_manifest_sha256=sha(out / 'INPUT_MANIFEST.json'), source_sha256=sha(__file__),
+        actual_decodes=0, new_gpu_jobs=0, A1_A2_modified=False, scope='calibration internal CPU probe'))
+    print(json.dumps(manifest['diagnostics']))
+
+
+if __name__ == '__main__':
+    main()

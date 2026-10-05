@@ -1,0 +1,175 @@
+"""Small publication-recovery fixtures; no actual Git, SSH or experiments."""
+import csv
+import io
+import json
+from pathlib import Path
+import sys
+import tempfile
+import unittest
+from unittest import mock
+
+import publisher_recovery_r1 as r
+
+RUNTIME = Path(__file__).resolve().parent.parent / 'runtime'
+if not RUNTIME.is_dir():
+    RUNTIME = Path(__file__).resolve().parent.parent / 'code'
+sys.path.insert(0, str(RUNTIME))
+import publish_probe as p
+from test_publish_probe import fixture as base_fixture, FakeCommands, text, write
+
+
+def fixture(root):
+    out, code, final = base_fixture(root)
+    done = p.read(final / 'completion.json')
+    done.update(C_model_complete=True, R_model_complete=True,
+                V_disposition='PARTIAL_PROBE_MISSING_ASSETS', V_any_physical_results=False)
+    write(final / 'completion.json', done)
+    recovery = out / r.RECOVERY_NAME
+    write(out / 'owner/failure.json', dict(status='FAILED', stage='publication'))
+    write(out / 'owner_stages/publication/failure.json', dict(status='FAILED', error='CSV filter'))
+    text(recovery / 'publisher_recovery_r1.py', '# Bound independent wrapper\n')
+    text(recovery / 'test_publisher_recovery_r1.py', '# Bound wrapper tests\n')
+    write(recovery / 'diagnosis.json', dict(original_sources_changed=False, cause='payload length CSV column'))
+    text(recovery / 'original_attempt/worker.log.txt', 'Preserved traceback for CSV filter\n')
+    (out / 'V/budget.sqlite').write_bytes(b'Immutable final ledger')
+    resource = out / 'R/resources_qualified/resource_action_coverage.csv'
+    text(resource, 'action_id,payload_bits,symbols\nm4,300,480\nm5,0,64\n')
+    def descriptor(path): return dict(path=str(path), sha256=p.sha(path))
+    sources = [recovery / 'publisher_recovery_r1.py', recovery / 'test_publisher_recovery_r1.py']
+    record = dict(version=r.VERSION, original_publisher=descriptor(code / 'publish_probe.py'),
+                  science_receipt=descriptor(final / 'completion.json'), diagnosis=descriptor(recovery / 'diagnosis.json'),
+                  failure_bindings={str(path): p.sha(path) for path in
+                                    [out / 'owner/failure.json', out / 'owner_stages/publication/failure.json']},
+                  source_bindings={str(path): p.sha(path) for path in sources},
+                  protected_bindings={str(out / 'V/budget.sqlite'): p.sha(out / 'V/budget.sqlite')},
+                  publication_evidence_paths=[descriptor(path) for path in
+                                             [*sources, recovery / 'diagnosis.json', recovery / 'original_attempt/worker.log.txt']])
+    registration = recovery / 'execution_registration.json'
+    write(registration, record)
+    return out, code, final, recovery, registration, record, resource
+
+
+class RecoveryTests(unittest.TestCase):
+    def test_real_resource_csv_nonnegative_counts_and_exact_CRLF_restore(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'resource_action_coverage.csv'
+            raw = b'action_id,payload_bits,symbols\r\nappend_m4_m5,300,240\r\nempty,0,68\n'
+            path.write_bytes(raw)
+            normalizer = r.csv_count_normalizer(p.normalized_text, p.FORBIDDEN_KEYS)
+            before, after, offsets = normalizer(path)
+            restored = bytearray(after)
+            for at in reversed(offsets): restored[at:at] = b'\r'
+            self.assertEqual(before, raw)
+            self.assertEqual(bytes(restored), raw)
+            self.assertEqual(path.read_bytes(), raw)
+            with self.assertRaisesRegex(RuntimeError, 'CSV contains raw'): p.normalized_text(path)
+
+    def test_strings_arrays_negative_float_whitespace_unicode_and_empty_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'a.csv'
+            normalize = r.csv_count_normalizer(p.normalized_text, p.FORBIDDEN_KEYS)
+            for value in ('[0,1]', '-1', '+1', '1.0', ' 1', '1 ', '١', '', 'True', 'NaN', '001x'):
+                with self.subTest(value=value):
+                    output = io.StringIO(newline='')
+                    csv.writer(output).writerows([['action_id', 'payload_bits'], ['a', value]])
+                    path.write_text(output.getvalue(), encoding='utf-8', newline='')
+                    with self.assertRaisesRegex(RuntimeError, 'nonnegative decimal'): normalize(path)
+
+    def test_other_raw_columns_duplicates_and_ragged_rows_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'a.csv'
+            normalize = r.csv_count_normalizer(p.normalized_text, p.FORBIDDEN_KEYS)
+            for body in ('payload_bits,tokens\n5,6\n', 'payload_bits,payload_bits\n5,6\n',
+                         'payload_bits,x\n5\n', 'payload_bits\n5,6\n', 'payload_bits\n'):
+                with self.subTest(body=body):
+                    text(path, body)
+                    with self.assertRaises(RuntimeError): normalize(path)
+
+    def test_json_and_nonpayload_CSV_still_use_original_filter(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            normalize = r.csv_count_normalizer(p.normalized_text, p.FORBIDDEN_KEYS)
+            write(root / 'a.json', dict(payload_bits=[0, 1]))
+            with self.assertRaisesRegex(RuntimeError, 'Forbidden raw'): normalize(root / 'a.json')
+            write(root / 'a.json', dict(payload_bits=300))
+            self.assertEqual(normalize(root / 'a.json'), p.normalized_text(root / 'a.json'))
+            text(root / 'a.csv', 'tokens\n5\n')
+            with self.assertRaisesRegex(RuntimeError, 'CSV contains raw'): normalize(root / 'a.csv')
+
+    def test_all_collect_sources_preflight_only_two_intended_filter_branches(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            out, code, final, recovery, registration, record, resource = fixture(root)
+            second = out / 'R/resources_unqualified/resource_action_coverage.csv'
+            text(second, resource.read_text())
+            write(out / 'owner/config.json', dict(unqualified_resources=str(second.parent)))
+            text(recovery / 'status.json', '{"payload": "must not be collected"}')
+            text(recovery / 'unlisted.json', '{"payload": "must not be collected"}')
+            evidence = [registration, *[Path(x['path']) for x in record['publication_evidence_paths']]]
+            original_normalize, original_collect = p.normalized_text, p.collect
+            with r.recovery_overrides(p, evidence, out) as old:
+                report = r.preflight(p, old, out, code, final)
+                self.assertEqual(report['recovered_count'], 2)
+                self.assertEqual(set(report['recovered_csv_paths']), {str(resource), str(second)})
+                self.assertFalse(any(x['path'].endswith('unlisted.json') or x['path'].endswith('status.json')
+                                     for x in report['source_files']))
+                self.assertFalse((out / 'publication_inventory.json').exists())
+            self.assertIs(p.normalized_text, original_normalize)
+            self.assertIs(p.collect, original_collect)
+
+    def test_registration_checks_failure_source_science_and_ledger_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            out, code, final, recovery, registration, record, resource = fixture(root)
+            args = (root, out, code, final, registration, recovery / 'publisher_recovery_r1.py')
+            self.assertEqual(r.validate_registration(*args)[0], record)
+            for path in (out / 'V/budget.sqlite', out / 'owner/failure.json', code / 'publish_probe.py', final / 'completion.json'):
+                before = path.read_bytes()
+                path.write_bytes(before + b' ')
+                with self.assertRaisesRegex(RuntimeError, 'changed'): r.validate_registration(*args)
+                path.write_bytes(before)
+
+    def test_dynamic_and_unbound_recovery_assets_cannot_enter_inventory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            out, code, final, recovery, registration, record, resource = fixture(root)
+            write(recovery / 'preflight.json', dict(status='TRANSIENT'))
+            record['publication_evidence_paths'].append(dict(path=str(recovery / 'preflight.json'), sha256=p.sha(recovery / 'preflight.json')))
+            write(registration, record)
+            with self.assertRaisesRegex(RuntimeError, 'Mutable recovery'):
+                r.validate_registration(root, out, code, final, registration, recovery / 'publisher_recovery_r1.py')
+
+    def test_preexisting_partial_copies_reused_frozen_sources_unchanged_and_remote_required(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            out, code, final, recovery, registration, record, resource = fixture(root)
+            evidence = [registration, *[Path(x['path']) for x in record['publication_evidence_paths']]]
+            unchanged = {str(path): p.sha(path) for path in
+                         [code / 'publish_probe.py', final / 'completion.json', out / 'V/budget.sqlite', out / 'owner/failure.json']}
+            # Mimic the initial publisher failing after copying some text.
+            with self.assertRaisesRegex(RuntimeError, 'CSV contains raw'): p.prepare(root, out, code, final)
+            self.assertFalse((out / 'publication_inventory.json').exists())
+            with r.recovery_overrides(p, evidence, out) as old:
+                r.preflight(p, old, out, code, final)
+                inventory = p.prepare(root, out, code, final)
+                self.assertTrue(any(x.endswith('publisher_recovery_r1.py.txt') for x in inventory['files']))
+                self.assertFalse(any(x.endswith('.py') or 'budget.sqlite' in x for x in inventory['files']))
+                commands = FakeCommands(root)
+                publication = p.publish(root, out, commands, guard=lambda root: [])
+                self.assertEqual(publication['status'], 'PUBLISHED')
+                commands.remote = 'f' * 40
+                with self.assertRaisesRegex(RuntimeError, 'not currently verified'):
+                    r.finalize(p, root, out, final, registration, record, p.sha(registration), commands)
+                self.assertFalse((recovery / 'completion.json').exists())
+                self.assertFalse((out / 'completion.json').exists())
+                commands.remote = publication['commit']
+                done = r.finalize(p, root, out, final, registration, record, p.sha(registration), commands)
+                self.assertEqual(done['status'], 'COMPLETE')
+                self.assertEqual(p.read(recovery / 'completion.json')['status'], 'PUBLICATION_RECOVERY_COMPLETE')
+                self.assertFalse(done['V_any_physical_results'])
+                self.assertEqual(done, r.finalize(p, root, out, final, registration, record, p.sha(registration), commands))
+            self.assertEqual(unchanged, {name: p.sha(name) for name in unchanged})
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -1,0 +1,160 @@
+import copy
+import importlib.util
+import itertools
+import os
+from pathlib import Path
+import unittest
+import numpy as np
+
+import feedback_resources as r
+import feedback_policy as p
+
+
+_candidates=[Path(os.environ['VAR_COMM_LEGACY_F1_SOURCE'])] if 'VAR_COMM_LEGACY_F1_SOURCE'in os.environ else []
+_candidates += [Path(__file__).resolve().parents[2]/'parallel_v2_20261005/runtime/f1_screen.py',
+    Path(__file__).resolve().parents[3]/'outputs/PARALLEL-V2-20261005/code/f1_screen.py',Path(__file__).with_name('f1_screen.py')]
+LEGACY=next((path for path in _candidates if path.exists()),_candidates[-1])
+
+
+def data():
+    groups={}
+    for key,bits,body in [('base',360,210),('append',300,160),('strong',360,300)]:
+        groups[key]=dict(phy_key=key,source_bits=bits,information_bits=bits+16,crc_bits=16,tail_bits=0,
+            modulation='QPSK',symbols=body,transmitted_bits=body*2,nominal_rate='1/2',new_configuration=False,
+            layout={'power_protocol':'fixed_constellation_average_Es2','code_blocks':1})
+    actions=[]
+    for key,start,end in [('base',0,4),('strong',0,4),('append',4,5)]:
+        g=groups[key];actions.append(dict(action_id=key,start_m=start,end_m=end,start_token=r.tokens(start),stop_token=r.tokens(end),
+            state_id=f'm{end}_K0',payload_bits=g['source_bits'],modulation=g['modulation'],body_symbols=g['symbols'],
+            header_symbols=68,forward_symbols=g['symbols']+68,group=g,status='READY'))
+    profiles=[]
+    for pid,gs in [('s',[groups['base']]),('g',[groups['base'],groups['append']])]:
+        profiles.append(dict(stable_id=pid,G=len(gs),N=1024,m=4 if len(gs)==1 else 5,K=0,j=None if len(gs)==1 else 4,
+            groups=gs,header_phy_key=r.HEADER_KEY,full_state_id='m4_K0' if len(gs)==1 else 'm5_K0',
+            prefix_state_id=None if len(gs)==1 else 'm4_K0',header_symbols=68,used_body_symbols=sum(g['symbols'] for g in gs)))
+    catalog=dict(R_actions=actions,QCSI={str(c):dict(old_profile_ids=['s','g']) for c in r.FB_COSTS},QCSI_new_actions=[],scientific_scope='synthetic test')
+    ids=[str(i) for i in range(1000)];quality=dict(population='calibration',development_read=False,synthetic=False,source_ids=ids,rows=[])
+    for state,value in [('gray',.1),('m4_K0',.55),('m5_K0',.9)]:
+        quality['rows'] += [dict(source_id=i,state_id=state,receiver='gray' if state=='gray' else 'VAR',dinov2_vitl14_cosine=value) for i in ids]
+    rows=[]
+    for key,probs in [(r.HEADER_KEY,[.98,.02,0]),('base',[.55,.45,0]),('append',[.5,.5,0]),('strong',[.8,.2,0])]:
+        for snr in [1,4,7,10,13,19]:
+            counts=[int(round(v*1000)) for v in probs]
+            rows.append(dict(phy_key=key,snr_db=snr,source_id='*',kind='header' if key==r.HEADER_KEY else 'body',
+                applicability='source_independent_verified' if key==r.HEADER_KEY else 'iid_scrambled_payload_approximation',
+                n_blocks=1000,n_correct=counts[0],n_reject=counts[1],n_undetected=counts[2],p_correct=probs[0],p_reject=probs[1],p_undetected=probs[2]))
+    bler=dict(rows=rows,synthetic=False,conditional_group_independence=True)
+    return profiles,quality,bler,catalog
+
+
+class FeedbackMathTests(unittest.TestCase):
+    def test_CRC_false_accept_updates_ACK_and_remains_unscored(self):
+        h=np.array([[.8,.1,.1]]);b=np.array([[.7,.2,.1]])
+        outcomes=p.packet_outcomes(h,b)
+        self.assertAlmostEqual(sum(x[0] for x in outcomes),1)
+        clean,bad=p.update_history(np.array([1.]),np.array([0.]),outcomes,True)
+        self.assertAlmostEqual(clean[0],.56);self.assertAlmostEqual(bad[0],.18)
+        nc,nb=p.update_history(np.array([1.]),np.array([0.]),outcomes,False)
+        self.assertAlmostEqual(nc[0],.26);self.assertEqual(nb[0],0)
+
+    def test_repeated_NACK_conditions_common_fading(self):
+        prior=np.array([.5,.5]);out=(np.array([.9,.1]),np.array([.1,.9]),np.zeros(2))
+        clean,bad=p.update_history(prior,np.zeros(2),out,False)
+        posterior=clean/clean.sum()
+        self.assertAlmostEqual(posterior@out[0],.18)
+        self.assertNotAlmostEqual(posterior@out[0],prior@out[0])
+        second,_=p.update_history(clean,bad,out,False)
+        self.assertAlmostEqual(second.sum(),.41)
+        self.assertNotAlmostEqual(second.sum(),.25)
+
+    def test_wrong_state_never_recovers_clean_Q_by_later_ACK(self):
+        clean,bad=p.update_history(np.array([0.]),np.array([1.]),(np.array([1.]),np.array([0.]),np.array([0.])),True)
+        self.assertEqual(clean[0],0);self.assertEqual(bad[0],1)
+
+    def test_quadrature_mass_and_extreme_tail_are_finite(self):
+        legacy=p.load_legacy(LEGACY);_,_,bler,_=data();curves=legacy.Curves(bler)
+        for snr in p.SNRS:
+            x,w=p.quadrature(curves,snr,32)
+            self.assertTrue(np.isfinite(x).all());self.assertTrue(np.isfinite(w).all())
+            self.assertAlmostEqual(float(w.sum()),1,places=14)
+            self.assertTrue((w>=0).all())
+
+    def test_retry_cannot_change_source_segment_or_weaken_registered_protection(self):
+        _,_,_,cat=data();a={x['action_id']:x for x in cat['R_actions']}
+        self.assertTrue(p.can_retry(a['base'],a['base']))
+        self.assertTrue(p.can_retry(a['strong'],a['base']))
+        self.assertFalse(p.can_retry(a['base'],a['strong']))
+        self.assertFalse(p.can_retry(a['append'],a['base']))
+
+
+class FiniteSearchTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.legacy=p.load_legacy(LEGACY)
+    def model(self):
+        profiles,quality,bler,catalog=data()
+        return p.Model(self.legacy,profiles,quality,bler,catalog,7),profiles,quality,bler,catalog
+    def test_aware_contains_fully_optimized_ARQ_and_counts_every_path(self):
+        model,*_=self.model()
+        for cost in r.FB_COSTS:
+            a=model.arq(cost);v=model.aware(cost)
+            self.assertGreaterEqual(v['point']+1e-12,a['point'])
+            self.assertGreater(a['unique_trees_compared'],1)
+            summary=model.evaluate_tree(v['tree'],cost)
+            self.assertAlmostEqual(summary['point'],v['point'],places=12)
+            self.assertTrue(all(x['used_symbols']<=1024 and x['forward_rounds']<=3 and x['feedback_rounds']<=2 for x in summary['paths']))
+            self.assertLessEqual(summary['worst_used_symbols'],1024)
+            self.assertAlmostEqual(sum(summary['terminal_state_probabilities'].values())+summary['bad_probability'],1)
+
+    def test_feedback_is_charged_even_on_branch_that_stops(self):
+        model,*_=self.model()
+        last=dict(action_id='base',request_feedback=False,ack=None,nack=None)
+        first=dict(action_id='base',request_feedback=True,ack=None,nack=last)
+        value=model.evaluate_tree(first,32)
+        self.assertTrue(any(x['forward_rounds']==1 and x['feedback_rounds']==1 and x['used_symbols']==310 for x in value['paths']))
+        self.assertAlmostEqual(value['feedback_rounds'],1)
+        self.assertAlmostEqual(value['feedback_symbols'],32)
+
+    def test_nonmonotone_prefix_quality_may_choose_stop(self):
+        profiles,quality,bler,catalog=data()
+        for row in quality['rows']:
+            if row['state_id']=='m5_K0':row['dinov2_vitl14_cosine']=-.5
+        model=p.Model(self.legacy,profiles,quality,bler,catalog,7)
+        chosen=model.aware(32)
+        def visit(node):
+            if node is None:return
+            self.assertNotEqual(node['action_id'],'append');visit(node['ack']);visit(node['nack'])
+        visit(chosen['tree'])
+
+    def test_QCSI_checks_all_35_thresholds_and_does_not_drop_missing_competitor(self):
+        model,*_=self.model();q=model.qcsi(32)
+        self.assertEqual(q['threshold_triplets_compared'],35);self.assertEqual(q['candidate_count'],2)
+        model.catalog['QCSI_new_actions']=[dict(feedback_symbols=32,status='MISSING_PHY_QUALIFICATION',action_id='new',group=None)]
+        pending=model.qcsi(32)
+        self.assertEqual(pending['status'],'MISSING_ASSET');self.assertIsNone(pending['point'])
+        self.assertFalse(pending['policy_frozen'])
+
+    def test_exported_codebook_is_public_and_header_bounded(self):
+        model,*_=self.model();arq=model.arq(32);aware=model.aware(32);q=model.qcsi(32)
+        cell=dict(average_snr_db=7,feedback_symbols=32,ARQ=arq,AWARE=aware,QCSI=q,FIXED=model.fixed())
+        result=p.export_policies([cell],{7:model},model.catalog)
+        self.assertLessEqual(result['codebook_size'],4096)
+        for policy in result['policies']:
+            for node in policy['nodes'].values():
+                self.assertEqual(node['groups'],result['codebook'][str(node['header_id'])]['groups'])
+                self.assertEqual(node['request_feedback'],result['codebook'][str(node['header_id'])]['request_feedback'])
+                self.assertNotIn('source_id',node)
+        qcsi=next(x for x in result['policies'] if x['family']=='R-QCSI')
+        self.assertEqual(len(qcsi['q_csi_roots']),4)
+        self.assertTrue(qcsi['one_paid_CSI_feedback_before_forward'])
+        self.assertNotIn('root',qcsi)
+
+    def test_public_schedule_does_not_substitute_or_repair_actual_header(self):
+        contract=p.feedback_clarification({'path':'protocol.json','sha256':'test'})
+        self.assertFalse(contract['base_protocol_changed'])
+        self.assertIn('cannot create or cancel',contract['decoded_wrong_header'])
+        self.assertIn('only when',contract['header_failed'])
+        self.assertIn('No feedback',contract['third_forward'])
+
+
+if __name__=='__main__':unittest.main()

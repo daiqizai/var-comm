@@ -1,0 +1,119 @@
+{
+  "protocol": {
+    "version": "CONTENT-SELECTION-C-V1",
+    "N": 1024,
+    "candidate_count": 4041,
+    "calibration_sources": 1000,
+    "construction_sources": 800,
+    "internal_verification_sources": 200,
+    "physical_verification_sources": 64,
+    "source_split_namespace": "C/SOURCE_SPLIT",
+    "source_split_seed": 2026100501,
+    "hash_serialization": "UTF8 json.dumps([namespace, seed, source_id], ensure_ascii=False, separators=(\",\",\":\"))",
+    "average_snrs_db": [
+      4,
+      7,
+      10,
+      13
+    ],
+    "metric": "dinov2_vitl14_cosine",
+    "maximum_dictionary_size": 8,
+    "point_probability_model": "linear_in_snr_db_with_constant_endpoint_tails",
+    "integration": "per_interval_Gauss_Legendre_32_with_16_node_diagnostic_exact_constant_tails",
+    "integration_difference_tolerance": 1e-10,
+    "numerical_tolerance_is_physical_error_bound": false,
+    "undetected_point_quality": 0.0,
+    "undetected_quality_range": [
+      -1.0,
+      1.0
+    ],
+    "outage_thresholds": [
+      0.3,
+      0.5,
+      0.7
+    ],
+    "outage_rule": "per_source_and_state_Q_strictly_below_threshold_then_probability_average",
+    "tie_rule": "used_forward_symbols,G,m,K,j,MCS_tuple,stable_id_ascending",
+    "no_positive_dictionary_gain": "stop_at_gain_less_than_or_equal_to_zero",
+    "retention_denominator_tolerance": 1e-06,
+    "header_profile_bits": 12,
+    "header_symbols": 68,
+    "codebook_order": "unique_wire_key_ascending",
+    "class_condition": 1000,
+    "receiver": "consecutive_crc_accepted_prefix_v1",
+    "generation": "frozen_VAR_argmax_Dc",
+    "no_negative_Q_increment_clipping": true,
+    "shared_h_across_header_and_groups": true,
+    "sender_CSI": "average_only",
+    "receiver_CSI": "perfect_h_and_N0",
+    "average_Es": 2,
+    "development_read": false,
+    "holdout_read": false,
+    "independent_ConvNeXt_used_for_selection": false,
+    "training_updates": 0,
+    "neural_inference_calls": 0,
+    "physical_decodes": 0,
+    "gate": {
+      "full_gain": 0.02,
+      "retention": 0.7,
+      "minimum_same_passing_snrs": 2,
+      "action": "CPU_probe_priority_only"
+    }
+  },
+  "input_bindings": {
+    "/home/liulu/projects/VAR_COMM/outputs/CONTENT-FEEDBACK-PROBE-20261005/snapshot/snapshot_manifest.json": "5bb7264bfc70bd706783bbbe8429ef6acd449e09ed90e5bcd4d936c634c2a74f",
+    "/home/liulu/projects/VAR_COMM/outputs/CONTENT-FEEDBACK-PROBE-20261005/snapshot/candidate_profiles_N1024.json": "304255f523da99baf1e58cea6b1fd4d2732f1c650dc068a2b7c3e13bd00c1b84",
+    "/home/liulu/projects/VAR_COMM/outputs/CONTENT-FEEDBACK-PROBE-20261005/snapshot/quality_bundle.json": "58604ab3d1b60d890cb3a0cc91c2eafad03e9b1a228f694a6f753915d22e52c5",
+    "/home/liulu/projects/VAR_COMM/outputs/CONTENT-FEEDBACK-PROBE-20261005/snapshot/quality_registration.json": "bb7f8d7d08616a1b634885ceb5663a4aba1d570460f222b5ac9237ea30a28e2a",
+    "/home/liulu/projects/VAR_COMM/outputs/CONTENT-FEEDBACK-PROBE-20261005/snapshot/bler.json": "e7e316ba722e2315261b4ba3c75aa0b4d33973fab09ad50978fe4b46909d4f52",
+    "/home/liulu/projects/VAR_COMM/outputs/CONTENT-FEEDBACK-PROBE-20261005/snapshot/quality_per_source.csv": "00cbf288cfb681741204ec8d4ee25054e76444cb939f644697dfb2cac3fd8dbc"
+  },
+  "snapshot": {
+    "manifest_path": "/home/liulu/projects/VAR_COMM/outputs/CONTENT-FEEDBACK-PROBE-20261005/snapshot/snapshot_manifest.json",
+    "manifest_sha256": "5bb7264bfc70bd706783bbbe8429ef6acd449e09ed90e5bcd4d936c634c2a74f",
+    "entries": {
+      "candidate_profiles_N1024.json": {
+        "path": "/home/liulu/projects/VAR_COMM/outputs/CONTENT-FEEDBACK-PROBE-20261005/snapshot/candidate_profiles_N1024.json",
+        "source_path": "/home/liulu/projects/VAR_COMM/outputs/PARALLEL-V2-20261005/snapshot/candidate_profiles_N1024.json",
+        "sha256": "304255f523da99baf1e58cea6b1fd4d2732f1c650dc068a2b7c3e13bd00c1b84",
+        "bytes": 29676982,
+        "role": "F1_calibration",
+        "git_commit": "9f79c23fc5ddc0033f31a556ce6c07c95b64528e"
+      },
+      "quality_bundle.json": {
+        "path": "/home/liulu/projects/VAR_COMM/outputs/CONTENT-FEEDBACK-PROBE-20261005/snapshot/quality_bundle.json",
+        "source_path": "/home/liulu/projects/VAR_COMM/outputs/PARALLEL-V2-20261005/snapshot/quality_bundle.json",
+        "sha256": "58604ab3d1b60d890cb3a0cc91c2eafad03e9b1a228f694a6f753915d22e52c5",
+        "bytes": 54053823,
+        "role": "F1_calibration",
+        "git_commit": "9f79c23fc5ddc0033f31a556ce6c07c95b64528e"
+      },
+      "quality_registration.json": {
+        "path": "/home/liulu/projects/VAR_COMM/outputs/CONTENT-FEEDBACK-PROBE-20261005/snapshot/quality_registration.json",
+        "source_path": "/home/liulu/projects/VAR_COMM/outputs/PARALLEL-V2-20261005/snapshot/quality_registration.json",
+        "sha256": "bb7f8d7d08616a1b634885ceb5663a4aba1d570460f222b5ac9237ea30a28e2a",
+        "bytes": 390407,
+        "role": "provenance",
+        "git_commit": "9f79c23fc5ddc0033f31a556ce6c07c95b64528e"
+      },
+      "bler.json": {
+        "path": "/home/liulu/projects/VAR_COMM/outputs/CONTENT-FEEDBACK-PROBE-20261005/snapshot/bler.json",
+        "source_path": "/home/liulu/projects/VAR_COMM/outputs/PARALLEL-V2-20261005/snapshot/bler.json",
+        "sha256": "e7e316ba722e2315261b4ba3c75aa0b4d33973fab09ad50978fe4b46909d4f52",
+        "bytes": 106748407,
+        "role": "F1_calibration",
+        "git_commit": "9f79c23fc5ddc0033f31a556ce6c07c95b64528e"
+      },
+      "quality_per_source.csv": {
+        "path": "/home/liulu/projects/VAR_COMM/outputs/CONTENT-FEEDBACK-PROBE-20261005/snapshot/quality_per_source.csv",
+        "source_path": "/home/liulu/projects/VAR_COMM/outputs/PRIOR-AWARE-UEP-20261004-V1/quality_final1000/quality_per_source.csv",
+        "sha256": "00cbf288cfb681741204ec8d4ee25054e76444cb939f644697dfb2cac3fd8dbc",
+        "bytes": 186557548,
+        "role": "calibration_secondary_metrics",
+        "git_commit": "9f79c23fc5ddc0033f31a556ce6c07c95b64528e"
+      }
+    },
+    "visual_registration_sha256": "bb7f8d7d08616a1b634885ceb5663a4aba1d570460f222b5ac9237ea30a28e2a"
+  },
+  "source_sha256": "26a95e999ed5c56ad0a2cfe28e733dd77b171d5f6b881d143f8876dd55bd9015"
+}

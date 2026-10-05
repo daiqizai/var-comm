@@ -1,0 +1,214 @@
+"""Freeze original R strategies; retain blocked C and strong controls explicitly."""
+import argparse
+import copy
+import hashlib
+import json
+from pathlib import Path
+import re
+
+SNRS=(4,7,10,13)
+SIZES=(1,2,3,4,5,6,8,10,13,16)
+
+
+def require(value,message):
+    if not value:raise ValueError(message)
+def read(path):return json.loads(Path(path).read_text(encoding='utf-8-sig'))
+def sha(path):
+    h=hashlib.sha256()
+    with Path(path).open('rb') as stream:
+        for block in iter(lambda:stream.read(1024*1024),b''):h.update(block)
+    return h.hexdigest()
+def identity(value):return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
+def seal(path,value):
+    path=Path(path)
+    if path.exists():require(read(path)==value,'Frozen verification selection changed');return
+    path.parent.mkdir(parents=True,exist_ok=True);temp=path.with_name(path.name+'.tmp')
+    temp.write_text(json.dumps(value,indent=2,ensure_ascii=False,allow_nan=False)+'\n',encoding='utf-8',newline='\n');temp.replace(path)
+def family(policy):return policy['family'].replace('_','-')
+
+
+def partial(policy):
+    result=set()
+    for node in policy['nodes'].values():
+        for group in node['groups']:
+            match=re.fullmatch(r'm(\d+)_K(\d+)',group['state_id'])
+            require(match is not None,'Unknown received state syntax');m,K=map(int,match.groups())
+            require(4<=m<=10 and (K==0 if m==10 else 0<=K<SIZES[m]**2),'Noncanonical received state')
+            if K:result.add((m,group['state_id']))
+    return sorted(result)
+
+
+def source_subset(ids):
+    require(len(ids)==len(set(ids))==1000,'Unique original1000 source IDs required')
+    def key(source):return hashlib.sha256(json.dumps(['C/SOURCE_SPLIT',2026100501,source],ensure_ascii=False,separators=(',',':')).encode()).hexdigest(),source
+    return sorted(ids,key=key)[800:864]
+
+
+def entropy_scales(assets,ids,bindings):
+    if 'calibration_entropy_orders' not in assets:return set()
+    entry=assets['calibration_entropy_orders'];path=Path(entry['path']).resolve()
+    require(path.is_file() and sha(path)==entry['sha256'],'Entropy order asset missing or SHA mismatch')
+    bindings[str(path)]=entry['sha256']
+    import numpy as np
+    result=set()
+    with np.load(path,allow_pickle=False) as data:
+        require(data['source_ids'].tolist()==ids,'Entropy source identities/order differ')
+        for key in data.files:
+            if not key.startswith('entropy_order_m'):continue
+            m=int(key[len('entropy_order_m'):]);require(4<=m<10,'Unexpected entropy scale');values=data[key]
+            require(np.issubdtype(values.dtype,np.integer) and values.shape==(1000,SIZES[m]**2),'Entropy order shape/type differs')
+            require(np.array_equal(np.sort(values,axis=1),np.broadcast_to(np.arange(SIZES[m]**2),values.shape)),'Incomplete entropy permutations')
+            result.add(m)
+    return result
+
+
+def path_audit(policy,maximum_groups_by_round=None):
+    nodes=policy['nodes'];name=family(policy);cost=policy['feedback_symbols']
+    roots=policy.get('q_csi_roots') if name=='R-QCSI' else [policy.get('root')]
+    require(bool(roots) and all(x is not None for x in roots),'Missing actual public root')
+    require(cost==(0 if name=='R-FIXED' else 32),'Only registered main-cost R probe is admitted')
+    if name=='R-QCSI':require(len(roots)==4 and len(policy['thresholds_db'])==3 and sorted(set(policy['thresholds_db']))==policy['thresholds_db']
+        and set(policy['thresholds_db'])<={-5,0,4,7,10,13,19},'Unregistered QCSI bins')
+    def walk(nid,spent,rounds,feedback,seen):
+        if nid is None:return spent,rounds,feedback,0
+        require(nid in nodes and nid not in seen and rounds<3,'Invalid/cyclic public strategy');node=nodes[nid]
+        require(node.get('forward_round_index')==rounds,'Public round metadata must match actual tree depth')
+        require(type(node['header_id'])is int and 0<=node['header_id']<4096,'Header ID exceeds actual12 bits')
+        groups=node['groups'];require(1<=len(groups)<=2,'Expected1 or2 actual code blocks')
+        for group in groups:
+            require(type(group['symbols'])is int and group['symbols']>0 and group['information_bits']==group['source_bits']+16,'Body resource/CRC ledger differs')
+            require(group['modulation'] in {'QPSK','16QAM'} and group['transmitted_bits']==group['symbols']*(2 if group['modulation']=='QPSK' else 4),'Actual modulation/code length mismatch')
+        idle=node.get('idle_symbols',0);require(type(idle)is int and idle>=0,'Invalid idle count')
+        spent+=68+sum(g['symbols'] for g in groups)+idle;request=bool(node.get('request_feedback'))
+        require(not request or rounds<2,'Unregistered final ACK')
+        require(request or (node.get('ack') is None and node.get('nack') is None),'Continuation without paid feedback')
+        spent+=cost*request;feedback+=int(request);require(spent<=1024 and feedback<=2,'An ACK/NACK resource path exceeds1024')
+        children=[walk(node.get(branch),spent,rounds+1,feedback,seen|{nid}) for branch in ('ack','nack')]
+        bodies=len(groups) if maximum_groups_by_round is None else maximum_groups_by_round[rounds]
+        return max(x[0] for x in children),max(x[1] for x in children),max(x[2] for x in children),1+bodies+max(x[3] for x in children)
+    results=[walk(n,cost if name=='R-QCSI' else 0,0,int(name=='R-QCSI'),set()) for n in roots]
+    if name=='R-QCSI':require(all(x[1]==1 and x[2]==1 for x in results),'QCSI requires one feedback/forward round')
+    return dict(max_symbols=max(x[0] for x in results),max_forward_rounds=max(x[1] for x in results),
+                max_feedback_rounds=max(x[2] for x in results),max_requested_decodes=max(x[3] for x in results))
+
+
+def freeze(out):
+    out=Path(out).resolve();bindings={}
+    def bound(relative):
+        path=out/relative;bindings[str(path)]=sha(path);return read(path)
+    manifest=bound('INPUT_MANIFEST.json');protocol=bound('protocol.json')
+    require(protocol['N']==1024 and protocol['average_snrs_db']==list(SNRS),'Wrong probe protocol')
+    c=bound('C/selected_dictionaries.json');cg=bound('C/gate.json');cc=bound('C/completion.json');split=bound('C/split.json')
+    require(cc['status']=='COMPLETE' and cc['scientific_status']==cg['status'],'C model not complete')
+    r=bound('R/policy_search.json');tree_bundle=bound('R/registered_policy_trees.json');trees=tree_bundle['policies']
+    require(r['registered_policy_trees']==tree_bundle,'R selected tree export changed')
+    rc=bound('R/completion.json')
+    require(rc['stage']=='R_MODEL_SEARCH' and rc['status']==r['status'] and rc['development_read'] is False
+            and rc['new_images_rendered']==0 and rc['real_decodes_generated_by_search']==0,'R model completion differs')
+    for receipt,base in ((cc,out/'C'),(rc,out/'R')):
+        for name,digest in receipt['outputs'].items():
+            path=Path(name);path=path if path.is_absolute() else base/path
+            require(path.is_file() and sha(path)==digest,'Completed source output changed: '+str(path))
+            bindings[str(path.resolve())]=digest
+    clarification=bound('R/public_feedback_protocol.json')
+    require(clarification['base_protocol_changed'] is False and clarification['scientific_action_set_changed'] is False,
+            'Feedback clarification unexpectedly changes the registered protocol')
+    require(clarification['base_protocol_binding']==dict(path=str(out/'protocol.json'),sha256=bindings[str(out/'protocol.json')]),
+            'Public feedback clarification is not bound to this exact base protocol')
+    def asset(name):
+        entry=manifest['assets'][name];path=Path(entry['path']).resolve()
+        require(path.is_file() and sha(path)==entry['sha256'],'Frozen snapshot asset changed: '+name)
+        bindings[str(path)]=entry['sha256'];return read(path)
+    ids=asset('quality_bundle')['source_ids'];sources=source_subset(ids)
+    require(split['probe_source_ids']==sources and split['verification_source_ids'][:64]==sources,'C/V source split differs')
+    profiles={p['stable_id']:p for p in asset('profiles')};available_scales=entropy_scales(manifest['assets'],ids,bindings)
+    main=sorted((x for x in r['cells'] if x['feedback_symbols']==32),key=lambda x:x['average_snr_db'])
+    require([x['average_snr_db'] for x in main]==list(SNRS),'R main-cost SNR grid incomplete')
+    rg=sum(x['AWARE']['point']-x['FIXED']['best']['point']>=.02 for x in main)>=2
+    unavailable=[];selected={};expected={};admitted={};c_missing=[]
+    for cell in c['cells']:
+        snr=cell['average_snr_db']
+        if not cg['CPU_probe_priority']:continue
+        for name,needed in [('C-UNIFORM',[cell['uniform_stable_id']]),('C-8',cell['dictionary_stable_ids'])]:
+            missing=[sid for sid in needed if profiles[sid]['K'] and profiles[sid]['m'] not in available_scales]
+            require(bool(missing),'C assets complete: register its exact full paid export before V; no free fallback or silent omission')
+            row=dict(average_snr_db=snr,snr_db=snr,family=name,policy_id=f'{name}_snr{snr}',status='MISSING_ASSET',
+                reason='Exact frozen entropy positions unavailable; no source subset or ordering substitution',original_profile_ids=list(needed),missing_profile_ids=missing,
+                source_decisions=cell['probe_decisions_by_source'][name],original_dictionary_preserved=True,
+                original_selection_binding={str(out/'C/selected_dictionaries.json'):bindings[str(out/'C/selected_dictionaries.json')]})
+            require(set(row['source_decisions'])==set(sources),'C policy must preserve all64 source decisions')
+            unavailable.append(row);c_missing.append(row)
+    for cell in main:
+        snr=cell['average_snr_db'];key=str(snr);fixed_ids={cell['FIXED'][k]['profile_id'] for k in ('best_single','best_grouped')};wanted=[]
+        for original in trees:
+            if original['average_snr_db']!=snr:continue
+            name=family(original)
+            if (name=='R-FIXED' and original['profile_id'] in fixed_ids) or (name in {'R-ARQ','R-AWARE','R-QCSI'} and original['feedback_symbols']==32):wanted.append(copy.deepcopy(original))
+        require({p['profile_id'] for p in wanted if family(p)=='R-FIXED'}==fixed_ids,'Strong fixed single/grouped control omitted')
+        require(sum(family(p)=='R-AWARE' for p in wanted)==sum(family(p)=='R-ARQ' for p in wanted)==1,'Missing/duplicated feedback methods')
+        require(sum(family(p)=='R-QCSI' for p in wanted)==1 or cell['QCSI']['status']=='MISSING_ASSET','Missing strong QCSI policy')
+        require(len({p['policy_id'] for p in wanted})==len(wanted)<=6,'Duplicate/oversized registered shortlist')
+        expected[key]=[dict(policy_id=p['policy_id'],family=p['family'],profile_id=p.get('profile_id')) for p in wanted]
+        if cell['QCSI']['status']=='MISSING_ASSET':unavailable.append(dict(average_snr_db=snr,snr_db=snr,family='R-QCSI',status='MISSING_ASSET',
+            policy_id=f'R-QCSI_snr{snr}_fb32',reason='Strong QCSI search incomplete; no weaker replacement'))
+        selected[key]=wanted if rg else [];admitted[key]=[]
+        for policy in wanted:
+            name=family(policy)
+            policy['expected_model_point']=next(cell['FIXED'][k]['point'] for k in ('best_single','best_grouped') if cell['FIXED'][k]['profile_id']==policy['profile_id']) if name=='R-FIXED' else cell[name[2:]]['point']
+            gap=[state for m,state in partial(policy) if m not in available_scales]
+            if gap:unavailable.append(dict(average_snr_db=snr,snr_db=snr,policy_id=policy['policy_id'],family=policy['family'],status='MISSING_ASSET',
+                missing_states=gap,reason='Original strong policy retained; runner rejects the complete policy without a substitute'))
+            elif rg:admitted[key].append(policy)
+            else:unavailable.append(dict(average_snr_db=snr,snr_db=snr,policy_id=policy['policy_id'],family=policy['family'],status='NOT_RUN_BY_PREREGISTERED_GATE',reason='R main-cost model gate not met'))
+    # All R original policies, including unavailable ones, remain in the frozen
+    # shortlist. Admission alone decides which complete strategies can decode.
+    def wire(node):
+        require('forward_round_index' in node,'Public round identifier missing')
+        return dict(groups=node['groups'],forward_round_index=node['forward_round_index'],idle_symbols=int(node.get('idle_symbols',0)),
+                    request_feedback=bool(node.get('request_feedback')))
+    wires={identity(wire(n)):wire(n) for ps in selected.values() for p in ps for n in p['nodes'].values()}
+    require(len(wires)<=4096,'Actual paid header exceeds12bit capacity');lookup={digest:i for i,digest in enumerate(sorted(wires))}
+    for policies in selected.values():
+        for policy in policies:
+            for node in policy['nodes'].values():node['header_id']=lookup[identity(wire(node))]
+            path_audit(policy)
+    maximum_groups={i:1 for i in range(3)}
+    for policies in admitted.values():
+        for policy in policies:
+            for node in policy['nodes'].values():
+                at=node['forward_round_index'];maximum_groups[at]=max(maximum_groups[at],len(node['groups']))
+    reserve=0;audits=[]
+    for snr,policies in admitted.items():
+        require(len(policies)<=6,'At most6 actual policies per SNR')
+        for policy in policies:
+            audit=path_audit(policy,maximum_groups);reserve+=1024*audit['max_requested_decodes'];audits.append(dict(snr_db=int(snr),policy_id=policy['policy_id'],**audit))
+    require(reserve<=200000,'Verification reserve exceeds200000 decodes')
+    complete_baselines=not any(x['family'].replace('_','-') in {'R-FIXED','R-ARQ','R-QCSI'} and x['status']=='MISSING_ASSET' for x in unavailable)
+    frozen=dict(status='FROZEN_BEFORE_VERIFICATION',source_ids=sources,snrs_db=list(SNRS),policies_by_snr=selected,
+        expected_policies_by_snr=expected,unavailable=unavailable,content_missing_policies=c_missing,baseline_comparison_complete=complete_baselines,
+        R_model_gate_passed=rg,C_model_gate_passed=cg['CPU_probe_priority'],input_bindings=bindings,source_sha256=sha(__file__),
+        max_reserved_verification_decodes=reserve,decode_reserve_audits=audits,
+        reserve_scope='Admitted R only; worst admitted wrong-header body count at each round;64sources*16draws',shared_feedback_cost=32,
+        development_used=False,selection_after_actual_verification=False,all_selected_strong_controls_preserved=True,missing_policy_substitution=False,
+        source_sort_seed=2026100501,verification_seed=2026100503,bootstrap_seed=2026100504)
+    disposition=dict(status='READY_FOR_AVAILABLE_FROZEN_POLICIES' if reserve else 'TERMINAL_MISSING_ASSET' if cg['CPU_probe_priority'] or rg else 'NOT_RUN_BY_PREREGISTERED_GATE',
+        verification_started=False,branches=dict(
+            C=dict(status='MISSING_ASSET' if cg['CPU_probe_priority'] else 'NOT_RUN_BY_PREREGISTERED_GATE',
+                reason='C retains model potential but exact partial entropy positions prevent complete64-source physical verification' if cg['CPU_probe_priority'] else 'C model priority gate not met',
+                evidence=[str(out/'C/gate.json'),str(out/'INPUT_MANIFEST.json')]),
+            R=dict(status='READY' if reserve else 'MISSING_ASSET' if rg else 'NOT_RUN_BY_PREREGISTERED_GATE',
+                reason='Available original R policies only; missing strong controls prevent complete comparison' if rg else 'R main-cost model gate not met',
+                evidence=[str(out/'R/policy_search.json'),str(out/'INPUT_MANIFEST.json')])),run_actual_verification=reserve>0,
+        R_model_gate_passed=rg,C_model_gate_passed=cg['CPU_probe_priority'],unavailable=unavailable,baseline_comparison_complete=complete_baselines,
+        input_bindings=bindings,no_partial_policy_downgrade=True,no_new_GPU=True,V_maximum_decodes_reserved=reserve,
+        scope='calibration internal engineering verification; C missing and R possibly partial')
+    for path,digest in bindings.items():require(sha(path)==digest,'Input changed before shortlist freezing')
+    seal(out/'V/frozen_policies.json',frozen);disposition['frozen_policy_sha256']=sha(out/'V/frozen_policies.json')
+    seal(out/'V/verification_disposition.json',disposition)
+    print(json.dumps(dict(status=disposition['status'],original_policy_counts=[len(selected[str(s)]) for s in SNRS],
+        admitted_policy_counts=[len(admitted[str(s)]) for s in SNRS],reserve=reserve,missing=len(unavailable))))
+    return frozen,disposition
+
+
+if __name__=='__main__':
+    parser=argparse.ArgumentParser();parser.add_argument('--out',required=True);freeze(parser.parse_args().out)

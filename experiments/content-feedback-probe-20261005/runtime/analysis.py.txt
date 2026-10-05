@@ -1,0 +1,469 @@
+"""Conservative terminal delivery for the independent C/R CPU probe.
+
+This module loads no model, channel backend, token cache, development data, or
+old queue. It does not fill missing experiments or select another policy.
+"""
+from __future__ import annotations
+import argparse
+import csv
+import hashlib
+import json
+import math
+from pathlib import Path
+
+VERSION = "CONTENT_FEEDBACK_DELIVERY_V1"
+SNRS = (4, 7, 10, 13)
+R_TERMINAL = {"MODEL_POTENTIAL_ONLY", "POTENTIAL_HIGH_TX_COST", "NO_LARGE_GAIN_IN_WORKING_MODEL",
+              "FREE_FEEDBACK_ONLY", "FEEDBACK_VALUE_ONLY", "MISSING_ASSET", "INCOMPATIBLE"}
+V_TERMINAL = {"CPU_PHYSICAL_PROBE_COMPLETE", "UNSCORABLE_EVENTS_PRESENT", "PARTIAL_PROBE_MISSING_ASSETS"}
+SIMPLE = {"R_FIXED", "R_ARQ", "R_QCSI"}
+
+
+def require(condition, message):
+    if not condition:
+        raise ValueError(message)
+
+
+def sha(path):
+    h = hashlib.sha256()
+    with Path(path).open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def read(path):
+    return json.loads(Path(path).read_text(encoding="utf-8-sig"))
+
+
+def number(value):
+    require(value not in (None, ""), "Missing numeric result must not be imputed")
+    result = float(value)
+    require(math.isfinite(result), "Non-finite numeric result")
+    return result
+
+
+def family(value):
+    return value.replace("-", "_")
+
+
+def canonical(value):
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
+
+
+def frozen_digest(value):
+    # Match budget_ledger.digest, including its default ASCII escaping.
+    encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    return hashlib.sha256(encoded.encode()).hexdigest()
+
+
+def csv_rows(path):
+    with Path(path).open(encoding="utf-8-sig", newline="") as stream:
+        return list(csv.DictReader(stream))
+
+
+def seal(path, text):
+    path = Path(path)
+    if path.exists():
+        require(path.read_text(encoding="utf-8") == text, "Refuse replacing a frozen final artifact: " + str(path))
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_text(text, encoding="utf-8", newline="\n")
+    temporary.replace(path)
+
+
+def json_text(value):
+    return json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + "\n"
+
+
+def reverse_pair(pair):
+    result = dict(pair, method_a=pair["method_b"], method_b=pair["method_a"])
+    for lower, upper in (("difference_lower", "difference_upper"), ("ci_lower", "ci_upper")):
+        result[lower], result[upper] = -number(pair[upper]), -number(pair[lower])
+    return result
+
+
+def oriented_pair(pairs, snr, a, b):
+    matches = [p for p in pairs if int(number(p["snr_db"])) == snr and {p["method_a"], p["method_b"]} == {a, b}]
+    require(len(matches) == 1, "Missing or duplicated paired comparison: " + a + " / " + b)
+    pair = matches[0] if matches[0]["method_a"] == a else reverse_pair(matches[0])
+    require(int(number(pair["paired_sources"])) == 64 and int(number(pair["repetitions_per_source"])) == 16
+            and int(number(pair["bootstrap_replicates"])) == 5000, "Verification population/bootstrap changed")
+    result = {k: number(pair[k]) for k in ("difference_lower", "difference_upper", "ci_lower", "ci_upper")}
+    require(result["difference_lower"] <= result["difference_upper"] and result["ci_lower"] <= result["ci_upper"], "Reversed interval")
+    return dict(result, method_a=a, method_b=b)
+
+
+def r_model_summary(result):
+    require(result["status"] in R_TERMINAL and result["working_model_only"] is True
+            and result["no_physical_gain_claim"] is True and result["development_read"] is False
+            and result["new_images_rendered"] == 0, "R is not a terminal calibration-only model result")
+    cells = result["cells"]
+    require({(int(c["average_snr_db"]), int(c["feedback_symbols"])) for c in cells}
+            == {(snr, cost) for snr in SNRS for cost in (0, 16, 32, 64)} and len(cells) == 16,
+            "Incomplete R SNR/cost grid")
+    records = []
+    for cell in cells:
+        fixed = number(cell["FIXED"]["best"]["point"])
+        aware, arq = number(cell["AWARE"]["point"]), number(cell["ARQ"]["point"])
+        qcsi = cell["QCSI"].get("point")
+        qcsi = None if qcsi is None else number(qcsi)
+        records.append(dict(snr_db=int(cell["average_snr_db"]), feedback_symbols=int(cell["feedback_symbols"]),
+            FIXED=fixed, ARQ=arq, AWARE=aware, QCSI=qcsi, aware_minus_fixed=aware-fixed,
+            aware_minus_strongest_simple=None if qcsi is None else aware-max(fixed, arq, qcsi),
+            qcsi_status=cell["QCSI"]["status"]))
+    main = [r for r in records if r["feedback_symbols"] == 32]
+    return dict(status=result["status"], cells=records,
+                CPU_probe_priority=sum(r["aware_minus_fixed"] >= .02 for r in main) >= 2,
+                primary_feedback_symbols=32, actual_channel_result=False)
+
+
+def validate_disposition(disposition, c_gate, r_model):
+    require(disposition["status"] in {"NOT_RUN_BY_PREREGISTERED_GATE", "TERMINAL_MISSING_ASSET", "TERMINAL_BUDGET_LIMIT"},
+            "V has not reached a documented terminal disposition")
+    require(disposition.get("verification_started") is False, "A partial physical run needs its actual receipts")
+    branches = disposition.get("branches", {})
+    require(set(branches) == {"C", "R"}, "Both branch verification dispositions are required")
+    for branch, priority in (("C", c_gate["CPU_probe_priority"]), ("R", r_model["CPU_probe_priority"])):
+        decision = branches[branch]
+        require(bool(decision.get("reason")), "Missing verification disposition reason")
+        if decision["status"] == "NOT_RUN_BY_PREREGISTERED_GATE":
+            require(not priority, "A model gate passed; cannot label physical verification gate-skipped")
+        else:
+            require(decision["status"] in {"MISSING_ASSET", "INCOMPATIBLE", "BUDGET_LIMIT"}
+                    and bool(decision.get("evidence")), "Missing-asset/budget disposition needs explicit evidence")
+    return dict(status=disposition["status"], branches=branches, physical_decodes_completed=False)
+
+
+def selected_policy_model(policy, r_cells):
+    f = family(policy["family"])
+    if f not in SIMPLE | {"R_AWARE"}:
+        return None
+    cost = 32 if f == "R_FIXED" else int(policy.get("feedback_symbols", 32))
+    cell = next((c for c in r_cells if int(c["average_snr_db"]) == int(policy["average_snr_db"])
+                 and int(c["feedback_symbols"]) == cost), None)
+    if cell is None:
+        return None
+    if f == "R_FIXED":
+        candidates = cell["FIXED"].get("all_candidates", [])
+        row = next((x for x in candidates if x["profile_id"] == policy.get("profile_id")), None)
+        return None if row is None else number(row["point"])
+    point = cell[f.removeprefix("R_")].get("point")
+    return None if point is None else number(point)
+
+
+def actual_summary(receipt, frozen, means, pairs, r_result):
+    require(receipt["status"] in V_TERMINAL and receipt["sources"] == 64, "V is not a completed physical probe")
+    require(receipt["development_read"] is False and receipt["verification_used_for_selection"] is False
+            and receipt["new_visual_inference"] is False and receipt["automatic_GPU_launch"] is False,
+            "V evidence scope differs")
+    require(frozen["status"] == "FROZEN_BEFORE_VERIFICATION" and receipt["frozen_policy_sha256"] == frozen_digest(frozen),
+            "Physical probe/frozen policy binding differs")
+    require(list(frozen["snrs_db"]) == list(SNRS), "Physical verification SNR grid changed")
+    policies = {(snr, p["policy_id"]): p for snr in SNRS for p in frozen["policies_by_snr"][str(snr)]}
+    missing = {(int(p["snr_db"]), p["policy_id"]): p for p in receipt.get("missing_policies", [])}
+    external_missing = {(int(p.get("snr_db", p.get("average_snr_db"))), p["policy_id"]): p
+                        for p in frozen.get("unavailable", []) if p["status"] == "MISSING_ASSET"}
+    for snr, declarations in frozen.get("expected_policies_by_snr", {}).items():
+        for declaration in declarations:
+            key = (int(snr), declaration["policy_id"])
+            require(key in policies or key in external_missing, "An expected strong policy was silently omitted")
+    rows = {(int(number(r["snr_db"])), r["policy_id"]): r for r in means}
+    require(len(rows) == len(means) and set(rows).isdisjoint(missing) and set(rows) | set(missing) == set(policies),
+            "Frozen strategies must all be measured or explicitly blocked")
+    require(int(receipt["frames"]) == 1024 * len(rows), "V frame count does not cover admitted strategies")
+    for key, row in rows.items():
+        require(family(row["family"]) == family(policies[key]["family"]), "Physical family label changed")
+        require(number(row["worst_symbols"]) <= 1024 and number(row["mean_forward_rounds"]) <= 3
+                and number(row["mean_feedback_rounds"]) <= 2, "Physical resource cap violated")
+        require(number(row["mean_lower"]) <= number(row["mean_upper"]), "Reversed physical quality bounds")
+    r_cells = []
+    c_cells = []
+    residuals = []
+    for (snr, pid), row in rows.items():
+        predicted = selected_policy_model(policies[(snr, pid)], r_result["cells"])
+        if predicted is not None:
+            residuals.append(dict(snr_db=snr, policy_id=pid, model_mean=predicted,
+                actual_minus_model_lower=number(row["mean_lower"])-predicted,
+                actual_minus_model_upper=number(row["mean_upper"])-predicted,
+                population_caveat="Model uses 1000 calibration sources; actual uses fixed internal64, so residual also includes population change"))
+    for snr in SNRS:
+        expected = {pid: p for (s, pid), p in policies.items() if s == snr}
+        current = {pid: row for (s, pid), row in rows.items() if s == snr}
+        blocked = {pid: p for (s, pid), p in missing.items() if s == snr}
+        main = {pid: p for pid, p in expected.items() if family(p["family"]) in SIMPLE | {"R_AWARE"}
+                and (family(p["family"]) == "R_FIXED" or int(p.get("feedback_symbols", -1)) == 32)}
+        aware_ids = [pid for pid, p in main.items() if family(p["family"]) == "R_AWARE"]
+        references = [pid for pid, p in main.items() if family(p["family"]) in SIMPLE]
+        required_families = {family(main[p]["family"]) for p in references}
+        blocked_refs = [pid for pid in references if pid in blocked]
+        declared_missing_refs = [pid for (s, pid), p in external_missing.items()
+                                 if s == snr and family(p["family"]) in SIMPLE]
+        blocked_refs = sorted(set(blocked_refs) | set(declared_missing_refs))
+        model_cell = next(c for c in r_result["cells"] if int(c["average_snr_db"]) == snr and int(c["feedback_symbols"]) == 32)
+        required_fixed = {model_cell["FIXED"][k]["profile_id"] for k in ("best_single", "best_grouped")}
+        registered_fixed = {p.get("profile_id") for p in main.values() if family(p["family"]) == "R_FIXED"}
+        omitted_fixed = sorted(required_fixed-registered_fixed)
+        cell = dict(snr_db=snr, primary_feedback_symbols=32, blocked_reference_ids=blocked_refs,
+                    omitted_strong_fixed_profile_ids=omitted_fixed, comparisons=[], pass_gate=False)
+        if not aware_ids:
+            cell["status"] = "NOT_RUN_R_AWARE"
+        elif len(aware_ids) != 1 or required_families != SIMPLE or blocked_refs or omitted_fixed or aware_ids[0] in blocked:
+            cell["status"] = "UNCERTAIN"
+            cell["reason"] = "Required strongest fixed/ARQ/QCSI reference or AWARE is absent/blocked"
+        else:
+            aid = aware_ids[0]
+            contrasts = [oriented_pair(pairs, snr, aid, ref) for ref in references]
+            cell["comparisons"] = contrasts
+            # Compare to every verified simple strategy, not a weakened convenient one.
+            uncertain_corruption = any(number(current[aid]["unresolved_frames"]) + number(current[x["method_b"]]["unresolved_frames"]) > 0
+                and (x["difference_lower"] <= 0 <= x["difference_upper"] or x["difference_lower"] < .02 <= x["difference_upper"])
+                for x in contrasts)
+            cell["strongest_simple_policy_id_by_lower_mean"] = max(references, key=lambda pid: number(current[pid]["mean_lower"]))
+            cell["gain_lower_vs_all_simple"] = min(x["difference_lower"] for x in contrasts)
+            cell["gain_upper_vs_all_simple"] = min(x["difference_upper"] for x in contrasts)
+            cell["pass_gate"] = all(x["difference_lower"] >= .02 and x["ci_lower"] > 0 for x in contrasts)
+            cell["status"] = "NEEDS_CORRUPTED_STATE_RENDER" if uncertain_corruption else "ROBUST_PHYSICAL_GATE_PASS" if cell["pass_gate"] else "PHYSICAL_GATE_NOT_MET"
+        r_cells.append(cell)
+        uniform = [pid for pid, p in expected.items() if family(p["family"]) == "C_UNIFORM"]
+        for pid, p in expected.items():
+            if family(p["family"]) not in {"C_8", "C_FULL"}:
+                continue
+            value = dict(snr_db=snr, family=p["family"], policy_id=pid)
+            if len(uniform) != 1 or pid in blocked or uniform[0] in blocked:
+                value.update(status="UNCERTAIN", reason="Strong frozen content-uniform baseline or method missing")
+            else:
+                contrast = oriented_pair(pairs, snr, pid, uniform[0])
+                bad = number(current[pid]["unresolved_frames"]) + number(current[uniform[0]]["unresolved_frames"])
+                affects = bad > 0 and contrast["difference_lower"] <= 0 <= contrast["difference_upper"]
+                value.update(contrast, status="NEEDS_CORRUPTED_STATE_RENDER" if affects else "CPU_GAIN_OBSERVED" if contrast["ci_lower"] > 0 else "CPU_GAIN_NOT_ESTABLISHED")
+            c_cells.append(value)
+        for (s, pid), row in external_missing.items():
+            if s == snr and family(row["family"]) in {"C_UNIFORM", "C_8", "C_FULL"}:
+                require(not any(x["policy_id"] == pid and x["snr_db"] == snr for x in c_cells),
+                        "C policy cannot simultaneously be scored and externally blocked")
+                c_cells.append(dict(snr_db=snr, family=row["family"], policy_id=pid, status="MISSING_ASSET",
+                    reason=row.get("reason", "Exact frozen content strategy unavailable"),
+                    model_potential_preserved=True, actual_channel_result=False))
+    passed = [c["snr_db"] for c in r_cells if c["pass_gate"] and c["status"] == "ROBUST_PHYSICAL_GATE_PASS"]
+    if any(c["status"] == "UNCERTAIN" for c in r_cells):
+        status = "UNCERTAIN"
+    elif any(c["status"] == "NEEDS_CORRUPTED_STATE_RENDER" for c in r_cells):
+        status = "NEEDS_CORRUPTED_STATE_RENDER"
+    elif len(passed) >= 2:
+        status = "METHOD_GAIN_CANDIDATE"
+    elif all(c["status"] == "NOT_RUN_R_AWARE" for c in r_cells):
+        status = "NOT_RUN_R_AWARE"
+    else:
+        status = "PHYSICAL_GATE_NOT_MET"
+    all_missing = dict(external_missing); all_missing.update(missing)
+    scope_status = "PARTIAL_PROBE_MISSING_ASSETS" if all_missing and receipt["status"] == "CPU_PHYSICAL_PROBE_COMPLETE" else receipt["status"]
+    return dict(status=scope_status, actual_receipt_status=receipt["status"], R_status=status, R_cells=r_cells, R_passing_snrs=passed, C_cells=c_cells,
+                prediction_vs_actual=residuals, missing_policies=list(all_missing.values()), frames=receipt["frames"],
+                probe_summary_available=True, physical_decodes_completed=bool(rows),
+                complete_frozen_physical_scope=not all_missing, new_visual_inference=False,
+                interval_scope="64 internal calibration sources; paired source bootstrap of16 repeats,5000 replicates; descriptive, not holdout")
+
+
+def add_content_residuals(result, frozen, means, content_rows):
+    """Use the exact64 source subset for C; never substitute the1000 mean."""
+    source_ids = frozen.get("source_ids")
+    if source_ids is None:
+        result["C_prediction_residual_status"] = "NOT_AVAILABLE_FROZEN_SOURCE_IDS"
+        return
+    require(len(source_ids) == len(set(source_ids)) == 64, "Frozen V source list differs")
+    for row in means:
+        f = family(row["family"])
+        if f not in {"C_UNIFORM", "C_BEST_SINGLE", "C_8", "C_FULL"}:
+            continue
+        snr = int(number(row["snr_db"]))
+        selected = [x for x in content_rows if int(number(x["average_snr_db"])) == snr
+                    and family(x["method"]) == f and x["source_id"] in source_ids]
+        require(len(selected) == 64 and {x["source_id"] for x in selected} == set(source_ids), "C prediction source alignment missing")
+        predicted = sum(number(x["quality"]) for x in selected)/64
+        result["prediction_vs_actual"].append(dict(snr_db=snr, policy_id=row["policy_id"], model_mean=predicted,
+            actual_minus_model_lower=number(row["mean_lower"])-predicted,
+            actual_minus_model_upper=number(row["mean_upper"])-predicted,
+            population_caveat="Exact same64 internal verification sources; model U point0, actual U bounded"))
+    result["C_prediction_residual_status"] = "ALIGNED_WHEN_C_POLICY_ADMITTED"
+
+
+def combine(c_gate, c_completion, c_costs, r_result, *, v_receipt=None, frozen=None, means=None, pairs=None, disposition=None):
+    require(c_completion["status"] == "COMPLETE" and c_completion["scientific_status"] == c_gate["status"]
+            and c_completion["development_read"] is False and c_completion["neural_inference_calls"] == 0,
+            "C completion is absent or incompatible")
+    require(len(c_gate["per_snr"]) == 4 and {x["average_snr_db"] for x in c_gate["per_snr"]} == set(SNRS), "C grid incomplete")
+    r_model = r_model_summary(r_result)
+    require((v_receipt is None) != (disposition is None), "Provide either real V completion or explicit terminal non-run receipt")
+    v = actual_summary(v_receipt, frozen, means, pairs, r_result) if v_receipt is not None else validate_disposition(disposition, c_gate, r_model)
+    recommendation = dict(automatic_GPU_launch=False, task=None, reason="尚未确认足以支持新图像实验的真实物理收益。")
+    if v.get("R_status") == "METHOD_GAIN_CANDIDATE":
+        recommendation.update(task="只验证冻结 c_fb=32 的 R-AWARE 与最强简单参考的图像输出，同时加入独立 ConvNeXt 和同预算 P。",
+                              reason="至少两个 SNR 达到登记的真实收益和配对区间门槛；仍需另行授权。")
+    elif v.get("R_status") == "NEEDS_CORRUPTED_STATE_RENDER" or any(x["status"] == "NEEDS_CORRUPTED_STATE_RENDER" for x in v.get("C_cells", [])):
+        recommendation.update(task="只渲染已记录的错误接受或未知接收状态，补齐其真实质量。",
+                              reason="这些实际缺测状态的贡献可能改变比较；先解决该诊断问题。")
+    else:
+        positive_c = [x for x in v.get("C_cells", []) if family(x["family"]) == "C_8" and x["status"] == "CPU_GAIN_OBSERVED"]
+        if len(positive_c) >= 2 and c_gate["status"] == "MODEL_POTENTIAL_ONLY":
+            recommendation.update(task="只验证冻结 C-8 与最强统一配置的图像输出，同时加入独立 ConvNeXt 和同预算 P。",
+                                  reason="C-8 保留模型潜力，且两个 SNR 的真实配对差值支持正向；这仅是后续投入建议，不新增 C 的成功门槛。")
+    return dict(version=VERSION, C=dict(status=c_gate["status"], model_only=True, gate=c_gate, sender_costs=c_costs),
+                R_model=r_model, V=v, recommendation=recommendation,
+                old_F1_status="UNCERTAIN preserved", old_UEP_stop_unchanged=True, A1_A2_independent=True,
+                new_visual_validation="NOT_RUN", independent_ConvNeXt_validation="NOT_RUN",
+                calibration_ResNet_role="Optional cache cross-check only; not a substitute for new-image independent validation")
+
+
+def render(result):
+    c, r, v = result["C"], result["R_model"], result["V"]
+    lines = ["# 固定预算内容选策与有限反馈：最终交付", "",
+             f"C 工作模型：`{c['status']}`；R 工作模型：`{r['status']}`；V：`{v['status']}`。", "",
+             "以下分开陈述缓存工作模型与真实 CPU 编码译码。没有新图像生成、ConvNeXt 验证或新增 GPU 任务。", "",
+             "## 1. 每图 N1024 的内容选择空间、八候选和成本", "",
+             "| 平均 SNR | C-FULL 模型增量 | C-8 模型增量 | 保留比例 |", "|---:|---:|---:|---:|"]
+    for row in c["gate"]["per_snr"]:
+        ratio = "N/A" if row["retention"] is None else f"{row['retention']:.3f}"
+        lines.append(f"| {row['average_snr_db']} | {row['full_gain']:.6f} | {row['C8_gain']:.6f} | {ratio} |")
+    lines += ["", "统一配置与字典在同一 800 张校准图上选择，200 张内部复核；C-FULL 使用每图自身 Q，不读当前信道真值。逐图全枚举必然不差，仅差值大小有实验意义。", ""]
+    for method in ("C-FULL", "C-8"):
+        costs = [int(number(row["distinct_non_gray_states"])) for row in c["sender_costs"] if row["method"] == method]
+        if costs:
+            lines.append(f"{method} 每张新图需评估 {min(costs)}–{max(costs)} 个不同非灰生成状态及相应 DINO 特征；原缓存查表耗时不能当在线发送时延。")
+    lines += ["", "## 2. 扣除控制开销后，反馈是否改善固定方案", "",
+              "主场景 c_fb=32；每轮头部 68 符号，正文、CRC、实际编码长度与反馈均计费。以下仍是工作模型。", "",
+              "| 平均 SNR | FIXED | ARQ | AWARE | QCSI | AWARE−最强简单参考 |", "|---:|---:|---:|---:|---:|---:|"]
+    for row in r["cells"]:
+        if row["feedback_symbols"] != 32:
+            continue
+        q = "缺资产" if row["QCSI"] is None else f"{row['QCSI']:.6f}"
+        d = "不可判定" if row["aware_minus_strongest_simple"] is None else f"{row['aware_minus_strongest_simple']:.6f}"
+        lines.append(f"| {row['snr_db']} | {row['FIXED']:.6f} | {row['ARQ']:.6f} | {row['AWARE']:.6f} | {q} | {d} |")
+    lines += ["", "0/16/32/64 的完整代价结果见 analysis.json；零成本不进入主要成功判定。实际 16QAM 只用同平均能量，不声称逐帧严格等能量。", "",
+              "## 3. 新决策是否优于简单 ARQ 和量化 CSI", ""]
+    if v.get("probe_summary_available"):
+        lines.append(f"R 真实探针判断：`{v['R_status']}`；达到主门槛的 SNR：{v['R_passing_snrs']}。")
+        for row in v["R_cells"]:
+            lines.append(f"- {row['snr_db']} dB：`{row['status']}`。")
+        if v["missing_policies"]:
+            lines.append("最强固定或反馈参考缺资产时，对应比较保持 UNCERTAIN，不能用可运行的较弱参考替代。")
+        lines.append("只有同时超过全部已登记且已验证的简单参考，且至少两个 SNR 增量≥0.02、配对区间下界>0，才标 METHOD_GAIN_CANDIDATE。")
+    else:
+        lines.append("真实探针未运行；已登记的终止原因如下，模型赢家不能称实际最简单有效方案。")
+        for branch, row in v["branches"].items():
+            lines.append(f"- {branch}：`{row['status']}`；{row['reason']}")
+    lines += ["", "## 4. 查表与真实编码译码的差别及排序", ""]
+    if v.get("probe_summary_available"):
+        lines.append(f"完成 {v['frames']} 条实际信道轨迹；正确接收状态读取冻结逐图 Q，生成器没有重跑。")
+        lines.append("analysis.json 列出真实均值边界减模型值的残差；R 模型使用 1000 张，实际使用固定内部 64 张，差值还含样本总体变化，不能全部解释为 PHY 失配。")
+        for row in v.get("C_cells", []):
+            lines.append(f"- C {row['snr_db']} dB / {row['family']}：`{row['status']}`。")
+        lines.append("实际错误接受或未知状态保留 [-1,1] 质量贡献；若足以改变排序或工程门槛，标 NEEDS_CORRUPTED_STATE_RENDER。区间按源平均 16 次随机实现，再做 5000 次配对 bootstrap。")
+    else:
+        lines.append("没有实际 V 结果，因此不能计算预测残差或确认真实排名。未运行不记为零误差，也不构成链路验证失败。")
+    lines += ["", "## 5. 证据边界与独立验证", "",
+              "C/R 都基于 calibration 和冻结有限测点插值；dB 线性插值、恒定尾部仍是假设，数值积分收敛不等于物理曲线验证。V 若完成，也仅是 calibration 内部的真实 PHY＋缓存正确状态评分。",
+              "可用 ResNet 校准缓存仅作交叉检查；DINO-L 已参与选择，ConvNeXt 未参与选择且本轮未计算，不能用 ResNet 缓存替代后续新图和独立指标验证。P 的完整系统比较、实际图像质量及在线时延均未在本轮重新完成。",
+              "旧 F1 的 UNCERTAIN、旧 UEP 停止边界与 A1/A2 独立队列均保持不变。本报告不表示 A1/A2 已完成。", "",
+              "## 6. 是否投入下一项 GPU 任务", ""]
+    recommendation = result["recommendation"]
+    lines.append("建议：" + (recommendation["task"] or "本轮没有足够依据优先启动新的 GPU 实验。"))
+    lines.append("依据：" + recommendation["reason"])
+    lines += ["", "以上最多推荐一项后续工作，需要另行决定；本次交付到此停止，不自动扩大带宽、样本、训练或 C/R 联合方案。", ""]
+    return "\n".join(lines)
+
+
+def run(c_dir, r_dir, v_dir, protocol_path, out, *, policies_path=None, disposition_path=None):
+    c_dir, r_dir, v_dir, out = map(Path, (c_dir, r_dir, v_dir, out))
+    bindings = {}
+    def load(path):
+        path = Path(path).resolve()
+        require(path.is_file(), "Final delivery is not ready: " + str(path))
+        bindings[str(path)] = sha(path)
+        return read(path)
+    def bind_csv(path):
+        path = Path(path).resolve()
+        require(path.is_file(), "Final delivery is not ready: " + str(path))
+        bindings[str(path)] = sha(path)
+        return csv_rows(path)
+    def verify_outputs(receipt, base):
+        for name, digest in receipt["outputs"].items():
+            path = Path(name)
+            if not path.is_absolute():
+                path = base / path
+            require(path.is_file() and sha(path) == digest, "Completed artifact missing or changed: " + str(path))
+            bindings[str(path.resolve())] = digest
+    protocol = load(protocol_path)
+    require(protocol["schema"] == "CONTENT_FEEDBACK_PROBE_20261005_V1" and protocol["N"] == 1024
+            and protocol["average_snrs_db"] == list(SNRS), "Wrong final protocol")
+    c_completion = load(c_dir / "completion.json")
+    verify_outputs(c_completion, c_dir)
+    c_gate = load(c_dir / "gate.json")
+    costs = bind_csv(c_dir / "sender_cost_inventory.csv")
+    require(len(costs) == 16 and {(int(number(x["average_snr_db"])), x["method"]) for x in costs}
+            == {(snr, method) for snr in SNRS for method in ("C-UNIFORM", "C-BEST-SINGLE", "C-FULL", "C-8")},
+            "C sender cost inventory incomplete")
+    r_result = load(r_dir / "policy_search.json")
+    r_policies = load(r_dir / "registered_policy_trees.json")
+    require(r_result["registered_policy_trees"] == r_policies, "Frozen R tree export changed")
+    r_completion = load(r_dir / "completion.json")
+    require(r_completion["stage"] == "R_MODEL_SEARCH" and r_completion["status"] == r_result["status"]
+            and r_completion["real_decodes_generated_by_search"] == 0 and r_completion["new_images_rendered"] == 0
+            and r_completion["development_read"] is False, "R model completion receipt differs")
+    verify_outputs(r_completion, r_dir)
+    kwargs = {}
+    if disposition_path is not None:
+        disposition = load(disposition_path)
+        require(bool(disposition.get("input_bindings")), "Non-run disposition requires bound gate/protocol evidence")
+        for path, digest in disposition["input_bindings"].items():
+            require(Path(path).is_file() and sha(path) == digest, "Non-run evidence binding changed")
+            bindings[str(Path(path).resolve())] = digest
+        required = {str((c_dir / "gate.json").resolve()), str((r_dir / "policy_search.json").resolve()), str(Path(protocol_path).resolve())}
+        require(required <= {str(Path(p).resolve()) for p in disposition["input_bindings"]}, "Non-run receipt must bind C/R gates and protocol")
+        for branch in disposition.get("branches", {}).values():
+            if branch.get("status") != "NOT_RUN_BY_PREREGISTERED_GATE":
+                require(all(str(Path(p).resolve()) in bindings for p in branch.get("evidence", [])),
+                        "Missing-asset/budget evidence must be an existing SHA-bound file")
+        kwargs["disposition"] = disposition
+    else:
+        receipt = load(v_dir / "summarize_completion.json")
+        verify_outputs(receipt, v_dir)
+        require(policies_path is not None, "Actual V requires its exact frozen policy file")
+        kwargs.update(v_receipt=receipt, frozen=load(policies_path), means=bind_csv(v_dir / "verification/mean_summary.csv"),
+                      pairs=bind_csv(v_dir / "verification/paired_summary.csv"))
+    result = combine(c_gate, c_completion, costs, r_result, **kwargs)
+    if result["V"].get("probe_summary_available"):
+        add_content_residuals(result["V"], kwargs["frozen"], kwargs["means"], bind_csv(c_dir / "per_source_quality_gain.csv"))
+    for path, digest in bindings.items():
+        require(sha(path) == digest, "Input changed during final analysis")
+    result["input_bindings"] = bindings
+    result["analysis_source_sha256"] = sha(__file__)
+    # No final-named artifact is created before every required input passed.
+    seal(out / "analysis.json", json_text(result))
+    seal(out / "FINAL_REPORT.md", render(result))
+    completion = dict(status="COMPLETE", scope="C_R_BOUNDED_PROBE_DELIVERY", version=VERSION,
+        C_model_complete=True, R_model_complete=True, V_disposition=result["V"]["status"],
+        V_physical_probe_complete=result["V"].get("complete_frozen_physical_scope", False),
+        V_any_physical_results=result["V"].get("physical_decodes_completed", False), new_visual_validation_complete=False,
+        independent_ConvNeXt_complete=False, A1_A2_complete_not_asserted=True, old_F1_status_unchanged=True,
+        automatic_GPU_launch=False, input_bindings=bindings,
+        outputs={str(out / name): sha(out / name) for name in ("analysis.json", "FINAL_REPORT.md")})
+    seal(out / "completion.json", json_text(completion))
+    return completion
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    for name in ("c-dir", "r-dir", "v-dir", "protocol", "out"):
+        parser.add_argument("--" + name, required=True)
+    parser.add_argument("--policies")
+    parser.add_argument("--disposition")
+    args = parser.parse_args()
+    done = run(args.c_dir, args.r_dir, args.v_dir, args.protocol, args.out,
+               policies_path=args.policies, disposition_path=args.disposition)
+    print(canonical({key: done[key] for key in ("status", "V_disposition", "V_physical_probe_complete")}))
+
+
+if __name__ == "__main__":
+    main()

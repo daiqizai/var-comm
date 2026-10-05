@@ -1,0 +1,122 @@
+"""Registered one-event retry after restoring an omitted native source dependency.
+
+The failed original RESERVED event remains untouched and charged. Only that
+explicitly reviewed event receives a fresh name and another ordinary charge.
+This wrapper is never used by table-building or verification workers.
+"""
+import argparse
+import hashlib
+import importlib
+import json
+import os
+from pathlib import Path
+import sqlite3
+import sys
+
+VERSION='CONTENT_FEEDBACK_MISSING_NATIVE_DEPENDENCY_R1'
+OLD_EVENT='qualification/header/0'
+NEW_EVENT=OLD_EVENT+'/dependency_recovery_r1'
+ROW_FIELDS=('event_id','phase','kind','phy_key','request_sha','status','result','result_sha','time')
+
+
+def require(ok,message):
+    if not ok:raise RuntimeError(message)
+def read(path):return json.loads(Path(path).read_text(encoding='utf-8'))
+def sha(path):return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+def canonical(value):return json.dumps(value,sort_keys=True,separators=(',',':'),allow_nan=False)
+def digest(value):return hashlib.sha256(canonical(value).encode()).hexdigest()
+def seal(path,value):
+    path=Path(path)
+    if path.exists():require(read(path)==value,'Recovery receipt changed: '+str(path));return
+    path.parent.mkdir(parents=True,exist_ok=True);temp=path.with_suffix('.tmp.'+str(os.getpid()))
+    temp.write_text(json.dumps(value,indent=2,ensure_ascii=False,allow_nan=False)+'\n',encoding='utf-8');os.replace(temp,path)
+def verify_bindings(bindings):
+    for path,expected in bindings.items():require(sha(path)==expected,'Recovery-bound file changed: '+path)
+
+
+def ledger_row(path,event):
+    # An independent read never changes a charge or the failed-event evidence.
+    uri=Path(path).resolve().as_uri()+'?mode=ro'
+    c=sqlite3.connect(uri,uri=True,timeout=60)
+    try:raw=c.execute('SELECT '+','.join(ROW_FIELDS)+' FROM decodes WHERE event_id=?',(event,)).fetchone()
+    finally:c.close()
+    return None if raw is None else dict(zip(ROW_FIELDS,raw))
+
+
+def validate_original(ledger_path,reg):
+    failed=reg['failed_event'];row=ledger_row(ledger_path,OLD_EVENT)
+    require(failed['event_id']==OLD_EVENT and failed['new_event_id']==NEW_EVENT,'Only the reviewed first qualification header can be retried')
+    require(row==failed['row'],'Original charged failure evidence changed')
+    require(row['event_id']==OLD_EVENT and row['phase']=='planning' and row['kind']=='header'
+            and row['status']=='RESERVED' and row['result'] is None and row['result_sha'] is None,
+            'Recovery needs the original unresolved charged header reservation')
+    return row
+
+
+def install_retry(ledger_class,reg):
+    original=ledger_class.decode_once;ledger_path=Path(reg['out']).resolve()/'budget.sqlite'
+    validate_original(ledger_path,reg)
+    def reviewed_retry(self,phase,event_id,kind,phy_key,request,decode):
+        if event_id==OLD_EVENT:
+            require(Path(self.path).resolve()==ledger_path,'Recovery retry cannot cross ledgers')
+            row=validate_original(ledger_path,reg)
+            require((phase,kind,phy_key,digest(request))==(row['phase'],row['kind'],row['phy_key'],row['request_sha']),
+                    'Retry must reproduce the exact reviewed decoder request')
+            event_id=NEW_EVENT
+        return original(self,phase,event_id,kind,phy_key,request,decode)
+    ledger_class.decode_once=reviewed_retry
+    return original
+
+
+def validate_registration(reg_path,argv):
+    reg=read(reg_path)
+    require(reg.get('status')=='ENGINEERING_RECOVERY_REGISTERED' and reg.get('version')==VERSION,'Missing engineering recovery registration')
+    require(reg.get('scientific_protocol_changed') is False and reg.get('original_code_changed') is False
+            and reg.get('original_reserved_charge_preserved') is True,'Scientific code and original charged failure must remain intact')
+    verify_bindings(reg['source_bindings']);verify_bindings(reg['input_bindings'])
+    require(str(Path(__file__).resolve()) in reg['source_bindings'],'Recovery entry itself must be bound')
+    ap=argparse.ArgumentParser(add_help=False)
+    for name in ('snapshot','protocol','out','stage','requests','catalog'):ap.add_argument('--'+name,required=True)
+    args,extras=ap.parse_known_args(argv)
+    require(not extras and args.stage=='qualify','Recovery wrapper accepts only the original qualification stage')
+    require(Path(args.out).resolve()==Path(reg['out']).resolve(),'Original physical output directory changed')
+    require(sha(args.snapshot)==reg['snapshot_sha256'] and sha(args.protocol)==reg['protocol_sha256'],'Original snapshot or protocol changed')
+    runtime=Path(reg['original_runtime']).resolve()
+    for name in ('budget_ledger.py','phy_common.py','cpu_link_probe.py','test_cpu_link_probe.py'):
+        require(str(runtime/name) in reg['source_bindings'],'Original runtime file must be bound: '+name)
+    dependency=reg['dependency_receipt'];require(sha(dependency['path'])==dependency['sha256'],'Dependency receipt changed')
+    receipt=read(dependency['path'])
+    require(receipt['status']=='VERIFIED_MISSING_DEPENDENCY_RESTORED' and len(receipt['copied_dependencies'])==1,'Only the omitted native source may be restored')
+    dep=receipt['copied_dependencies'][0];snapshot=read(args.snapshot)
+    expected=Path(snapshot['runtime']['src']).resolve()/'var_comm'/'token_trellis.cpp'
+    require(Path(dep['path']).resolve()==expected and sha(expected)==dep['sha256']==dep['baseline_blob_sha256']==dep['current_source_sha256'],
+            'Restored dependency must exactly equal the baseline and current source')
+    require(bool(dep['baseline_commit']),'Baseline Git provenance must be recorded')
+    validate_original(Path(reg['out'])/'budget.sqlite',reg)
+    return reg,args
+
+
+def main():
+    ap=argparse.ArgumentParser(add_help=False);ap.add_argument('--recovery-registration',required=True)
+    recovery,args=ap.parse_known_args();reg_path=Path(recovery.recovery_registration).resolve()
+    reg,parsed=validate_registration(reg_path,args);runtime=Path(reg['original_runtime']).resolve()
+    sys.path.insert(0,str(runtime));ledger=importlib.import_module('budget_ledger');runner=importlib.import_module('cpu_link_probe')
+    for module,name in ((ledger,'budget_ledger.py'),(runner,'cpu_link_probe.py')):
+        require(Path(module.__file__).resolve()==runtime/name,'Recovery imported an unexpected original module')
+    original=install_retry(ledger.BudgetLedger,reg);old_argv=sys.argv
+    try:
+        sys.argv=[str(runtime/'cpu_link_probe.py')]+args;runner.main()
+    finally:
+        ledger.BudgetLedger.decode_once=original;sys.argv=old_argv
+    old=validate_original(Path(reg['out'])/'budget.sqlite',reg);new=ledger_row(Path(reg['out'])/'budget.sqlite',NEW_EVENT)
+    require(new is not None and new['status']=='COMPLETE','Recovery did not complete the separately charged actual decode')
+    completion=Path(reg['out'])/'qualify_completion.json';done=read(completion)
+    require(done['status']=='REAL_CPU_QUALIFICATION_PASS','Original qualification did not finish successfully')
+    verify_bindings(done['outputs'])
+    seal(reg_path.parent/'completion.json',dict(status='ENGINEERING_RECOVERY_COMPLETE',version=VERSION,
+         recovery_registration_sha256=sha(reg_path),original_reserved_event=old,replacement_event=new,
+         additional_charged_attempts=1,original_charge_preserved=True,original_manifest_unchanged=True,
+         scientific_protocol_changed=False,outputs={str(completion):sha(completion),**done['outputs']}))
+
+
+if __name__=='__main__':main()

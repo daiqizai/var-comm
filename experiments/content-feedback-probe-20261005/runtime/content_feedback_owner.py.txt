@@ -1,0 +1,523 @@
+"""CPU-only continuation owner; failed stages are never restarted automatically.
+
+The three initial physical stages are explicitly adopted from their registered
+wrappers. The old failed qualifier is outside this owner's stage list.
+"""
+import argparse
+import hashlib
+import json
+import math
+import os
+from pathlib import Path
+import signal
+import subprocess
+import time
+import traceback
+
+VERSION = 'CONTENT_FEEDBACK_CPU_OWNER_V1'
+AFFINITIES = [[16, 17], [22, 23]]
+R_STATUSES = ['MODEL_POTENTIAL_ONLY', 'FEEDBACK_VALUE_ONLY', 'FREE_FEEDBACK_ONLY',
+              'NO_LARGE_GAIN_IN_WORKING_MODEL', 'MISSING_ASSET']
+V_STATUSES = ['UNSCORABLE_EVENTS_PRESENT', 'PARTIAL_PROBE_MISSING_ASSETS',
+              'CPU_PHYSICAL_PROBE_COMPLETE']
+
+
+def require(condition, message):
+    if not condition:
+        raise ValueError(message)
+
+
+def read(path):
+    return json.loads(Path(path).read_text(encoding='utf-8-sig'))
+
+
+def sha(path):
+    h = hashlib.sha256()
+    with Path(path).open('rb') as stream:
+        for block in iter(lambda: stream.read(8 * 1024 * 1024), b''):
+            h.update(block)
+    return h.hexdigest()
+
+
+def digest(value):
+    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':'),
+                                    allow_nan=False).encode()).hexdigest()
+
+
+def save(path, value, immutable=False):
+    path = Path(path)
+    text = json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + '\n'
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if immutable and path.exists():
+        require(path.read_text(encoding='utf-8') == text, 'Immutable file differs: ' + str(path))
+        return
+    temp = path.with_name(path.name + '.tmp.' + str(os.getpid()))
+    temp.write_text(text, encoding='utf-8')
+    os.replace(temp, path)
+
+
+def verify_bindings(bindings, base=None):
+    for name, expected in bindings.items():
+        path = Path(name)
+        if not path.is_absolute() and base is not None:
+            path = Path(base) / path
+        require(path.is_file() and sha(path) == expected, 'Bound file changed or missing: ' + str(path))
+
+
+def verify_receipt(path, statuses=None):
+    value = read(path)
+    if statuses is not None:
+        require(value.get('status') in statuses, 'Unexpected receipt status: ' + str(path))
+    for name in ('outputs', 'input_bindings', 'source_bindings'):
+        verify_bindings(value.get(name, {}), Path(path).parent)
+    return value
+
+
+def process_identity(pid):
+    path = Path('/proc') / str(pid)
+    stat = (path / 'stat').read_text().rsplit(')', 1)[1].split()
+    require(stat[0] != 'Z', 'Process is a zombie')
+    return dict(pid=int(pid), start_ticks=stat[19],
+                uid=(path / 'status').read_text().split('Uid:')[1].split()[0],
+                argv=[x.decode() for x in (path / 'cmdline').read_bytes().split(b'\0')[:-1]])
+
+
+def same_identity(record, live):
+    return all(str(record[k]) == str(live[k]) for k in ('pid', 'start_ticks', 'uid')) and record['argv'] == live['argv']
+
+
+def identity_alive(record):
+    try:
+        return same_identity(record, process_identity(record['pid']))
+    except (OSError, ValueError, IndexError, KeyError):
+        return False
+
+
+def check_wrapper_config(cfg, spec, python, root):
+    require(cfg['CUDA_VISIBLE_DEVICES'] == '' and cfg['threads'] == 2, 'CPU-only stage contract changed')
+    require(cfg['affinity'] == AFFINITIES[spec.get('slot', 0)], 'Unexpected stage affinity')
+    require(Path(cfg['cwd']).absolute() == Path(root).absolute(), 'Stage cwd changed')
+    require(Path(cfg['receipt_dir']).absolute() == Path(spec['receipt_dir']).absolute(), 'Stage receipt directory changed')
+    require(Path(cfg['expected_completion']).absolute() == Path(spec['expected_completion']).absolute(), 'Stage completion target changed')
+    require(set(cfg['accepted_statuses']) == set(spec['accepted_statuses']), 'Accepted stage statuses changed')
+    # Do not resolve a venv interpreter symlink: its invocation path selects the environment.
+    require(str(Path(cfg['command'][0]).absolute()) == str(Path(python).absolute()), 'Interpreter path changed')
+    require(isinstance(cfg['command'], list) and len(cfg['command']) >= 2, 'Argument vector required')
+    entry_index = 2 if cfg['command'][1] == '-B' else 1
+    require(len(cfg['command']) > entry_index and not cfg['command'][entry_index].startswith('-'), 'Only optional -B is supported before the bound entry')
+    entry = str(Path(cfg['command'][entry_index]).absolute())
+    require(entry in cfg['bindings'], 'Stage entry point is not SHA-bound')
+    verify_bindings(cfg['bindings'])
+
+
+def wrapper_result(spec, config_path, python, root):
+    cfg = read(config_path)
+    check_wrapper_config(cfg, spec, python, root)
+    directory = Path(spec['receipt_dir'])
+    require(not (directory / 'failure.json').exists(), 'Registered stage failed: ' + str(directory))
+    done = directory / 'completion.json'
+    if not done.exists():
+        return None
+    value = read(done)
+    require(value['status'] == 'COMPLETE' and value['config_sha256'] == sha(config_path), 'Wrapper completion binding changed')
+    require(Path(value['completion_path']).absolute() == Path(spec['expected_completion']).absolute(), 'Wrapper receipt path differs')
+    require(value['completion_sha256'] == sha(spec['expected_completion']), 'Stage receipt changed after wrapper completion')
+    verify_receipt(spec['expected_completion'], spec['accepted_statuses'])
+    require(value.get('GPU_used') is False and value.get('old_queues_modified') is False, 'Wrapper scope differs')
+    return value
+
+
+def validate_point(row, group, snr, n):
+    require(row['phy_key'] == group['phy_key'] and row['snr_db'] == snr, 'Physical point identity differs')
+    require(row['configuration_sha256'] == digest(group), 'Physical configuration SHA differs')
+    require(row['n_blocks'] == n, 'Point sample count differs')
+    counts = [row[k] for k in ('n_correct', 'n_reject', 'n_undetected')]
+    require(all(isinstance(x, int) and x >= 0 for x in counts) and sum(counts) == n, 'C/R/U counts do not partition trials')
+    for count, name in zip(counts, ('p_correct', 'p_reject', 'p_undetected')):
+        require(math.isfinite(row[name]) and abs(row[name] - count / n) < 1e-12, 'Probability/count mismatch')
+    require(row.get('actual_encoder_decoder') is True and row.get('calibration_only') is True, 'Nonphysical or noncalibration point')
+    require(row.get('channel') == 'AWGN_for_frozen_R_planning_only', 'Planning channel differs')
+
+
+def merge_planning(physical, qualified_path, protocol_path, snapshot_path, merged_path, receipt_path):
+    """Exact assembly only: no averaging, probability repairs, or decoder calls."""
+    physical = Path(physical)
+    qualified, protocol = read(qualified_path), read(protocol_path)
+    configs = qualified['configs']
+    require(qualified.get('complete') is True, 'Qualification incomplete')
+    require(len({g['phy_key'] for g in configs}) == len(configs) <= 48, 'Duplicate or excessive physical configurations')
+    snrs = protocol['planning']['new_table_snr_db']
+    n = protocol['planning']['blocks_per_point']
+    binding = digest(dict(snapshot_sha256=sha(snapshot_path), protocol_sha256=sha(protocol_path)))
+    expected = {(g['phy_key'], snr): (g, index % 2) for index, g in enumerate(configs) for snr in snrs}
+    found, inputs = {}, {str(Path(p).absolute()): sha(p) for p in (qualified_path, protocol_path, snapshot_path)}
+    for worker in range(2):
+        receipt = physical / f'plan_table_worker_{worker}_completion.json'
+        done = verify_receipt(receipt, ['PLANNING_SHARD_COMPLETE'])
+        require(done['binding'] == binding and done['worker_index'] == worker and done['workers'] == 2, 'Planning shard binding differs')
+        require(done.get('GPU_used') is False, 'Planning shard used GPU')
+        inputs[str(receipt.absolute())] = sha(receipt)
+        for row in done['rows']:
+            key = row['phy_key'], row['snr_db']
+            require(key in expected and key not in found, 'Unregistered or duplicate planning point')
+            group, owner = expected[key]
+            require(owner == worker, 'Physical point assigned to wrong shard')
+            validate_point(row, group, key[1], n)
+            point = physical / 'planning/points' / f'{key[0]}_snr{key[1]}.json'
+            require(str(point.absolute()) in done['outputs'] and read(point) == row, 'Point missing from bound shard outputs or row differs')
+            found[key] = row
+    require(set(found) == set(expected), 'Planning Cartesian product incomplete')
+    require(len(found) * n <= protocol['budgets']['planning_decodes'], 'Planning point counts exceed registered cap')
+    rows = [found[(g['phy_key'], snr)] for g in configs for snr in snrs]
+    value = dict(status='EXACT_PLANNING_POINTS_MERGED', rows=rows, point_count=len(rows),
+                 configs=len(configs), input_bindings=inputs, real_decodes_generated_by_merge=0,
+                 probabilities_unchanged=True, original_bler_unchanged=True)
+    save(merged_path, value, immutable=True)
+    save(receipt_path, dict(status='EXACT_PLANNING_POINTS_MERGED', input_bindings=inputs,
+         outputs={str(Path(merged_path).absolute()): sha(merged_path)}, actual_new_decodes=0), immutable=True)
+
+
+def run_adapter(config_path):
+    """Wrap frozen resource/freeze CLIs that do not emit a completion receipt."""
+    cfg = read(config_path)
+    verify_bindings(cfg['bindings'])
+    require(os.environ.get('CUDA_VISIBLE_DEVICES') == '', 'Adapter requires explicit empty CUDA')
+    require(not Path(cfg['completion']).exists(), 'Adapter completion exists; validate rather than rerun')
+    if cfg.get('kind') == 'publication_hook':
+        target = Path(cfg['publication_receipt'])
+        attempts, waits = 0, {}
+        while True:
+            attempts += 1
+            verify_bindings(cfg['bindings'])
+            # Only an explicit, successful publisher WAITING return is retryable.
+            # A nonzero exit is never automatically replayed.
+            subprocess.run(cfg['command'], cwd=cfg['cwd'], check=True)
+            verify_bindings(cfg['bindings'])
+            if target.exists():
+                verify_receipt(target, cfg['publication_statuses'])
+                outputs = {str(target.absolute()): sha(target), **waits}
+                disposition = 'PUBLISHED'
+                break
+            wait_path = Path(cfg['publication_wait'])
+            waiting = read(wait_path)
+            require(waiting.get('status') == 'WAITING_FOR_PUBLICATION', 'Publisher returned without completion or an explicit waiting receipt')
+            snapshot = Path(config_path).parent / f'publication_wait_attempt_{attempts:04d}.json'
+            save(snapshot, dict(status='PUBLICATION_DEFERRED', publisher_wait_path=str(wait_path),
+                 publisher_wait_sha256=sha(wait_path), publisher_wait=waiting), immutable=True)
+            waits[str(snapshot.absolute())] = sha(snapshot)
+            save(Path(config_path).parent / 'publication_adapter_status.json', dict(status='WAITING_FOR_PUBLICATION',
+                 attempts=attempts, time=time.time(), waiting=waiting, only_nonmetered_publish_retry=True))
+            outputs = dict(waits)
+            disposition = 'PUBLICATION_DEFERRED'
+            if not cfg.get('retry_wait', False):
+                break
+            require(cfg['retry_wait_seconds'] >= 60, 'Publisher polling must be at least 60 seconds')
+            time.sleep(cfg['retry_wait_seconds'])
+    else:
+        subprocess.run(cfg['command'], cwd=cfg['cwd'], check=True)
+        verify_bindings(cfg['bindings'])
+        outputs = {str(Path(p).absolute()): sha(p) for p in cfg['outputs']}
+        disposition = None
+    save(cfg['completion'], dict(status=cfg['status'], outputs=outputs,
+         input_bindings=cfg['bindings'], source_sha256=sha(__file__), GPU_used=False,
+         publication_disposition=disposition), immutable=True)
+
+
+def build_config(root, out, python, unqualified):
+    root, out = Path(root).absolute(), Path(out).absolute()
+    python = str(Path(python).absolute())
+    code, physical = out / 'code', out / 'V'
+    bindings = {str(p): sha(p) for p in sorted(code.glob('*.py'))}
+    for p in (out / 'protocol.json', out / 'INPUT_MANIFEST.json', out / 'S0_completion.json', out / 'C/completion.json'):
+        bindings[str(p)] = sha(p)
+    for p in (out / 'snapshot/src/var_comm/token_trellis.cpp',
+              out / 'dependency_recovery_r1/dependency_receipt.json',
+              out / 'dependency_recovery_r1/execution_registration.json',
+              out / 'dependency_recovery_r1/qualification_dependency_recovery_r1.py'):
+        bindings[str(p)] = sha(p)
+    legacy = code / 'frozen_f1_math.py'
+    bindings[str(legacy)] = sha(legacy)
+    unqualified = Path(unqualified).absolute()
+    for name in ('resource_catalog.json', 'new_physical_requests.json'):
+        bindings[str(unqualified / name)] = sha(unqualified / name)
+    external = []
+    for name, expected, status, slot in (
+        ('qualify_recovery_r1', 'qualify_completion.json', 'REAL_CPU_QUALIFICATION_PASS', 0),
+        ('plan_table_worker_0', 'plan_table_worker_0_completion.json', 'PLANNING_SHARD_COMPLETE', 0),
+        ('plan_table_worker_1', 'plan_table_worker_1_completion.json', 'PLANNING_SHARD_COMPLETE', 1)):
+        directory = out / 'stages' / name
+        external.append(dict(name=name, config=str(directory / 'config.json'), receipt_dir=str(directory),
+            expected_completion=str(physical / expected), accepted_statuses=[status], slot=slot, adopted=True))
+    publisher = code / 'publish_probe.py'
+    publication = None
+    if publisher.is_file():
+        publication = dict(command=[python, str(publisher), '--root', str(root), '--out', str(out),
+            '--runtime-dir', str(code), '--final-dir', str(out / 'final'), '--stage', 'publish'],
+            bindings={str(publisher): sha(publisher)})
+    return dict(version=VERSION, root=str(root), out=str(out), python=python,
+        physical_out=str(physical), unqualified_resources=str(unqualified),
+        qualified_resources=str(out / 'R/resources_qualified'), legacy_f1_code=str(legacy),
+        source_and_input_bindings=bindings, external_stages=external,
+        poll_seconds=5, wait_limit_seconds=172800, stage_limit_seconds=172800,
+        resources=dict(affinities=AFFINITIES, threads=2, nice=15, CUDA_VISIBLE_DEVICES='', max_workers=2),
+        publication=publication,
+        publication_receipt=str(out / 'publication_completion.json'),
+        publication_statuses=['PUBLISHED'],
+        publication_contract='Require outputs including final completion; commit==remote_commit (40 hex). Publisher independently verifies remote push.',
+        on_failure='Preserve evidence; never automatically restart a stage; never stop adopted external processes')
+
+
+class Owner:
+    def __init__(self, config_path):
+        self.path = Path(config_path).absolute()
+        self.cfg = read(self.path)
+        self.config_sha256 = sha(self.path)
+        self.root, self.out = Path(self.cfg['root']), Path(self.cfg['out'])
+        self.home, self.code = self.out / 'owner', self.out / 'code'
+        self.physical = Path(self.cfg['physical_out'])
+        self.python = self.cfg['python']
+        self.children = {}
+        self.started = time.time()
+        self.snapshot_checked = False
+
+    def check(self):
+        require(sha(self.path) == self.config_sha256, 'Frozen owner configuration changed')
+        require(self.cfg['version'] == VERSION, 'Owner version changed')
+        require(self.cfg['resources'] == dict(affinities=AFFINITIES, threads=2, nice=15, CUDA_VISIBLE_DEVICES='', max_workers=2), 'Registered CPU resources changed')
+        require(self.root.is_absolute() and self.out.is_absolute() and self.out.parent == self.root / 'outputs', 'Unexpected experiment output location')
+        require(self.out.name == 'CONTENT-FEEDBACK-PROBE-20261005' and self.physical == self.out / 'V', 'Owner cannot operate on an old queue')
+        require(self.cfg['source_and_input_bindings'].get(str(Path(__file__).absolute())) == sha(__file__), 'Owner source not frozen')
+        verify_bindings(self.cfg['source_and_input_bindings'])
+        require(read(self.out / 'S0_completion.json')['input_manifest_sha256'] == sha(self.out / 'INPUT_MANIFEST.json'), 'S0 manifest binding changed')
+        if not self.snapshot_checked:
+            manifest = read(self.out / 'INPUT_MANIFEST.json')
+            verify_bindings({entry['path']: entry['sha256'] for entry in manifest['entries'].values()})
+            self.snapshot_checked = True
+        verify_receipt(self.out / 'C/completion.json')
+
+    def status(self, phase, **fields):
+        save(self.home / 'status.json', dict(status=phase, time=time.time(), config_sha256=sha(self.path),
+             GPU_used=False, A1_A2_modified=False, **fields))
+
+    def stage(self, name, command, expected, statuses, slot=0, adapter_outputs=None, bindings=None):
+        directory = self.out / 'owner_stages' / name
+        stage_bindings = dict(self.cfg['source_and_input_bindings'])
+        stage_bindings.update(bindings or {})
+        if adapter_outputs is not None:
+            adapter = directory / 'adapter_config.json'
+            save(adapter, dict(command=command, cwd=str(self.root), bindings=stage_bindings,
+                 outputs=[str(p) for p in adapter_outputs], completion=str(expected), status=statuses[0]), immutable=True)
+            stage_bindings[str(adapter)] = sha(adapter)
+            command = [self.python, str(Path(__file__).absolute()), '--adapter-config', str(adapter)]
+        cfg = dict(receipt_dir=str(directory), bindings=stage_bindings, CUDA_VISIBLE_DEVICES='', threads=2,
+                   affinity=AFFINITIES[slot], command=command, cwd=str(self.root), expected_completion=str(expected), accepted_statuses=statuses)
+        config = directory / 'config.json'
+        save(config, cfg, immutable=True)
+        return dict(name=name, config=str(config), receipt_dir=str(directory), expected_completion=str(expected),
+                    accepted_statuses=statuses, slot=slot, adopted=False)
+
+    def wait_stages(self, specs):
+        require(1 <= len(specs) <= 2, 'At most two concurrent stages')
+        if len(specs) == 2:
+            require({x['slot'] for x in specs} == {0, 1}, 'Concurrent stages must use distinct CPU pairs')
+        pending = {x['name']: x for x in specs}
+        start, next_check = time.monotonic(), 0
+        while pending:
+            now = time.monotonic()
+            require(now - start <= self.cfg['wait_limit_seconds'], 'Stage waiting exceeded registered cap; existing jobs preserved')
+            if now >= next_check:
+                self.check()
+                next_check = now + 60
+            for name, spec in list(pending.items()):
+                require(not (Path(spec['receipt_dir']) / 'failure.json').exists(), 'Registered stage failed: ' + name)
+                config = Path(spec['config'])
+                if not config.exists():
+                    require(spec.get('adopted'), 'Owner stage config disappeared')
+                    continue
+                result = wrapper_result(spec, config, self.python, self.root)
+                if result is not None:
+                    save(self.home / 'accepted' / (name + '.json'), dict(stage=name, config=str(config),
+                         config_sha256=sha(config), wrapper_completion=str(Path(spec['receipt_dir']) / 'completion.json'),
+                         wrapper_completion_sha256=sha(Path(spec['receipt_dir']) / 'completion.json'),
+                         completion_sha256=result['completion_sha256']), immutable=True)
+                    pending.pop(name)
+                    continue
+                directory = Path(spec['receipt_dir'])
+                identity_file = directory / 'owner_identity.json'
+                if identity_file.exists():
+                    identity = read(identity_file)
+                    require(identity.get('config_sha256') == sha(config), 'Stage owner config identity differs')
+                    if not identity_alive(identity):
+                        # Completion may be atomically published immediately before exit.
+                        if wrapper_result(spec, config, self.python, self.root) is not None:
+                            continue
+                        raise ValueError('Stage owner exited without a valid completion: ' + name)
+                    continue
+                if spec.get('adopted'):
+                    continue  # Only the explicitly authorized external launcher starts this stage.
+                if name in self.children:
+                    require(self.children[name].poll() is None, 'Owned wrapper exited before registering identity: ' + name)
+                    continue
+                launch = self.home / 'launches' / (name + '.json')
+                require(not launch.exists(), 'Prior launch requires manual diagnosis, not automatic restart: ' + name)
+                require(not Path(spec['expected_completion']).exists(), 'Unwrapped completion requires explicit adoption: ' + name)
+                directory.mkdir(parents=True, exist_ok=True)
+                with (directory / 'launcher.log').open('ab', buffering=0) as log:
+                    child = subprocess.Popen([self.python, str(self.code / 'run_stage.py'), '--config', str(config)],
+                        cwd=self.root, stdout=log, stderr=subprocess.STDOUT, env=dict(os.environ,
+                        CUDA_VISIBLE_DEVICES='', OMP_NUM_THREADS='2', MKL_NUM_THREADS='2', OPENBLAS_NUM_THREADS='2', NUMEXPR_NUM_THREADS='2'))
+                self.children[name] = child
+                ident = process_identity(child.pid)
+                save(launch, dict(identity=ident, config_sha256=sha(config), time=time.time()), immutable=True)
+            waiting = [name for name, spec in pending.items() if spec.get('adopted') and
+                       not (Path(spec['receipt_dir']) / 'owner_identity.json').exists()]
+            publication_waiting = 'publication' in pending and (Path(pending['publication']['receipt_dir']) / 'publication_adapter_status.json').exists()
+            self.status('WAITING_FOR_PUBLICATION' if publication_waiting else 'WAITING_FOR_EXTERNAL_STAGE_LAUNCH' if waiting else 'RUNNING',
+                        phases=list(pending), waiting_for_external=waiting, elapsed_seconds=time.time() - self.started)
+            if pending:
+                time.sleep(self.cfg['poll_seconds'])
+
+    def publication(self):
+        final = self.out / 'final/completion.json'
+        verify_receipt(final, ['COMPLETE'])
+        hook = self.cfg.get('publication')
+        receipt = Path(self.cfg['publication_receipt'])
+        if hook:
+            require(hook.get('bindings'), 'Publication hook must bind its executable/source')
+            adapter = self.out / 'owner_stages/publication/publication_adapter.json'
+            complete = self.home / 'publication_hook_completion.json'
+            bindings = dict(self.cfg['source_and_input_bindings'], **hook['bindings'])
+            bindings[str(final)] = sha(final)
+            save(adapter, dict(kind='publication_hook', command=hook['command'], cwd=str(self.root),
+                 bindings=bindings, completion=str(complete), status='PUBLICATION_HOOK_FINISHED',
+                 publication_receipt=str(receipt), publication_statuses=self.cfg['publication_statuses'],
+                 publication_wait=str(self.out / 'publication_wait.json'), retry_wait=True, retry_wait_seconds=60), immutable=True)
+            command = [self.python, str(Path(__file__).absolute()), '--adapter-config', str(adapter)]
+            spec = self.stage('publication', command, complete, ['PUBLICATION_HOOK_FINISHED'],
+                              bindings={**hook['bindings'], str(adapter): sha(adapter), str(final): sha(final)})
+            self.wait_stages([spec])
+        self.status('WAITING_FOR_PUBLICATION', final_completion=str(final), final_completion_sha256=sha(final),
+                    report=str(self.out / 'final/FINAL_REPORT.md'), scientific_analysis_complete=True, published=False)
+        next_check = 0
+        while not receipt.exists():
+            if time.monotonic() >= next_check:
+                self.check()
+                next_check = time.monotonic() + 60
+            time.sleep(self.cfg['poll_seconds'])
+        publication = verify_receipt(receipt, self.cfg['publication_statuses'])
+        commit = publication.get('commit', '')
+        require(len(commit) == 40 and all(x in '0123456789abcdef' for x in commit) and publication.get('remote_commit') == commit,
+                'Publication does not verify the pushed remote commit')
+        require(publication.get('outputs', {}).get(str(final)) == sha(final), 'Publication does not bind final scientific completion')
+        self.check()
+        save(self.home / 'completion.json', dict(status='PUBLISHED', version=VERSION, time=time.time(),
+             config_sha256=sha(self.path), commit=commit, remote_commit=commit,
+             outputs={str(final): sha(final), str(receipt): sha(receipt)},
+             GPU_used=False, A1_A2_modified=False, no_additional_experiments_started=True), immutable=True)
+        self.status('PUBLISHED', commit=commit, scientific_analysis_complete=True, published=True)
+
+    def run(self):
+        self.check()
+        self.home.mkdir(parents=True, exist_ok=True)
+        import fcntl
+        lock = (self.home / 'owner.lock').open('a')
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        require(not (self.home / 'failure.json').exists() and not (self.home / 'completion.json').exists(), 'Owner already terminated; do not automatically restart')
+        require(not (self.home / 'owner_identity.json').exists(), 'Previous owner requires explicit recovery registration')
+        os.sched_setaffinity(0, set(sum(AFFINITIES, [])))
+        if os.nice(0) < 15:
+            os.nice(15 - os.nice(0))
+        identity = process_identity(os.getpid())
+        save(self.home / 'owner_identity.json', dict(**identity, config_sha256=sha(self.path), time=time.time()), immutable=True)
+        def stop(*_):
+            raise KeyboardInterrupt('Owner stop requested; child evidence and existing outputs preserved')
+        signal.signal(signal.SIGTERM, stop)
+        signal.signal(signal.SIGINT, stop)
+        try:
+            external = self.cfg['external_stages']
+            require([x['name'] for x in external] == ['qualify_recovery_r1', 'plan_table_worker_0', 'plan_table_worker_1'], 'Adopted stage list differs')
+            require(all(x.get('adopted') for x in external), 'External physical stages must never be relaunched')
+            self.wait_stages(external[:1])
+            recovery_path = self.out / 'dependency_recovery_r1/completion.json'
+            recovery = verify_receipt(recovery_path, ['ENGINEERING_RECOVERY_COMPLETE'])
+            require(recovery['recovery_registration_sha256'] == sha(self.out / 'dependency_recovery_r1/execution_registration.json')
+                    and recovery['original_charge_preserved'] is True and recovery['scientific_protocol_changed'] is False,
+                    'Dependency recovery did not preserve the original failure and protocol')
+            require(recovery['original_reserved_event']['status'] == 'RESERVED' and recovery['replacement_event']['status'] == 'COMPLETE',
+                    'Explicit qualification retry evidence differs')
+            self.cfg['source_and_input_bindings'][str(recovery_path)] = sha(recovery_path)
+            self.wait_stages(external[1:])
+            merged = self.out / 'planning_merged.json'
+            merge_planning(self.physical, self.physical / 'qualified_new.json', self.out / 'protocol.json',
+                           self.out / 'INPUT_MANIFEST.json', merged, self.home / 'planning_merge_completion.json')
+            resources = Path(self.cfg['qualified_resources'])
+            resource_command = [self.python, str(self.code / 'feedback_resources.py'), '--snapshot', str(self.out / 'snapshot'),
+                                '--out', str(resources), '--qualified-new', str(self.physical / 'qualified_new.json')]
+            outputs = [resources / name for name in ('resource_catalog.json', 'new_physical_requests.json',
+                       'missing_phy_configurations.csv', 'resource_action_coverage.csv')]
+            self.wait_stages([self.stage('resources_qualified', resource_command, resources / 'completion.json',
+                ['QUALIFIED_RESOURCE_CATALOG_COMPLETE'], adapter_outputs=outputs,
+                bindings={str(self.physical / 'qualified_new.json'): sha(self.physical / 'qualified_new.json')})])
+            rcommand = [self.python, str(self.code / 'feedback_policy.py'), '--snapshot', str(self.out / 'snapshot'),
+                        '--catalog', str(resources / 'resource_catalog.json'), '--new-bler', str(merged),
+                        '--legacy-f1-code', self.cfg['legacy_f1_code'], '--protocol', str(self.out / 'protocol.json'), '--out', str(self.out / 'R')]
+            self.wait_stages([self.stage('R_model', rcommand, self.out / 'R/completion.json', R_STATUSES,
+                bindings={str(merged): sha(merged), str(resources / 'resource_catalog.json'): sha(resources / 'resource_catalog.json')})])
+            frozen, disposition = self.physical / 'frozen_policies.json', self.physical / 'verification_disposition.json'
+            self.wait_stages([self.stage('freeze_verification', [self.python, str(self.code / 'freeze_verification.py'), '--out', str(self.out)],
+                self.home / 'freeze_completion.json', ['VERIFICATION_GATE_FROZEN'], adapter_outputs=[frozen, disposition],
+                bindings={str(self.out / 'R/completion.json'): sha(self.out / 'R/completion.json')})])
+            decision = read(disposition)
+            require(decision['frozen_policy_sha256'] == sha(frozen), 'Verification disposition binding differs')
+            base = [self.python, str(self.code / 'cpu_link_probe.py'), '--snapshot', str(self.out / 'INPUT_MANIFEST.json'),
+                    '--protocol', str(self.out / 'protocol.json'), '--out', str(self.physical), '--policies', str(frozen)]
+            if decision['run_actual_verification']:
+                require(decision['V_maximum_decodes_reserved'] <= 200000, 'Verification decode cap exceeded')
+                specs = [self.stage(f'verify_worker_{i}', base + ['--stage', 'verify', '--worker-index', str(i), '--workers', '2'],
+                         self.physical / f'verify_worker_{i}_completion.json', ['VERIFICATION_SHARD_COMPLETE'], slot=i,
+                         bindings={str(frozen): sha(frozen), str(disposition): sha(disposition)}) for i in range(2)]
+                self.wait_stages(specs)
+                self.wait_stages([self.stage('summarize', base + ['--stage', 'summarize'], self.physical / 'summarize_completion.json',
+                                 V_STATUSES, bindings={str(frozen): sha(frozen)})])
+            else:
+                require(decision['status'] in ['TERMINAL_MISSING_ASSET', 'NOT_RUN_BY_PREREGISTERED_GATE'], 'Unsupported no-run disposition')
+                save(self.home / 'verification_not_run.json', dict(status=decision['status'],
+                     disposition_sha256=sha(disposition), frozen_policy_sha256=sha(frozen), actual_new_decodes=0), immutable=True)
+            analysis = [self.python, str(self.code / 'analysis.py'), '--c-dir', str(self.out / 'C'), '--r-dir', str(self.out / 'R'),
+                        '--v-dir', str(self.physical), '--protocol', str(self.out / 'protocol.json'), '--out', str(self.out / 'final')]
+            analysis += ['--policies', str(frozen)] if decision['run_actual_verification'] else ['--disposition', str(disposition)]
+            self.wait_stages([self.stage('analysis', analysis, self.out / 'final/completion.json', ['COMPLETE'],
+                             bindings={str(frozen): sha(frozen), str(disposition): sha(disposition)})])
+            self.publication()
+        except BaseException:
+            # Preserve even still-running children. Their independent wrapper receipts
+            # remain authoritative; a future owner requires explicit recovery review.
+            save(self.home / 'failure.json', dict(status='FAILED', time=time.time(), config_sha256=sha(self.path),
+                 traceback=traceback.format_exc(), existing_outputs_preserved=True,
+                 adopted_children_not_signalled=True, no_automatic_restart=True))
+            self.status('FAILED', existing_outputs_preserved=True)
+            raise
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--config')
+    parser.add_argument('--adapter-config')
+    parser.add_argument('--write-template')
+    parser.add_argument('--root')
+    parser.add_argument('--out')
+    parser.add_argument('--python')
+    parser.add_argument('--resource-unqualified')
+    args = parser.parse_args()
+    if args.adapter_config:
+        run_adapter(args.adapter_config)
+    elif args.write_template:
+        require(all((args.root, args.out, args.python, args.resource_unqualified)), 'Template requires root/out/python/resource-unqualified')
+        save(args.write_template, build_config(args.root, args.out, args.python, args.resource_unqualified), immutable=True)
+    else:
+        require(args.config, '--config required')
+        Owner(args.config).run()
+
+
+if __name__ == '__main__':
+    main()

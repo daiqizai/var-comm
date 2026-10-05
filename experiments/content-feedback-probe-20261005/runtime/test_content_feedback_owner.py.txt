@@ -1,0 +1,223 @@
+"""Pure CPU owner/merge tests; no real decoder or external process is started."""
+import json
+from pathlib import Path
+import tempfile
+import unittest
+from unittest.mock import patch
+
+import content_feedback_owner as o
+
+
+class MergeTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.physical = self.root / 'V'
+        self.snapshot = self.root / 'INPUT_MANIFEST.json'
+        self.protocol = self.root / 'protocol.json'
+        self.qualified = self.physical / 'qualified_new.json'
+        self.merged = self.root / 'merged.json'
+        self.receipt = self.root / 'merge_completion.json'
+        o.save(self.snapshot, {'test': True})
+        o.save(self.protocol, dict(planning=dict(new_table_snr_db=[-5, 4], blocks_per_point=256), budgets=dict(planning_decodes=50000)))
+        self.groups = [dict(phy_key='p0', payload=32), dict(phy_key='p1', payload=64), dict(phy_key='p2', payload=128)]
+        o.save(self.qualified, dict(complete=True, configs=self.groups, rejections=[dict(request_id='unsupported', reason='backend')]))
+        self.binding = o.digest(dict(snapshot_sha256=o.sha(self.snapshot), protocol_sha256=o.sha(self.protocol)))
+        self.receipts = []
+        for worker in range(2):
+            rows, outputs = [], {}
+            for index, group in enumerate(self.groups):
+                if index % 2 != worker:
+                    continue
+                for snr in [-5, 4]:
+                    row = dict(phy_key=group['phy_key'], snr_db=snr, configuration_sha256=o.digest(group),
+                               n_blocks=256, n_correct=128, n_reject=127, n_undetected=1,
+                               p_correct=.5, p_reject=127/256, p_undetected=1/256,
+                               actual_encoder_decoder=True, calibration_only=True, channel='AWGN_for_frozen_R_planning_only')
+                    point = self.physical / 'planning/points' / f'{group["phy_key"]}_snr{snr}.json'
+                    o.save(point, row)
+                    rows.append(row)
+                    outputs[str(point)] = o.sha(point)
+            path = self.physical / f'plan_table_worker_{worker}_completion.json'
+            o.save(path, dict(status='PLANNING_SHARD_COMPLETE', worker_index=worker, workers=2,
+                            binding=self.binding, GPU_used=False, rows=rows, outputs=outputs))
+            self.receipts.append(path)
+
+    def run_merge(self):
+        o.merge_planning(self.physical, self.qualified, self.protocol, self.snapshot, self.merged, self.receipt)
+
+    def test_exact_merge_retains_probabilities_and_backend_refusal(self):
+        self.run_merge()
+        result = o.read(self.merged)
+        self.assertEqual(result['point_count'], 6)
+        self.assertEqual(result['configs'], 3)
+        self.assertEqual(result['real_decodes_generated_by_merge'], 0)
+        self.assertEqual([r['p_undetected'] for r in result['rows']], [1/256]*6)
+        self.assertEqual(len(o.read(self.qualified)['rejections']), 1)
+        o.verify_receipt(self.receipt, ['EXACT_PLANNING_POINTS_MERGED'])
+        self.run_merge()  # Exact immutable assembly is idempotent, without decoder calls.
+
+    def test_missing_point_is_not_imputed(self):
+        value = o.read(self.receipts[0]);value['rows'].pop();o.save(self.receipts[0], value)
+        with self.assertRaisesRegex(ValueError, 'incomplete'):
+            self.run_merge()
+        self.assertFalse(self.merged.exists())
+
+    def test_duplicate_point_rejected(self):
+        value = o.read(self.receipts[0]);value['rows'].append(value['rows'][0]);o.save(self.receipts[0], value)
+        with self.assertRaisesRegex(ValueError, 'duplicate'):
+            self.run_merge()
+
+    def test_point_file_hash_tampering_rejected(self):
+        point = next((self.physical / 'planning/points').glob('*.json'))
+        point.write_text('{}')
+        with self.assertRaisesRegex(ValueError, 'Bound file changed'):
+            self.run_merge()
+
+    def test_wrong_shard_receipt_rejected(self):
+        value = o.read(self.receipts[1]);value['worker_index'] = 0;o.save(self.receipts[1], value)
+        with self.assertRaisesRegex(ValueError, 'shard binding'):
+            self.run_merge()
+
+    def test_wrong_configuration_digest_rejected(self):
+        group = dict(self.groups[0], payload=99)
+        row = o.read(self.receipts[0])['rows'][0]
+        with self.assertRaisesRegex(ValueError, 'configuration SHA'):
+            o.validate_point(row, group, -5, 256)
+
+    def test_probabilities_must_equal_original_counts(self):
+        row = o.read(self.receipts[0])['rows'][0]
+        row['p_correct'] = .5001
+        with self.assertRaisesRegex(ValueError, 'Probability/count'):
+            o.validate_point(row, self.groups[0], -5, 256)
+
+    def test_binding_differs_from_other_snapshot(self):
+        o.save(self.snapshot, {'test': 'different'})
+        with self.assertRaisesRegex(ValueError, 'shard binding'):
+            self.run_merge()
+
+
+class IdentityAndWrapperTests(unittest.TestCase):
+    def test_recycled_pid_is_not_live_identity(self):
+        original = dict(pid=2, start_ticks='100', uid='1002', argv=['venv/bin/python', 'run_stage.py'])
+        self.assertFalse(o.same_identity(original, dict(original, start_ticks='101')))
+        self.assertFalse(o.same_identity(original, dict(original, argv=['other'])))
+        self.assertTrue(o.same_identity(original, dict(original)))
+
+    def test_dead_process_does_not_count_as_running(self):
+        with patch.object(o, 'process_identity', side_effect=FileNotFoundError()):
+            self.assertFalse(o.identity_alive(dict(pid=99)))
+
+    def test_original_failure_directory_does_not_poison_registered_recovery(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp);entry = base/'entry.py';entry.write_text('pass')
+            python = str(base/'venv/python')
+            output = base/'result.json';o.save(output, dict(status='REAL_CPU_QUALIFICATION_PASS'))
+            recovery = base/'qualify_recovery_r1';recovery.mkdir()
+            o.save(base/'qualify/failure.json', dict(status='FAILED'))
+            config = recovery/'config.json'
+            spec = dict(receipt_dir=str(recovery), expected_completion=str(output), accepted_statuses=['REAL_CPU_QUALIFICATION_PASS'], slot=0)
+            cfg = dict(**spec, CUDA_VISIBLE_DEVICES='', threads=2, affinity=[16,17], cwd=str(base),
+                       command=[python,str(entry)],bindings={str(entry):o.sha(entry)})
+            o.save(config,cfg)
+            o.save(recovery/'completion.json',dict(status='COMPLETE',config_sha256=o.sha(config),completion_path=str(output),
+                                                  completion_sha256=o.sha(output),GPU_used=False,old_queues_modified=False))
+            self.assertEqual(o.wrapper_result(spec,config,python,base)['status'],'COMPLETE')
+            o.save(recovery/'failure.json',dict(status='FAILED'))
+            with self.assertRaisesRegex(ValueError, 'Registered stage failed'):
+                o.wrapper_result(spec,config,python,base)
+
+    def test_wrong_affinity_or_gpu_rejected(self):
+        spec = dict(slot=1)
+        with self.assertRaisesRegex(ValueError,'CPU-only'):
+            o.check_wrapper_config(dict(CUDA_VISIBLE_DEVICES='0',threads=2),spec,'python','.')
+        with self.assertRaisesRegex(ValueError,'affinity'):
+            o.check_wrapper_config(dict(CUDA_VISIBLE_DEVICES='',threads=2,affinity=[16,17]),spec,'python','.')
+
+    def test_venv_invocation_path_not_resolved_to_system_python(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base=Path(temp);entry=base/'entry.py';entry.write_text('pass')
+            python=base/'venv/bin/python';spec=dict(slot=0,receipt_dir=str(base),expected_completion=str(base/'done'),accepted_statuses=['COMPLETE'])
+            cfg=dict(**spec,CUDA_VISIBLE_DEVICES='',threads=2,affinity=[16,17],cwd=str(base),command=[str(python),str(entry)],bindings={str(entry):o.sha(entry)})
+            with patch.object(Path,'resolve',side_effect=AssertionError('Do not resolve interpreter')):
+                o.check_wrapper_config(cfg,spec,str(python),str(base))
+            cfg['command']=[str(python),'-B',str(entry),'--argument','value']
+            o.check_wrapper_config(cfg,spec,str(python),str(base))
+            cfg['command']=[str(python),'-c','print("wrong entry")']
+            with self.assertRaisesRegex(ValueError,'Only optional -B'):
+                o.check_wrapper_config(cfg,spec,str(python),str(base))
+
+    def test_wait_for_missing_external_config_never_launches_decode(self):
+        with tempfile.TemporaryDirectory() as temp:
+            owner=object.__new__(o.Owner);owner.cfg=dict(wait_limit_seconds=100,poll_seconds=.01)
+            owner.children={};owner.started=0;owner.check=lambda:None
+            statuses=[];owner.status=lambda phase,**kw:statuses.append(phase)
+            spec=dict(name='external',config=str(Path(temp)/'future.json'),receipt_dir=temp,adopted=True)
+            with patch.object(o.subprocess,'Popen',side_effect=AssertionError('No duplicate launch')),patch.object(o.time,'sleep',side_effect=KeyboardInterrupt()):
+                with self.assertRaises(KeyboardInterrupt):owner.wait_stages([spec])
+            self.assertIn('WAITING_FOR_EXTERNAL_STAGE_LAUNCH',statuses)
+
+    def test_wait_rejects_more_than_two_workers(self):
+        owner=object.__new__(o.Owner)
+        with self.assertRaisesRegex(ValueError,'At most two'):
+            owner.wait_stages([{}, {}, {}])
+
+    def test_wait_rejects_shared_cpu_pair(self):
+        owner=object.__new__(o.Owner)
+        with self.assertRaisesRegex(ValueError,'distinct CPU pairs'):
+            owner.wait_stages([dict(slot=0),dict(slot=0)])
+
+    def test_pending_publication_does_not_write_completion(self):
+        with tempfile.TemporaryDirectory() as temp:
+            owner=object.__new__(o.Owner);owner.out=Path(temp);owner.home=owner.out/'owner'
+            owner.cfg=dict(publication=None,publication_receipt=str(owner.out/'not-published.json'),poll_seconds=.01)
+            o.save(owner.out/'final/completion.json',dict(status='COMPLETE'))
+            statuses=[];owner.status=lambda phase,**kw:statuses.append(phase);owner.check=lambda:None
+            with patch.object(o.time,'sleep',side_effect=KeyboardInterrupt()):
+                with self.assertRaises(KeyboardInterrupt):owner.publication()
+            self.assertEqual(statuses,['WAITING_FOR_PUBLICATION'])
+            self.assertFalse((owner.home/'completion.json').exists())
+
+    def test_publication_guard_wait_is_a_successful_deferred_hook(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base=Path(temp);wait=base/'publication_wait.json';config=base/'adapter.json';done=base/'hook_completion.json'
+            o.save(wait,dict(status='WAITING_FOR_PUBLICATION',reason='Repository contains another pending publication'))
+            o.save(config,dict(kind='publication_hook',bindings={},completion=str(done),command=['publisher'],cwd=temp,
+                              status='PUBLICATION_HOOK_FINISHED',publication_receipt=str(base/'publication_completion.json'),
+                              publication_statuses=['PUBLISHED'],publication_wait=str(wait)))
+            with patch.dict(o.os.environ,{'CUDA_VISIBLE_DEVICES':''}),patch.object(o.subprocess,'run') as run:
+                o.run_adapter(config)
+            run.assert_called_once()
+            value=o.verify_receipt(done,['PUBLICATION_HOOK_FINISHED'])
+            self.assertEqual(value['publication_disposition'],'PUBLICATION_DEFERRED')
+            self.assertFalse((base/'publication_completion.json').exists())
+
+    def test_only_explicit_publish_wait_retries_nonmetered_hook(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base=Path(temp);wait=base/'publication_wait.json';config=base/'adapter.json';done=base/'hook_completion.json';published=base/'publication_completion.json'
+            o.save(wait,dict(status='WAITING_FOR_PUBLICATION',reason='Other publication active'))
+            o.save(config,dict(kind='publication_hook',bindings={},completion=str(done),command=['publisher'],cwd=temp,
+                              status='PUBLICATION_HOOK_FINISHED',publication_receipt=str(published),publication_statuses=['PUBLISHED'],
+                              publication_wait=str(wait),retry_wait=True,retry_wait_seconds=60))
+            calls=[]
+            def publish(*args,**kwargs):
+                calls.append(args)
+                if len(calls)==2:o.save(published,dict(status='PUBLISHED',outputs={}))
+            with patch.dict(o.os.environ,{'CUDA_VISIBLE_DEVICES':''}),patch.object(o.subprocess,'run',side_effect=publish),patch.object(o.time,'sleep') as sleep:
+                o.run_adapter(config)
+            self.assertEqual(len(calls),2);sleep.assert_called_once_with(60)
+            self.assertEqual(o.read(done)['publication_disposition'],'PUBLISHED')
+
+    def test_unknown_publish_error_is_never_retried(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base=Path(temp);config=base/'adapter.json';done=base/'hook_completion.json'
+            o.save(config,dict(kind='publication_hook',bindings={},completion=str(done),command=['publisher'],cwd=temp,
+                              publication_receipt=str(base/'publication_completion.json'),retry_wait=True,retry_wait_seconds=60))
+            with patch.dict(o.os.environ,{'CUDA_VISIBLE_DEVICES':''}),patch.object(o.subprocess,'run',side_effect=o.subprocess.CalledProcessError(1,['publisher'])) as run:
+                with self.assertRaises(o.subprocess.CalledProcessError):o.run_adapter(config)
+            run.assert_called_once();self.assertFalse(done.exists())
+
+
+if __name__=='__main__':
+    unittest.main()

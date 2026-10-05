@@ -1,0 +1,178 @@
+"""Calibration-blind finite R resources; never plan a substitute LDPC layout."""
+from __future__ import annotations
+import argparse
+import csv
+from fractions import Fraction
+import hashlib
+import json
+from pathlib import Path
+
+SIZES=(1,2,3,4,5,6,8,10,13,16)
+RATES=('1/3','1/2','2/3','3/4','5/6')
+MODULATIONS={'QPSK':2,'16QAM':4}
+FB_COSTS=(0,16,32,64)
+THRESHOLDS=(-5,0,4,7,10,13,19)
+NEW_SNRS=(-5,0,4,7,10,13,19)
+HEADER_KEY='uep-v1-profile12-crc16-tail6-conv-ratematch136-qpsk-Es2'
+VERSION='CONTENT_FEEDBACK_R_FINITE_RESOURCES_V1'
+
+
+def require(ok,message):
+    if not ok:raise ValueError(message)
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def identity(value):return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def write(p,value):
+    p=Path(p);p.parent.mkdir(parents=True,exist_ok=True)
+    require(not p.exists(),'Refuse replacing resource evidence: '+str(p))
+    p.write_text(json.dumps(value,indent=2,ensure_ascii=False,allow_nan=False)+'\n',encoding='utf-8')
+def write_csv(path,rows,fields=None):
+    path=Path(path);path.parent.mkdir(parents=True,exist_ok=True);require(not path.exists(),'Existing CSV is immutable: '+str(path))
+    fields=fields or list(dict.fromkeys(k for row in rows for k in row))
+    with path.open('w',newline='',encoding='utf-8') as stream:
+        writer=csv.DictWriter(stream,fieldnames=fields);writer.writeheader()
+        for row in rows:writer.writerow({k:json.dumps(v,separators=(',',':'),sort_keys=True) if isinstance(v,(list,dict)) else v for k,v in row.items()})
+def tokens(m):return sum(s*s for s in SIZES[:m])
+def symbols(bits,mod,rate):
+    r=Fraction(rate);n=((bits+16)*r.denominator+r.numerator-1)//r.numerator;q=MODULATIONS[mod]
+    return (n+q-1)//q
+def signature(bits,mod,body):return (int(bits),str(mod),int(body)*MODULATIONS[mod])
+def request_id(bits,mod,body):return identity(dict(source_bits=bits,modulation=mod,body_symbols=body,CRC16=True,header_symbols=68))
+
+
+def physical_index(bler):
+    """One exact source/modulation/transmitted-length identity; no curve scaling."""
+    index={}
+    for row in bler['rows']:
+        if row['kind']!='body':continue
+        c=row['physical_configuration'];q=MODULATIONS[c['modulation']]
+        key=(c['source_bits'],c['modulation'],c['transmitted_bits'])
+        require(c['transmitted_bits']%q==0,'Fractional physical symbols')
+        group=dict(phy_key=row['phy_key'],source_bits=c['source_bits'],information_bits=c['source_bits']+16,
+            crc_bits=16,tail_bits=0,modulation=c['modulation'],symbols=c['transmitted_bits']//q,
+            transmitted_bits=c['transmitted_bits'],layout=c['layout'],new_configuration=False)
+        if key in index:require(index[key]['phy_key']==group['phy_key'],'Multiple incompatible PHY identities; no implicit table reuse')
+        index[key]=group
+    return index
+
+
+def build_catalog(profiles,bler,quality,qualified_new=None):
+    require(len(profiles)==4041 and sum(p['G']==1 for p in profiles)==209,'Exact frozen complete candidate set required')
+    require(all(p['N']==1024 for p in profiles),'Only N1024 is registered')
+    qstates={r['state_id'] for r in quality['rows'] if r['receiver']in ('VAR','gray')}
+    index=physical_index(bler);proposals={};actions={};excluded=[]
+    for start,end in [(0,m) for m in (4,5,6)]+[(m,m+d) for m in range(4,10) for d in (1,2) if m+d<=10]:
+        state=f'm{end}_K0'
+        if state not in qstates:
+            excluded.append(dict(start_m=start,end_m=end,reason='MISSING_EXACT_WHOLE_STATE_Q'));continue
+        bits=12*(tokens(end)-tokens(start))
+        for mod in MODULATIONS:
+            for rate in RATES:
+                body=symbols(bits,mod,rate);duration=68+body
+                if duration>1024:continue
+                signature_key=signature(bits,mod,body);group=index.get(signature_key)
+                aid=identity(dict(start_m=start,end_m=end,physical=signature_key))
+                if aid in actions:actions[aid]['nominal_rate_aliases'].append(rate);continue
+                actions[aid]=dict(action_id=aid,start_m=start,end_m=end,start_token=tokens(start),stop_token=tokens(end),
+                    state_id=state,payload_bits=bits,modulation=mod,body_symbols=body,header_symbols=68,
+                    forward_symbols=duration,nominal_rate_aliases=[rate],group=None if group is None else dict(group,nominal_rate=rate,mcs_id=mod+':r'+rate),
+                    requested_group_id=None if group else request_id(bits,mod,body),requires_entropy_order=False)
+    # Lower-cost reachable histories, independent of Q and BLER, remove only
+    # actions impossible even with zero feedback and fastest nominal predecessors.
+    best={(0,0):0}
+    for count in range(3):
+        for (rounds,prefix),used in list(best.items()):
+            if rounds!=count:continue
+            for action in actions.values():
+                if action['start_m']!=prefix:continue
+                cost=used+action['forward_symbols']
+                if cost<=1024:
+                    k=(rounds+1,action['end_m']);best[k]=min(best.get(k,10**9),cost)
+    reachable=[]
+    for action in actions.values():
+        paths=[(r,used) for (r,m),used in best.items() if r<3 and m==action['start_m'] and used+action['forward_symbols']<=1024]
+        if not paths:excluded.append(dict(action_id=action['action_id'],reason='IMPOSSIBLE_PATH_EVEN_ZERO_FEEDBACK'));continue
+        action['minimum_prior_symbols']=min(used for _,used in paths)
+        reachable.append(action)
+        if action['group'] is None:
+            rid=action['requested_group_id'];proposals[rid]=dict(request_id=rid,source_bits=action['payload_bits'],modulation=action['modulation'],
+                body_symbols=action['body_symbols'],transmitted_bits=action['body_symbols']*MODULATIONS[action['modulation']],
+                nominal_rate_aliases=action['nominal_rate_aliases'],roles=['R_ARQ','R_AWARE'],qualification_status='PENDING_BACKEND_PLAN')
+    qcsi={};new_actions=[]
+    for feedback in FB_COSTS:
+        bodycap=956-feedback
+        oldids=[p['stable_id'] for p in profiles if p['used_body_symbols']<=bodycap]
+        qcsi[str(feedback)]=dict(feedback_symbols=feedback,body_cap=bodycap,old_profile_ids=oldids,new_action_ids=[],
+            old_single_count=sum(p['G']==1 and p['stable_id']in oldids for p in profiles),
+            old_grouped_count=sum(p['G']==2 and p['stable_id']in oldids for p in profiles))
+        if feedback==0:continue  # All full-budget whole points already belong to FIXED.
+        for m in range(4,9):
+            state=f'm{m}_K0'
+            if state not in qstates:continue
+            bits=12*tokens(m)
+            for mod in MODULATIONS:
+                rates=[rate for rate in RATES if symbols(bits,mod,rate)<=bodycap]
+                if not rates:continue
+                group=index.get(signature(bits,mod,bodycap));rid=request_id(bits,mod,bodycap)
+                aid=identity(dict(family='QCSI_paid_full_body',m=m,physical=signature(bits,mod,bodycap)))
+                new=dict(action_id=aid,feedback_symbols=feedback,start_m=0,end_m=m,start_token=0,stop_token=tokens(m),state_id=state,
+                    payload_bits=bits,modulation=mod,body_symbols=bodycap,header_symbols=68,forward_symbols=68+bodycap,
+                    nominal_rate_aliases=rates,group=None if group is None else dict(group,nominal_rate=rates[0],mcs_id=mod+':r'+rates[0]),
+                    requested_group_id=None if group else rid,requires_entropy_order=False)
+                new_actions.append(new);qcsi[str(feedback)]['new_action_ids'].append(aid)
+                if group is None:
+                    item=proposals.setdefault(rid,dict(request_id=rid,source_bits=bits,modulation=mod,body_symbols=bodycap,
+                        transmitted_bits=bodycap*MODULATIONS[mod],nominal_rate_aliases=rates,roles=[],qualification_status='PENDING_BACKEND_PLAN'))
+                    item['roles']=sorted(set(item['roles'])|{'R_QCSI'})
+    require(len(proposals)<=48,'Finite resource proposal exceeds new-configuration cap; register another set before selection')
+    known={};rejections={}
+    if qualified_new is not None:
+        require(qualified_new.get('complete') is True,'New configuration qualification must account for all requests')
+        for g in qualified_new.get('configs',[]):
+            rid=request_id(g['source_bits'],g['modulation'],g['symbols']);require(rid in proposals,'Unregistered new PHY')
+            require(g['information_bits']==g['source_bits']+16 and g['transmitted_bits']==g['symbols']*MODULATIONS[g['modulation']], 'New PHY accounting mismatch')
+            require(g['layout']['power_protocol']=='fixed_constellation_average_Es2' and g['layout']['code_blocks']==1,'Backend protocol changed')
+            require(g['layout']['k']==g['information_bits'] and g['layout']['n']==g['transmitted_bits'],'Backend silently changed requested length')
+            require(rid not in known,'Duplicate qualified request');known[rid]=dict(g,new_configuration=True)
+        for r in qualified_new.get('rejections',[]):
+            rid=r['request_id'];require(rid in proposals and r.get('reason'),'Unknown backend rejection');rejections[rid]=r
+        require(not set(known)&set(rejections) and set(known)|set(rejections)==set(proposals),'Qualification must account for every frozen request exactly once')
+    for action in reachable+new_actions:
+        rid=action['requested_group_id']
+        if rid in known:action['group']=known[rid]
+        action['status']='READY' if action['group'] else 'UNAVAILABLE_BACKEND_REJECTION' if rid in rejections else 'MISSING_PHY_QUALIFICATION'
+    for rid,item in proposals.items():
+        item['qualification_status']='READY' if rid in known else 'UNAVAILABLE_BACKEND_REJECTION' if rid in rejections else 'PENDING_BACKEND_PLAN'
+        if rid in known:item['group']=known[rid]
+        if rid in rejections:item['backend_rejection']=rejections[rid]
+    requests=list(sorted(proposals.values(),key=lambda r:r['request_id']))
+    return dict(version=VERSION,N=1024,header_symbols_per_forward=68,max_forward_rounds=3,max_feedback_rounds=2,
+        feedback_costs=list(FB_COSTS),source_scope='R first m4/m5/m6; append one or two whole scales; no partial R action',
+        retransmission='Same segment/config or more coded bits with no higher modulation order; no soft combining',
+        R_actions=sorted(reachable,key=lambda x:x['action_id']),QCSI=qcsi,QCSI_new_actions=new_actions,
+        new_physical_requests=requests,excluded_actions=excluded,
+        fixed_candidate_count=4041,fixed_single_count=209,fixed_grouped_count=3832,
+        qcsi_threshold_candidates_db=list(THRESHOLDS),qcsi_threshold_triplet_count=35,
+        planning=dict(snrs_db=list(NEW_SNRS),blocks_per_point=256,proposed_unique_new_configs=len(requests),
+            body_decodes_max=len(requests)*len(NEW_SNRS)*256,shared_planning_decode_cap=50000,
+            engineering_header_reserve=50000-len(requests)*len(NEW_SNRS)*256,
+            unsupported_backend_rule='Unavailable with exact backend error; no replacement length/rate and no substitute candidate added after Q inspection'),
+        scientific_scope='Optimal only within this finite registered protocol class, not general feedback or paid-CSI optimum',
+        source_quality_used_to_generate_resources=False,development_read=False,physical_decodes_started=False)
+
+
+if __name__=='__main__':
+    ap=argparse.ArgumentParser();ap.add_argument('--snapshot',required=True);ap.add_argument('--out',required=True);ap.add_argument('--qualified-new')
+    a=ap.parse_args();s=Path(a.snapshot)
+    result=build_catalog(read(s/'candidate_profiles_N1024.json'),read(s/'bler.json'),read(s/'quality_bundle.json'),None if not a.qualified_new else read(a.qualified_new))
+    write(Path(a.out)/'resource_catalog.json',result)
+    write(Path(a.out)/'new_physical_requests.json',dict(status='UNQUALIFIED_RESOURCE_REQUESTS',requires_actual_backend_qualification=True,
+        configs=result['new_physical_requests'],snrs_db=list(NEW_SNRS),blocks_per_point=256))
+    write_csv(Path(a.out)/'missing_phy_configurations.csv',[dict(request_id=x['request_id'],source_bits=x['source_bits'],modulation=x['modulation'],
+        body_symbols=x['body_symbols'],transmitted_bits=x['transmitted_bits'],roles=x['roles'],qualification_status=x['qualification_status'],
+        phy_key=x.get('group',{}).get('phy_key'),backend_rejection=x.get('backend_rejection',{})) for x in result['new_physical_requests']])
+    write_csv(Path(a.out)/'resource_action_coverage.csv',[dict(action_id=x['action_id'],start_m=x['start_m'],end_m=x['end_m'],payload_bits=x['payload_bits'],
+        modulation=x['modulation'],body_symbols=x['body_symbols'],forward_symbols=x['forward_symbols'],status=x['status'],
+        minimum_prior_symbols=x.get('minimum_prior_symbols'),phy_key=(x.get('group') or {}).get('phy_key'),family='R_ARQ_AWARE' if 'minimum_prior_symbols'in x else 'R_QCSI')
+        for x in result['R_actions']+result['QCSI_new_actions']])
+    print(json.dumps(dict(R_actions=len(result['R_actions']),new_configs=len(result['new_physical_requests']),planning=result['planning'])))

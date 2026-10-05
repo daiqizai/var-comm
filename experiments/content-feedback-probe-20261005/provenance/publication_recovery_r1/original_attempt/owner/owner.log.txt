@@ -1,0 +1,14 @@
+Traceback (most recent call last):
+  File "/home/liulu/projects/VAR_COMM/outputs/CONTENT-FEEDBACK-PROBE-20261005/code/content_feedback_owner.py", line 523, in <module>
+    main()
+  File "/home/liulu/projects/VAR_COMM/outputs/CONTENT-FEEDBACK-PROBE-20261005/code/content_feedback_owner.py", line 519, in main
+    Owner(args.config).run()
+  File "/home/liulu/projects/VAR_COMM/outputs/CONTENT-FEEDBACK-PROBE-20261005/code/content_feedback_owner.py", line 491, in run
+    self.publication()
+  File "/home/liulu/projects/VAR_COMM/outputs/CONTENT-FEEDBACK-PROBE-20261005/code/content_feedback_owner.py", line 398, in publication
+    self.wait_stages([spec])
+  File "/home/liulu/projects/VAR_COMM/outputs/CONTENT-FEEDBACK-PROBE-20261005/code/content_feedback_owner.py", line 332, in wait_stages
+    require(not (Path(spec['receipt_dir']) / 'failure.json').exists(), 'Registered stage failed: ' + name)
+  File "/home/liulu/projects/VAR_COMM/outputs/CONTENT-FEEDBACK-PROBE-20261005/code/content_feedback_owner.py", line 27, in require
+    raise ValueError(message)
+ValueError: Registered stage failed: publication

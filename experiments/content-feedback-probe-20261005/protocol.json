@@ -1,0 +1,251 @@
+{
+  "schema": "CONTENT_FEEDBACK_PROBE_20261005_V1",
+  "status": "FROZEN_BEFORE_NEW_SELECTION",
+  "baseline_commit": "9f79c23fc5ddc0033f31a556ce6c07c95b64528e",
+  "user_plan_sha256": "fbdeaeae9f77e88b6b62a6d996d85e2a1483266a2e165039d12409d25e65ea35",
+  "N": 1024,
+  "average_snrs_db": [
+    4,
+    7,
+    10,
+    13
+  ],
+  "metric": "dinov2_vitl14_cosine",
+  "channel": {
+    "distribution": "Rayleigh_CN0_1",
+    "same_h_all_headers_bodies_rounds": true,
+    "mean_Es": 2,
+    "forward_noise": "independent slot/round counters, common across methods",
+    "TX_observations": "source plus mean SNR and actual ACK/NACK history; QCSI sees paid 2bit bin only",
+    "RX_CSI": "perfect h and N0 shared theoretical assumption",
+    "near_zero_h": "matched-channel float64 distance LLR; h=0 yields zero LLR; no fade clipping",
+    "feedback_reliable": true
+  },
+  "visual": {
+    "resolution": [
+      256,
+      256
+    ],
+    "encoder_VQ_VAR_Dc": "original frozen asset identities",
+    "class_condition": 1000,
+    "generation": "unconditional_class1000_greedy_argmax_no_CFG_no_sampling",
+    "source_bits_per_token": 12,
+    "new_visual_model_jobs": 0,
+    "training_updates": 0
+  },
+  "probability_model": {
+    "conditional_packet_independence_given_same_h": true,
+    "interpolation": "linear_in_snr_db_with_constant_endpoint_tails",
+    "numerical_integration": "Gauss_Legendre32_per_measured_interval_and_CSI_boundary; 16-vs32 numerical diagnostic only",
+    "undetected_quality_point": 0,
+    "undetected_quality_bounds": [
+      -1,
+      1
+    ],
+    "signed_quality_increments": true,
+    "exact_PHY_layout_matching": true,
+    "iid_scrambled_payload_applicability": "working assumption retained; actual source payload probe separately checks it",
+    "old_continuous_simplex_gate_used": false,
+    "missing_Q_imputation": false
+  },
+  "seeds": {
+    "source_sort": 2026100501,
+    "planning": 2026100502,
+    "verification": 2026100503,
+    "bootstrap": 2026100504
+  },
+  "C": {
+    "candidate_count": 4041,
+    "calibration_sources": 1000,
+    "construction_sources": 800,
+    "internal_verification_sources": 200,
+    "source_split": "SHA256(JSON compact [C/SOURCE_SPLIT,2026100501,source_id]); first800 construction",
+    "full_reference": "per-image own source Q, all4041, no instantaneous h",
+    "dictionary_size": 8,
+    "construction": "greedy marginal average max gain; no strictly positive gain => stop",
+    "tie": "actual_used_symbols,G,m,K,j,MCS_tuple,stable_id",
+    "uniform_scope": "all4041 selected on same800 for formal comparison; all1000 descriptive separately",
+    "near_zero_retention_denominator": 1e-06,
+    "outage_thresholds": [
+      0.3,
+      0.5,
+      0.7
+    ],
+    "gates": {
+      "full_gain": 0.02,
+      "minimum_snrs": 2,
+      "dictionary_retention": 0.7
+    }
+  },
+  "R": {
+    "max_forward_rounds": 3,
+    "max_feedback_rounds": 2,
+    "header_symbols_per_round": 68,
+    "header_bits": 12,
+    "header_protocol": "actual CRC16+tail6 convolutional 136coded_bits QPSK public config/node ID",
+    "body_protocol": "actual pinned Sionna LDPC RV0 plus CRC16; no soft combining",
+    "first_m": [
+      4,
+      5,
+      6
+    ],
+    "append_scales": [
+      1,
+      2
+    ],
+    "modulation": [
+      "QPSK",
+      "16QAM"
+    ],
+    "nominal_rates": [
+      "1/3",
+      "1/2",
+      "2/3",
+      "3/4",
+      "5/6"
+    ],
+    "feedback_cost_main": 32,
+    "feedback_costs": [
+      0,
+      16,
+      32,
+      64
+    ],
+    "zero_cost_diagnostic_only": true,
+    "qcsi_threshold_pool_db": [
+      -5,
+      0,
+      4,
+      7,
+      10,
+      13,
+      19
+    ],
+    "qcsi_threshold_triplets": 35,
+    "qcsi_candidates": "all resource-feasible original4041 profiles plus preregistered complete m4-m8 paid-fullbody layouts",
+    "initial_quality_population": "all1000 calibration mean; no per-image selection",
+    "no_feedback_reference": "all4041 strongest fixed single and grouped",
+    "path_budget": "sum(68+body_symbols)+feedback_count*cost<=1024 on every possible history",
+    "stop_allowed": true,
+    "receiver_rule": "consecutive CRC accepted prefix; actual wrong ACK retained",
+    "gates": {
+      "model_gain": 0.02,
+      "minimum_snrs": 2,
+      "real_gain": 0.02,
+      "real_paired_lower_strictly_positive": true
+    }
+  },
+  "V": {
+    "internal_sources": 64,
+    "sources": "first64 of same hash-ordered internal200",
+    "repetitions_per_source_snr": 16,
+    "max_distinct_policies_per_snr": 6,
+    "primary_cost": 32,
+    "bootstrap_repeats": 5000,
+    "bootstrap_unit": "source average of16 channel draws",
+    "counter_namespace": "CONTENT_FEEDBACK_20261005_V1",
+    "development_used": false,
+    "freeze_before_verification": true,
+    "policy_refinement_from_verification": false,
+    "unknown_received_states": "score missing and DINO[-1,1] contribution; never silently clean-prefix mapped",
+    "missing_entropy_orders": "affected partial-source policies MISSING_ASSET, no raster/random replacement",
+    "near_tied_fixed_baselines": "retain both fixed single/grouped when resource allows; never weaken selected baseline"
+  },
+  "resources": {
+    "max_workers": 2,
+    "threads_per_worker": 2,
+    "CPU_affinities": [
+      [
+        16,
+        17
+      ],
+      [
+        22,
+        23
+      ]
+    ],
+    "nice": 15,
+    "observed_available_cpus": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31
+    ],
+    "observed_core_type": "distinct E cores from lscpu",
+    "observed_2s_cpu_utilization_percent": {
+      "16": 6.0,
+      "17": 4.5,
+      "22": 2.5,
+      "23": 3.5
+    },
+    "A2_reserved_cpus": [
+      24,
+      25,
+      26,
+      27
+    ],
+    "CUDA_VISIBLE_DEVICES": "",
+    "new_GPU_jobs": 0,
+    "old_queue_changes": 0
+  },
+  "budgets": {
+    "total_decodes": 250000,
+    "planning_decodes": 50000,
+    "verification_decodes": 200000,
+    "new_phy_configs": 48
+  },
+  "planning": {
+    "new_table_snr_db": [
+      -5,
+      0,
+      4,
+      7,
+      10,
+      13,
+      19
+    ],
+    "blocks_per_point": 256,
+    "proposed_new_configs_max": 23,
+    "proposed_table_decodes_max": 41216,
+    "qualification": "headers0,1,2048,4095; each admitted new layout plus1existing layout zero/random body roundtrips",
+    "backend_refusal": "retain unavailable layout; no substitution or extra candidate expansion"
+  },
+  "stopping": {
+    "frozen_caps": true,
+    "deliver_negative_or_uncertain": true,
+    "automatically_expand": false,
+    "old_F1_status": "UNCERTAIN preserved",
+    "old_UEP_N2048": "not restarted",
+    "GPU_next_step": "recommend one only, never automatic",
+    "C_R_joint": false,
+    "A1_A2": "retain original independent queues"
+  }
+}

@@ -1,0 +1,510 @@
+"""C branch: calibration-only fixed-budget content selection under a point model.
+
+No channel simulation, GPU, neural model, development, feedback policy, or old
+queue is invoked. Numerical integration accuracy is not PHY-model accuracy.
+Categorical C/R/U state algebra follows the frozen F1 implementation, copied
+here without its former scope, resource policy, or strict-envelope gate.
+"""
+from __future__ import annotations
+import os
+for _name in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
+    os.environ[_name] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = ""
+import argparse
+from collections import Counter, defaultdict
+import csv
+import hashlib
+import json
+import math
+from pathlib import Path
+import time
+import numpy as np
+
+VERSION = "CONTENT-SELECTION-C-V1"
+METRIC = "dinov2_vitl14_cosine"
+SNRS = (4, 7, 10, 13)
+THRESHOLDS = (.3, .5, .7)
+AUXILIARY = ("psnr_db","lpips_alex","dino_cosine","clip_image_cosine","dists","dreamsim","ms_ssim",
+             "resnet50_top1_label","resnet50_top1_source_prediction","resnet50_source_top1_label","semantic_error")
+SPLIT_SEED = 2026100501
+SPLIT_NAMESPACE = "C/SOURCE_SPLIT"
+EPS_RETENTION = 1e-6
+STATES = ("gray", "prefix", "full", "U")
+PROTOCOL = dict(version=VERSION, N=1024, candidate_count=4041, calibration_sources=1000,
+    construction_sources=800, internal_verification_sources=200, physical_verification_sources=64,
+    source_split_namespace=SPLIT_NAMESPACE, source_split_seed=SPLIT_SEED,
+    hash_serialization='UTF8 json.dumps([namespace, seed, source_id], ensure_ascii=False, separators=(",",":"))',
+    average_snrs_db=list(SNRS), metric=METRIC, maximum_dictionary_size=8,
+    point_probability_model="linear_in_snr_db_with_constant_endpoint_tails",
+    integration="per_interval_Gauss_Legendre_32_with_16_node_diagnostic_exact_constant_tails",
+    integration_difference_tolerance=1e-10, numerical_tolerance_is_physical_error_bound=False,
+    undetected_point_quality=0., undetected_quality_range=[-1.,1.], outage_thresholds=list(THRESHOLDS),
+    outage_rule="per_source_and_state_Q_strictly_below_threshold_then_probability_average",
+    tie_rule="used_forward_symbols,G,m,K,j,MCS_tuple,stable_id_ascending",
+    no_positive_dictionary_gain="stop_at_gain_less_than_or_equal_to_zero",
+    retention_denominator_tolerance=EPS_RETENTION, header_profile_bits=12, header_symbols=68,
+    codebook_order="unique_wire_key_ascending", class_condition=1000,
+    receiver="consecutive_crc_accepted_prefix_v1", generation="frozen_VAR_argmax_Dc",
+    no_negative_Q_increment_clipping=True, shared_h_across_header_and_groups=True,
+    sender_CSI="average_only", receiver_CSI="perfect_h_and_N0", average_Es=2,
+    development_read=False, holdout_read=False, independent_ConvNeXt_used_for_selection=False,
+    training_updates=0, neural_inference_calls=0, physical_decodes=0,
+    gate=dict(full_gain=.02, retention=.70, minimum_same_passing_snrs=2, action="CPU_probe_priority_only"))
+
+
+def require(ok, message):
+    if not ok: raise ValueError(message)
+
+
+def canonical(value):
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",",":"), allow_nan=False)
+
+
+def sha(path):
+    h=hashlib.sha256()
+    with Path(path).open("rb") as f:
+        for chunk in iter(lambda:f.read(1024*1024),b""):h.update(chunk)
+    return h.hexdigest()
+
+
+def read(path):return json.loads(Path(path).read_text(encoding="utf-8-sig"))
+
+
+def save(path, value):
+    path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
+    if path.exists():require(read(path)==value,"Refuse changing frozen output: "+str(path));return
+    tmp=path.with_name(path.name+".tmp")
+    tmp.write_text(json.dumps(value,ensure_ascii=False,indent=2,allow_nan=False)+"\n",encoding="utf-8",newline="\n")
+    os.replace(tmp,path)
+
+
+def csv_save(path, rows):
+    path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
+    require(bool(rows),"Refuse empty CSV without schema")
+    keys=list(dict.fromkeys(k for row in rows for k in row))
+    tmp=path.with_name(path.name+".tmp")
+    with tmp.open("w",encoding="utf-8",newline="") as f:
+        writer=csv.DictWriter(f,keys,lineterminator="\n");writer.writeheader()
+        writer.writerows({k:canonical(v) if isinstance(v,(dict,list,tuple)) else v for k,v in row.items()} for row in rows)
+    if path.exists():require(path.read_bytes()==tmp.read_bytes(),"Frozen CSV changed: "+str(path));tmp.unlink()
+    else:os.replace(tmp,path)
+
+
+def load_snapshot(snapshot):
+    path=Path(snapshot).resolve()
+    if path.is_dir():
+        names=[path/"INPUT_MANIFEST.json",path/"snapshot_manifest.json"]
+        path=next((p for p in names if p.is_file()),names[0])
+    manifest=read(path);entries=manifest["entries"]
+    required=("candidate_profiles_N1024.json","quality_bundle.json","quality_registration.json","bler.json")
+    assets={};bindings={str(path):sha(path)}
+    names=(*required, *(("quality_per_source.csv",) if "quality_per_source.csv" in entries else ()))
+    for name in names:
+        require(name in entries,"MISSING_ASSET: "+name)
+        entry=entries[name];candidate=path.parent/name
+        if not candidate.is_file():candidate=Path(entry["path"])
+        if not candidate.is_absolute():candidate=path.parent/candidate
+        require(candidate.is_file(),"MISSING_ASSET: "+str(candidate))
+        require(sha(candidate)==entry["sha256"],"INCOMPATIBLE: frozen asset SHA changed: "+name)
+        if "bytes" in entry:require(candidate.stat().st_size==entry["bytes"],"Frozen asset length changed")
+        assets[name]=candidate;bindings[str(candidate)]=entry["sha256"]
+    # Only four calibration/PHY assets are opened. Any F0 development diagnostics
+    # that happen to be listed in the outer manifest are never opened here.
+    values={name:read(p) for name,p in assets.items() if name.endswith(".json")}
+    registration=values["quality_registration.json"];quality=values["quality_bundle.json"]
+    require(registration["population"]=="calibration" and registration["label_conditioned"] is False
+            and registration["development_read"] is False and registration["training_updates"]==0,
+            "INCOMPATIBLE: quality registration is not frozen unconditional calibration")
+    require(registration["metric"]==METRIC and registration["source_count"]==1000,"Wrong registered source Q metric/population")
+    require(quality["registration_sha256"]==sha(assets["quality_registration.json"]),"Source Q registration binding changed")
+    require(registration["source_ids"]==quality["source_ids"],"Source Q registered source order differs")
+    if "quality_per_source.csv" in assets:
+        require(quality["table_sha256"]==sha(assets["quality_per_source.csv"]),"Full metric CSV differs from source Q bound table")
+        values["auxiliary_csv_path"]=assets["quality_per_source.csv"]
+    return values, bindings, dict(manifest_path=str(path),manifest_sha256=sha(path),entries={n:entries[n] for n in names},
+                                 visual_registration_sha256=sha(assets["quality_registration.json"]))
+
+
+def source_split(ids, construction=800, verification=200, probe=64):
+    require(len(ids)==len(set(ids))==construction+verification,"Unique complete calibration source population required")
+    def digest(source):
+        return hashlib.sha256(json.dumps([SPLIT_NAMESPACE,SPLIT_SEED,source],ensure_ascii=False,separators=(",",":")).encode()).hexdigest()
+    ordered=sorted(ids,key=lambda source:(digest(source),source))
+    return dict(status="FROZEN_SOURCE_ID_ONLY_SPLIT",seed=SPLIT_SEED,namespace=SPLIT_NAMESPACE,
+        hash_serialization=PROTOCOL["hash_serialization"],ordered_source_ids=ordered,
+        source_hashes={source:digest(source) for source in ordered},
+        construction_source_ids=ordered[:construction],verification_source_ids=ordered[construction:],
+        probe_source_ids=ordered[construction:construction+probe],internal_verification_is_holdout=False,
+        quality_used_for_split=False,development_read=False)
+
+
+def resource_key(profile):
+    return (profile["header_symbols"]+profile["used_body_symbols"],profile["G"],profile["m"],profile["K"],
+            -1 if profile["j"] is None else profile["j"],
+            tuple((g["modulation"],g["nominal_rate"],g["symbols"],g["phy_key"]) for g in profile["groups"]),profile["stable_id"])
+
+
+def validate_profiles(profiles, count=4041):
+    require(len(profiles)==count and len({p["stable_id"] for p in profiles})==count,"Complete fixed candidate list required")
+    for p in profiles:
+        require(p["N"]==1024 and p["G"] in (1,2) and p["encoder_qualified"] is True,"Candidate budget or encoder qualification differs")
+        require(p["header_symbols"]==68 and p["header_information_bits"]==12 and len(p["groups"])==p["G"],"Paid header/group layout differs")
+        require(p["header_symbols"]+p["used_body_symbols"]+p["idle_symbols"]==1024,"Per-image resource ledger does not close")
+        require(p["order"]=="entropy" and p["receiver_rule"]==PROTOCOL["receiver"],"Receiver/order differs")
+        require((p["G"]==2)==bool(p.get("prefix_state_id")),"Intermediate state mismatch")
+        require(sum(g["symbols"] for g in p["groups"])==p["used_body_symbols"],"Body resource ledger differs")
+        for g in p["groups"]:
+            require(g["source_bits"]+16==g["information_bits"] and g["layout"]["power_protocol"]=="fixed_constellation_average_Es2",
+                    "Body CRC/power definition differs")
+    require({p["G"] for p in profiles}=={1,2},"Both SINGLE and GROUPED must remain in the search")
+    return sorted(profiles,key=resource_key)
+
+
+def codebook(profiles):
+    wires=defaultdict(list)
+    for p in profiles:wires[p["wire_key"]].append(p)
+    require(len(wires)<=4096,"INCOMPATIBLE: public profile dictionary exceeds paid12-bit ID")
+    entries=[];mapping={}
+    for number,(wire,aliases) in enumerate(sorted(wires.items())):
+        p=min(aliases,key=resource_key)
+        fields=("N","G","m","K","j","header_phy_key","header_symbols","used_body_symbols","idle_symbols",
+                "full_state_id","prefix_state_id","order","receiver_rule")
+        descriptor={k:p[k] for k in fields}
+        descriptor["groups"]=[{k:g[k] for k in ("phy_key","source_bits","information_bits","transmitted_bits","symbols","modulation","nominal_rate")} for g in p["groups"]]
+        # A wire alias must describe the same receiver states and actual blocks.
+        for alias in aliases:
+            require(all(alias[k]==p[k] for k in fields),"Identical wire has conflicting receive semantics")
+            require([g["phy_key"] for g in alias["groups"]]==[g["phy_key"] for g in p["groups"]],"Identical wire has conflicting body PHY")
+        ids=sorted(a["stable_id"] for a in aliases)
+        entries.append(dict(profile_id=number,wire_key=wire,canonical_stable_id=p["stable_id"],stable_id_aliases=ids,**descriptor))
+        mapping.update({sid:number for sid in ids})
+    return dict(status="PUBLIC_CODEBOOK_FROZEN_CAPACITY_ONLY",profile_bits=12,header_symbols=68,entries=entries,
+                stable_id_to_profile_id=mapping,actual_header_roundtrip="NOT_RUN_IN_C_MODEL",
+                receiver_uses_source_id=False,receiver_uses_label=False)
+
+
+class Quality:
+    def __init__(self,bundle,profiles,expected_sources=1000):
+        require(bundle["population"]=="calibration" and bundle["development_read"] is False and bundle["synthetic"] is False,
+                "Only real calibration source quality is admitted")
+        self.ids=bundle["source_ids"];require(len(self.ids)==len(set(self.ids))==expected_sources,"Wrong source Q population")
+        index={source:i for i,source in enumerate(self.ids)}
+        self.states={"gray"}|{p["full_state_id"] for p in profiles}|{p["prefix_state_id"] for p in profiles if p["G"]==2}
+        self.values={state:np.full(expected_sources,np.nan) for state in self.states};self.other={};self.metric_keys=set()
+        for row in bundle["rows"]:
+            if row["receiver"] not in ("VAR","gray"):continue
+            require(row["source_id"] in index and row.get("label_conditioned",False) is False,"Wrong or class-conditioned Q source")
+            state=row["state_id"]
+            if state not in self.states:continue
+            require((state=="gray")== (row["receiver"]=="gray"),"Wrong receiver for quality state")
+            i=index[row["source_id"]];require(np.isnan(self.values[state][i]),"Duplicate per-source quality")
+            value=float(row[METRIC]);require(math.isfinite(value) and -1<=value<=1,"Invalid DINO-L cosine")
+            self.values[state][i]=value
+            for metric in AUXILIARY:
+                if metric in row and row[metric] not in (None,""):
+                    self.metric_keys.add(metric)
+                    array=self.other.setdefault(metric,{}).setdefault(state,np.full(expected_sources,np.nan));array[i]=float(row[metric])
+        require(all(np.isfinite(v).all() for v in self.values.values()),"MISSING_ASSET: do not impute missing source-state Q")
+        self.other_complete={metric:values for metric,values in self.other.items() if set(values)==self.states and all(np.isfinite(v).all() for v in values.values())}
+
+    def load_auxiliary_csv(self,path):
+        """Stream original metrics, cross-check DINO-L, never substitute direct Q."""
+        indices={source:i for i,source in enumerate(self.ids)};seen=set()
+        with Path(path).open(encoding="utf-8-sig",newline="") as stream:
+            reader=csv.DictReader(stream)
+            available=[metric for metric in AUXILIARY if metric in reader.fieldnames]
+            arrays={metric:{state:np.full(len(self.ids),np.nan) for state in self.states} for metric in available}
+            for row in reader:
+                if row["receiver"] not in ("VAR","gray") or row["state_id"] not in self.states:continue
+                source,state=row["source_id"],row["state_id"]
+                require(source in indices and (source,state) not in seen,"Duplicate/unknown auxiliary source-state")
+                seen.add((source,state));i=indices[source]
+                require(row["population"]=="calibration" and row["label_conditioned"] in ("False","false","0"),"Auxiliary metric population/conditioning differs")
+                generation="constant_RGB_0.5" if state=="gray" else "unconditional_class1000_greedy_argmax_no_CFG_no_sampling"
+                require(row["generation"]==generation and (state=="gray")== (row["receiver"]=="gray"),"Auxiliary metric generation/receiver differs")
+                require(abs(float(row[METRIC])-self.values[state][i])<1e-12,"Auxiliary CSV primary quality differs from frozen bundle")
+                for metric in available:
+                    raw=row[metric]
+                    if raw in ("",None):continue
+                    value=float(raw.lower()=="true") if raw.lower() in ("true","false") else float(raw)
+                    if math.isfinite(value):arrays[metric][state][i]=value
+        require(len(seen)==len(self.ids)*len(self.states),"Missing original auxiliary source-state coverage")
+        self.other=arrays;self.metric_keys=set(available)
+        self.other_complete={metric:values for metric,values in arrays.items() if all(np.isfinite(v).all() for v in values.values())}
+
+    def matrices(self,profiles,metric=None):
+        values=self.values if metric is None else self.other_complete[metric]
+        return (np.broadcast_to(values["gray"][:,None],(len(self.ids),len(profiles))),
+                np.stack([values[p.get("prefix_state_id") or "gray"] for p in profiles],axis=1),
+                np.stack([values[p["full_state_id"]] for p in profiles],axis=1))
+
+
+class Curves:
+    def __init__(self,bundle):
+        require(bundle["synthetic"] is False and bundle["conditional_group_independence"] is True,"Real conditional C/R/U probabilities required")
+        points=defaultdict(list);seen=set()
+        for row in bundle["rows"]:
+            key,snr=row["phy_key"],float(row["snr_db"])
+            require((key,snr) not in seen and row.get("source_id","*")=="*","Duplicate/source-specific physical curve unsupported")
+            seen.add((key,snr));counts=[row[k] for k in ("n_correct","n_reject","n_undetected")];n=row["n_blocks"]
+            require(type(n)is int and n>0 and all(type(c)is int and c>=0 for c in counts) and sum(counts)==n,"Invalid C/R/U counts")
+            require(row["applicability"] in ("iid_scrambled_payload_approximation","source_independent_verified"),"Unregistered PHY applicability")
+            probs=np.asarray(counts,dtype=np.float64)/n
+            require(all(abs(float(row[k])-p)<1e-12 for k,p in zip(("p_correct","p_reject","p_undetected"),probs)),"Probability/count mismatch")
+            points[key].append((snr,probs))
+        self.curves={key:(np.asarray([r[0] for r in sorted(rows)]),np.stack([r[1] for r in sorted(rows)])) for key,rows in points.items()}
+        self.knots=sorted({float(s) for x,_ in self.curves.values() for s in x})
+        require(len(self.knots)>=2,"Need at least two physical SNR points")
+
+    def at(self,key,x):
+        require(key in self.curves,"MISSING_ASSET: exact PHY key "+key)
+        locations,probabilities=self.curves[key]
+        return np.stack([np.interp(x,locations,probabilities[:,k]) for k in range(3)],axis=-1)
+
+
+def state_weights(header,first,second=None):
+    hc,hr,hu=np.asarray(header).T;ac,ar,au=np.asarray(first).T
+    gray=hr+hc*ar
+    if second is None:return np.stack((gray,np.zeros_like(gray),hc*ac,hu+hc*au),axis=-1)
+    bc,br,bu=np.asarray(second).T
+    return np.stack((gray,hc*ac*br,hc*ac*bc,hu+hc*au+hc*ac*bu),axis=-1)
+
+
+def quadrature(knots,mean_db,nodes):
+    z,w=np.polynomial.legendre.leggauss(nodes);x=[];mass=[]
+    for low,high in zip(knots,knots[1:]):
+        locations=(high+low)/2+(high-low)/2*z
+        ratio=10**((locations-mean_db)/10)
+        density=math.log(10)/10*ratio*np.exp(-ratio)
+        x.extend(locations);mass.extend(w*(high-low)/2*density)
+    below=-math.expm1(-10**((knots[0]-mean_db)/10));above=math.exp(-10**((knots[-1]-mean_db)/10))
+    x=[knots[0],*x,knots[-1]];mass=[below,*mass,above]
+    require(abs(sum(mass)-1)<1e-11,"Quadrature lost Rayleigh probability mass")
+    return np.asarray(x),np.asarray(mass),dict(below_min=below,above_max=above,min_snr_db=knots[0],max_snr_db=knots[-1])
+
+
+def integrate_profiles(curves,profiles,mean_db,nodes=32):
+    x,mass,tails=quadrature(curves.knots,mean_db,nodes)
+    required={p["header_phy_key"] for p in profiles}|{g["phy_key"] for p in profiles for g in p["groups"]}
+    cache={key:curves.at(key,x) for key in required};rows=[]
+    for p in profiles:
+        keys=[p["header_phy_key"],*[g["phy_key"] for g in p["groups"]]]
+        conditional=state_weights(cache[keys[0]],cache[keys[1]],cache[keys[2]] if len(keys)==3 else None)
+        require(np.allclose(conditional.sum(1),1,atol=1e-12,rtol=0),"Conditional state probability mass invalid")
+        rows.append(mass@conditional)
+    result=np.stack(rows)
+    require(np.allclose(result.sum(1),1,atol=1e-11,rtol=0),"Integrated probability mass invalid")
+    return result,tails
+
+
+def expected_quality(matrices,weights,U=0.):
+    # Signed state values are retained. In the U=0 no-undetected special case,
+    # this equals Qgray + (Qprefix-Qgray)R1 + (Qfull-Qprefix)R2.
+    gray,prefix,full=matrices
+    return gray*weights[None,:,0]+prefix*weights[None,:,1]+full*weights[None,:,2]+float(U)*weights[None,:,3]
+
+
+def choose_dictionary(scores,profiles,construction,maximum=8):
+    values=np.asarray(scores)[np.asarray(construction)]
+    require(values.ndim==2 and values.shape[1]==len(profiles) and np.isfinite(values).all(),"Finite complete construction scores required")
+    # Profiles arrive in the fixed tie order; argmax picks its first equal max.
+    uniform=int(np.argmax(values.mean(0)));selected=[uniform];current=values[:,uniform].copy();steps=[]
+    while len(selected)<maximum:
+        used={profiles[i]["wire_key"] for i in selected}
+        gains=np.maximum(values-current[:,None],0).mean(0)
+        for i,p in enumerate(profiles):
+            if p["wire_key"] in used:gains[i]=-math.inf
+        candidate=int(np.argmax(gains));gain=float(gains[candidate])
+        if gain<=0:break
+        selected.append(candidate);current=np.maximum(current,values[:,candidate])
+        steps.append(dict(added_stable_id=profiles[candidate]["stable_id"],construction_gain=gain,construction_mean=float(current.mean())))
+    return uniform,selected,steps
+
+
+def choose_rows(scores,indices):
+    # Tie order is global resource order, independent of greedy insertion order.
+    indices=np.asarray(sorted(indices),dtype=np.int64)
+    return indices[np.argmax(scores[:,indices],axis=1)]
+
+
+def descriptive(values):
+    a=np.asarray(values,dtype=np.float64)
+    return dict(mean=float(a.mean()),minimum=float(a.min()),p05=float(np.quantile(a,.05)),median=float(np.median(a)),
+                p95=float(np.quantile(a,.95)),maximum=float(a.max()),positive_fraction=float(np.mean(a>0)),negative_fraction=float(np.mean(a<0)))
+
+
+def retention(gain_small,gain_full):
+    return None if abs(gain_full)<=EPS_RETENTION else float(gain_small/gain_full)
+
+
+def outage(matrices,weights,choice,threshold):
+    ix=np.arange(len(choice));known=sum((matrix[ix,choice]<threshold)*weights[choice,k] for k,matrix in enumerate(matrices))
+    bad=weights[choice,3]
+    return known+float(0<threshold)*bad,known,known+bad
+
+
+def costs(profiles,indices,method,snr):
+    chosen=[profiles[i] for i in indices];states={p["full_state_id"] for p in chosen}
+    states.update(p["prefix_state_id"] for p in chosen if p["G"]==2)
+    return dict(average_snr_db=snr,method=method,candidate_configurations=len(chosen),distinct_non_gray_states=len(states),
+        states=sorted(states),VAR_completions_per_new_source_without_state_cache=len(states),
+        reconstruction_DINO_embeddings_per_new_source=len(states),source_DINO_embeddings_per_new_source=1,
+        gray_embedding_reusable_across_sources=True,existing_Q_cache_hit_rate=1.,neural_calls_this_C_run=0,
+        online_latency="NOT_MEASURED",cpu_cache_lookup_time_is_deployment_latency=False,
+        order="entropy; sender must generate relevant next-scale predictions; not free")
+
+
+def evaluate(profiles,quality_bundle,bler_bundle,*,synthetic=False,auxiliary_csv=None):
+    profiles=validate_profiles(profiles,count=len(profiles) if synthetic else 4041)
+    quality=Quality(quality_bundle,profiles,expected_sources=len(quality_bundle["source_ids"]) if synthetic else 1000)
+    if auxiliary_csv is not None:quality.load_auxiliary_csv(auxiliary_csv)
+    count=len(quality.ids);construction_n=800 if not synthetic else max(1,int(.8*count));verification_n=count-construction_n
+    split=source_split(quality.ids,construction_n,verification_n,min(64,verification_n))
+    index={source:i for i,source in enumerate(quality.ids)};build=[index[s] for s in split["construction_source_ids"]];verify=[index[s] for s in split["verification_source_ids"]]
+    curves=Curves(bler_bundle);book=codebook(profiles);matrices=quality.matrices(profiles)
+    summaries=[];per_source=[];distributions=[];outages=[];sender=[];candidate_summary=[];probabilities=[];cross=[];gates=[];dictionaries=[]
+    full_indices=list(range(len(profiles)));single=[i for i,p in enumerate(profiles) if p["G"]==1]
+    populations={"construction800":build,"internal_verification200":verify,"all1000_descriptive":list(range(count))}
+    numerical=[]
+    for snr in SNRS:
+        weights,tails=integrate_profiles(curves,profiles,snr,32);coarse,_=integrate_profiles(curves,profiles,snr,16)
+        difference=float(np.max(abs(weights-coarse)));require(difference<PROTOCOL["integration_difference_tolerance"],"Numerical integration convergence diagnostic failed")
+        numerical.append(dict(average_snr_db=snr,max_state_probability_difference_16_32=difference,
+                              numerical_error_is_not_PHY_model_error=True,**tails))
+        scores=expected_quality(matrices,weights);uniform,dictionary,steps=choose_dictionary(scores,profiles,build)
+        best_single=single[int(np.argmax(scores[np.ix_(build,single)].mean(0)))];uniform1000=int(np.argmax(scores.mean(0)))
+        decisions={"C-UNIFORM":np.full(count,uniform,dtype=int),"C-BEST-SINGLE":np.full(count,best_single,dtype=int),
+                   "C-FULL":choose_rows(scores,full_indices),"C-8":choose_rows(scores,dictionary)}
+        baseline=scores[:,uniform];dict_record=dict(average_snr_db=snr,uniform_stable_id=profiles[uniform]["stable_id"],
+            best_single_stable_id=profiles[best_single]["stable_id"],dictionary_stable_ids=[profiles[i]["stable_id"] for i in dictionary],
+            dictionary_profile_ids=[book["stable_id_to_profile_id"][profiles[i]["stable_id"]] for i in dictionary],
+            construction_steps=steps,construction_source_count=len(build),dictionary_frozen_before_internal_verification=True,
+            uniform1000_descriptive_stable_id=profiles[uniform1000]["stable_id"],uniform1000_used_as_verification_baseline=False,
+            decisions_by_source={},probe_decisions_by_source={})
+        for method,choice in decisions.items():
+            value=scores[np.arange(count),choice];bad=weights[choice,3];gain=value-baseline
+            require(method not in ("C-FULL","C-8") or np.min(gain)>=-1e-12,"Per-source reference does not contain uniform")
+            for population,indices in populations.items():
+                values=value[indices];delta=gain[indices];uncertainty=bad[indices]
+                changed=choice[indices]!=uniform
+                contrast_mass=np.where(changed,uncertainty+weights[uniform,3],0.)
+                summaries.append(dict(average_snr_db=snr,population=population,method=method,sources=len(indices),
+                    mean_quality=float(values.mean()),U_quality_minus1_mean=float((values-uncertainty).mean()),U_quality_plus1_mean=float((values+uncertainty).mean()),
+                    mean_unmodelled_probability=float(uncertainty.mean()),gain_vs_uniform=float(delta.mean()),
+                    gain_U_sensitivity_lower=float((delta-contrast_mass).mean()),gain_U_sensitivity_upper=float((delta+contrast_mass).mean()),
+                    gain_distribution=descriptive(delta),interval_is_confidence_interval=False,
+                    selection_scope="construction800_frozen" if method!="C-FULL" else "per_source_TX_full_enumeration_reference"))
+                for selected,n in Counter(choice[indices].tolist()).items():
+                    p=profiles[selected];distributions.append(dict(average_snr_db=snr,population=population,method=method,
+                        stable_id=p["stable_id"],profile_id=book["stable_id_to_profile_id"][p["stable_id"]],sources=n,fraction=n/len(indices),
+                        G=p["G"],m=p["m"],K=p["K"],j=p["j"],MCS=[g["mcs_id"] for g in p["groups"]],group_phy_keys=[g["phy_key"] for g in p["groups"]]))
+            dict_record["decisions_by_source"][method]={source:dict(stable_id=profiles[int(choice[i])]["stable_id"],profile_id=book["stable_id_to_profile_id"][profiles[int(choice[i])]["stable_id"]]) for i,source in enumerate(quality.ids)}
+            dict_record["probe_decisions_by_source"][method]={source:dict_record["decisions_by_source"][method][source] for source in split["probe_source_ids"]}
+            for i,source in enumerate(quality.ids):
+                p=profiles[int(choice[i])];per_source.append(dict(average_snr_db=snr,source_id=source,source_index=i,
+                    split="construction" if source in split["construction_source_ids"] else "internal_verification",method=method,
+                    stable_id=p["stable_id"],profile_id=book["stable_id_to_profile_id"][p["stable_id"]],quality=float(value[i]),gain_vs_uniform=float(gain[i]),
+                    p_unmodelled=float(bad[i]),U_quality_minus1=float(value[i]-bad[i]),U_quality_plus1=float(value[i]+bad[i])))
+            for threshold in THRESHOLDS:
+                point,lower,upper=outage(matrices,weights,choice,threshold)
+                for population,indices in populations.items():outages.append(dict(average_snr_db=snr,population=population,method=method,threshold=threshold,
+                    mean_outage=float(point[indices].mean()),U_sensitivity_lower=float(lower[indices].mean()),U_sensitivity_upper=float(upper[indices].mean()),
+                    per_source_state_threshold_before_probability_average=True))
+        for metric in quality.other_complete:
+            other=expected_quality(quality.matrices(profiles,metric),weights)
+            for method,choice in decisions.items():
+                known=other[np.arange(count),choice];bad=weights[choice,3]
+                for population,indices in populations.items():
+                    mass=1-bad[indices];conditional=np.divide(known[indices],mass,out=np.full(len(indices),np.nan),where=mass>0)
+                    cross.append(dict(average_snr_db=snr,population=population,method=method,metric=metric,
+                        known_state_weighted_contribution=float(known[indices].mean()),unmodelled_probability=float(bad[indices].mean()),
+                        conditional_on_modelled_state_mean=None if not np.isfinite(conditional).all() else float(conditional.mean()),
+                        total_mean="NOT_IDENTIFIED_FOR_U_STATES",used_for_selection=False))
+        full_gain=float((scores[np.arange(count),decisions["C-FULL"]]-baseline)[verify].mean())
+        small_gain=float((scores[np.arange(count),decisions["C-8"]]-baseline)[verify].mean());ratio=retention(small_gain,full_gain)
+        gates.append(dict(average_snr_db=snr,population="internal_verification200",full_gain=full_gain,C8_gain=small_gain,
+                         retention=ratio,full_pass=full_gain>=.02,C8_pass=full_gain>=.02 and ratio is not None and ratio>=.70))
+        for method,indices in (("C-UNIFORM",[uniform]),("C-BEST-SINGLE",[best_single]),("C-FULL",full_indices),("C-8",dictionary)):
+            sender.append(costs(profiles,indices,method,snr))
+        for i,p in enumerate(profiles):
+            candidate_summary.append(dict(average_snr_db=snr,stable_id=p["stable_id"],profile_id=book["stable_id_to_profile_id"][p["stable_id"]],
+                G=p["G"],construction_mean=float(scores[build,i].mean()),verification_mean_diagnostic_only=float(scores[verify,i].mean()),
+                all1000_mean_descriptive=float(scores[:,i].mean()),minimum_source=float(scores[:,i].min()),maximum_source=float(scores[:,i].max()),
+                verification_read_for_candidate_selection=False))
+            probabilities.append(dict(average_snr_db=snr,stable_id=p["stable_id"],**{f"p_{name}":float(weights[i,k]) for k,name in enumerate(STATES)}))
+        summaries.append(dict(average_snr_db=snr,population="all1000_descriptive",method="C-UNIFORM-1000-DESC",sources=count,
+            mean_quality=float(scores[:,uniform1000].mean()),gain_vs_uniform=float((scores[:,uniform1000]-baseline).mean()),
+            used_as_internal_verification_baseline=False,selection_scope="all1000_descriptive_only"))
+        dictionaries.append(dict_record)
+    full_pass=[g["average_snr_db"] for g in gates if g["full_pass"]];small_pass=[g["average_snr_db"] for g in gates if g["C8_pass"]]
+    status="NO_LARGE_GAIN_IN_WORKING_MODEL" if len(full_pass)<2 else "POTENTIAL_HIGH_TX_COST" if len(small_pass)<2 else "MODEL_POTENTIAL_ONLY"
+    return dict(status=status,split=split,codebook=book,selected_dictionaries=dict(version=VERSION,cells=dictionaries,
+        sender_access="own_source_Q_average_SNR_and_public_dictionary_only",receiver_access="actual_paid_profile_ID_only",actual_header_roundtrip="NOT_RUN_IN_C_MODEL"),
+        gate=dict(status=status,per_snr=gates,full_passing_snrs=full_pass,C8_passing_snrs=small_pass,CPU_probe_priority=len(full_pass)>=2,
+                  visual_GPU_authorized_by_C=False,actual_channel_result=False),
+        summary=summaries,per_source=per_source,distribution=distributions,outage=outages,sender_costs=sender,
+        candidate_summary=candidate_summary,state_probabilities=probabilities,numerical_diagnostics=numerical,
+        other_metrics=cross,metric_availability=dict(selection_metric=METRIC,available_complete_auxiliary_metrics=sorted(quality.other_complete),
+            incomplete_auxiliary_metrics=sorted(quality.metric_keys-set(quality.other_complete)),ConvNeXt="NOT_READ",missing_not_imputed=True),
+        negative_increment_sources=sum(int(np.sum(matrices[2][:,i]<matrices[1][:,i])) for i,p in enumerate(profiles) if p["G"]==2),
+        unique_Q_states=len(quality.states),candidate_count=len(profiles),wire_count=len(book["entries"]))
+
+
+def report(result):
+    lines=["# C：每图固定 N1024 的内容选策工作模型","",f"阶段结果：`{result['status']}`。","",
+        "本结果只使用原 calibration 的正确接收状态质量与冻结 C/R/U 概率。没有新信道译码、没有重新运行 VAR、没有视觉 GPU，也未使用 development、holdout 或 ConvNeXt 选择。", "",
+        "| 平均 SNR | C-FULL 相对统一配置 | C-8 相对统一配置 | 保留比例 |","|---:|---:|---:|---:|"]
+    for row in result["gate"]["per_snr"]:
+        ratio="N/A" if row["retention"] is None else f"{row['retention']:.4f}"
+        lines.append(f"| {row['average_snr_db']} | {row['full_gain']:.6f} | {row['C8_gain']:.6f} | {ratio} |")
+    lines += ["","这些增量来自固定 800 张构造、200 张内部复核；该复核不是独立 holdout。C-UNIFORM 从全部候选中选择，另列最佳单组。C-FULL 在各图自身 Q 上取最大值必然不差，这只是高发送端计算量参考。C-8 的字典和统一基线均仅由 800 张构造图决定。", "",
+        f"搜索保留 {result['candidate_count']} 个稳定候选、{result['wire_count']} 个实际波形，公开码本容量不超过 12 bit；仍需真实头部编码、解析与熵序位置资产核验，不能据容量检查宣称完整物理链路已通过。", "",
+        "## 模型与不确定性","",
+        "头部和所有正文组先在同一瞬时 SNR 下组合，再对固定块 Rayleigh 分布积分。概率按 dB 线性插值，两尾保持端点值；16/32 阶 Gauss-Legendre 对照只检查数值误差。尾部质量见 numerical_diagnostics.json，不能当作已测曲线。",
+        "正确、拒收和未检出错误独立计数。未检出/未知状态质量点值为 0，固定策略另报 [-1,1] 敏感性；这些范围不是统计置信区间。没有将错误接受评分为干净前缀。逐图 Q 负增量保留，未作单调化或截零。", "",
+        "## 分布与成本","",
+        "uniform_vs_full_vs_8.csv 和 per_source_quality_gain.csv 给出均值、逐图增量与分布；decision_distribution.csv 给出 m/K/MCS 选择频率。quality_outage.csv 先对每源、每状态 Q 与阈值比较，再对概率求平均。",
+        "sender_cost_inventory.csv 按不同接收状态去重计数。八个配置可能需要多于八次生成；缓存命中率不等于新图上免费推断，CPU 查表耗时不是部署时延。",
+        "辅助 calibration 指标仅在完整原缓存存在时交叉报告；缺项不填零，ConvNeXt 未读取。全 1000 张统一最优单列为描述性参考，不替代 800 张选定的正式复核基线。", "",
+        "C 的工程门槛只决定 CPU 物理探针优先级，不代表实际图像收益、论文结论、相对 P 全面优势或 GPU 授权。旧 F1 的 UNCERTAIN 与旧 UEP/A1/A2 队列原样保留。", ""]
+    return "\n".join(lines)
+
+
+def run(snapshot,out):
+    out=Path(out).resolve();out.mkdir(parents=True,exist_ok=True)
+    values,bindings,manifest=load_snapshot(snapshot)
+    registration=dict(protocol=PROTOCOL,input_bindings=bindings,snapshot=manifest,source_sha256=sha(__file__))
+    save(out/"selection_registration.json",registration)
+    started=time.monotonic();result=evaluate(values["candidate_profiles_N1024.json"],values["quality_bundle.json"],values["bler.json"],
+        auxiliary_csv=values.get("auxiliary_csv_path"))
+    catalog={str(next(Path(p) for p in bindings if Path(p).name=="candidate_profiles_N1024.json")):next(h for p,h in bindings.items() if Path(p).name=="candidate_profiles_N1024.json")}
+    result["selected_dictionaries"]["catalog_input_binding"]=catalog
+    result["codebook"]["catalog_input_binding"]=catalog
+    for name,value in (("split.json",result["split"]),("codebook.json",result["codebook"]),
+        ("selected_dictionaries.json",result["selected_dictionaries"]),("gate.json",result["gate"]),
+        ("numerical_diagnostics.json",result["numerical_diagnostics"]),("metric_availability.json",result["metric_availability"])):save(out/name,value)
+    tables=(("uniform_vs_full_vs_8.csv","summary"),("per_source_quality_gain.csv","per_source"),
+        ("decision_distribution.csv","distribution"),("quality_outage.csv","outage"),("sender_cost_inventory.csv","sender_costs"),
+        ("candidate_scores_summary.csv","candidate_summary"),("integrated_state_probabilities.csv","state_probabilities"))
+    for name,key in tables:csv_save(out/name,result[key])
+    if result["other_metrics"]:csv_save(out/"auxiliary_calibration_metrics.csv",result["other_metrics"])
+    (out/"REPORT.md").write_text(report(result),encoding="utf-8",newline="\n")
+    for path,digest in bindings.items():require(sha(path)==digest,"Frozen input changed during C analysis")
+    outputs={p.name:sha(p) for p in sorted(out.iterdir()) if p.is_file() and p.name!="completion.json"}
+    completed=dict(status="COMPLETE",scientific_status=result["status"],version=VERSION,outputs=outputs,
+        registration_sha256=sha(out/"selection_registration.json"),elapsed_cache_CPU_seconds=time.monotonic()-started,
+        candidate_count=result["candidate_count"],wire_count=result["wire_count"],unique_Q_states=result["unique_Q_states"],
+        negative_grouped_Q_increment_source_candidate_pairs=result["negative_increment_sources"],
+        neural_inference_calls=0,physical_decodes=0,development_read=False,independent_metric_used=False,
+        actual_header_roundtrip="NOT_RUN_IN_C_MODEL",CPU_probe_priority=result["gate"]["CPU_probe_priority"],
+        old_F1_stop_unchanged=True,old_UEP_stop_unchanged=True,A1_A2_modified=False)
+    save(out/"completion.json",completed);return completed
+
+
+def main():
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument("--snapshot",required=True);parser.add_argument("--out",required=True)
+    args=parser.parse_args();done=run(args.snapshot,args.out)
+    print(canonical({k:done[k] for k in ("status","scientific_status","candidate_count","wire_count","CPU_probe_priority")}))
+
+
+if __name__=="__main__":main()

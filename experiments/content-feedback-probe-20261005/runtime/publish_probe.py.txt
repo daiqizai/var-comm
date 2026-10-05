@@ -1,0 +1,438 @@
+"""Explicit text-only C/R publication with conservative shared-index ownership.
+
+This script never launches experiments, modifies old queue inputs, clears
+another task's staging, resets history, or force-pushes. Root/owner invokes it.
+"""
+from __future__ import annotations
+import argparse
+import csv
+import hashlib
+import io
+import json
+import os
+from pathlib import Path
+import subprocess
+import time
+
+VERSION='CONTENT_FEEDBACK_PUBLICATION_V1'
+RESULT='results/content_feedback_probe_20261005'
+EXPERIMENT='experiments/content-feedback-probe-20261005'
+REPORT='reports/content_feedback_probe_20261005.md'
+MAX_FILE=10_000_000
+CHUNK=4_500_000
+TEXT_SUFFIXES={'.json','.csv','.md','.txt','.py','.cpp','.h','.hpp','.cc','.c'}
+FORBIDDEN_KEYS={'tokens','token_ids','source_tokens','received_values','payload','payload_bits','source_payload',
+                'raw_bits','images','source_rgb','state_dict','weights','hex','payload_hex','tx_payload','received_payload'}
+V_FILES={'qualify_completion.json','qualified_new.json','admitted_configurations.json','frozen_policies.json',
+         'verification_disposition.json','plan_table_worker_0_completion.json','plan_table_worker_1_completion.json',
+         'verify_worker_0_completion.json','verify_worker_1_completion.json','summarize_completion.json',
+         'asset_admission.json','public_codebook.json','physical_trajectories.csv','unresolved_outputs.csv',
+         'mean_summary.csv','paired_summary.csv','prediction_vs_actual.csv'}
+MUTABLE={'status.json','owner_status.json','active_child.json','active_children.json','publication_state.json',
+         'publication_wait.json','publication_completion.json','publication_inventory.json'}
+PUBLISH_STAGES=('publish','publication','report','repository','release_manifest','stage_results','git_',
+                'commit','push','fetch_origin','check_branch','check_ancestor','staged_paths')
+
+
+class Blocked(RuntimeError):pass
+def require(value,message):
+    if not value:raise RuntimeError(message)
+def read(path):return json.loads(Path(path).read_text(encoding='utf-8-sig'))
+def sha(path):
+    h=hashlib.sha256()
+    with Path(path).open('rb') as stream:
+        for block in iter(lambda:stream.read(1024*1024),b''):h.update(block)
+    return h.hexdigest()
+def dump(value):return (json.dumps(value,indent=2,ensure_ascii=False,allow_nan=False)+'\n').encode()
+def within(path,base):
+    path=Path(path).resolve();require(path.is_relative_to(Path(base).resolve()),'Path outside authorized scope: '+str(path));return path
+def write(path,value,immutable=False):
+    path=Path(path);data=dump(value);path.parent.mkdir(parents=True,exist_ok=True)
+    if immutable and path.exists():require(path.read_bytes()==data,'Frozen publication evidence changed: '+str(path));return
+    temp=path.with_name(path.name+'.tmp');temp.write_bytes(data);temp.replace(path)
+def allowed_destination(relative):
+    value=Path(relative).as_posix()
+    require(not Path(relative).is_absolute() and '..' not in Path(relative).parts,'Relative publication path required')
+    require(value.startswith(RESULT+'/') or value.startswith(EXPERIMENT+'/') or value==REPORT,'Publication path escaped explicit new scope')
+    require(not value.endswith('.py') and not value.endswith('.cpp'),'Executable source must be a .txt snapshot')
+    return value
+
+
+def reject_raw_content(value,path='root'):
+    if isinstance(value,dict):
+        for key,item in value.items():
+            if key=='payload_bits' and type(item)is int and item>=0:
+                continue  # registered payload length, not an actual bit sequence
+            require(key not in FORBIDDEN_KEYS,'Forbidden raw/model field '+path+'.'+key)
+            reject_raw_content(item,path+'.'+key)
+    elif isinstance(value,list):
+        for item in value:reject_raw_content(item,path+'[]')
+
+
+def normalized_text(source):
+    source=Path(source);require(source.suffix.lower() in TEXT_SUFFIXES,'Nontext asset cannot be published: '+str(source))
+    raw=source.read_bytes();require(b'\0' not in raw,'Binary data disguised as text');raw.decode('utf-8-sig')
+    normal=raw.replace(b'\r\n',b'\n')
+    # Store exact inverse positions; even mixed newline sources are recoverable.
+    crlf=[];start=0;removed=0
+    while True:
+        at=raw.find(b'\r\n',start)
+        if at<0:break
+        crlf.append(at-removed);start=at+2;removed+=1
+    if source.suffix.lower()=='.json':
+        value=json.loads(raw);require(value==json.loads(normal),'JSON meaning changed in newline normalization');reject_raw_content(value)
+    elif source.suffix.lower()=='.csv':
+        a=list(csv.reader(io.StringIO(raw.decode('utf-8-sig'),newline='')))
+        b=list(csv.reader(io.StringIO(normal.decode('utf-8-sig'),newline='')))
+        require(a==b,'CSV field content changed by newline normalization')
+        if a:require(not FORBIDDEN_KEYS.intersection(a[0]),'CSV contains raw/source payload columns')
+    return raw,normal,crlf
+
+
+def utf8_parts(data,limit=CHUNK):
+    require(0<limit<MAX_FILE,'Unsafe text chunk size');data.decode('utf-8-sig')
+    if not data:return [b'']
+    parts=[];start=0
+    while start<len(data):
+        end=min(start+limit,len(data))
+        while end>start:
+            try:data[start:end].decode('utf-8');break
+            except UnicodeDecodeError as error:
+                require(error.start>=end-start-4,'Invalid UTF8 source');end-=1
+        require(end>start,'Cannot split UTF8 text');parts.append(data[start:end]);start=end
+    require(b''.join(parts)==data and all(len(p)<MAX_FILE for p in parts),'Text split changed bytes')
+    return parts
+
+
+def materialize(source,destination,root):
+    source=Path(source).resolve();destination=within(destination,root);rel=allowed_destination(destination.relative_to(root))
+    raw,normal,crlf=normalized_text(source);before=hashlib.sha256(raw).hexdigest()
+    parts=utf8_parts(normal) if len(normal)>=CHUNK else [normal];targets=[]
+    for i,data in enumerate(parts):
+        path=destination if len(parts)==1 else destination.with_name(destination.name+'.parts')/('part-%05d.txt'%(i+1))
+        require(len(data)<MAX_FILE,'Oversize publication part');path.parent.mkdir(parents=True,exist_ok=True)
+        if path.exists():require(path.read_bytes()==data,'Publication destination collision: '+str(path))
+        else:path.write_bytes(data)
+        targets.append(dict(path=path.relative_to(root).as_posix(),sha256=sha(path),bytes=len(data)))
+    restored=bytearray(normal)
+    for at in reversed(crlf):restored[at:at]=b'\r'
+    require(bytes(restored)==raw and sha(source)==before,'Publication conversion lost source recoverability')
+    return dict(source_path=str(source),source_sha256=before,source_bytes=len(raw),logical_destination=rel,
+        representation='ordered_UTF8_parts' if len(parts)>1 else 'UTF8_copy',normalization='CRLF_to_LF_only',
+        normalized_sha256=hashlib.sha256(normal).hexdigest(),normalized_bytes=len(normal),restore_CR_before_normalized_offsets=crlf,
+        reconstruction='Concatenate parts without separators; insert CR at recorded normalized offsets in reverse order to recover original bytes.',
+        exact_original_reconstruction_verified=True,files=targets)
+
+
+def verify_receipt(path,base):
+    value=read(path);require(value.get('outputs'),'Receipt has no output bindings: '+str(path));files=[]
+    for name,digest in value['outputs'].items():
+        p=Path(name);p=within(p if p.is_absolute() else Path(base)/p,base)
+        require(p.is_file() and sha(p)==digest,'Completed result changed: '+str(p));files.append(p)
+    return value,files
+
+
+def collect(out,runtime,final):
+    out=Path(out).resolve();runtime=within(runtime,out);final=within(final,out)
+    done,final_files=verify_receipt(final/'completion.json',final)
+    require(done['status']=='COMPLETE' and done['scope']=='C_R_BOUNDED_PROBE_DELIVERY','Final bounded report incomplete')
+    require(done['new_visual_validation_complete'] is False and done['automatic_GPU_launch'] is False,'Unexpected scientific expansion')
+    c,cfiles=verify_receipt(out/'C/completion.json',out/'C');r,rfiles=verify_receipt(out/'R/completion.json',out/'R')
+    require(c['status']=='COMPLETE' and r['stage']=='R_MODEL_SEARCH','C/R model stages incomplete')
+    for path,digest in done['input_bindings'].items():require(Path(path).is_file() and sha(path)==digest,'Final analysis input changed: '+path)
+    sources=[]
+    def add(path,target):
+        path=within(path,out);require(path.is_file(),'Missing explicit publication asset: '+str(path));sources.append((path,target))
+    for name in ('EXECUTION_PLAN.md','protocol.json','INPUT_MANIFEST.json','ASSET_STATUS.md','S0_completion.json'):
+        add(out/name,EXPERIMENT+'/'+name if name in ('EXECUTION_PLAN.md','protocol.json') else RESULT+'/'+name)
+    for path in sorted(runtime.glob('*.py')):add(path,EXPERIMENT+'/runtime/'+path.name+'.txt')
+    require(any(p.name=='publish_probe.py' for p,_ in sources),'Publisher itself must be source-snapshotted')
+    for scope,files,receipt in [('C',cfiles,out/'C/completion.json'),('R',rfiles,out/'R/completion.json'),('final',final_files,final/'completion.json')]:
+        base=out/scope if scope!='final' else final
+        for path in [*files,receipt]:
+            if path.suffix.lower() not in {'.json','.csv','.md','.txt'}:raise RuntimeError('Nontext completed output is not authorized here: '+str(path))
+            add(path,RESULT+'/'+scope+'/'+path.relative_to(base).as_posix())
+    add(final/'FINAL_REPORT.md',REPORT)
+    # V source checkpoints contain actual source payloads and are never copied.
+    v=out/'V'
+    for path in sorted(v.rglob('*')) if v.exists() else []:
+        if path.is_file() and path.name in V_FILES and 'source_checkpoints' not in path.parts:
+            add(path,RESULT+'/V/'+path.relative_to(v).as_posix())
+    # Immutable launch/registration/failure/completion evidence only, no live
+    # status or stdout logs, no SQLite, no NPZ, no retry source payload.
+    evidence_dirs=['owner','stages','owner_stages','dependency_recovery_r1']
+    for name in evidence_dirs:
+        folder=out/name
+        for path in sorted(folder.rglob('*')) if folder.exists() else []:
+            if not path.is_file() or path.name in MUTABLE or path.suffix.lower() not in {'.json','.md','.txt','.py','.cpp','.h','.cc','.hpp'}:continue
+            rel=path.relative_to(out)
+            if any(part in {'source_checkpoints','reconstructions','tokens','snapshot','__pycache__'} for part in rel.parts):continue
+            suffix='.txt' if path.suffix.lower() in {'.py','.cpp','.h','.cc','.hpp'} else ''
+            add(path,EXPERIMENT+'/provenance/'+rel.as_posix()+suffix)
+    for name in ('execution_registration.json','qualification.json','launch.json','owner_identity.json','resource_registration.json',
+                 'publication_guard_preflight_diagnosis.json'):
+        if (out/name).is_file():add(out/name,RESULT+'/execution_evidence/'+name)
+    if (out/'planning_merged.json').is_file():add(out/'planning_merged.json',RESULT+'/V/planning_merged.json')
+    resource_folders=[out/'R/resources_qualified']
+    if (out/'owner/config.json').is_file():
+        owner=read(out/'owner/config.json')
+        resource_folders += [within(owner[key],out) for key in ('qualified_resources','unqualified_resources') if key in owner]
+    resource_names={'resource_catalog.json','new_physical_requests.json','missing_phy_configurations.csv','resource_action_coverage.csv','completion.json'}
+    for folder in set(resource_folders):
+        for path in sorted(folder.iterdir()) if folder.is_dir() else []:
+            if path.is_file() and path.name in resource_names:add(path,RESULT+'/'+path.relative_to(out).as_posix())
+    # Preserve stage wrappers even when stored as root stage_C/stage_qualify_*.
+    for folder in sorted(out.glob('stage_*')):
+        if not folder.is_dir():continue
+        for path in sorted(folder.glob('*.json')):
+            if path.name not in MUTABLE:add(path,RESULT+'/execution_evidence/'+path.relative_to(out).as_posix())
+    # Snapshot dependency evidence binds the isolated C++ translation units;
+    # these may be copied as provenance text, never installed under old code.
+    recovery=out/'dependency_recovery_r1'
+    for receipt in sorted(recovery.glob('*.json')) if recovery.exists() else []:
+        value=read(receipt)
+        def dependencies(node):
+            if isinstance(node,dict):
+                if isinstance(node.get('path'),str) and isinstance(node.get('sha256'),str):
+                    candidate=Path(node['path']).resolve()
+                    if candidate.suffix.lower() in {'.cpp','.h','.hpp','.cc'} and candidate.is_relative_to(out):
+                        require(candidate.is_file() and sha(candidate)==node['sha256'],'Supplemental dependency descriptor changed')
+                        add(candidate,EXPERIMENT+'/provenance/dependencies/'+candidate.relative_to(out).as_posix()+'.txt')
+                for key,item in node.items():
+                    candidate=Path(key)
+                    if candidate.suffix.lower() in {'.cpp','.h','.hpp','.cc'} and isinstance(item,str) and len(item)==64:
+                        p=candidate.resolve()
+                        if p.is_relative_to(out):
+                            require(p.is_file() and sha(p)==item,'Supplemental C++ dependency changed')
+                            add(p,EXPERIMENT+'/provenance/dependencies/'+p.relative_to(out).as_posix()+'.txt')
+                    dependencies(item)
+            elif isinstance(node,list):
+                for item in node:dependencies(item)
+        dependencies(value)
+    # Require exact single destination mapping while allowing one report mirror.
+    mappings={}
+    for path,target in sources:
+        if target in mappings:require(mappings[target]==path,'Conflicting publication destinations')
+        mappings[target]=path
+    return done,[(path,target) for target,path in sorted(mappings.items())]
+
+
+def prepare(root,out,runtime,final):
+    root=Path(root).resolve();out=within(out,root/'outputs')
+    require(out.name=='CONTENT-FEEDBACK-PROBE-20261005','Wrong independent task directory')
+    done,sources=collect(out,runtime,final)
+    conversions=[materialize(source,root/target,root) for source,target in sources]
+    manifest=dict(version=VERSION,source_files=conversions,raw_assets_excluded=True,
+        omitted='NPZ, tensors, weights, raw/source payloads, source checkpoints, images, SQLite, mutable status and post-push receipts',
+        old_A1_A2_files_modified=False,source_sha256=sha(__file__))
+    manifest_path=root/RESULT/'publication_sources.json';require(len(dump(manifest))<MAX_FILE,'Conversion manifest exceeds10MB')
+    write(manifest_path,manifest,immutable=True)
+    files={f['path']:f['sha256'] for c in conversions for f in c['files']}
+    files[manifest_path.relative_to(root).as_posix()]=sha(manifest_path)
+    docs={}
+    for name in ('AGENTS.md','README.md','RESEARCH_STATUS.md','PROGRESS.md','EXPERIMENTS.md'):
+        path=root/name;require(path.is_file(),'Repository instructions/context unavailable: '+name);docs[name]=sha(path)
+    inventory=dict(status='PREPARED_NOT_COMMITTED',version=VERSION,files=files,
+        sources={str(p):sha(p) for p,_ in sources},final_completion_sha256=sha(Path(final)/'completion.json'),
+        repository_context_sha256=docs,code_snapshots_only=True,old_queue_files_modified=False,
+        scoped_completion=dict(V_physical_probe_complete=done['V_physical_probe_complete'],new_visual_validation_complete=False))
+    write(out/'publication_inventory.json',inventory,immutable=True)
+    return inventory
+
+
+def process_identity(pid,proc='/proc',include_cwd=True):
+    base=Path(proc)/str(pid)
+    try:
+        # System/other-user processes are not this workspace's task owners.
+        # Do not turn /proc hidepid permissions on unrelated daemons into a
+        # permanent publication wait. Same-UID unreadable processes still block.
+        own_uid=os.geteuid()
+        if base.stat().st_uid!=own_uid:return None
+        status=(base/'status').read_text();uid=status.split('Uid:')[1].split()[0]
+        if int(uid)!=own_uid:return None
+        stat=(base/'stat').read_text().rsplit(')',1)[1].split()
+        if stat[0]=='Z':return None
+        result=dict(pid=int(pid),start_ticks=stat[19],uid=uid,
+                    argv=[x.decode(errors='replace') for x in (base/'cmdline').read_bytes().split(b'\0') if x])
+        if include_cwd:result['cwd']=str((base/'cwd').resolve())
+        return result
+    except FileNotFoundError:return None
+    except (PermissionError,IndexError):raise Blocked('Unable to identify a potentially active publication process')
+
+
+def guard_publication(root,proc='/proc'):
+    root=Path(root).resolve();observed=[]
+    folders=[root/'outputs/M1-ACTION-SPACE-CLOSURE-20261005',root/'outputs/PARALLEL-V2-20261005']
+    for folder in folders:
+        path=folder/'owner_status.json'
+        require(path.is_file(),'Old queue status must be inspected before publication: '+str(path))
+        status=read(path);pid=status.get('pid');live=process_identity(pid,proc) if pid else None
+        if live:
+            command=' '.join(live['argv'])
+            belongs=(live['cwd']==str(root) and (str(folder) in command or any(Path(x).name in
+                {'m9_owner.py','recovery_owner.py','parallel_owner.py'} for x in live['argv'])))
+            if not belongs:live=None  # stale/reused PID is not the old owner
+            elif str(live['uid'])!=str(folder.stat().st_uid):raise Blocked('Old queue owner UID differs from its workspace')
+        stage=str(status.get('stage',status.get('step',status.get('name','')))).lower();state=str(status.get('status','')).lower()
+        observed.append(dict(path=str(path),sha256=sha(path),pid=pid,live_identity=live,stage=stage,status=state))
+        if live and any(marker in stage or marker in state for marker in PUBLISH_STAGES):
+            raise Blocked('A1/A2 is in report/publication phase: '+folder.name+' '+stage)
+        # A final report receipt makes the old owner's next action publication.
+        if (live and ((folder/'report_completion.json').exists() or (folder/'A2/report_completion.json').exists())
+                and state not in {'complete','pushed_and_stopped','a2_published_and_stopped'}):
+            raise Blocked('A1/A2 completed report and may enter publication')
+    for directory in Path(proc).iterdir():
+        if not directory.name.isdigit() or int(directory.name)==os.getpid():continue
+        # Same-UID pam/service processes can hide cwd. Inspect UID and argv
+        # first; unrelated commands need no filesystem-scope query at all.
+        live=process_identity(int(directory.name),proc,include_cwd=False)
+        if live is None:continue
+        argv=live['argv'];names={Path(x).name for x in argv}
+        publisher=bool({'publish_results.py','publish_probe.py','update_repository_manifest.py'}&names)
+        git_writer=bool(argv and Path(argv[0]).name=='git' and any(x in argv[1:] for x in
+                       ('add','commit','push','update-index','read-tree','reset','checkout','switch','merge','cherry-pick')))
+        if not publisher and not git_writer:continue
+        scoped=process_identity(int(directory.name),proc,include_cwd=True)
+        if scoped is None:continue
+        if any(scoped[k]!=live[k] for k in ('start_ticks','uid','argv')):
+            raise Blocked('Potential repository writer changed identity during scope check')
+        if scoped['cwd']!=str(root):continue
+        raise Blocked('Another repository publisher is active' if publisher else 'Another Git mutation is active')
+    return observed
+
+
+def limits():
+    require(hasattr(os,'sched_setaffinity'),'Publication runner requires its registered Linux host')
+    require({16,17}<=os.sched_getaffinity(0),'Registered publication CPU16,17 unavailable')
+    os.sched_setaffinity(0,{16,17})
+    if os.nice(0)<15:os.nice(15-os.nice(0))
+
+
+class Commands:
+    def __init__(self,root,out):
+        self.root=Path(root);self.out=Path(out);self.counter=0
+        self.env=dict(os.environ,CUDA_VISIBLE_DEVICES='',OMP_NUM_THREADS='2',MKL_NUM_THREADS='2',OPENBLAS_NUM_THREADS='2',
+                      NUMEXPR_NUM_THREADS='2',PYTHONDONTWRITEBYTECODE='1')
+    def run(self,args):
+        self.counter+=1
+        result=subprocess.run(list(args),cwd=self.root,env=self.env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,
+                              preexec_fn=limits,check=False)
+        path=self.out/'publication_checks'/('%d-%03d-%s.log'%(time.time_ns(),self.counter,Path(args[0]).name))
+        path.parent.mkdir(exist_ok=True);path.write_bytes(result.stdout)
+        require(result.returncode==0,'Publication command failed; preserve '+str(path))
+        return result.stdout.decode('utf-8',errors='replace').strip()
+    def git(self,*args):return self.run(['git',*args])
+
+
+def index_ownership(commands,root,inventory,state):
+    staged=set(filter(None,commands.git('diff','--cached','--name-only').splitlines()))
+    allowed=set(inventory['files'])|{'release_manifest.json'}
+    if not staged:return set()
+    if not state or state.get('inventory_sha256')!=sha(Path(state['out'])/'publication_inventory.json'):
+        raise Blocked('Existing staging is not owned by this publication; preserve index')
+    if not staged<=allowed:raise Blocked('Another task has staged files; preserve complete index')
+    for name in staged:
+        expected=state.get('release_manifest_sha256') if name=='release_manifest.json' else inventory['files'][name]
+        if expected is None:raise Blocked('Staged release manifest has no owned provenance')
+        blob=commands.git('rev-parse',':'+name)
+        actual=commands.git('hash-object','--',name)
+        if blob!=actual or sha(Path(root)/name)!=expected:raise Blocked('Staged bytes differ from owned immutable inventory: '+name)
+    return staged
+
+
+def publish(root,out,commands=None,guard=guard_publication):
+    root=Path(root).resolve();out=within(out,root/'outputs');commands=commands or Commands(root,out)
+    inventory=read(out/'publication_inventory.json');state_path=out/'publication_state.json';receipt_path=out/'publication_completion.json'
+    state=read(state_path) if state_path.exists() else None
+    if receipt_path.exists():
+        receipt=read(receipt_path);require(receipt['status']=='PUBLISHED','Unknown existing publication receipt')
+        return receipt
+    def guard_and_verify():
+        evidence=guard(root)
+        for name,digest in inventory['files'].items():
+            allowed_destination(name);path=within(root/name,root)
+            require(path.stat().st_size<MAX_FILE and sha(path)==digest,'Publication inventory changed: '+name)
+        for name,digest in inventory['sources'].items():require(sha(name)==digest,'Completed publication input changed: '+name)
+        return evidence
+    evidence=guard_and_verify();staged=index_ownership(commands,root,inventory,state)
+    require(commands.git('branch','--show-current')=='main','Normal publication requires current main branch')
+    head=commands.git('rev-parse','HEAD');remote=commands.git('ls-remote','origin','refs/heads/main').split()[0]
+    # A process can exit after Git commits but before our JSON update. Recover
+    # only the exact previously checked tree with the original single parent.
+    if state and state.get('status')=='CHECKS_PASSED' and head!=state['base_head']:
+        require(commands.git('rev-parse','HEAD^{tree}')==state['checked_index_tree']
+                and commands.git('rev-parse','HEAD^')==state['base_head']
+                and commands.git('log','-1','--format=%s')=='Report bounded content selection and feedback CPU probe',
+                'HEAD changed outside this publication; no inferred commit recovery')
+        state.update(status='COMMITTED',commit=head,recovered_after_commit_json_window=True);write(state_path,state)
+    if state and state.get('status')=='COMMITTED':
+        require(head==state['commit'] and not staged,'Committed publication HEAD/index changed; review without history repair')
+        require(remote in {state['base_head'],head},'Remote diverged after commit; no blind merge or force-push')
+    else:
+        if head!=remote:raise Blocked('Local/remote main differ; preserve history and wait for review')
+        if state and head!=state['base_head']:raise Blocked('Base commit changed during publication; retain staging for review')
+        unstaged=set(filter(None,commands.git('diff','--name-only').splitlines()))
+        own_manifest=(state is not None and unstaged=={'release_manifest.json'}
+                      and state.get('release_manifest_sha256')==sha(root/'release_manifest.json'))
+        if unstaged and not own_manifest:raise Blocked('Tracked unstaged changes present; preserve other task work')
+        if state is None:
+            state=dict(status='STAGING',version=VERSION,out=str(out),base_head=head,inventory_sha256=sha(out/'publication_inventory.json'),
+                allowed_files=sorted(inventory['files']),repository_guard=evidence,created_time=time.time())
+            write(state_path,state)
+        guard_and_verify();index_ownership(commands,root,inventory,state)
+        commands.git('add','--',*sorted(inventory['files']))
+        python=root/'outputs/UNIFIED-METRICS-20261002/environment/bin/python'
+        require(python.is_file(),'Required UNIFIED environment is unavailable')
+        # Must stage explicit real files before the existing inventory generator.
+        guard_and_verify();index_ownership(commands,root,inventory,state)
+        commands.run([str(python),'-B','tools/update_repository_manifest.py'])
+        state['release_manifest_sha256']=sha(root/'release_manifest.json');state['status']='MANIFEST_READY';write(state_path,state)
+        commands.git('add','--','release_manifest.json')
+        guard_and_verify();index_ownership(commands,root,inventory,state)
+        commands.run([str(python),'-B','tools/run_cpu_checks.py'])
+        commands.run([str(python),'-B','tools/verify_repository.py'])
+        commands.git('diff','--cached','--check')
+        state['status']='CHECKS_PASSED';state['checked_index_tree']=commands.git('write-tree');write(state_path,state)
+        guard_and_verify();index_ownership(commands,root,inventory,state)
+        require(commands.git('write-tree')==state['checked_index_tree'],'Index changed after checks')
+        require(commands.git('ls-remote','origin','refs/heads/main').split()[0]==head,'Remote advanced during checks; do not commit blind')
+        require(not commands.git('diff','--name-only').strip(),'Tracked file changed during checks')
+        commands.git('commit','-m','Report bounded content selection and feedback CPU probe')
+        state['commit']=commands.git('rev-parse','HEAD');state['status']='COMMITTED';write(state_path,state)
+    guard_and_verify();index_ownership(commands,root,inventory,state)
+    commit=state['commit']
+    remote=commands.git('ls-remote','origin','refs/heads/main').split()[0]
+    if remote!=commit:commands.git('push','origin','HEAD:main')
+    verified=commands.git('ls-remote','origin','refs/heads/main').split()[0]
+    require(verified==commit,'Normal push has not been verified on remote')
+    final_receipt=Path(next(path for path in inventory['sources'] if Path(path).name=='completion.json'
+                          and read(path).get('scope')=='C_R_BOUNDED_PROBE_DELIVERY'))
+    receipt=dict(status='PUBLISHED',version=VERSION,commit=commit,remote_commit=verified,
+        time=time.time(),normal_push=True,force_push=False,inventory_sha256=sha(out/'publication_inventory.json'),
+        final_report=REPORT,checks=['tools/run_cpu_checks.py','tools/verify_repository.py','git diff --cached --check'],
+        new_visual_jobs=0,old_A1_A2_files_modified=False,files=inventory['files'],
+        outputs={**{str(root/name):digest for name,digest in inventory['files'].items()},str(final_receipt):sha(final_receipt)})
+    write(receipt_path,receipt,immutable=True);state['status']='PUSHED_AND_VERIFIED';write(state_path,state)
+    return receipt
+
+
+def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    for name in ('root','out','runtime-dir','final-dir'):parser.add_argument('--'+name,required=True)
+    parser.add_argument('--stage',choices=['prepare','publish'],required=True);args=parser.parse_args();limits()
+    out=Path(args.out).resolve()
+    try:
+        if args.stage=='prepare':result=prepare(args.root,out,args.runtime_dir,args.final_dir)
+        else:
+            import fcntl
+            lock=(out/'publication.lock').open('a+');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            if not (out/'publication_inventory.json').exists():prepare(args.root,out,args.runtime_dir,args.final_dir)
+            result=publish(args.root,out)
+    except Blocked as error:
+        result=dict(status='WAITING_FOR_PUBLICATION',reason=str(error),time=time.time(),index_untouched_by_wait=True,
+                    scientific_stages_restarted=False,existing_staging_preserved=True)
+        write(out/'publication_wait.json',result)
+    print(json.dumps({k:result[k] for k in ('status','commit','reason') if k in result}))
+
+
+if __name__=='__main__':main()

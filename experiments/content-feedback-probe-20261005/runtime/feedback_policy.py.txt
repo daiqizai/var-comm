@@ -1,0 +1,419 @@
+"""Finite shared-fading R search; ACK histories, not simulator h, drive decisions."""
+from __future__ import annotations
+import argparse
+import csv
+import importlib.util
+import itertools
+import json
+import math
+from pathlib import Path
+import time
+import numpy as np
+import feedback_resources as r
+
+SNRS=(4,7,10,13)
+TAUS=(.3,.5,.7)
+
+
+def load_legacy(path):
+    spec=importlib.util.spec_from_file_location('_feedback_frozen_f1',path);mod=importlib.util.module_from_spec(spec);spec.loader.exec_module(mod);return mod
+
+
+def quadrature(curves,average_db,order=32):
+    """GL in the Rayleigh CDF within each PHY/CSI boundary; exact cell masses."""
+    knots=sorted(set(r.THRESHOLDS)|{float(s) for x,_,_ in curves.curves.values() for s in x})
+    x,w=np.polynomial.legendre.leggauss(order);locations=[];weights=[]
+    survival=lambda db:math.exp(-10**((db-average_db)/10))
+    tlo=10**((knots[0]-average_db)/10);thi=10**((knots[-1]-average_db)/10)
+    low=-math.expm1(-tlo);high=math.exp(-thi)
+    low_mean=(1-(tlo+1)*math.exp(-tlo))/low
+    locations.append(average_db+10*math.log10(max(low_mean,1e-300)));weights.append(low)
+    for a,b in zip(knots,knots[1:]):
+        va,vb=survival(a),survival(b)
+        if va<=vb:continue
+        # Survival coordinates avoid rounding a tiny high-tail probability to
+        # CDF=1 and accidentally introducing an infinite quadrature location.
+        v=vb+(x+1)*.5*(va-vb)
+        linear=-np.log(v)
+        loc=average_db+10*np.log10(linear)
+        locations.extend(loc.tolist());weights.extend((w*.5*(va-vb)).tolist())
+    locations.append(average_db+10*math.log10(thi+1));weights.append(high)
+    weights=np.asarray(weights);r.require(np.isclose(weights.sum(),1,atol=1e-13,rtol=0),'Rayleigh quadrature lost mass')
+    return np.asarray(locations),weights
+
+
+def packet_outcomes(header,body):
+    """C/R/U. Accepted wrong header is an explicitly unmodelled ACK point event.
+
+    This history approximation is used only to propose policies. Every such
+    event is absorbing-unscored and never receives clean-prefix Q. Actual CPU
+    parsing and ACKs, rather than this approximation, decide verification.
+    """
+    hc,hr,hu=header.T;bc,br,bu=body.T
+    return hc*bc,hr+hc*br,hu+hc*bu
+
+
+def update_history(clean,bad,outcomes,ack):
+    c,n,u=outcomes
+    if ack:return clean*c,bad*(c+u)+clean*u
+    return clean*n,bad*n
+
+
+def can_retry(action,failed):
+    return (action['start_m']==failed['start_m'] and action['end_m']==failed['end_m']
+        and action['group']['transmitted_bits']>=failed['group']['transmitted_bits']
+        and r.MODULATIONS[action['modulation']]<=r.MODULATIONS[failed['modulation']])
+
+
+class Model:
+    def __init__(self,legacy,profiles,quality,bler,catalog,average_db,order=32):
+        self.legacy=legacy;self.curves=legacy.Curves(bler);self.quality=legacy.Quality(quality)
+        self.profiles={p['stable_id']:p for p in profiles};self.catalog=catalog;self.average_db=average_db
+        self.locations,self.prior=quadrature(self.curves,average_db,order)
+        self.prob={key:self.curves.interpolate(key,self.locations)[0] for key in self.curves.curves}
+        r.require(r.HEADER_KEY in self.prob,'Missing exact paid-header curve')
+        self.actions={a['action_id']:a for a in catalog['R_actions'] if a['status']=='READY'}
+        r.require(len(self.actions)==len(catalog['R_actions']),'R contains missing or rejected actions; inspect the catalog rather than silently prune')
+        self.outcome={aid:packet_outcomes(self.prob[r.HEADER_KEY],self.prob[a['group']['phy_key']]) for aid,a in self.actions.items()}
+        self.q={0:self.quality.means['gray'],**{m:self.quality.means[f'm{m}_K0'] for m in range(4,11) if f'm{m}_K0'in self.quality.means}}
+        self.profile_cache={};self.profile_summaries={}
+
+    def profile_weights(self,profile):
+        key=profile['stable_id']
+        if key not in self.profile_cache:
+            groups=profile['groups'];keys=[profile['header_phy_key']]+[g['phy_key'] for g in groups]
+            r.require(all(k in self.prob for k in keys),'Missing exact physical curve for profile '+key)
+            ps=[self.prob[k] for k in keys]
+            weights=self.legacy.state_weights(ps[0],ps[1],None if len(ps)==2 else ps[2])
+            states=['gray',profile.get('prefix_state_id') or 'gray',profile['full_state_id']]
+            r.require(all(state in self.quality.means for state in states),'No exact cached profile state')
+            point=self.legacy.quality_value(weights,*[self.quality.means[s] for s in states])
+            self.profile_cache[key]=(point,weights,states)
+        return self.profile_cache[key]
+
+    def extra_profile(self,action):
+        group=action['group'];r.require(group is not None and group['phy_key']in self.prob,'New QCSI config has no actual planning table')
+        return dict(stable_id=action['action_id'],G=1,N=1024,m=action['end_m'],K=0,j=None,
+            groups=[group],header_phy_key=r.HEADER_KEY,header_symbols=68,used_body_symbols=group['symbols'],
+            idle_symbols=956-group['symbols'],full_state_id=action['state_id'],prefix_state_id=None,order='whole')
+
+    def fixed(self):
+        rows=[]
+        for p in self.profiles.values():
+            point,_,_=self.profile_weights(p);rows.append(dict(profile_id=p['stable_id'],G=p['G'],point=float(self.prior@point)))
+        choose=lambda values:min(values,key=lambda x:(-x['point'],x['G'],x['profile_id']))
+        single=choose([x for x in rows if x['G']==1]);grouped=choose([x for x in rows if x['G']==2]);best=choose(rows)
+        return dict(candidate_count=len(rows),best_single=single,best_grouped=grouped,best=best,all_candidates=rows)
+
+    def selected_profile_summary(self,profiles,thresholds=None,feedback=0):
+        bins=np.zeros(len(self.locations),dtype=int) if thresholds is None else np.searchsorted(thresholds,self.locations,side='right')
+        states={};bad=point=forward=0.;worst=0
+        for index,profile in enumerate(profiles):
+            mass=self.prior*(bins==index);values,weights,names=self.profile_weights(profile)
+            point+=float(mass@values);bad+=float(mass@weights['bad'])
+            duration=68+sum(g['symbols'] for g in profile['groups']);forward+=float(mass.sum())*duration;worst=max(worst,duration)
+            for key,name in zip(('gray','prefix','full'),names):states[name]=states.get(name,0.)+float(mass@weights[key])
+        outage={}
+        for tau in TAUS:
+            lower=sum(prob*float(np.mean(self.quality.values[state]<tau)) for state,prob in states.items())
+            outage[str(tau)]=dict(lower=lower,upper=min(1.,lower+bad))
+        return dict(point=point,bad_probability=bad,quality_bounds_for_unscored_events=[point-bad,point+bad],
+            terminal_state_probabilities=states,gray_rate=states.get('gray',0.),outage=outage,
+            forward_symbols=forward,feedback_symbols=feedback,forward_rounds=1,feedback_rounds=int(thresholds is not None),
+            mean_used_symbols=forward+feedback,worst_used_symbols=worst+feedback,mean_turns=int(thresholds is not None),
+            latency_formula='T = used_symbols * T_symbol + n_turn * T_turn; no deployed latency claim')
+
+    def aware(self,cost):
+        actions=sorted(self.actions.values(),key=lambda a:a['action_id']);calls=0
+        def solve(prefix,budget,round_index,failed,clean,bad,history):
+            nonlocal calls
+            calls+=1;stop=float(clean.sum()*self.q[prefix]);best=(stop,None)
+            if round_index>=3 or float(clean.sum())<1e-300:return best
+            allowed=[a for a in actions if a['forward_symbols']<=budget and
+                     (can_retry(a,failed) if failed else a['start_m']==prefix)]
+            for action in allowed:
+                ac,ab=update_history(clean,bad,self.outcome[action['action_id']],True)
+                nc,nb=update_history(clean,bad,self.outcome[action['action_id']],False)
+                terminal=float(ac.sum()*self.q[action['end_m']]+nc.sum()*self.q[prefix])
+                tree=dict(action_id=action['action_id'],prefix_m=prefix,round_index=round_index,request_feedback=False,ack=None,nack=None,
+                    observable_history=history,posterior_expected_channel_power=float((clean+bad)@(10**((self.locations-self.average_db)/10)) / max(1e-300,float((clean+bad).sum()))))
+                candidate=(terminal,tree)
+                remaining=budget-action['forward_symbols']-cost
+                if round_index<2 and remaining>=0:
+                    av,at=solve(action['end_m'],remaining,round_index+1,None,ac,ab,history+[(action['action_id'],'ACK')])
+                    nv,nt=solve(prefix,remaining,round_index+1,action,nc,nb,history+[(action['action_id'],'NACK')])
+                    if at is not None or nt is not None:
+                        continued=av+nv
+                        if continued>terminal+1e-14:
+                            candidate=(continued,dict(tree,request_feedback=True,ack=at,nack=nt))
+                if candidate[0]>best[0]+1e-14:best=candidate
+            return best
+        point,tree=solve(0,1024,0,None,self.prior,np.zeros_like(self.prior),[])
+        return dict(point=point,tree=tree,DP_calls=calls,optimization='Exhaustive finite-depth conditional-history decision tree; unnormalised clean/bad posterior masses')
+
+    def arq(self,cost):
+        actions=sorted(self.actions.values(),key=lambda a:a['action_id']);plans=[]
+        def enumerate_plans(seq,prefix,spent):
+            if seq:plans.append(tuple(seq))
+            if len(seq)==3:return
+            for a in actions:
+                used=spent+a['forward_symbols']+(cost if seq else 0)
+                if a['start_m']==prefix and used<=1024:enumerate_plans(seq+[a['action_id']],a['end_m'],used)
+        enumerate_plans([],0,0)
+        def tree_for(plan,stage,budget,round_index,round_limit,prefix,history):
+            if stage>=len(plan) or round_index>=round_limit:return None
+            a=self.actions[plan[stage]]
+            if a['forward_symbols']>budget:return None
+            rem=budget-a['forward_symbols']-cost
+            at=nt=None
+            if rem>=0 and round_index+1<round_limit:
+                at=tree_for(plan,stage+1,rem,round_index+1,round_limit,a['end_m'],history+[(a['action_id'],'ACK')])
+                nt=tree_for(plan,stage,rem,round_index+1,round_limit,prefix,history+[(a['action_id'],'NACK')])
+            return dict(action_id=a['action_id'],prefix_m=prefix,round_index=round_index,request_feedback=at is not None or nt is not None,
+                ack=at,nack=nt,observable_history=history)
+        best=dict(point=self.q[0],tree=None,plan=[],round_limit=0);seen=set();count=0
+        for plan in plans:
+            for limit in (1,2,3):
+                tree=tree_for(plan,0,1024,0,limit,0,[]);key=r.identity(tree)
+                if key in seen:continue
+                seen.add(key);count+=1;point=self.evaluate_tree(tree,cost)['point']
+                if point>best['point']+1e-14:best=dict(point=point,tree=tree,plan=list(plan),round_limit=limit)
+        best.update(stage_plans_enumerated=len(plans),unique_trees_compared=count,
+            rule='Preselected stage boundaries/MCS; ACK advances, NACK repeats same segment/config; registered round limit or insufficient budget stops')
+        return best
+
+    def evaluate_tree(self,tree,cost):
+        totals=dict(point=0.,bad_probability=0.,forward_symbols=0.,feedback_symbols=0.,forward_rounds=0.,feedback_rounds=0.)
+        states={};paths=[]
+        def leaf(prefix,clean,bad,used,fw,fb,history):
+            mass=float(clean.sum());unknown=float(bad.sum());state='gray' if prefix==0 else f'm{prefix}_K0'
+            totals['point']+=mass*self.q[prefix];totals['bad_probability']+=unknown
+            states[state]=states.get(state,0.)+mass
+            paths.append(dict(history=history,used_symbols=used,forward_rounds=fw,feedback_rounds=fb,probability=mass+unknown))
+        def walk(node,prefix,clean,bad,used,fw,fb,history):
+            if node is None:leaf(prefix,clean,bad,used,fw,fb,history);return
+            a=self.actions[node['action_id']];mass=float((clean+bad).sum());feedback=bool(node['request_feedback'])
+            r.require(a['start_m']==prefix and fw<3,'Tree skips prefix or exceeds round limit')
+            used+=a['forward_symbols']+(cost if feedback else 0);fw+=1;fb+=int(feedback)
+            r.require(used<=1024 and fb<=2,'A tree path violates shared budget')
+            totals['forward_symbols']+=mass*a['forward_symbols'];totals['forward_rounds']+=mass
+            totals['feedback_symbols']+=mass*cost*feedback;totals['feedback_rounds']+=mass*feedback
+            for ack,child,newprefix in ((True,node['ack'],a['end_m']),(False,node['nack'],prefix)):
+                cc,bb=update_history(clean,bad,self.outcome[a['action_id']],ack)
+                walk(child,newprefix,cc,bb,used,fw,fb,history+[(a['action_id'],'ACK' if ack else 'NACK')])
+        walk(tree,0,self.prior,np.zeros_like(self.prior),0,0,0,[])
+        r.require(abs(sum(states.values())+totals['bad_probability']-1)<1e-10,'Terminal outcome probability lost')
+        bad=totals['bad_probability'];outage={}
+        for tau in TAUS:
+            clean_outage=sum(prob*float(np.mean(self.quality.values[state]<tau)) for state,prob in states.items())
+            outage[str(tau)]=dict(lower=clean_outage,upper=min(1.,clean_outage+bad))
+        return dict(totals,quality_bounds_for_unscored_events=[totals['point']-bad,totals['point']+bad],terminal_state_probabilities=states,
+            gray_rate=states.get('gray',0.),outage=outage,mean_used_symbols=totals['forward_symbols']+totals['feedback_symbols'],
+            worst_used_symbols=max(p['used_symbols'] for p in paths),mean_turns=totals['forward_rounds']+totals['feedback_rounds']-float(tree is not None),
+            latency_formula='T = used_symbols * T_symbol + n_turn * T_turn; no deployed latency claim',paths=paths)
+
+    def qcsi(self,cost):
+        scope=self.catalog['QCSI'][str(cost)];profiles=[self.profiles[pid] for pid in scope['old_profile_ids']]
+        unavailable=[];missing=[]
+        for a in self.catalog['QCSI_new_actions']:
+            if a['feedback_symbols']!=cost:continue
+            if a['status']=='UNAVAILABLE_BACKEND_REJECTION':unavailable.append(a['action_id']);continue
+            if a['status']!='READY' or a['group']['phy_key']not in self.prob:missing.append(a['action_id']);continue
+            profiles.append(self.extra_profile(a))
+        # Missing planned competitors cannot be silently removed from a final baseline.
+        if missing:return dict(status='MISSING_ASSET',missing_action_ids=missing,unavailable_action_ids=unavailable,
+            old_candidate_count=len(scope['old_profile_ids']),point=None,policy_frozen=False)
+        ids=[p['stable_id'] for p in profiles];values=np.stack([self.profile_weights(p)[0] for p in profiles])
+        best=None;all_thresholds=[]
+        for thresholds in itertools.combinations(r.THRESHOLDS,3):
+            bins=np.searchsorted(thresholds,self.locations,side='right');selected=[];point=0.
+            for b in range(4):
+                weights=self.prior*(bins==b);scores=values@weights
+                index=min(range(len(ids)),key=lambda i:(-float(scores[i]),ids[i]));selected.append(ids[index]);point+=float(scores[index])
+            row=dict(thresholds_db=list(thresholds),selected_profile_ids=selected,point=point)
+            all_thresholds.append(row)
+            if best is None or point>best['point']+1e-14:best=row
+        pmap={p['stable_id']:p for p in profiles}
+        selected=[pmap[i] for i in best['selected_profile_ids']]
+        selected_bins=np.searchsorted(best['thresholds_db'],self.locations,side='right')
+        paths=[dict(bin_index=i,profile_id=p['stable_id'],probability=float(self.prior[selected_bins==i].sum()),
+            used_symbols=cost+68+sum(g['symbols'] for g in p['groups']),forward_rounds=1,feedback_rounds=1) for i,p in enumerate(selected)]
+        return dict(best,status='MODEL_POTENTIAL_ONLY',candidate_count=len(profiles),old_candidate_count=len(scope['old_profile_ids']),
+            threshold_triplets_compared=35,all_threshold_triplets=all_thresholds,unavailable_action_ids=unavailable,
+            selected_profiles=selected,summary=self.selected_profile_summary(selected,best['thresholds_db'],cost),resource_paths=paths,policy_frozen=True)
+
+
+def node_groups(profile):
+    """Metadata is public; partial token positions still require real RX prefix."""
+    first=0;groups=[]
+    for index,g in enumerate(profile['groups']):
+        count=g['source_bits']//12;stop=first+count
+        state=profile['full_state_id'] if index==len(profile['groups'])-1 else profile['prefix_state_id']
+        group=dict(g,start_token=first,stop_token=stop,state_id=state)
+        if profile.get('K',0)>0 and index==len(profile['groups'])-1:
+            group['partial']=dict(m=profile['m'],K=profile['K'],order='entropy',requires_RX_prefix_derived_order=True)
+        groups.append(group);first=stop
+    return groups
+
+
+def export_policies(cells,models,catalog):
+    policies=[];codebook={};wire_ids={}
+    def header(groups,round_index,request_feedback=False):
+        wire=dict(groups=groups,forward_round_index=round_index,request_feedback=bool(request_feedback));key=r.identity(wire)
+        if key not in wire_ids:
+            hid=len(wire_ids);r.require(hid<4096,'12-bit public header capacity exceeded');wire_ids[key]=hid;codebook[str(hid)]=wire
+        return wire_ids[key]
+    def tree_policy(cell,family,tree):
+        nodes={}
+        def emit(node):
+            if node is None:return None
+            a=models[cell['average_snr_db']].actions[node['action_id']]
+            groups=[dict(a['group'],start_token=a['start_token'],stop_token=a['stop_token'],state_id=a['state_id'])]
+            nodeid='n'+str(len(nodes));nodes[nodeid]={}
+            nodes[nodeid]=dict(header_id=header(groups,node['round_index'],node['request_feedback']),forward_round_index=node['round_index'],groups=groups,request_feedback=node['request_feedback'],
+                ack=emit(node['ack']),nack=emit(node['nack']),prefix_m=node['prefix_m'],observable_history=node['observable_history'])
+            return nodeid
+        root=emit(tree)
+        return dict(policy_id=f'{family}_snr{cell["average_snr_db"]}_fb{cell["feedback_symbols"]}',family=family,root=root,nodes=nodes,
+            average_snr_db=cell['average_snr_db'],feedback_symbols=cell['feedback_symbols'],max_forward_rounds=3,
+            policy_observes_only='actual public ACK/NACK history and remaining resource; no h/noise/truth',shared_h_all_rounds=True,
+            public_feedback_schedule='Pre-shared frozen tree keyed by average SNR, method and feedback cost, advanced only by common reliable ACK/NACK history',
+            header_failure_feedback='NACK only in the registered public feedback window; no implicit final ACK',
+            receiver_body_configuration='Use the actual decoded paid header ID and public codebook; the public schedule never substitutes the expected action for a failed or wrong header')
+    seen_fixed=set()
+    for cell in cells:
+        for family,key in [('R-ARQ','ARQ'),('R-AWARE','AWARE')]:policies.append(tree_policy(cell,family,cell[key]['tree']))
+        model=models[cell['average_snr_db']]
+        for key in ('best_single','best_grouped'):
+            p=model.profiles[cell['FIXED'][key]['profile_id']];tag=(cell['average_snr_db'],p['stable_id'])
+            if tag in seen_fixed:continue
+            seen_fixed.add(tag);groups=node_groups(p)
+            policies.append(dict(policy_id=f'R-FIXED_snr{cell["average_snr_db"]}_{p["stable_id"][:12]}',family='R-FIXED',root='n0',
+                nodes={'n0':dict(header_id=header(groups,0),forward_round_index=0,groups=groups,request_feedback=False,ack=None,nack=None)},
+                feedback_symbols=0,average_snr_db=cell['average_snr_db'],profile_id=p['stable_id']))
+        q=cell['QCSI']
+        if q.get('policy_frozen'):
+            nodes={};roots=[]
+            for i,p in enumerate(q['selected_profiles']):
+                groups=node_groups(p);nid='bin'+str(i);roots.append(nid)
+                nodes[nid]=dict(header_id=header(groups,0),forward_round_index=0,groups=groups,request_feedback=False,ack=None,nack=None)
+            policies.append(dict(policy_id=f'R-QCSI_snr{cell["average_snr_db"]}_fb{cell["feedback_symbols"]}',family='R-QCSI',nodes=nodes,
+                q_csi_roots=roots,thresholds_db=q['thresholds_db'],feedback_symbols=cell['feedback_symbols'],average_snr_db=cell['average_snr_db'],
+                one_paid_CSI_feedback_before_forward=True))
+    return dict(policies=policies,codebook=codebook,codebook_size=len(codebook),header_information_bits=12,
+        receiver_profile_from='Actual decoded paid header ID looked up in this public codebook; never source ID or Python strategy objects',
+        verification_authorized_by_this_file=False)
+
+
+def feedback_clarification(protocol_binding=None):
+    return dict(version='R_PUBLIC_FEEDBACK_SCHEDULE_CLARIFICATION_V1',base_protocol_binding=protocol_binding,
+        base_protocol_changed=False,scientific_action_set_changed=False,
+        public_feedback_schedule='Pre-shared frozen decision tree keyed by average SNR, method and feedback cost; current feedback window is determined solely by the common reliable ACK/NACK history.',
+        schedule_contains='Forward slot/round number, whether a feedback window exists, and stopping rule; already frozen public policy, not transmitter private node objects.',
+        paid_header='Every forward slot still carries its actual 12-bit profile/node ID in 68 symbols. Receiver must parse that ID to select the body decoder. Knowing the public schedule does not bypass or repair a failed/wrong header.',
+        header_failed='Use the previous accepted prefix. Send NACK only when the public tree schedules feedback; no unscheduled ACK/NACK transmission.',
+        decoded_wrong_header='Decode/parse using the actually accepted ID where possible; preserve unknown/mismatched events. The decoded ID/request flag cannot create or cancel the pre-registered public feedback window.',
+        budget_charge='Charge one feedback cost for every scheduled feedback window, including a branch that then stops. Charge zero for unscheduled/final ACKs because those messages are not sent.',
+        third_forward='No feedback after round index 2.',QCSI='One paid reliable CSI feedback before its only forward slot; no post-forward ACK.',
+        FIXED_and_C='One forward slot, no multi-round feedback.',
+        codebook_identity='groups + forward_round_index + request_feedback; unique IDs remain within 12 bits.',
+        protocol_authority='Execution-interface clarification bound before physical execution; does not change the frozen base resource or scientific protocol.')
+
+
+def search(legacy,profiles,quality,bler,catalog):
+    models={};cells=[];started=time.monotonic()
+    for snr in SNRS:
+        model=Model(legacy,profiles,quality,bler,catalog,snr,32);models[snr]=model;fixed=model.fixed()
+        coarse=Model(legacy,profiles,quality,bler,catalog,snr,16)
+        for key in ('best','best_single','best_grouped'):
+            profile=model.profiles[fixed[key]['profile_id']]
+            fixed[key]['summary']=model.selected_profile_summary([profile])
+            fixed[key]['numerical_16_vs_32_same_profile_difference']=coarse.selected_profile_summary([profile])['point']-fixed[key]['point']
+        for cost in r.FB_COSTS:
+            arq=model.arq(cost);aware=model.aware(cost);qcsi=model.qcsi(cost)
+            for chosen in (arq,aware):
+                chosen['summary']=model.evaluate_tree(chosen['tree'],cost)
+                chosen['numerical_16_vs_32_same_tree_difference']=coarse.evaluate_tree(chosen['tree'],cost)['point']-chosen['point']
+            r.require(aware['point']+1e-10>=arq['point'],'AWARE action class failed to contain optimized ARQ')
+            if qcsi.get('policy_frozen'):
+                qcsi['numerical_16_vs_32_same_strategy_difference']=coarse.selected_profile_summary(qcsi['selected_profiles'],qcsi['thresholds_db'],cost)['point']-qcsi['point']
+            cells.append(dict(average_snr_db=snr,feedback_symbols=cost,FIXED=fixed,ARQ=arq,AWARE=aware,QCSI=qcsi,
+                aware_minus_fixed=aware['point']-fixed['best']['point'],aware_minus_arq=aware['point']-arq['point'],
+                aware_minus_qcsi=None if qcsi['point']is None else aware['point']-qcsi['point']))
+    main=[c for c in cells if c['feedback_symbols']==32];free=[c for c in cells if c['feedback_symbols']==0]
+    large=sum(c['aware_minus_fixed']>=.02 for c in main)
+    if any(c['QCSI']['status']=='MISSING_ASSET' for c in main):status='MISSING_ASSET'
+    elif large>=2 and any(c['aware_minus_arq']<=0 or c['aware_minus_qcsi']<=0 for c in main if c['aware_minus_fixed']>=.02):status='FEEDBACK_VALUE_ONLY'
+    elif large>=2:status='MODEL_POTENTIAL_ONLY'
+    elif sum(c['aware_minus_fixed']>=.02 for c in free)>=2:status='FREE_FEEDBACK_ONLY'
+    else:status='NO_LARGE_GAIN_IN_WORKING_MODEL'
+    frozen=export_policies(cells,models,catalog)
+    return dict(status=status,cells=cells,registered_policy_trees=frozen,elapsed_seconds=time.monotonic()-started,
+        working_model_only=True,real_decodes=0,new_images_rendered=0,development_read=False,
+        integration='Within each PHY/CSI interval, 32-point Gauss-Legendre over Rayleigh CDF; exact interval masses and endpoint-constant tails',
+        probability_model='Frozen physical C/R/U dB interpolation; new tables only for exact independently qualified configurations',
+        history_model='Header wrong-CRC-accept point event sends ACK and enters absorbing unscored state; actual header parsing controls V. All U mass remains separately bounded.',
+        U_point_quality=0,U_quality_bounds=[-1,1],no_physical_gain_claim=True,visual_GPU_authorized=False,
+        finite_scope=catalog['scientific_scope'])
+
+
+if __name__=='__main__':
+    ap=argparse.ArgumentParser();ap.add_argument('--snapshot',required=True);ap.add_argument('--catalog',required=True)
+    ap.add_argument('--new-bler');ap.add_argument('--legacy-f1-code',required=True);ap.add_argument('--out',required=True)
+    ap.add_argument('--protocol')
+    args=ap.parse_args();s=Path(args.snapshot);bler=r.read(s/'bler.json')
+    if args.new_bler:bler['rows']+=r.read(args.new_bler)['rows']
+    source_paths=[s/'candidate_profiles_N1024.json',s/'quality_bundle.json',s/'bler.json',Path(args.catalog),Path(args.legacy_f1_code)]
+    if args.new_bler:source_paths.append(Path(args.new_bler))
+    if args.protocol:source_paths.append(Path(args.protocol))
+    input_bindings={str(path.resolve()):r.sha(path) for path in source_paths}
+    result=search(load_legacy(args.legacy_f1_code),r.read(s/'candidate_profiles_N1024.json'),r.read(s/'quality_bundle.json'),bler,r.read(args.catalog))
+    out=Path(args.out);r.write(out/'policy_search.json',result);r.write(out/'registered_policy_trees.json',result['registered_policy_trees'])
+    path=out/'policy_comparison.csv';r.require(not path.exists(),'Existing comparison is immutable')
+    fields=['average_snr_db','feedback_symbols','fixed_point','ARQ_point','AWARE_point','QCSI_point','aware_minus_fixed','aware_minus_arq','aware_minus_qcsi','AWARE_mean_symbols','AWARE_worst_symbols','AWARE_feedback_rounds','AWARE_bad_probability','QCSI_status']
+    with path.open('w',newline='',encoding='utf-8') as stream:
+        writer=csv.DictWriter(stream,fieldnames=fields);writer.writeheader()
+        for cell in result['cells']:
+            z=cell['AWARE']['summary'];writer.writerow(dict(average_snr_db=cell['average_snr_db'],feedback_symbols=cell['feedback_symbols'],fixed_point=cell['FIXED']['best']['point'],
+                ARQ_point=cell['ARQ']['point'],AWARE_point=cell['AWARE']['point'],QCSI_point=cell['QCSI']['point'],
+                aware_minus_fixed=cell['aware_minus_fixed'],aware_minus_arq=cell['aware_minus_arq'],aware_minus_qcsi=cell['aware_minus_qcsi'],
+                AWARE_mean_symbols=z['mean_used_symbols'],AWARE_worst_symbols=z['worst_used_symbols'],AWARE_feedback_rounds=z['feedback_rounds'],AWARE_bad_probability=z['bad_probability'],QCSI_status=cell['QCSI']['status']))
+    sensitivity=[];resource_paths=[];thresholds=[]
+    for cell in result['cells']:
+        snr,cost=cell['average_snr_db'],cell['feedback_symbols']
+        sensitivity.append(dict(average_snr_db=snr,feedback_symbols=cost,AWARE_point=cell['AWARE']['point'],ARQ_point=cell['ARQ']['point'],
+            FIXED_point=cell['FIXED']['best']['point'],QCSI_point=cell['QCSI']['point'],aware_minus_fixed=cell['aware_minus_fixed'],
+            aware_minus_arq=cell['aware_minus_arq'],aware_minus_qcsi=cell['aware_minus_qcsi'],main_cost=cost==32))
+        for key,family in [('ARQ','R-ARQ'),('AWARE','R-AWARE')]:
+            for row in cell[key]['summary']['paths']:
+                resource_paths.append(dict(average_snr_db=snr,feedback_symbols=cost,family=family,path=row.get('history'),
+                    used_symbols=row['used_symbols'],forward_rounds=row['forward_rounds'],feedback_rounds=row['feedback_rounds'],probability=row['probability']))
+        for row in cell['QCSI'].get('resource_paths',[]):
+            resource_paths.append(dict(average_snr_db=snr,feedback_symbols=cost,family='R-QCSI',path=dict(bin_index=row['bin_index'],profile_id=row['profile_id']),
+                used_symbols=row['used_symbols'],forward_rounds=row['forward_rounds'],feedback_rounds=row['feedback_rounds'],probability=row['probability']))
+        thresholds.append(dict(average_snr_db=snr,feedback_symbols=cost,status=cell['QCSI']['status'],
+            thresholds_db=cell['QCSI'].get('thresholds_db'),selected_profile_ids=cell['QCSI'].get('selected_profile_ids'),
+            threshold_triplets_compared=cell['QCSI'].get('threshold_triplets_compared',0),missing_action_ids=cell['QCSI'].get('missing_action_ids',[])))
+    r.write_csv(out/'cost_sensitivity.csv',sensitivity);r.write_csv(out/'resource_paths.csv',resource_paths)
+    r.write(out/'q_csi_thresholds.json',dict(cells=thresholds,threshold_candidates_db=list(r.THRESHOLDS),triplets_per_complete_cell=35,
+        verification_reselection_allowed=False))
+    protocol_binding=None if not args.protocol else dict(path=str(Path(args.protocol).resolve()),sha256=r.sha(args.protocol))
+    r.write(out/'public_feedback_protocol.json',feedback_clarification(protocol_binding))
+    lines=['# R：有限反馈工作模型筛选','',f'状态：**{result["status"]}**。仅使用1000张calibration的缓存质量与物理概率模型；本搜索没有新图像推断或真实码块译码。',
+        '', 'ARQ和AWARE共用全部登记可达动作；ARQ完整优化阶段/MCS与轮数限制，AWARE仅根据公开ACK/NACK历史更新同一h的后验。FIXED比较全部4041候选。QCSI按付费后的真实正文长度筛选旧候选，并加入登记的完整尺度新码长；缺少竞争者的物理表时保留MISSING_ASSET。',
+        '', '|平均SNR|反馈符号|FIXED|ARQ|AWARE|QCSI|AWARE−FIXED|','|---:|---:|---:|---:|---:|---:|---:|']
+    for cell in result['cells']:
+        if cell['feedback_symbols']!=32:continue
+        q=cell['QCSI']['point'];qs='MISSING_ASSET' if q is None else f'{q:.6f}'
+        lines.append(f'|{cell["average_snr_db"]}|32|{cell["FIXED"]["best"]["point"]:.6f}|{cell["ARQ"]["point"]:.6f}|{cell["AWARE"]["point"]:.6f}|{qs}|{cell["aware_minus_fixed"]:+.6f}|')
+    lines+=['','这些是工作模型数值，不是实际衰落重建结果。dB线性插值、端点常数尾部与错误header接受时的历史近似均保留说明；CRC错误接受的质量点值0仅用于选策，其事件质量界为[-1,1]。完整逐源outage、灰图率与未评分事件概率见policy_search.json。',
+        '', '每条路径均校验前向头部68、正文实际长度与反馈一起不超过1024；最多3次前向、2次反馈。反馈请求产生后，即使该ACK/NACK分支停止也计费；第三次发送后不收最终ACK。0成本仅理想诊断。资源路径、阈值35组比较与16/32阶数值差均保留。',
+        '', '若真实验证需要partial熵序而缓存缺失，必须标MISSING_ASSET；不得削弱固定/QCSI基线或据此宣布新方法验证成功。至少两个SNR的主成本32模型增量达到+0.02，只影响CPU验证优先级；不授权GPU任务，不改旧F1结论。']
+    report=out/'REPORT.md';r.require(not report.exists(),'Existing report is immutable');report.write_text('\n'.join(lines)+'\n',encoding='utf-8')
+    published=['policy_search.json','registered_policy_trees.json','policy_comparison.csv','cost_sensitivity.csv','resource_paths.csv','q_csi_thresholds.json','public_feedback_protocol.json','REPORT.md']
+    outputs={str((out/name).resolve()):r.sha(out/name) for name in published}
+    r.write(out/'completion.json',dict(status=result['status'],stage='R_MODEL_SEARCH',outputs=outputs,input_bindings=input_bindings,
+        source_bindings={str(Path(__file__).resolve()):r.sha(__file__),str(Path(r.__file__).resolve()):r.sha(r.__file__)},
+        real_decodes_generated_by_search=0,new_images_rendered=0,development_read=False,elapsed_seconds=result['elapsed_seconds'],
+        policy_count=len(result['registered_policy_trees']['policies']),header_ids=result['registered_policy_trees']['codebook_size']))
+    print(json.dumps(dict(status=result['status'],elapsed_seconds=result['elapsed_seconds'],header_ids=result['registered_policy_trees']['codebook_size'])))

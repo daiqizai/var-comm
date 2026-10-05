@@ -1,0 +1,149 @@
+"""Freeze/runner/analysis contract fixtures; zero real decoding or models."""
+import contextlib
+import copy
+import io
+import json
+from pathlib import Path
+import tempfile
+import types
+import unittest
+import numpy as np
+import freeze_verification as f
+import analysis as a
+import cpu_link_probe as runner
+
+
+def write(path,value):
+    path.parent.mkdir(parents=True,exist_ok=True);path.write_text(json.dumps(value),encoding='utf-8')
+
+
+def group(state='m4_K0',start=0):
+    bits=360 if start==0 else 312
+    return dict(state_id=state,source_bits=bits,information_bits=bits+16,transmitted_bits=500,symbols=250,
+                modulation='QPSK',start_token=start,stop_token=start+bits//12,phy_key='phy-'+state)
+
+
+def policy(name,snr,profile=None,partial=False):
+    node=dict(header_id=7,forward_round_index=0,groups=[group()],request_feedback=False,ack=None,nack=None)
+    if partial:node['groups'].append(group('m5_K1',30))
+    result=dict(policy_id=name+'-'+str(snr)+(('-'+profile) if profile else ''),family=name,
+                average_snr_db=snr,feedback_symbols=0 if name=='R-FIXED' else 32,nodes={'n0':node},root='n0')
+    if profile:result['profile_id']=profile
+    if name=='R-QCSI':result.update(root=None,q_csi_roots=['n0']*4,thresholds_db=[4,7,10])
+    return result
+
+
+def fixture(root,pass_r=True):
+    ids=['source'+str(i) for i in range(1000)];sources=f.source_subset(ids)
+    profiles=[dict(stable_id='cp',m=5,K=1)]
+    write(root/'quality.json',dict(source_ids=ids));write(root/'profiles.json',profiles)
+    manifest=dict(assets={name:dict(path=str(root/file),sha256=f.sha(root/file))
+                         for name,file in [('quality_bundle','quality.json'),('profiles','profiles.json')]})
+    write(root/'INPUT_MANIFEST.json',manifest)
+    write(root/'protocol.json',dict(N=1024,average_snrs_db=list(f.SNRS)))
+    write(root/'C/split.json',dict(probe_source_ids=sources,verification_source_ids=sources+['remaining'+str(i) for i in range(136)]))
+    gate=dict(status='MODEL_POTENTIAL_ONLY',CPU_probe_priority=True,per_snr=[dict(average_snr_db=s,full_gain=.1,C8_gain=.08,retention=.8) for s in f.SNRS])
+    write(root/'C/gate.json',gate)
+    selections=[dict(average_snr_db=s,uniform_stable_id='cp',dictionary_stable_ids=['cp'],
+        probe_decisions_by_source={name:{source:dict(stable_id='cp',profile_id=0) for source in sources} for name in ['C-UNIFORM','C-8']}) for s in f.SNRS]
+    write(root/'C/selected_dictionaries.json',dict(cells=selections))
+    write(root/'C/completion.json',dict(status='COMPLETE',scientific_status=gate['status'],
+        outputs={p.name:f.sha(p) for p in (root/'C').iterdir()}))
+    trees=[];cells=[]
+    for s in f.SNRS:
+        trees += [policy('R-FIXED',s,'single'),policy('R-FIXED',s,'grouped',True),policy('R-ARQ',s),policy('R-AWARE',s),policy('R-QCSI',s)]
+        single=dict(profile_id='single',point=.5);grouped=dict(profile_id='grouped',point=.51)
+        cells.append(dict(average_snr_db=s,feedback_symbols=32,FIXED=dict(best_single=single,best_grouped=grouped,best=grouped),
+            ARQ=dict(point=.52),AWARE=dict(point=.55 if pass_r else .515),QCSI=dict(point=.52,status='MODEL_POTENTIAL_ONLY')))
+    bundle=dict(policies=trees)
+    write(root/'R/registered_policy_trees.json',bundle)
+    write(root/'R/policy_search.json',dict(status='MODEL_POTENTIAL_ONLY',cells=cells,registered_policy_trees=bundle))
+    write(root/'R/public_feedback_protocol.json',dict(base_protocol_changed=False,scientific_action_set_changed=False,
+        base_protocol_binding=dict(path=str(root/'protocol.json'),sha256=f.sha(root/'protocol.json'))))
+    write(root/'R/completion.json',dict(status='MODEL_POTENTIAL_ONLY',stage='R_MODEL_SEARCH',development_read=False,
+        real_decodes_generated_by_search=0,new_images_rendered=0,outputs={p.name:f.sha(p) for p in (root/'R').iterdir()}))
+    return ids,sources,manifest
+
+
+def run(root):
+    with contextlib.redirect_stdout(io.StringIO()):return f.freeze(root)
+
+
+class FreezeTests(unittest.TestCase):
+    def test_original_missing_R_controls_retained_and_C_all64_recorded(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);ids,sources,manifest=fixture(root);frozen,disposition=run(root)
+            self.assertEqual([len(v) for v in frozen['policies_by_snr'].values()],[5]*4)
+            self.assertEqual(len(frozen['content_missing_policies']),8)
+            for row in frozen['content_missing_policies']:
+                self.assertEqual(set(row['source_decisions']),set(sources))
+            self.assertFalse(frozen['baseline_comparison_complete'])
+            assets=types.SimpleNamespace(probe_ids=sources,orders={})
+            admission,admitted=runner.policy_admission(assets,frozen)
+            self.assertEqual(len(admission['missing_policies']),4)
+            self.assertEqual([len(v) for v in admitted.values()],[4]*4)
+            effective=dict(frozen,policies_by_snr=admitted)
+            self.assertTrue(runner.public_codebook(effective))
+            self.assertTrue(disposition['run_actual_verification'])
+            self.assertLessEqual(frozen['max_reserved_verification_decodes'],200000)
+            self.assertEqual(frozen,run(root)[0])
+
+    def test_negative_R_gate_no_actual_but_C_model_potential_and_missing_retained(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);fixture(root,False);frozen,disposition=run(root)
+            self.assertEqual(disposition['status'],'TERMINAL_MISSING_ASSET')
+            self.assertEqual(disposition['branches']['C']['status'],'MISSING_ASSET')
+            self.assertEqual(disposition['branches']['R']['status'],'NOT_RUN_BY_PREREGISTERED_GATE')
+            self.assertEqual(frozen['max_reserved_verification_decodes'],0)
+            self.assertTrue(all(not rows for rows in frozen['policies_by_snr'].values()))
+            self.assertEqual(len(frozen['expected_policies_by_snr']['4']),5)
+            a.validate_disposition(disposition,dict(CPU_probe_priority=True),dict(CPU_probe_priority=False))
+
+    def test_wrong_source_subset_and_snapshot_SHA_fail_before_freeze(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);fixture(root)
+            split=f.read(root/'C/split.json');split['probe_source_ids'].reverse();write(root/'C/split.json',split)
+            with self.assertRaisesRegex(ValueError,'source split|source output changed'):run(root)
+            self.assertFalse((root/'V/frozen_policies.json').exists())
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);fixture(root);write(root/'profiles.json',[])
+            with self.assertRaisesRegex(ValueError,'snapshot asset changed'):run(root)
+
+    def test_entropy_manifest_presence_is_not_qualification(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);ids,sources,manifest=fixture(root)
+            path=root/'orders.npz';np.savez(path,source_ids=np.asarray(ids),entropy_order_m5=np.zeros((1000,36),dtype=np.int64))
+            manifest['assets']['calibration_entropy_orders']=dict(path=str(path),sha256=f.sha(path));write(root/'INPUT_MANIFEST.json',manifest)
+            with self.assertRaisesRegex(ValueError,'Incomplete entropy'):run(root)
+            np.savez(path,source_ids=np.asarray(ids),entropy_order_m5=np.tile(np.arange(36),(1000,1)))
+            with self.assertRaisesRegex(ValueError,'SHA mismatch'):run(root)
+            manifest['assets']['calibration_entropy_orders']['sha256']=f.sha(path);write(root/'INPUT_MANIFEST.json',manifest)
+            with self.assertRaisesRegex(ValueError,'C assets complete'):run(root)
+
+    def test_partial_source_subset_is_never_used_as_a_method(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);fixture(root);c=f.read(root/'C/selected_dictionaries.json')
+            c['cells'][0]['probe_decisions_by_source']['C-8'].pop(next(iter(c['cells'][0]['probe_decisions_by_source']['C-8'])))
+            write(root/'C/selected_dictionaries.json',c)
+            with self.assertRaisesRegex(ValueError,'all64|source output changed'):run(root)
+
+    def test_public_round_and_each_resource_path_validated_before_receipt(self):
+        p=policy('R-AWARE',4);p['nodes']['n0']['forward_round_index']=1
+        with self.assertRaisesRegex(ValueError,'tree depth'):f.path_audit(p)
+        p=policy('R-AWARE',4);p['nodes']['n0']['idle_symbols']=1000
+        with self.assertRaisesRegex(ValueError,'exceeds1024'):f.path_audit(p)
+        p=policy('R-AWARE',4);p['nodes']['n0']['ack']='n0';p['nodes']['n0']['request_feedback']=True
+        with self.assertRaisesRegex(ValueError,'cyclic'):f.path_audit(p)
+
+    def test_control_flag_is_in_public_header_identity(self):
+        p=policy('R-AWARE',4);p['nodes']['n1']=copy.deepcopy(p['nodes']['n0']);p['nodes']['n1']['forward_round_index']=1
+        p['nodes']['n0'].update(request_feedback=True,ack='n1',nack=None)
+        expected=f.path_audit(p)
+        observed=runner.validate_policy(p)
+        self.assertEqual(expected['max_symbols'],observed['max_symbols'])
+        self.assertEqual(expected['max_feedback_rounds'],observed['max_feedback_rounds'])
+        self.assertEqual(expected['max_requested_decodes'],4)
+        self.assertEqual(f.path_audit(p,{0:2,1:2,2:2})['max_requested_decodes'],6)
+
+
+if __name__=='__main__':unittest.main()

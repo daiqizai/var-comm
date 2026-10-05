@@ -1,0 +1,248 @@
+"""Pure CPU fixtures. No real PHY decoder, model or dataset is run by these tests."""
+import copy
+from concurrent.futures import ThreadPoolExecutor
+import inspect
+import json
+from pathlib import Path
+import tempfile
+from types import SimpleNamespace
+import unittest
+from unittest.mock import Mock,patch
+import numpy as np
+import budget_ledger as b
+import phy_common as p
+import cpu_link_probe as v
+
+
+class BudgetTests(unittest.TestCase):
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
+        self.ledger=b.BudgetLedger(Path(self.temp.name)/'ledger.sqlite','frozen-fixture')
+        self.ledger.register_configuration('header',{'header_bits':12},False)
+    def test_header_and_body_are_individually_charged_and_exact_replay_is_free(self):
+        decode=Mock(return_value={'actual_fixture':1})
+        for kind in ['header','body']:
+            self.assertEqual(self.ledger.decode_once('planning',kind,kind,'header',{'x':kind},decode),{'actual_fixture':1})
+        self.ledger.decode_once('planning','header','header','header',{'x':'header'},decode)
+        self.assertEqual(decode.call_count,2);self.assertEqual(self.ledger.snapshot()['charged'],2)
+    def test_interrupted_decode_keeps_charge_and_refuses_blind_reexecution(self):
+        decode=Mock(side_effect=ValueError('decoder interrupted'))
+        with self.assertRaises(ValueError):self.ledger.decode_once('planning','one','body','header',{},decode)
+        with self.assertRaisesRegex(b.BudgetError,'Unresolved'):self.ledger.decode_once('planning','one','body','header',{},decode)
+        self.assertEqual(decode.call_count,1);self.assertEqual(self.ledger.snapshot()['charged'],1)
+    def test_same_event_different_observation_refuses(self):
+        self.ledger.decode_once('planning','one','header','header',{'y':1},lambda:{'ok':1})
+        with self.assertRaisesRegex(b.BudgetError,'collision'):self.ledger.decode_once('planning','one','header','header',{'y':2},lambda:{})
+    def test_planning_exhaustion_does_not_consume_reserved_verification(self):
+        with self.ledger.transaction() as c:c.execute('UPDATE counters SET charged=50000 WHERE phase="planning"')
+        decode=Mock(return_value={})
+        with self.assertRaisesRegex(b.BudgetError,'budget exhausted'):self.ledger.decode_once('planning','over','body','header',{},decode)
+        decode.assert_not_called();self.ledger.decode_once('verification','valid','header','header',{},decode);decode.assert_called_once()
+    def test_two_workers_cannot_overrun_last_charge(self):
+        with self.ledger.transaction() as c:c.execute('UPDATE counters SET charged=49999 WHERE phase="planning"')
+        def claim(i):
+            try:self.ledger.decode_once('planning',str(i),'body','header',{},lambda:{'worker':i});return True
+            except b.BudgetError:return False
+        with ThreadPoolExecutor(max_workers=2) as pool:self.assertEqual(sum(pool.map(claim,[0,1])),1)
+    def test_49th_new_configuration_rejected(self):
+        for i in range(48):self.ledger.register_configuration(str(i),{'id':i},True)
+        with self.assertRaisesRegex(b.BudgetError,'48 new'):self.ledger.register_configuration('49',{'id':49},True)
+    def test_new_configuration_remains_new_during_verification_lookup(self):
+        self.ledger.register_configuration('new',{'k':20},True)
+        self.ledger.register_configuration('new',{'k':20},False)
+        self.assertEqual(self.ledger.snapshot()['new_physical_configurations'],1)
+    def test_changed_geometry_or_binding_refuses(self):
+        with self.assertRaisesRegex(b.BudgetError,'identity changed'):self.ledger.register_configuration('header',{'header_bits':13},False)
+        with self.assertRaisesRegex(b.BudgetError,'registration changed'):b.BudgetLedger(self.ledger.path,'other')
+    def test_policy_freeze_prevents_verification_to_selection_feedback(self):
+        self.ledger.freeze_artifact('verification_policies',{'policy':1})
+        self.ledger.freeze_artifact('verification_policies',{'policy':1})
+        with self.assertRaisesRegex(b.BudgetError,'Frozen'):self.ledger.freeze_artifact('verification_policies',{'policy':2})
+
+
+class ChannelTests(unittest.TestCase):
+    def test_same_source_draw_is_shared_across_methods_and_h_across_rounds(self):
+        a=p.Channel('verification','source',7,2);c=p.Channel('verification','source',7,2)
+        x=np.ones((10,2));y,hash1=a.apply(x,0,0);z,hash2=c.apply(x,0,0)
+        np.testing.assert_array_equal(y,z);self.assertEqual(hash1,hash2);self.assertEqual(a.h,c.h)
+        _,next_hash=a.apply(x,1,0);self.assertNotEqual(hash1,next_hash)
+    def test_planning_verification_and_bootstrap_use_separate_registered_seeds(self):
+        self.assertEqual(p.SEEDS,{'planning':2026100502,'verification':2026100503,'bootstrap':2026100504})
+        self.assertNotEqual(p.Channel('planning','source',7,2).h,p.Channel('verification','source',7,2).h)
+    def test_noiseless_matched_phase_rotation_preserves_llr(self):
+        x=np.array([[1.,-1.],[-1.,1.]])
+        a=p.rayleigh_logits(x,1+0j,.5,2)
+        z=(x[:,0]+1j*x[:,1])*1j;y=np.stack((z.real,z.imag),1)
+        np.testing.assert_allclose(a,p.rayleigh_logits(y,1j,.5,2),atol=1e-14)
+    def test_qpsk_matches_awgn_analytic_logit(self):
+        y=np.array([[.2,-.7],[1.,-1.]])
+        np.testing.assert_allclose(p.rayleigh_logits(y,1+0j,.25,2),(-2*y/.25).ravel(),atol=1e-14)
+    def test_zero_and_nearzero_h_are_not_promoted_to_a_better_channel(self):
+        y=np.array([[.3,-.2],[1.,2.]])
+        for q in [2,4]:
+            np.testing.assert_array_equal(p.rayleigh_logits(y,0j,.5,q),np.zeros(2*q))
+            self.assertLess(np.max(np.abs(p.rayleigh_logits(y,1e-12+1e-12j,.5,q))),1e-9)
+    def test_complex_full_constellation_qam_mapping(self):
+        labels=((np.arange(16)[:,None]>>np.arange(3,-1,-1))&1)
+        pam=np.array([-3.,-1.,3.,1.])/np.sqrt(5)
+        y=np.stack((pam[2*labels[:,0]+labels[:,1]],pam[2*labels[:,2]+labels[:,3]]),1)
+        guessed=(p.rayleigh_logits(y,1+0j,.001,4)>0).reshape(16,4)
+        np.testing.assert_array_equal(guessed,labels)
+    def test_slots_charge_actual_positions_without_unbounded_future_read(self):
+        channel=p.Channel('verification','source',4,0)
+        with self.assertRaises(RuntimeError):channel.apply(np.ones((100,2)),0,1000)
+        with self.assertRaises(RuntimeError):channel.apply(np.ones((2,2)),3,0)
+    def test_transmitter_selector_signature_has_no_csi_noise_or_truth(self):
+        self.assertEqual(list(inspect.signature(v.tx_root).parameters),['policy','source_id','feedback_bin'])
+        policy={'family':'R-QCSI','q_csi_roots':['a','b','c','d']}
+        self.assertEqual(v.tx_root(policy,'source',2),'c')
+        with self.assertRaises(RuntimeError):v.tx_root(policy,'source',None)
+
+
+def group(start=0,end=30,state='m4_K0',symbols=200):
+    return dict(start_token=start,stop_token=end,state_id=state,source_bits=12*(end-start),symbols=symbols,modulation='QPSK',phy_key=f'{start}-{end}-{symbols}')
+def policy():
+    return dict(policy_id='one',family='R-ARQ',feedback_symbols=32,root='a',nodes={'a':dict(header_id=1,groups=[group()],ack=None,nack=None)})
+
+
+class ProtocolTests(unittest.TestCase):
+    def test_public_schedule_signature_and_only_reliable_history_inputs(self):
+        self.assertEqual(list(inspect.signature(v.public_receiver_schedule).parameters),['policy','public_history'])
+        # Schedule needs no source roots, source identity, channel, or body recipe.
+        x=dict(family='R-ARQ',root='a',nodes={'a':dict(request_feedback=True,ack='b',nack='c'),
+            'b':dict(request_feedback=False,ack=None,nack=None),'c':dict(request_feedback=True,ack=None,nack=None)})
+        self.assertTrue(v.public_receiver_schedule(x,[])['request_feedback'])
+        self.assertFalse(v.public_receiver_schedule(x,[True])['request_feedback'])
+        self.assertTrue(v.public_receiver_schedule(x,[False])['request_feedback'])
+        x['source_roots']={'private_source':'a'}
+        with self.assertRaisesRegex(RuntimeError,'population-fixed'):v.public_receiver_schedule(x,[])
+    def test_one_shot_schedule_cannot_create_post_forward_feedback(self):
+        for fam in ('C-8','R-QCSI'):
+            x=policy();x['family']=fam
+            self.assertFalse(v.public_receiver_schedule(x,[])['request_feedback'])
+            with self.assertRaisesRegex(RuntimeError,'no post-forward'):v.public_receiver_schedule(x,[False])
+    def test_public_id_identity_includes_feedback_flag(self):
+        a=policy();c=copy.deepcopy(a);c['policy_id']='two';c['nodes']['a']['request_feedback']=True
+        with self.assertRaisesRegex(RuntimeError,'inconsistent'):v.public_codebook({'policies_by_snr':{'4':[a,c]}})
+    def test_missing_declarations_do_not_consume_physical_six_policy_limit(self):
+        sources=[f'source{i}' for i in range(64)];assets=SimpleNamespace(orders={},probe_ids=sources)
+        policies=[]
+        for i in range(7):
+            x=policy();x['policy_id']=str(i);x['nodes']['a']['groups'][0]=group(0,31,'m4_K1');policies.append(x)
+        frozen=dict(status='FROZEN_BEFORE_VERIFICATION',source_ids=sources,snrs_db=[4,7,10,13],
+            policies_by_snr={str(snr):policies for snr in [4,7,10,13]})
+        with tempfile.TemporaryDirectory() as folder:
+            result=v.verify_policies(Mock(),assets,frozen,Path(folder),0,2)
+            self.assertEqual(len(result['missing_policies']),28)
+    def test_all_histories_respect_header_body_and_feedback_budget(self):
+        x=policy();x['nodes']['a'].update(ack='b',nack='b',request_feedback=True)
+        x['nodes']['b']=dict(header_id=2,groups=[group()],ack='c',nack='c',request_feedback=True)
+        x['nodes']['c']=dict(header_id=3,groups=[group()],ack=None,nack=None)
+        self.assertEqual(v.validate_policy(x),dict(max_symbols=3*268+64,max_forward_rounds=3,max_feedback_rounds=2))
+        x['nodes']['c']['groups'][0]['symbols']=500
+        with self.assertRaisesRegex(RuntimeError,'resource cap'):v.validate_policy(x)
+    def test_continuation_without_feedback_and_third_final_ack_are_rejected(self):
+        x=policy();x['nodes']['a'].update(ack='a',request_feedback=False)
+        with self.assertRaisesRegex(RuntimeError,'paid feedback'):v.validate_policy(x)
+    def test_qcsi_reduced_body_budget_and_single_round(self):
+        x=policy();x.pop('root');x.update(family='R-QCSI',thresholds_db=[0,7,13],q_csi_roots=['a']*4)
+        x['nodes']['a']['groups'][0]['symbols']=924
+        self.assertEqual(v.validate_policy(x)['max_symbols'],1024)
+        x['nodes']['a']['groups'][0]['symbols']=956
+        with self.assertRaisesRegex(RuntimeError,'resource cap'):v.validate_policy(x)
+    def test_qcsi_root_none_and_underscore_family_are_compatible(self):
+        x=policy();x.update(family='R_QCSI',root=None,thresholds_db=[0,7,13],q_csi_roots=['a']*4)
+        self.assertEqual(v.validate_policy(x)['max_feedback_rounds'],1);self.assertEqual(v.tx_root(x,'s',0),'a')
+    def test_paid_header_domain_and_codebook_collision(self):
+        x=policy();x['nodes']['a']['header_id']=4096
+        with self.assertRaisesRegex(RuntimeError,'12bits'):v.validate_policy(x)
+        a=policy();c=copy.deepcopy(a);c['policy_id']='two';c['nodes']['a']['groups'][0]['symbols']=300
+        with self.assertRaisesRegex(RuntimeError,'inconsistent'):v.public_codebook({'policies_by_snr':{'4':[a,c]}})
+    def test_partial_asset_failure_is_whole_policy_not_silent_substitution(self):
+        x=policy();x['nodes']['a']['groups'][0]=group(0,31,'m4_K1')
+        original=copy.deepcopy(x);assets=SimpleNamespace(orders={},probe_ids=['one','two'])
+        receipt,selected=v.policy_admission(assets,{'snrs_db':[4],'policies_by_snr':{'4':[x]}})
+        self.assertEqual(selected,{'4':[]});self.assertEqual(receipt['missing_policies'][0]['status'],'MISSING_ASSET');self.assertEqual(x,original)
+    def test_calibration_hash64_matches_registered_formula(self):
+        ids=[f'source{i}' for i in range(1000)]
+        ordered=sorted(ids,key=lambda s:(p.hashlib.sha256(json.dumps(['C/SOURCE_SPLIT',2026100501,s],ensure_ascii=False,separators=(',',':')).encode()).hexdigest(),s))
+        self.assertEqual(v.split_sources(ids),ordered[800:864])
+
+
+class ReceiverTests(unittest.TestCase):
+    def assets(self):
+        return SimpleNamespace(receiver_positions=lambda state,g:list(range(g['start_token'],g['stop_token'])))
+    def fake(self,pid=1,accept=True,bits=None):
+        bits=np.zeros(360,dtype=np.uint8) if bits is None else bits
+        return SimpleNamespace(header_receive=Mock(return_value=dict(header_ok=accept,profile_id=pid,header_crc_accept=accept,header_fields_legal=accept)),
+            body_receive=Mock(return_value=dict(payload=p.pack_bits(bits),crc_accept=True)))
+    def receive(self,phy,book,state):return v.receive_frame(phy,self.assets(),np.zeros((268,2)),1+0j,.5,book,state,0,'test','test','verification')
+    def test_header_rejection_preserves_previous_prefix_and_avoids_body_decode(self):
+        phy=self.fake(accept=False);state=v.rx_state();state['values']={0:7}
+        result=self.receive(phy,{'1':{'groups':[group()]}},state)
+        self.assertFalse(result['ack']);self.assertEqual(state['values'],{0:7});phy.body_receive.assert_not_called()
+    def test_legal_wrong_header_really_selects_received_profile(self):
+        phy=self.fake(pid=2);state=v.rx_state();book={'1':{'groups':[group(symbols=250)]},'2':{'groups':[group(symbols=200)]}}
+        result=self.receive(phy,book,state);self.assertTrue(result['ack'])
+        actual_group=phy.body_receive.call_args.args[3];self.assertEqual(actual_group['symbols'],200)
+    def test_unknown_profile_is_rejected_by_paid_header_result(self):
+        phy=self.fake(pid=3999,accept=False);state=v.rx_state();result=self.receive(phy,{'1':{'groups':[group()]}},state)
+        self.assertFalse(result['ack']);phy.body_receive.assert_not_called()
+    def test_wrong_header_cannot_read_untransmitted_body_samples(self):
+        phy=self.fake(pid=2);state=v.rx_state();result=self.receive(phy,{'2':{'groups':[group(symbols=300)]}},state)
+        self.assertFalse(result['ack']);self.assertTrue(result['format_rejected']);phy.body_receive.assert_not_called()
+    def test_crc_false_accept_retains_actual_wrong_tokens_and_wrong_ack(self):
+        bits=np.zeros(360,dtype=np.uint8);bits[0]=1;phy=self.fake(bits=bits);state=v.rx_state()
+        result=self.receive(phy,{'1':{'groups':[group()]}},state)
+        self.assertTrue(result['ack']);self.assertEqual(state['values'][0],2048);self.assertEqual(state['accepted_tokens'],30)
+    def test_crc_failure_discards_current_group_without_truth_override(self):
+        phy=self.fake();phy.body_receive.return_value['crc_accept']=False;state=v.rx_state()
+        result=self.receive(phy,{'1':{'groups':[group()]}},state)
+        self.assertFalse(result['ack']);self.assertEqual(state,v.rx_state())
+    def test_public_prefix_continuity_blocks_wrong_node(self):
+        phy=self.fake();state=v.rx_state();result=self.receive(phy,{'1':{'groups':[group(30,55,'m5_K0')]}},state)
+        self.assertFalse(result['ack']);self.assertTrue(result['format_rejected']);phy.body_receive.assert_not_called()
+    def test_public_round_number_must_match_received_node(self):
+        phy=self.fake();state=v.rx_state();result=self.receive(phy,{'1':{'groups':[group()],'forward_round_index':1}},state)
+        self.assertFalse(result['ack']);self.assertTrue(result['format_rejected']);phy.body_receive.assert_not_called()
+    def test_unknown_and_corrupted_outputs_get_only_minus1_plus1_bounds(self):
+        assets=object.__new__(v.Assets);assets.tokens=np.zeros((1,680),dtype=np.int64);assets.index={'s':0};assets.Q={('s','gray'):.1}
+        state=v.rx_state();self.assertEqual(assets.score('s',state)['quality'],.1)
+        state['values']={0:2048};state['state_id']='m4_K0';result=assets.score('s',state)
+        self.assertIsNone(result['quality']);self.assertEqual((result['lower'],result['upper']),(-1,1))
+    def test_cached_correct_missing_quality_is_not_zero_filled(self):
+        assets=object.__new__(v.Assets);assets.tokens=np.zeros((1,680),dtype=np.int64);assets.index={'s':0};assets.Q={}
+        with self.assertRaisesRegex(RuntimeError,'MISSING_ASSET'):assets.score('s',v.rx_state())
+    def test_actual_wrong_ack_advances_tx_tree_and_preserves_corruption(self):
+        assets=object.__new__(v.Assets);assets.tokens=np.zeros((1,680),dtype=np.int64);assets.index={'s':0};assets.probe_ids=['s'];assets.Q={('s','m5_K0'):.8};assets.orders={};assets.rx_orders={}
+        x=policy();x['nodes']['a'].update(ack='b',nack=None,request_feedback=True,forward_round_index=0)
+        x['nodes']['b']=dict(header_id=2,groups=[group(30,55,'m5_K0')],ack=None,nack=None,forward_round_index=1)
+        header_ids=iter([1,2]);wrong=np.zeros(360,dtype=np.uint8);wrong[0]=1
+        bodies=iter([p.pack_bits(wrong),p.pack_bits(np.zeros(300,dtype=np.uint8))])
+        phy=SimpleNamespace(header_wave=lambda pid:np.ones((68,2)),body_wave=lambda bits,g,*_:np.ones((g['symbols'],2)),
+            header_receive=lambda *args:dict(header_ok=True,header_crc_accept=True,header_fields_legal=True,profile_id=next(header_ids)),
+            body_receive=lambda *args:dict(payload=next(bodies),crc_accept=True))
+        book=v.public_codebook({'policies_by_snr':{'4':[x]}});result=v.trajectory(phy,assets,x,book,'s',4,0)
+        self.assertEqual([e['transmitted_node'] for e in result['events']],['a','b'])
+        self.assertTrue(result['events'][0]['ack']);self.assertEqual(result['events'][0]['body_undetected'],[True])
+        self.assertEqual(result['symbols'],568);self.assertEqual(result['feedback_rounds'],1)
+        self.assertIsNone(result['quality']);self.assertEqual((result['lower'],result['upper']),(-1,1))
+    def test_header_failure_uses_public_nack_window_and_public_frame_counter(self):
+        assets=object.__new__(v.Assets);assets.tokens=np.zeros((2,680),dtype=np.int64);assets.index={'s':1};assets.probe_ids=['s']
+        assets.Q={('s','gray'):.1};assets.orders={};assets.rx_orders={}
+        x=policy();x['nodes']['a'].update(request_feedback=True,ack=None,nack='b',forward_round_index=0)
+        x['nodes']['b']=dict(header_id=2,groups=[group()],request_feedback=False,ack=None,nack=None,forward_round_index=1)
+        phy=SimpleNamespace(header_wave=lambda pid:np.ones((68,2)),body_wave=Mock(side_effect=lambda bits,g,*_:np.ones((g['symbols'],2))),
+            header_receive=Mock(return_value=dict(header_ok=False,header_crc_accept=False,header_fields_legal=False,profile_id=None)),body_receive=Mock())
+        result=v.trajectory(phy,assets,x,v.public_codebook({'policies_by_snr':{'4':[x]}}),'s',4,3)
+        self.assertEqual([e['feedback_requested'] for e in result['events']],[True,False])
+        self.assertEqual([e['transmitted_node'] for e in result['events']],['a','b'])
+        self.assertEqual(result['public_frame_counter'],3)
+        self.assertEqual([call.args[2] for call in phy.body_wave.call_args_list],[3,3]);phy.body_receive.assert_not_called()
+    def test_wrong_header_feedback_flag_cannot_cancel_public_nack_window(self):
+        phy=self.fake(pid=2);state=v.rx_state();book={'2':dict(groups=[group()],request_feedback=False,forward_round_index=0)}
+        result=v.receive_frame(phy,self.assets(),np.zeros((268,2)),1+0j,.5,book,state,0,'test','test','verification',0,True)
+        self.assertFalse(result['ack']);self.assertTrue(result['format_rejected']);phy.body_receive.assert_not_called()
+
+
+if __name__=='__main__':unittest.main()

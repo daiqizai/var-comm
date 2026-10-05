@@ -1,0 +1,466 @@
+"""Bounded actual CPU PHY verification, followed only by frozen cache scoring."""
+import argparse
+import csv
+import itertools
+import json
+import math
+import os
+from pathlib import Path
+import re
+import signal
+import time
+import numpy as np
+from budget_ledger import BudgetLedger,digest,LIMITS
+import phy_common as p
+
+STOP=False
+
+
+def stopped(*_):
+    global STOP
+    STOP=True
+def check(out):p.require(not STOP and not (Path(out)/'STOP').exists(),'New C/R CPU probe stopped; existing charges retained')
+def asset(snapshot,name):
+    row=snapshot['assets'][name];p.require(p.sha(row['path'])==row['sha256'],'Snapshot asset changed: '+name);return Path(row['path'])
+def write_csv(path,rows):
+    path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
+    keys=list(dict.fromkeys(k for row in rows for k in row))
+    with path.open('w',newline='',encoding='utf-8') as f:
+        w=csv.DictWriter(f,keys);w.writeheader();w.writerows(rows)
+def family(policy):return policy['family'].replace('_','-')
+def split_sources(ids):
+    def key(source):return (p.hashlib.sha256(json.dumps(['C/SOURCE_SPLIT',2026100501,source],ensure_ascii=False,separators=(',',':')).encode()).hexdigest(),source)
+    ordered=sorted(ids,key=key);p.require(len(ordered)==len(set(ordered))==1000,'Original1000 calibration source population required')
+    return ordered[800:864]
+
+
+class Assets:
+    def __init__(self,snapshot):
+        self.snapshot=snapshot
+        with np.load(asset(snapshot,'calibration_tokens'),allow_pickle=False) as z:
+            self.tokens=z['tokens'];self.ids=z['source_ids'].tolist();self.preprocessing=z['preprocessing_ids'].tolist()
+        p.require(self.tokens.shape==(1000,680) and np.issubdtype(self.tokens.dtype,np.integer)
+                  and np.all((self.tokens>=0)&(self.tokens<4096)) and len(set(self.ids))==1000,'Complete calibration tokens required')
+        self.index={source:i for i,source in enumerate(self.ids)};self.probe_ids=split_sources(self.ids)
+        bundle=p.read(asset(snapshot,'quality_bundle'))
+        p.require(bundle['population']=='calibration' and bundle['development_read'] is False and bundle['source_ids']==self.ids,
+                  'Exact calibration-only quality population required')
+        self.Q={}
+        for row in bundle['rows']:
+            if row.get('receiver') not in ('VAR','gray'):continue
+            p.require((row['state_id']=='gray')==(row['receiver']=='gray'),'Gray quality must use the registered gray receiver')
+            key=(row['source_id'],row['state_id']);value=float(row['dinov2_vitl14_cosine'])
+            p.require(np.isfinite(value) and -1<=value<=1 and key not in self.Q,'Unique finite DINO-L state quality required')
+            self.Q[key]=value
+        self.orders={};self.rx_orders={}
+        if 'calibration_entropy_orders' in snapshot['assets']:
+            with np.load(asset(snapshot,'calibration_entropy_orders'),allow_pickle=False) as z:
+                p.require(z['source_ids'].tolist()==self.ids,'Entropy cache source order changed')
+                for key in z.files:
+                    if not key.startswith('entropy_order_m'):continue
+                    m=int(key[len('entropy_order_m'):]);values=z[key]
+                    p.require(values.shape==(1000,p.SIZES[m]**2),'Frozen entropy cache dimensions differ')
+                    for index,source in enumerate(self.ids):
+                        order=np.asarray(values[index],dtype=np.int64)
+                        p.require(np.array_equal(np.sort(order),np.arange(p.SIZES[m]**2)),'Entropy cache must contain full permutations')
+                        self.orders[source,m]=order.tolist()
+                        token_key=(m,p.array_sha(np.asarray(self.tokens[index,:p.token_count(m)],dtype='<i8')))
+                        p.require(token_key not in self.rx_orders or self.rx_orders[token_key]==order.tolist(),'Same received prefix has conflicting frozen entropy orders')
+                        self.rx_orders[token_key]=order.tolist()
+
+    def source_positions(self,source,group):
+        start=int(group['start_token']);m,K=parse_state(group['state_id']);prefix=p.token_count(m)
+        positions=list(range(prefix))
+        if K:
+            p.require((source,m) in self.orders,'MISSING_ASSET: actual partial transmission requires frozen calibration entropy order')
+            positions += [prefix+j for j in self.orders[source,m][:K]]
+        p.require(0<=start<len(positions) and len(positions)-start==group['source_bits']//12,'Group source geometry differs')
+        return positions[start:]
+
+    def receiver_positions(self,state,group):
+        """This lookup uses only actual received prefix tokens, never source ID."""
+        m,K=parse_state(group['state_id']);prefix=p.token_count(m);positions=list(range(prefix));start=int(group['start_token'])
+        if K:
+            # Earlier complete tokens from this same decoded group are supplied by receive_frame before this call.
+            known=state['values'];prefix_values=[]
+            for index in range(prefix):
+                if index not in known:return None
+                prefix_values.append(known[index])
+            key=(m,p.array_sha(np.asarray(prefix_values,dtype='<i8')))
+            if key not in self.rx_orders:return None
+            positions += [prefix+j for j in self.rx_orders[key][:K]]
+        return positions[start:]
+
+    def score(self,source,state):
+        if state['unknown_positions']:return dict(state='UNRESOLVED',quality=None,lower=-1.,upper=1.,reason='received_partial_order_not_cached')
+        target=self.tokens[self.index[source]]
+        if any(int(target[index])!=value for index,value in state['values'].items()):
+            return dict(state='UNRESOLVED',quality=None,lower=-1.,upper=1.,reason='actual_wrong_CRC_accepted_tokens')
+        sid=state['state_id'];key=(source,sid)
+        p.require(key in self.Q,'MISSING_ASSET: no exact cached correct receiver state '+sid)
+        q=self.Q[key];return dict(state=sid,quality=q,lower=q,upper=q,reason='exact_clean_cached_prefix')
+
+
+def parse_state(sid):
+    match=re.fullmatch(r'm(\d+)_K(\d+)',sid);p.require(match is not None,'Registered m/K state identifier required')
+    m,K=map(int,match.groups());p.require(4<=m<=10 and 0<=K and (K==0 if m==10 else K<p.SIZES[m]**2),'Canonical source state required');return m,K
+
+
+def feedback_requested(node):
+    return bool(node.get('request_feedback',node.get('ack') is not None or node.get('nack') is not None))
+
+
+def node_wire(node):
+    return dict(groups=node['groups'],header_symbols=68,idle_symbols=int(node.get('idle_symbols',0)),forward_round_index=node.get('forward_round_index'),
+                request_feedback=feedback_requested(node))
+
+
+def validate_policy(policy):
+    nodes=policy['nodes'];p.require(0<=policy['feedback_symbols']<=64 and policy['feedback_symbols'] in (0,16,32,64),'Registered feedback cost required')
+    roots=list(policy['q_csi_roots']) if family(policy)=='R-QCSI' else [policy['root']] if policy.get('root') is not None else list(policy.get('source_roots',{}).values())
+    p.require(bool(roots),'Frozen policy must have a public root decision')
+    if family(policy)=='R-QCSI':
+        p.require(len(policy['thresholds_db'])==3 and sorted(set(policy['thresholds_db']))==policy['thresholds_db']
+                  and set(policy['thresholds_db'])<=set([-5,0,4,7,10,13,19]) and len(policy['q_csi_roots'])==4,'Frozen2bit CSI thresholds required')
+    def walk(nid,spent,rounds,feedback,history):
+        if nid is None:return spent,rounds,feedback
+        p.require(nid in nodes and nid not in history and rounds<3,'Finite public tree of at most3 transmissions required')
+        n=nodes[nid];p.require(type(n['header_id'])is int and 0<=n['header_id']<4096,'Header must fit12bits')
+        if n.get('forward_round_index') is not None:p.require(n['forward_round_index']==rounds,'Public node round differs from actual tree depth')
+        groups=n['groups'];p.require(1<=len(groups)<=2,'One or two actual body blocks required')
+        symbols=68+sum(g['symbols'] for g in groups)+int(n.get('idle_symbols',0));p.require(symbols>68,'Nonempty paid waveform required')
+        spent+=symbols;rounds+=1
+        request=bool(n.get('request_feedback',n.get('ack') is not None or n.get('nack') is not None))
+        p.require(not request or rounds<3,'No final third-round ACK is charged')
+        if request:spent+=policy['feedback_symbols'];feedback+=1
+        else:p.require(n.get('ack') is None and n.get('nack') is None,'Continuation requires paid feedback')
+        p.require(spent<=1024 and feedback<=2,'A public ACK/NACK path exceeds the resource cap')
+        outcomes=[walk(n.get(key),spent,rounds,feedback,history+[nid]) for key in ('ack','nack')]
+        return tuple(max(x[i] for x in outcomes) for i in range(3))
+    initial=policy['feedback_symbols'] if family(policy)=='R-QCSI' else 0
+    result=[walk(root,initial,0,int(family(policy)=='R-QCSI'),[]) for root in set(roots)]
+    if family(policy)=='R-QCSI':p.require(all(x[1]==1 and x[2]==1 for x in result),'QCSI is one feedback and one forward transmission')
+    return dict(max_symbols=max(x[0] for x in result),max_forward_rounds=max(x[1] for x in result),max_feedback_rounds=max(x[2] for x in result))
+
+
+def tx_root(policy,source_id,feedback_bin=None):
+    """Allowed TX information only. No h, noise, received packet or truth."""
+    if family(policy)=='R-QCSI':
+        p.require(type(feedback_bin)is int and 0<=feedback_bin<4,'Paid2bit feedback required');return policy['q_csi_roots'][feedback_bin]
+    if 'source_roots' in policy:return policy['source_roots'][source_id]
+    return policy['root']
+
+
+def public_receiver_schedule(policy,public_history):
+    """Public feedback windows only; no source, channel, or private TX node input.
+
+    The reliable ACK/NACK history is the receiver's own transmitted history.
+    C has no return link; QCSI has one pre-forward report and no post-forward ACK.
+    Body geometry always comes from the actually decoded paid header elsewhere.
+    """
+    p.require(all(type(ack)is bool for ack in public_history),'Public history must contain only actually sent ACK/NACK bits')
+    if family(policy).startswith('C-') or family(policy)=='R-QCSI':
+        p.require(not public_history,'One-shot policy has no post-forward feedback history')
+        p.require(all(not feedback_requested(n) and n.get('ack') is None and n.get('nack') is None for n in policy['nodes'].values()),
+                  'One-shot public schedule must not contain feedback windows')
+        return dict(forward_round_index=0,request_feedback=False)
+    p.require(family(policy) in ('R-ARQ','R-AWARE','R-FIXED') and 'source_roots' not in policy,
+              'Only population-fixed R trees can define a public ACK/NACK schedule')
+    nid=policy['root']
+    for ack in public_history:
+        p.require(nid is not None and feedback_requested(policy['nodes'][nid]),'ACK/NACK history exceeds public feedback windows')
+        nid=policy['nodes'][nid].get('ack' if ack else 'nack')
+    p.require(nid is not None,'Public receiver schedule has already terminated')
+    return dict(forward_round_index=len(public_history),request_feedback=feedback_requested(policy['nodes'][nid]))
+
+
+def rx_state():return dict(values={},state_id='gray',accepted_tokens=0,unknown_positions=False)
+
+
+def receive_frame(phy,assets,y,h,variance,codebook,state,counter,session,event,phase,round_index=0,public_feedback_requested=None):
+    header=phy.header_receive(y[:68],h,variance,codebook,event+'/header',phase)
+    record=dict(header=header,bodies=[],ack=False,format_rejected=False)
+    if not header['header_ok']:return record
+    node=codebook[str(header['profile_id'])];groups=node['groups']
+    if (len(y)<68+sum(g['symbols'] for g in groups) or int(groups[0]['start_token'])!=state['accepted_tokens']
+            or node.get('forward_round_index') not in (None,round_index)
+            or (public_feedback_requested is not None and bool(node['request_feedback'])!=public_feedback_requested)):
+        record['format_rejected']=True;return record
+    offset=68
+    for j,g in enumerate(groups):
+        if int(g['start_token'])!=state['accepted_tokens']:record['format_rejected']=True;return record
+        body=phy.body_receive(y[offset:offset+g['symbols']],h,variance,g,counter,j,session,event+'/body'+str(j),phase)
+        offset+=g['symbols'];record['bodies'].append(dict(phy_key=g['phy_key'],**body))
+        if not body['crc_accept']:return record
+        values=p.decode_tokens(p.unpack_bits(body['payload']));m,K=parse_state(g['state_id']);start=g['start_token'];whole=p.token_count(m)
+        # Complete-scale values in this packet are usable for causal entropy lookup.
+        complete_count=max(0,whole-start)
+        for index,value in zip(range(start,whole),values[:complete_count]):state['values'][int(index)]=int(value)
+        positions=assets.receiver_positions(state,g)
+        if positions is None:state['unknown_positions']=True
+        else:
+            p.require(len(positions)==len(values),'Received token geometry differs')
+            for index,value in zip(positions,values):state['values'][int(index)]=int(value)
+        state['accepted_tokens']+=len(values);state['state_id']=g['state_id']
+    record['ack']=True;return record
+
+
+def trajectory(phy,assets,policy,codebook,source,snr,rep,phase='verification'):
+    channel=p.Channel(phase,source,snr,rep);state=rx_state();events=[];spent=0;feedback=0;energy=0.;public_history=[]
+    qbin=None
+    if family(policy)=='R-QCSI':
+        instant=-math.inf if channel.h==0 else snr+10*math.log10(abs(channel.h)**2)
+        qbin=int(np.searchsorted(policy['thresholds_db'],instant,side='right'));feedback=1;spent=policy['feedback_symbols']
+    nid=tx_root(policy,source,qbin);source_tokens=assets.tokens[assets.index[source]]
+    # Ideal frame synchronization: this counter is the public64x16 transmission
+    # sequence number, not the source's calibration-dataset index or profile ID.
+    counter=assets.probe_ids.index(source)*16+rep
+    session='CONTENT_FEEDBACK_V1/'+phase;round_index=0
+    while nid is not None:
+        schedule=public_receiver_schedule(policy,public_history)
+        p.require(schedule['forward_round_index']==round_index,'Public receiver round schedule differs from transmission sequence')
+        node=policy['nodes'][nid];pieces=[phy.header_wave(node['header_id'])];tx_payloads=[]
+        for j,g in enumerate(node['groups']):
+            bits=p.raw_bits(source_tokens[assets.source_positions(source,g)]);tx_payloads.append(bits)
+            pieces.append(phy.body_wave(bits,g,counter,j,session))
+        if node.get('idle_symbols',0):pieces.append(np.ones((node['idle_symbols'],2),dtype=float))
+        wave=np.concatenate(pieces);p.require(spent+len(wave)<=1024,'Actual transmitted resource overflow')
+        y,noise_sha=channel.apply(wave,round_index,spent)
+        event=digest([phase,policy['policy_id'],source,int(snr),int(rep),round_index])
+        received=receive_frame(phy,assets,y,channel.h,channel.variance,codebook,state,counter,session,event,phase,round_index,schedule['request_feedback'])
+        # These truth comparisons happen after RX and cannot alter actual ACK/NACK.
+        wrong_header=received['header']['header_ok'] and received['header']['profile_id']!=node['header_id']
+        wrong_bodies=[]
+        for j,body in enumerate(received['bodies']):
+            same_expected=(not wrong_header and j<len(tx_payloads))
+            truth=bool(same_expected and np.array_equal(p.unpack_bits(body['payload']),tx_payloads[j]))
+            wrong_bodies.append(bool(body['crc_accept'] and not truth))
+        actual_E=float(np.square(wave).sum());energy+=actual_E;spent+=len(wave)
+        request=schedule['request_feedback']
+        if request:feedback+=1;spent+=policy['feedback_symbols'];public_history.append(bool(received['ack']))
+        events.append(dict(round_index=round_index,transmitted_node=nid,transmitted_header_id=node['header_id'],actual_forward_symbols=len(wave),actual_energy=actual_E,
+            cumulative_symbols=spent,feedback_requested=request,noise_sha256=noise_sha,header_undetected=bool(wrong_header),body_undetected=wrong_bodies,**received))
+        p.require(spent<=1024 and feedback<=2,'Actual feedback path exceeded budget')
+        nid=node.get('ack' if received['ack'] else 'nack');round_index+=1
+        p.require(round_index<=3,'Unexpected extra retransmission')
+    score=assets.score(source,state)
+    return dict(source_id=source,snr_db=snr,repetition=rep,policy_id=policy['policy_id'],family=policy['family'],q_csi_bin=qbin,
+        h=[channel.h.real,channel.h.imag],abs_h2=float(abs(channel.h)**2),near_zero_treatment='direct_y_space_likelihood_no_clipping',public_frame_counter=counter,
+        symbols=spent,unused_symbols=1024-spent,actual_forward_energy=energy,forward_rounds=round_index,feedback_rounds=feedback,
+        turnaround_events=(1 if family(policy)=='R-QCSI' else 2*feedback),receiver_state_id=state['state_id'],
+        accepted_tokens=state['accepted_tokens'],received_values_sha256=digest(state['values']),events=events,**score)
+
+
+def public_codebook(frozen):
+    book={}
+    for policies in frozen['policies_by_snr'].values():
+        for policy in policies:
+            validate_policy(policy)
+            for node in policy['nodes'].values():
+                key=str(node['header_id']);wire=node_wire(node)
+                p.require(key not in book or book[key]==wire,'Public12bit ID has inconsistent decode recipe')
+                book[key]=wire
+    p.require(0<len(book)<=4096,'Public codebook exceeds12bit header');return book
+
+
+def admit_requests(phy,requests,catalog):
+    """Only backend-supported exact layouts pass; no codeword length substitution."""
+    groups=[];rejections=[]
+    p.require(len(requests['configs'])<=48,'Too many new physical requests')
+    for request in requests['configs']:
+        g=phy.plan_group(request['source_bits'],request['modulation'],request['body_symbols'],request['nominal_rate_aliases'][0])
+        if g is None:
+            rejections.append(dict(request_id=request['request_id'],status='BACKEND_UNSUPPORTED',reason='Pinned Planner.group rejected exact requested k/n/q',
+                                   requested=request));continue
+        p.require(g['transmitted_bits']==request['transmitted_bits'],'Admitted physical length changed')
+        g=dict(g,request_id=request['request_id'],roles=request['roles'],new_configuration=True)
+        phy.admit(g,True);groups.append(g)
+    p.require(len(groups)+len(rejections)==len(requests['configs']),'Every new request needs an explicit disposition')
+    reference=dict(sorted(catalog['R_actions'],key=lambda a:a['action_id'])[0]['group'],new_configuration=False)
+    phy.admit(reference,False)
+    return dict(complete=True,configs=groups,rejections=rejections,reference_configuration=reference,
+                request_sha256=digest(requests),real_backend_plan=True,length_substitutions=0)
+
+
+def policy_admission(assets,frozen):
+    accepted={};missing=[]
+    for snr in frozen['snrs_db']:
+        accepted[str(snr)]=[]
+        for policy in frozen['policies_by_snr'][str(snr)]:
+            required={parse_state(g['state_id'])[0] for n in policy['nodes'].values() for g in n['groups'] if parse_state(g['state_id'])[1]>0}
+            absent=sorted(m for m in required if any((s,m) not in assets.orders for s in assets.probe_ids))
+            if absent:missing.append(dict(snr_db=snr,policy_id=policy['policy_id'],family=policy['family'],status='MISSING_ASSET',missing_entropy_scales=absent,
+                                         original_policy_unchanged=True,substitute_policy=False))
+            else:accepted[str(snr)].append(policy)
+    return dict(status='VERIFICATION_ASSET_ADMISSION',frozen_policy_sha256=digest(frozen),missing_policies=missing,
+                admitted_policy_ids={snr:[x['policy_id'] for x in rows] for snr,rows in accepted.items()}),accepted
+
+
+def qualify(phy,requests,out):
+    groups=requests['configs']+[requests['reference_configuration']];codebook={str(i):{} for i in (0,1,2048,4095)};checks=[]
+    for pid in (0,1,2048,4095):
+        result=phy.header_receive(phy.header_wave(pid),1+0j,1e-6,codebook,'qualification/header/'+str(pid),'planning')
+        p.require(result['header_ok'] and result['profile_id']==pid,'Actual paid header roundtrip failed');checks.append(dict(kind='header',profile_id=pid,passed=True))
+    for g in groups:
+        phy.admit(g,bool(g.get('new_configuration',False)))
+        for k in (0,1):
+            check(out);bits=np.zeros(g['source_bits'],dtype=np.uint8) if k==0 else p.rng('planning','qualification',g['phy_key']).integers(0,2,g['source_bits'],dtype=np.uint8)
+            wave=phy.body_wave(bits,g,k,0,'CF_QUALIFICATION');result=phy.body_receive(wave,1+0j,1e-6,g,k,0,'CF_QUALIFICATION','qualification/'+g['phy_key']+'/'+str(k),'planning')
+            p.require(result['crc_accept'] and np.array_equal(p.unpack_bits(result['payload']),bits),'Actual admitted LDPC roundtrip failed')
+            checks.append(dict(kind='body',phy_key=g['phy_key'],pattern=k,passed=True))
+    return dict(status='REAL_CPU_QUALIFICATION_PASS',engineering_only=True,checks=checks,actual_decodes=4+2*len(groups))
+
+
+def plan_table(phy,assets,requests,out,worker_index=0,workers=1):
+    configs=requests['configs'];snrs=requests.get('snrs_db',[-5,0,4,7,10,13,19]);n=requests.get('blocks_per_point',256)
+    p.require(len(configs)<=48 and n>0 and len(configs)*len(snrs)*n<=49152,'Frozen planning table exceeds reserved budget')
+    rows=[];paths=[]
+    for i,g in enumerate(configs):
+        if i%workers!=worker_index:continue
+        phy.admit(g,bool(g.get('new_configuration',True)))
+        for snr in snrs:
+            path=out/'planning/points'/(g['phy_key']+'_snr'+str(snr)+'.json')
+            if path.exists():row=p.read(path);p.require(row['configuration_sha256']==digest(g) and row['n_blocks']==n,'Planning checkpoint differs')
+            else:
+                counts=dict(n_blocks=n,n_correct=0,n_reject=0,n_undetected=0)
+                # A source-independent CRC table averages actual raw calibration bits at the registered bit length.
+                for rep in range(n):
+                    check(out);source=assets.ids[rep%1000];raw=p.raw_bits(assets.tokens[rep%1000]);bits=raw[:g['source_bits']]
+                    wave=phy.body_wave(bits,g,rep,0,'CF_PLANNING_TABLE')
+                    noise=p.rng('planning','table',g['phy_key'],snr,rep).standard_normal(wave.shape)
+                    y=wave+noise*10.**(-float(snr)/20)
+                    result=phy.body_receive(y,1+0j,10.**(-float(snr)/10),g,rep,0,'CF_PLANNING_TABLE',f'planning/{g["phy_key"]}/{snr}/{rep}','planning')
+                    accept=result['crc_accept'];correct=bool(np.array_equal(p.unpack_bits(result['payload']),bits))
+                    counts['n_correct']+=int(accept and correct);counts['n_reject']+=int(not accept);counts['n_undetected']+=int(accept and not correct)
+                row=dict(phy_key=g['phy_key'],snr_db=snr,configuration_sha256=digest(g),**counts,
+                    p_correct=counts['n_correct']/n,p_reject=counts['n_reject']/n,p_undetected=counts['n_undetected']/n,
+                    actual_encoder_decoder=True,calibration_only=True,channel='AWGN_for_frozen_R_planning_only',randomness_namespace='planning')
+                row.update(source_id='*',applicability='iid_scrambled_payload_approximation',
+                    source_payload_scope='actual_calibration_raw_bits; finite_source_probe_does_not_prove_source_independence')
+                p.seal(path,row)
+            rows.append(row);paths.append(path)
+            p.save(out/f'planning/worker_{worker_index}_status.json',dict(status='RUNNING',points=len(rows),last_phy=g['phy_key'],last_snr=snr))
+    return dict(status='PLANNING_SHARD_COMPLETE',worker_index=worker_index,workers=workers,rows=rows,outputs={str(path):p.sha(path) for path in paths})
+
+
+def verify_policies(phy,assets,frozen,out,worker_index,workers):
+    p.require(frozen.get('status')=='FROZEN_BEFORE_VERIFICATION','Strategies must be frozen before physical verification')
+    p.require(frozen['source_ids']==assets.probe_ids and frozen['snrs_db']==[4,7,10,13],'Exact64-source and4-SNR probe required')
+    binding=digest(frozen);paths=[]
+    admission,admitted=policy_admission(assets,frozen);p.seal(out/'verification/asset_admission.json',admission)
+    effective=dict(frozen,policies_by_snr=admitted)
+    book=public_codebook(effective) if any(admitted.values()) else {}
+    p.seal(out/'verification/public_codebook.json',dict(entries=book,frozen_policy_sha256=binding,
+        definition='One narrow public codebook shared by every admitted policy; missing-policy IDs are not legal',actual_header_bits=12))
+    for snr in frozen['snrs_db']:
+        policies=frozen['policies_by_snr'][str(snr)]
+        p.require(len(policies)>=1 and len({x['policy_id'] for x in policies})==len(policies),'Declared frozen policies must have unique IDs per SNR')
+        p.require(len(admitted[str(snr)])<=6,'At most6 distinct actually admitted policies per SNR')
+        for policy in admitted[str(snr)]:
+            for node in policy['nodes'].values():
+                for g in node['groups']:phy.admit(g,bool(g.get('new_configuration',False)))
+    for index,source in enumerate(assets.probe_ids):
+        if index%workers!=worker_index:continue
+        check(out);path=out/'verification/source_checkpoints'/('%03d.json'%index)
+        if path.exists():saved=p.read(path);p.require(saved['frozen_policy_sha256']==binding and saved['source_id']==source,'Frozen verification source changed')
+        else:
+            rows=[]
+            for snr in frozen['snrs_db']:
+                for rep in range(16):
+                    for policy in admitted[str(snr)]:
+                        check(out);rows.append(trajectory(phy,assets,policy,book,source,snr,rep))
+            saved=dict(status='ACTUAL_CPU_TRAJECTORIES_COMPLETE',source_id=source,source_index=index,frozen_policy_sha256=binding,rows=rows,
+                new_visual_inference=False,actual_header_and_body_decode=True,verification_used_for_selection=False)
+            p.seal(path,saved)
+        paths.append(path);p.save(out/f'verification/worker_{worker_index}_status.json',dict(status='RUNNING',completed_sources=len(paths),source_index=index))
+    paths.extend([out/'verification/asset_admission.json',out/'verification/public_codebook.json'])
+    return dict(status='VERIFICATION_SHARD_COMPLETE',worker_index=worker_index,workers=workers,outputs={str(path):p.sha(path) for path in paths},frozen_policy_sha256=binding,
+                missing_policies=admission['missing_policies'])
+
+
+def summarize(assets,frozen,out):
+    rows=[];outputs={};binding=digest(frozen)
+    for index,source in enumerate(assets.probe_ids):
+        path=out/'verification/source_checkpoints'/('%03d.json'%index);value=p.read(path)
+        p.require(value['status']=='ACTUAL_CPU_TRAJECTORIES_COMPLETE' and value['source_id']==source and value['frozen_policy_sha256']==binding,'All64 verified sources required')
+        rows.extend(value['rows']);outputs[str(path)]=p.sha(path)
+    simple=[];unresolved=[];stats=[];paired=[]
+    admission,admitted=policy_admission(assets,frozen)
+    bootstrap=p.rng('bootstrap','paired_sources').integers(0,64,(5000,64))
+    for row in rows:
+        summary={k:v for k,v in row.items() if k!='events'}
+        summary['header_rejections']=sum(not e['header']['header_ok'] for e in row['events'])
+        summary['body_rejections']=sum(not b['crc_accept'] for e in row['events'] for b in e['bodies'])
+        summary['undetected_events']=sum(int(e['header_undetected'])+sum(e['body_undetected']) for e in row['events'])
+        simple.append(summary)
+        if row['quality'] is None:unresolved.append(summary)
+    for snr in frozen['snrs_db']:
+        policy_rows={}
+        for policy in admitted[str(snr)]:
+            pid=policy['policy_id'];selected=[r for r in rows if r['snr_db']==snr and r['policy_id']==pid]
+            p.require(len(selected)==1024,'Every frozen policy needs64x16 real trajectories')
+            ordered=sorted(selected,key=lambda r:(assets.probe_ids.index(r['source_id']),r['repetition']))
+            p.require([(r['source_id'],r['repetition']) for r in ordered]==[(s,i) for s in assets.probe_ids for i in range(16)],'Paired verification population changed')
+            lo=np.array([r['lower'] for r in ordered]).reshape(64,16);hi=np.array([r['upper'] for r in ordered]).reshape(64,16)
+            low=lo.mean(1);high=hi.mean(1);clean=all(r['quality'] is not None for r in ordered)
+            stats.append(dict(snr_db=snr,policy_id=pid,family=policy['family'],mean=float(low.mean()) if clean else None,
+                mean_lower=float(low.mean()),mean_upper=float(high.mean()),ci_lower=float(np.quantile(low[bootstrap].mean(1),.025)),ci_upper=float(np.quantile(high[bootstrap].mean(1),.975)),
+                unresolved_frames=sum(r['quality'] is None for r in ordered),unresolved_fraction=sum(r['quality'] is None for r in ordered)/1024,
+                monte_carlo_standard_error=float(np.sqrt(lo.var(1,ddof=1).sum()/(16*64**2))) if clean else None,
+                mean_symbols=float(np.mean([r['symbols'] for r in ordered])),worst_symbols=max(r['symbols'] for r in ordered),
+                mean_forward_rounds=float(np.mean([r['forward_rounds'] for r in ordered])),mean_feedback_rounds=float(np.mean([r['feedback_rounds'] for r in ordered])),
+                actual_image_generation=False,cache_scoring_only=True))
+            policy_rows[pid]=(low,high)
+        for a,b in itertools.combinations(policy_rows,2):
+            al,ah=policy_rows[a];bl,bh=policy_rows[b];low=al-bh;high=ah-bl
+            paired.append(dict(snr_db=snr,method_a=a,method_b=b,difference_lower=float(low.mean()),difference_upper=float(high.mean()),
+                ci_lower=float(np.quantile(low[bootstrap].mean(1),.025)),ci_upper=float(np.quantile(high[bootstrap].mean(1),.975)),paired_sources=64,repetitions_per_source=16,bootstrap_replicates=5000,
+                unresolved_contributions='actual_unscorable_events_only_in_minus1_plus1'))
+    for name,values in [('physical_trajectories.csv',simple),('unresolved_outputs.csv',unresolved),('mean_summary.csv',stats),('paired_summary.csv',paired)]:
+        path=out/'verification'/name;write_csv(path,values);outputs[str(path)]=p.sha(path)
+    status='UNSCORABLE_EVENTS_PRESENT' if unresolved else 'PARTIAL_PROBE_MISSING_ASSETS' if admission['missing_policies'] else 'CPU_PHYSICAL_PROBE_COMPLETE'
+    return dict(status=status,frames=len(rows),sources=64,outputs=outputs,frozen_policy_sha256=binding,scientific_scope='actual_channel_and_decoder_with_cached_clean_state_quality',
+        development_read=False,new_visual_inference=False,verification_used_for_selection=False,automatic_GPU_launch=False,missing_policies=admission['missing_policies'])
+
+
+def main():
+    ap=argparse.ArgumentParser();ap.add_argument('--snapshot',required=True);ap.add_argument('--protocol',required=True);ap.add_argument('--out',required=True)
+    ap.add_argument('--stage',choices=['qualify','plan-table','verify','summarize'],required=True);ap.add_argument('--requests');ap.add_argument('--policies');ap.add_argument('--catalog')
+    ap.add_argument('--worker-index',type=int,default=0);ap.add_argument('--workers',type=int,default=1);a=ap.parse_args()
+    p.require(a.workers in (1,2) and 0<=a.worker_index<a.workers,'Shared at-most2 CPU workers required')
+    snapshot=p.read(a.snapshot);protocol=p.read(a.protocol);out=Path(a.out).resolve();out.mkdir(parents=True,exist_ok=True)
+    p.require(protocol['schema']=='CONTENT_FEEDBACK_PROBE_20261005_V1' and protocol['N']==1024 and protocol['seeds']==dict(source_sort=2026100501,planning=2026100502,verification=2026100503,bootstrap=2026100504),
+              'Registered content-feedback protocol required')
+    p.require(protocol['budgets']==dict(total_decodes=250000,planning_decodes=50000,verification_decodes=200000,new_phy_configs=48),'Decode budget protocol changed')
+    p.require(protocol['V']['counter_namespace']==p.RNG_NAMESPACE and protocol['V']['bootstrap_repeats']==5000,'RNG/uncertainty protocol changed')
+    for group in ('source_bindings','input_bindings'):
+        if group in protocol:p.verify(protocol[group])
+    binding=digest(dict(snapshot_sha256=p.sha(a.snapshot),protocol_sha256=p.sha(a.protocol)));ledger=BudgetLedger(out/'budget.sqlite',binding)
+    name=a.stage.replace('-','_')+(('_worker_'+str(a.worker_index)) if a.stage in ('plan-table','verify') else '')
+    if a.requests:ledger.freeze_artifact('requests:'+a.stage,p.read(a.requests))
+    if a.catalog:ledger.freeze_artifact('resource_catalog',p.read(a.catalog))
+    if a.policies:ledger.freeze_artifact('verification_policies',p.read(a.policies))
+    completion=out/(name+'_completion.json')
+    if completion.exists():
+        done=p.read(completion);p.require(done['binding']==binding,'Completion registration changed')
+        if a.stage in ('plan-table','verify'):p.require(done['workers']==a.workers and done['worker_index']==a.worker_index,'Worker partition differs from sealed completion')
+        p.verify(done.get('outputs',{}));print(done['status']);return
+    signal.signal(signal.SIGTERM,stopped);signal.signal(signal.SIGINT,stopped);check(out)
+    if a.stage=='summarize':result=summarize(Assets(snapshot),p.read(a.policies),out)
+    else:
+        phy=p.load_runtime(snapshot,ledger)
+        if a.stage=='qualify':
+            requests=p.read(a.requests)
+            if requests['configs'] and 'phy_key' not in requests['configs'][0]:
+                p.require(a.catalog is not None,'Exact R resource catalogue required for backend admission')
+                requests=admit_requests(phy,requests,p.read(a.catalog));p.seal(out/'admitted_configurations.json',requests)
+            result=qualify(phy,requests,out)
+            qualified=dict(requests,qualification_status='REAL_CPU_QUALIFICATION_PASS');p.seal(out/'qualified_new.json',qualified)
+            result['outputs']={str(out/'qualified_new.json'):p.sha(out/'qualified_new.json')}
+        elif a.stage=='plan-table':result=plan_table(phy,Assets(snapshot),p.read(a.requests),out,a.worker_index,a.workers)
+        else:result=verify_policies(phy,Assets(snapshot),p.read(a.policies),out,a.worker_index,a.workers)
+    result.update(binding=binding,budget=ledger.snapshot(),GPU_used=False)
+    p.seal(out/(name+'_completion.json'),result);print(result['status'])
+
+
+if __name__=='__main__':main()

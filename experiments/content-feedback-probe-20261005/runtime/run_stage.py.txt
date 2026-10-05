@@ -1,0 +1,79 @@
+"""A detached CPU-only stage wrapper with immutable launch and result receipts."""
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import time
+import traceback
+
+
+def sha(path):
+    h=hashlib.sha256()
+    with Path(path).open('rb') as f:
+        for b in iter(lambda:f.read(8*1024*1024), b''):h.update(b)
+    return h.hexdigest()
+
+
+def save(path, value):
+    p=Path(path);p.parent.mkdir(parents=True,exist_ok=True)
+    temp=p.with_name(p.name+'.tmp')
+    temp.write_text(json.dumps(value,indent=2,ensure_ascii=False,allow_nan=False)+'\n',encoding='utf-8')
+    os.replace(temp,p)
+
+
+def process(pid):
+    base=Path('/proc')/str(pid)
+    stat=(base/'stat').read_text().rsplit(')',1)[1].split()
+    return dict(pid=pid,start_ticks=stat[19],uid=(base/'status').read_text().split('Uid:')[1].split()[0],
+                argv=(base/'cmdline').read_bytes().split(b'\0')[:-1])
+
+
+def main():
+    p=argparse.ArgumentParser();p.add_argument('--config',required=True);a=p.parse_args()
+    config=Path(a.config).resolve();cfg=json.loads(config.read_text());out=Path(cfg['receipt_dir'])
+    out.mkdir(parents=True,exist_ok=True)
+    import fcntl
+    lock=(out/'stage.lock').open('w');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+    for path,h in cfg['bindings'].items():assert sha(path)==h, 'Bound source/input changed: '+path
+    assert cfg['CUDA_VISIBLE_DEVICES']=='' and cfg['threads']==2
+    cpus=cfg['affinity'];assert len(cpus)==2 and set(cpus)<=os.sched_getaffinity(0)
+    os.sched_setaffinity(0,cpus)
+    if os.nice(0)<15:os.nice(15-os.nice(0))
+    env=dict(os.environ,CUDA_VISIBLE_DEVICES='',OMP_NUM_THREADS='2',MKL_NUM_THREADS='2',
+             OPENBLAS_NUM_THREADS='2',NUMEXPR_NUM_THREADS='2',PYTHONUNBUFFERED='1')
+    identity=process(os.getpid());identity['argv']=[x.decode() for x in identity['argv']]
+    identity.update(config_sha256=sha(config),time=time.time(),affinity=cpus,nice=os.nice(0))
+    assert not (out/'completion.json').exists() and not (out/'failure.json').exists()
+    save(out/'owner_identity.json',identity)
+    child=None
+    def stop(*_):
+        if child is not None and child.poll() is None:child.send_signal(signal.SIGTERM)
+        raise KeyboardInterrupt('Bound stage requested to stop')
+    signal.signal(signal.SIGTERM,stop);signal.signal(signal.SIGINT,stop)
+    start=time.monotonic()
+    try:
+        with (out/'worker.log').open('ab',buffering=0) as log:
+            child=subprocess.Popen(cfg['command'],cwd=cfg['cwd'],env=env,stdout=log,stderr=subprocess.STDOUT)
+            ident=process(child.pid);ident['argv']=[x.decode() for x in ident['argv']]
+            save(out/'active_child.json',ident)
+            save(out/'status.json',dict(status='RUNNING',time=time.time(),child=ident))
+            code=child.wait()
+        assert code==0, 'Stage exited '+str(code)
+        for path,h in cfg['bindings'].items():assert sha(path)==h, 'Bound file changed during stage: '+path
+        receipt=Path(cfg['expected_completion']);value=json.loads(receipt.read_text())
+        assert value['status'] in cfg['accepted_statuses'], 'Unexpected stage completion status'
+        save(out/'completion.json',dict(status='COMPLETE',time=time.time(),seconds=time.monotonic()-start,
+             config_sha256=sha(config),completion_path=str(receipt),completion_sha256=sha(receipt),
+             GPU_used=False,old_queues_modified=False))
+        save(out/'status.json',dict(status='COMPLETE',time=time.time()))
+    except BaseException:
+        save(out/'failure.json',dict(status='FAILED',time=time.time(),traceback=traceback.format_exc(),
+             config_sha256=sha(config),pid=os.getpid(),existing_outputs_preserved=True))
+        save(out/'status.json',dict(status='FAILED',time=time.time()))
+        raise
+
+
+if __name__=='__main__':main()

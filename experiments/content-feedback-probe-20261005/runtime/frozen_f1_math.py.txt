@@ -1,0 +1,466 @@
+"""CPU-only Rayleigh screening of the complete frozen N1024 UEP candidate set.
+
+Strict continuous-SNR envelopes are deliberately vacuous wherever only isolated
+AWGN measurements exist. Linear interpolation is a separately labelled ranking
+surrogate, never a coverage certificate. No visual model, decoder, network,
+development image, or physical simulation is imported or started here.
+"""
+from __future__ import annotations
+
+import argparse
+import copy
+import csv
+import hashlib
+import itertools
+import json
+import math
+import os
+from pathlib import Path
+import time
+
+import numpy as np
+
+
+VERSION = 'F1_RAYLEIGH_CPU_SCREEN_V1'
+METRIC = 'dinov2_vitl14_cosine'
+SNRS = [4, 7, 10, 13]
+REQUEST_SNRS = [-10., -5., 0., 2.5, 5.5, 8.5, 11.5, 16., 25.]
+DEFAULT_REGISTRATION = dict(
+    schema=VERSION, reference_commit='040e94d266126f8cbf384ec23a7d848c074b5d49',
+    N=1024, expected_candidate_count=4041, average_snrs_db=SNRS, metric=METRIC, outage_thresholds=[.3, .5, .7],
+    gate=dict(minimum_point_gain=.02, delta_low_strictly_positive=True,
+              maximum_delta_envelope_width=.01, minimum_passing_snrs=2),
+    channel=dict(distribution='Rayleigh_block_CN0_1', shared_h_for_header_and_all_groups=True,
+                 transmitter_CSI='average_SNR_only', receiver_CSI='perfect_h_and_N0', average_Es=2),
+    resources=dict(max_cpu_workers=2, threads_per_worker=2, affinity_cpus=[24,25,26,27],
+                   nice=10, visual_GPU=False, max_wall_seconds=21600,
+                   max_additional_codeblocks=1000000, max_physical_points=128,
+                   per_point_error_stop=100, per_point_max_blocks=20000,
+                   header_reserved_blocks=100000, single_reserved_blocks=450000,
+                   grouped_reserved_blocks=450000),
+    coverage_mode='strict_unknown_intervals_no_monotonicity_certificate',
+    point_probability_model='linear_in_snr_db_with_constant_endpoint_tails',
+    undetected_point_quality=0., undetected_quality_range=[-1.,1.],
+    numerical_step_db=.25, requested_refinement_snrs_db=REQUEST_SNRS,
+    refinement_header_priority_db=[0.,2.5,5.5,11.5,25.],
+    refinement_order='candidate_rank_then_snr_then_alternating_family',
+    point_tie_rule='quality_descending_then_single_group_then_stable_id_ascending',
+    missing_interval_feasibility_check_before_physical_calls=True,
+    development_read=False, selection_independent_metric_read=False, synthetic=False)
+
+
+def require(ok, message):
+    if not ok:
+        raise ValueError(message)
+
+
+def sha(path):
+    h=hashlib.sha256()
+    with Path(path).open('rb') as handle:
+        for block in iter(lambda:handle.read(8*1024*1024),b''):h.update(block)
+    return h.hexdigest()
+
+
+def read(path):return json.loads(Path(path).read_text(encoding='utf-8-sig'))
+
+
+def write(path, value):
+    path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
+    require(not path.exists(),'Refuse replacing frozen screening evidence: '+str(path))
+    tmp=path.with_name(path.name+'.tmp')
+    tmp.write_text(json.dumps(value,indent=2,ensure_ascii=False,allow_nan=False)+'\n',encoding='utf-8')
+    os.replace(tmp,path)
+
+
+def validate_registration(value):
+    reg=value.get('f1_registration',value)
+    for k,v in DEFAULT_REGISTRATION.items():
+        require(reg.get(k)==v,'Frozen F1 field differs: '+k)
+    return reg
+
+
+def wilson(count,n,z=1.959963984540054):
+    require(type(count)is int and type(n)is int and n>0 and 0<=count<=n,'Invalid physical event counts')
+    p=count/n;den=1+z*z/n;mid=(p+z*z/(2*n))/den
+    rad=z*math.sqrt(p*(1-p)/n+z*z/(4*n*n))/den
+    # Mathematical endpoint correction avoids inward float rounding at 0/n,n/n.
+    return (0. if count==0 else max(0.,mid-rad),1. if count==n else min(1.,mid+rad))
+
+
+def state_weights(header, first, second=None):
+    """C/R/U columns; multiply conditional events at ONE instantaneous SNR."""
+    h,a=np.asarray(header),np.asarray(first)
+    hc,hr,hu=h[...,0],h[...,1],h[...,2]
+    ac,ar,au=a[...,0],a[...,1],a[...,2]
+    gray=hr+hc*ar
+    if second is None:
+        return dict(gray=gray,prefix=np.zeros_like(gray),full=hc*ac,bad=hu+hc*au)
+    b=np.asarray(second);bc,br,bu=b[...,0],b[...,1],b[...,2]
+    return dict(gray=gray,prefix=hc*ac*br,full=hc*ac*bc,bad=hu+hc*au+hc*ac*bu)
+
+
+def quality_value(weights, gray, prefix, full, bad=0.):
+    return weights['gray']*gray+weights['prefix']*prefix+weights['full']*full+weights['bad']*bad
+
+
+def round_guard(value, direction):
+    """Conservative floating arithmetic allowance; never a physical-error bound."""
+    v=np.asarray(value,dtype=np.float64)
+    pad=128*np.finfo(np.float64).eps*(1+np.abs(v))
+    return np.nextafter(v+direction*pad,-np.inf if direction<0 else np.inf)
+
+
+def bernstein_range(packet_endpoints, gray, prefix, full, kind='quality'):
+    """Range of the multi-affine interpolation surrogate on each SNR cell.
+
+    Each packet's categorical distribution is linear in x in [0,1]. The
+    diagonal composition has degree <=3. Bernstein coefficients are averages
+    of multi-affine corner values at equal Hamming weight; their convex hull
+    encloses the entire polynomial even for non-monotone quality states.
+    """
+    degree=len(packet_endpoints);buckets=[[] for _ in range(degree+1)]
+    for bits in itertools.product((0,1),repeat=degree):
+        p=[pair[b] for pair,b in zip(packet_endpoints,bits)]
+        weights=state_weights(p[0],p[1],p[2] if degree==3 else None)
+        val=quality_value(weights,gray,prefix,full) if kind=='quality' else weights[kind]
+        buckets[sum(bits)].append(val)
+    coefficients=np.stack([np.mean(np.stack(bucket),axis=0) for bucket in buckets])
+    return round_guard(np.min(coefficients,axis=0),-1),round_guard(np.max(coefficients,axis=0),1)
+
+
+def rayleigh_mass(lo_db,hi_db,average_db):
+    """P(lo < gamma_db < hi), gamma/gamma_bar ~ Exp(1), stable in deep tails."""
+    low=0. if lo_db==-math.inf else 10.**((lo_db-average_db)/10.)
+    if hi_db==math.inf:return math.exp(-low)
+    high=10.**((hi_db-average_db)/10.)
+    return math.exp(-low)*(-math.expm1(-(high-low)))
+
+
+class Quality:
+    def __init__(self,bundle,synthetic=False):
+        require(bundle.get('population')=='calibration' and bundle.get('development_read') is False,
+                'Only the frozen calibration source-quality bundle is allowed')
+        require(bundle.get('synthetic') is False or synthetic,'Synthetic Q cannot select real profiles')
+        self.ids=bundle['source_ids'];require(len(set(self.ids))==len(self.ids)>0,'Duplicate or empty calibration sources')
+        if not synthetic:require(len(self.ids)==1000,'Complete original 1000-source Q required')
+        indices={s:i for i,s in enumerate(self.ids)};self.values={}
+        for row in bundle['rows']:
+            if row['receiver'] not in ('VAR','gray'):continue
+            require(row['source_id'] in indices,'Unknown quality source')
+            require(row.get('population','calibration')=='calibration' and row.get('label_conditioned',False) is False,
+                    'Wrong quality population or class-conditioned source')
+            state=row['state_id'];require((state=='gray')==(row['receiver']=='gray'),'Receiver/state identity mismatch')
+            arr=self.values.setdefault(state,np.full(len(self.ids),np.nan))
+            index=indices[row['source_id']];require(np.isnan(arr[index]),'Duplicate quality state/source')
+            value=float(row[METRIC]);require(math.isfinite(value) and -1<=value<=1,'DINO-L outside cosine range')
+            arr[index]=value
+        require('gray' in self.values,'Gray Q is missing')
+        require(all(np.isfinite(v).all() for v in self.values.values()),'Incomplete per-source quality state')
+        self.means={k:float(np.mean(v)) for k,v in self.values.items()}
+
+    def source_state(self,profile):
+        names=['gray',profile.get('prefix_state_id') or 'gray',profile['full_state_id']]
+        require(all(n in self.values for n in names),'Candidate has missing Q; do not silently exclude it')
+        return names,[self.means[n] for n in names]
+
+
+class Curves:
+    def __init__(self,bundle):
+        require(bundle.get('synthetic') is False,'Physical counts, not synthetic BLER, are required')
+        require(bundle.get('conditional_group_independence') is True,'Same-h conditional noise-independence assumption must be explicit')
+        self.rows={};self.curves={};self.coverage=[]
+        for row in bundle['rows']:
+            require(row.get('source_id','*')=='*','Source-specific probability tables need a separately registered integrator')
+            require(row.get('applicability') in ('source_independent_verified','iid_scrambled_payload_approximation'),
+                    'Physical payload applicability must be explicit')
+            key=str(row['phy_key']);snr=float(row['snr_db'])
+            require(math.isfinite(snr) and (key,snr) not in self.rows,'Duplicate or invalid physical point')
+            counts=[row[k] for k in ('n_correct','n_reject','n_undetected')];n=row['n_blocks']
+            require(type(n)is int and n>0 and all(type(v)is int and v>=0 for v in counts) and sum(counts)==n,
+                    'Physical correct/reject/undetected counts do not partition the blocks')
+            probs=np.asarray(counts,dtype=np.float64)/n
+            require(all(abs(float(row[k])-p)<1e-12 for k,p in zip(('p_correct','p_reject','p_undetected'),probs)),
+                    'Probability differs from actual count')
+            intervals=np.asarray([wilson(v,n) for v in counts])
+            self.rows[key,snr]=row
+            self.curves.setdefault(key,[]).append((snr,probs,intervals))
+        for key,entries in self.curves.items():
+            entries.sort(key=lambda x:x[0]);x=np.asarray([e[0] for e in entries]);p=np.stack([e[1] for e in entries])
+            ci=np.stack([e[2] for e in entries]);self.curves[key]=(x,p,ci)
+            self.coverage.append(dict(phy_key=key,snrs_db=x.tolist(),interval_gaps_db=np.diff(x).tolist(),
+                n_blocks=[self.rows[key,float(s)]['n_blocks'] for s in x],
+                n_errors=[self.rows[key,float(s)]['n_blocks']-self.rows[key,float(s)]['n_correct'] for s in x],
+                empirical_correct_curve_nondecreasing=bool(np.all(np.diff(p[:,0])>=0)),
+                statistically_separated_downward_pairs=[[float(x[i]),float(x[i+1])] for i in range(len(x)-1)
+                    if ci[i,0,0]>ci[i+1,0,1]],
+                observed_correct_at_least_99_percent_snrs=x[p[:,0]>=.99].tolist(),
+                pointwise_Wilson_lower_at_least_99_percent_snrs=x[ci[:,0,0]>=.99].tolist(),
+                monotonicity_certified=False,interpolation_coverage_certified=False,
+                correct_is_not_CRC_acceptance=True,
+                applicability=self.rows[key,float(x[0])]['applicability']))
+
+    def interpolate(self,key,locations):
+        x,p,ci=self.curves[key]
+        prob=np.stack([np.interp(locations,x,p[:,i]) for i in range(3)],axis=-1)
+        low=np.stack([np.interp(locations,x,ci[:,i,0]) for i in range(3)],axis=-1)
+        high=np.stack([np.interp(locations,x,ci[:,i,1]) for i in range(3)],axis=-1)
+        tv=np.minimum(1.,.5*np.sum(np.maximum(abs(prob-low),abs(high-prob)),axis=-1))
+        return prob,tv
+
+
+def validate_profiles(profiles):
+    require(isinstance(profiles,list) and profiles,'Frozen complete candidate list is required')
+    ids=[];headers=set();families=set()
+    for p in profiles:
+        require(p['N']==1024 and p['G'] in (1,2) and p.get('encoder_qualified') is True,'Only qualified original N1024 candidates')
+        require(len(p['groups'])==p['G'] and p['header_symbols']==68,'Group count or paid header changed')
+        require(p.get('order')=='entropy' and p.get('receiver_rule')=='consecutive_crc_accepted_prefix_v1','Source ordering or receiver changed')
+        require(p['header_symbols']+p['used_body_symbols']+p['idle_symbols']==1024,'Exact N1024 budget accounting required')
+        for g in p['groups']:
+            require(g['layout']['power_protocol']=='fixed_constellation_average_Es2','Power definition changed')
+            require(g['phy_key'] and g['source_bits']+16==g['information_bits'],'Wrong CRC or physical key')
+        require((p['G']==2)==bool(p.get('prefix_state_id')),'Missing or spurious clean intermediate state')
+        ids.append(p['stable_id']);headers.add(p['header_phy_key']);families.add(p['G'])
+    require(len(ids)==len(set(ids)) and len(headers)==1 and families=={1,2},'Duplicate candidate or omitted SINGLE/GROUPED family')
+
+
+def mesh(curves,step):
+    knots=sorted({float(s) for x,_,_ in curves.curves.values() for s in x})
+    require(len(knots)>=2,'At least two distinct measured SNRs required for diagnostic interpolation')
+    edges=[knots[0]]
+    for a,b in zip(knots,knots[1:]):edges.extend(np.linspace(a,b,max(1,math.ceil((b-a)/step))+1)[1:].tolist())
+    pairs=[(-math.inf,edges[0]),*zip(edges[:-1],edges[1:]),(edges[-1],math.inf)]
+    left=np.array([b if a==-math.inf else a for a,b in pairs]);right=np.array([a if b==math.inf else b for a,b in pairs])
+    center=(left+right)/2
+    weights=np.asarray([[rayleigh_mass(a,b,s) for a,b in pairs] for s in SNRS])
+    require(np.allclose(weights.sum(axis=1),1,atol=1e-14,rtol=0),'Rayleigh probability mass lost')
+    return pairs,left,right,center,weights
+
+
+def envelope_gate(single,grouped):
+    """Compare the chosen GROUPED against the whole SINGLE envelope, not one winner."""
+    require(single and grouped,'Both complete candidate families are needed')
+    known_single=[v for v in single if v['point'] is not None];known_group=[v for v in grouped if v['point'] is not None]
+    if not known_single or not known_group:return dict(status='UNCERTAIN',passed=False,reason='Missing physical curve')
+    a1=min(known_single,key=lambda v:(-v['point'],v['id']));a2=min(known_group,key=lambda v:(-v['point'],v['id']))
+    low=a2['lower']-max(v['upper'] for v in single)
+    high=a2['upper']-max(v['lower'] for v in single)
+    gain=a2['point']-a1['point'];width=high-low
+    passed=gain>=.02 and low>0 and width<=.01
+    impossible=max(v['upper'] for v in grouped)-max(v['lower'] for v in single)<.02
+    return dict(status='COMPLETE' if passed else 'STOP_NO_GAIN' if impossible else 'UNCERTAIN',passed=passed,
+        point_gain=gain,delta_low=low,delta_high=high,delta_width=width,
+        selected_single=a1['id'],selected_grouped=a2['id'],single_point=a1['point'],grouped_point=a2['point'],
+        single_comparison_scope='all_registered_single_profiles',
+        envelope_is_95_percent_CI=False)
+
+
+def refinement_request(profiles,ranking,curves,reg):
+    """Finite diagnostic requests, symmetric round-robin with unique-point charges.
+
+    Existing blocks are never counted as additional work. Every queued point
+    reserves 20k new blocks, so even a full per-point run stays inside all caps.
+    A body point used by both families is charged once, equally to both pools.
+    This file authorizes no execution; strict interpolation infeasibility stops
+    automatic refinement before spending the cap.
+    """
+    header=profiles[0]['header_phy_key']
+    membership={}
+    for p in profiles:
+        for g in p['groups']:membership.setdefault(g['phy_key'],set()).add(p['G'])
+    benefit={}
+    for row in ranking:
+        if row['point'] is not None:benefit[row['id']]=max(benefit.get(row['id'],-math.inf),row['point'])
+    ordered={g:sorted((p for p in profiles if p['G']==g),key=lambda p:(-benefit.get(p['stable_id'],-math.inf),p['stable_id'])) for g in (1,2)}
+    queue=[];seen=set();spent={'header':0,'single':0,'grouped':0};maximum={'header':100000,'single':450000,'grouped':450000}
+    cap=reg['resources']['per_point_max_blocks']
+    def add(key,snr,profile=None):
+        point=(key,snr)
+        if point in seen:return
+        if key==header:charges={'header':cap}
+        elif membership[key]=={1,2}:charges={'single':cap//2,'grouped':cap//2}
+        else:charges={'single' if 1 in membership[key] else 'grouped':cap}
+        if len(queue)>=128 or any(spent[k]+v>maximum[k] for k,v in charges.items()):return
+        if sum(spent.values())+cap>1000000:return
+        seen.add(point)
+        for k,v in charges.items():spent[k]+=v
+        old=curves.rows.get(point)
+        queue.append(dict(phy_key=key,snr_db=snr,kind='header' if key==header else 'body',
+            candidate_id=None if profile is None else profile['stable_id'],
+            families=['SINGLE','GROUPED'] if key==header or membership[key]=={1,2} else ['SINGLE' if 1 in membership[key] else 'GROUPED'],
+            existing_blocks=0 if old is None else old['n_blocks'],reserved_additional_blocks=cap,
+            charged_pool_blocks=charges,error_stop=100,total_point_block_cap=20000,
+            purpose='diagnostic_tail_or_interval_coverage; does not certify continuity'))
+    # A common header serves both families. Body visits alternate family at
+    # every candidate rank and SNR round; aliases never double-charge a point.
+    for snr in reg['refinement_header_priority_db']:add(header,snr)
+    for rank in range(max(len(ordered[1]),len(ordered[2]))):
+        for snr in REQUEST_SNRS:
+            for family in (1,2):
+                if rank<len(ordered[family]):
+                    p=ordered[family][rank]
+                    for group in p['groups']:add(group['phy_key'],snr,p)
+            if len(queue)>=128 or sum(spent.values())>=1000000:break
+        if len(queue)>=128 or sum(spent.values())>=1000000:break
+    return dict(status='REGISTERED_DIAGNOSTIC_REQUEST_NOT_EXECUTED',automatic_execution=False,points=queue,
+        unique_physical_points=len(queue),reserved_additional_blocks=sum(spent.values()),pool_reservations=spent,
+        actual_additional_blocks=0,physical_measurements_started=False,
+        resource_caps=reg['resources'],stop_rule='100 incorrect blocks or 20000 total blocks per point; never exceed global/wall cap',
+        feasibility=dict(status='UNCERTAIN_EARLY_STOP',finite_points_cover_continuous_SNR_mass=0.,
+            remaining_uncertified_probability_mass_even_after_exact_requests=1.,
+            best_possible_strict_delta_width_with_point_only_evidence=4.,required_width=.01,
+            reason='Even exact probabilities at every finite requested point leave unverified intervals and tails. No admissible regularity or interval certificate exists; do not burn the block budget for an impossible strict gate.'),
+        symmetry='All candidates start eligible. Equal 450k body-family block reserves; rank/SNR visits alternate SINGLE/GROUPED. Shared physical points counted once and charged equally.',
+        minimum_next_evidence='A separately registered and justified interval/regularity envelope for true categorical PHY curves, with tail treatment and payload applicability validation. More isolated AWGN samples alone do not establish such an envelope.',
+        secondary_validation_metrics_used=False)
+
+
+def screen(profiles,quality_bundle,bler_bundle,registration,*,synthetic=False):
+    reg=validate_registration(registration);validate_profiles(profiles)
+    if not synthetic:require(len(profiles)==reg['expected_candidate_count'],'Complete frozen 4041-candidate population required')
+    # Stable iteration also fixes the pointwise CSI-REF tie rule.
+    profiles=sorted(profiles,key=lambda p:(p['G'],p['stable_id']))
+    quality=Quality(quality_bundle,synthetic=synthetic);curves=Curves(bler_bundle)
+    pairs,left,right,center,mass=mesh(curves,reg['numerical_step_db'])
+    interpolation={key:(curves.interpolate(key,left),curves.interpolate(key,right),curves.interpolate(key,center)) for key in curves.curves}
+    ranking=[];details={};unknown_keys=set();nonmonotone=[]
+    csi_point=np.full(len(pairs),-np.inf);csi_lo=csi_point.copy();csi_hi=csi_point.copy();csi_ids=[None]*len(pairs)
+    for profile in profiles:
+        pid=profile['stable_id'];names,q=quality.source_state(profile)
+        if np.any(quality.values[names[2]]<quality.values[names[1]]) and profile['G']==2:nonmonotone.append(pid)
+        keys=[profile['header_phy_key'],*[g['phy_key'] for g in profile['groups']]]
+        missing=[key for key in keys if key not in curves.curves];unknown_keys.update(missing)
+        if missing:
+            for snr in SNRS:ranking.append(dict(id=pid,G=profile['G'],average_snr_db=snr,point=None,lower=-1.,upper=1.,
+                status='UNCERTAIN',missing_physical_keys=missing))
+            continue
+        data=[interpolation[k] for k in keys];endpoint=[(d[0][0],d[1][0]) for d in data]
+        mid=[d[2][0] for d in data];weights=state_weights(mid[0],mid[1],mid[2] if len(mid)==3 else None)
+        point_cells=quality_value(weights,*q)
+        low_cells,high_cells=bernstein_range(endpoint,*q)
+        _,bad_max=bernstein_range(endpoint,*q,kind='bad')
+        tv=[np.maximum(d[0][1],d[1][1]) for d in data]
+        probability_radius=2*(1-np.prod(np.stack([1-v for v in tv]),axis=0))
+        point=mass@point_cells;numlo=mass@low_cells;numhi=mass@high_cells
+        pr=mass@probability_radius;ur=mass@np.minimum(1.,bad_max)
+        numerical_radius=np.maximum(point-numlo,numhi-point)
+        surrogate_lo=np.maximum(-1.,point-numerical_radius-pr-ur)
+        surrogate_hi=np.minimum(1.,point+numerical_radius+pr+ur)
+        improved=point_cells>csi_point
+        for index in np.flatnonzero(improved):csi_ids[index]=pid
+        csi_point=np.maximum(csi_point,point_cells);csi_lo=np.maximum(csi_lo,low_cells);csi_hi=np.maximum(csi_hi,high_cells)
+        averaged_weights={k:mass@v for k,v in weights.items()}
+        source_outage={}
+        for tau in reg['outage_thresholds']:
+            indicators=[float(np.mean(quality.values[n]<tau)) for n in names]
+            outage_cells=quality_value(weights,*indicators)
+            source_outage[str(tau)]=(mass@outage_cells).tolist()
+        details[pid]=dict(quality_states=names,quality_means=q,instantaneous_point_quality=point_cells.tolist(),
+            instantaneous_state_weights={k:v.tolist() for k,v in weights.items()},
+            nonmonotonic_source_quality_preserved=True)
+        for i,snr in enumerate(SNRS):
+            x_low=max(float(curves.curves[k][0][0]) for k in keys);x_high=min(float(curves.curves[k][0][-1]) for k in keys)
+            tails=rayleigh_mass(-math.inf,x_low,snr)+rayleigh_mass(x_high,math.inf,snr)
+            ranking.append(dict(id=pid,G=profile['G'],average_snr_db=snr,point=float(point[i]),lower=-1.,upper=1.,status='UNCERTAIN',
+                surrogate_numerical_lower=float(numlo[i]),surrogate_numerical_upper=float(numhi[i]),
+                surrogate_numerical_radius=float(numerical_radius[i]),
+                surrogate_probability_box_radius=float(pr[i]),surrogate_undetected_quality_radius=float(ur[i]),
+                surrogate_engineering_lower=float(surrogate_lo[i]),surrogate_engineering_upper=float(surrogate_hi[i]),
+                strict_uncovered_tail_mass=float(tails),strict_uncovered_interior_mass=float(1-tails),
+                strict_unknown_curve_mass=1.,strict_gray_rate_bounds=[0.,1.],
+                surrogate_gray_rate_lower=float(averaged_weights['gray'][i]),
+                surrogate_gray_rate_upper=float(averaged_weights['gray'][i]+averaged_weights['bad'][i]),
+                surrogate_unknown_wrong_payload_probability=float(averaged_weights['bad'][i]),
+                surrogate_outage={tau:dict(lower=values[i],upper=min(1.,values[i]+float(averaged_weights['bad'][i])))
+                    for tau,values in source_outage.items()},
+                strict_outage={str(tau):[0.,1.] for tau in reg['outage_thresholds']}))
+    cells=[]
+    for i,snr in enumerate(SNRS):
+        rows=[r for r in ranking if r['average_snr_db']==snr];single=[r for r in rows if r['G']==1];grouped=[r for r in rows if r['G']==2]
+        gate=envelope_gate(single,grouped);max_lower=max(r['lower'] for r in rows)
+        competitive=[r['id'] for r in rows if r['upper']>=max_lower]
+        valid=[r for r in rows if r['point'] is not None]
+        chosen=min(valid,key=lambda r:(-r['point'],r['G'],r['id'])) if valid else None
+        csi=dict(status='UNCERTAIN',point=float(mass[i]@csi_point) if valid and not unknown_keys else None,
+            surrogate_numerical_lower=float(mass[i]@csi_lo) if valid and not unknown_keys else None,
+            surrogate_numerical_upper=float(mass[i]@csi_hi) if valid and not unknown_keys else None,
+            strict_lower=-1.,strict_upper=1.,instantaneous_candidate_ids=csi_ids,
+            candidate_scope='identical complete fixed-profile class; reference knows instantaneous h and may ignore it',
+            point_is_certified_actual_link_upper_bound=False,selected_profile_count=len(set(csi_ids)-{None}),
+            header_codebook_bits=12,selected_profiles_fit_header=len(set(csi_ids)-{None})<=4096)
+        cells.append(dict(average_snr_db=snr,SINGLE_candidates=len(single),GROUPED_candidates=len(grouped),
+            strict_gate=gate,joint_selection_allows_SINGLE=dict(id=None if chosen is None else chosen['id'],G=None if chosen is None else chosen['G']),
+            competitive_profile_ids=competitive,safely_pruned_profile_ids=[r['id'] for r in rows if r['upper']<max_lower],CSI_REF=csi))
+    passes=sum(c['strict_gate']['passed'] for c in cells)
+    status='COMPLETE' if passes>=2 else 'STOP_NO_GAIN' if sum(c['strict_gate']['status']!='STOP_NO_GAIN' for c in cells)<2 else 'UNCERTAIN'
+    strict=dict(status=status,F2_authorized=passes>=2,passing_snrs=passes,required_passing_snrs=2,cells=cells,
+        primary_metric=METRIC,engineering_envelopes_are_95_percent_CI=False,
+        missing_certificate_reason='Only isolated noisy AWGN points exist. Neither tails nor open intervals have a verified probability envelope or proved monotonicity. Their Rayleigh mass is one.',
+        conditional_independence='independent packet AWGN/decoder events only conditional on common instantaneous h; integrate their products',
+        random_payload_applicability='original iid-scrambled-payload approximation retained and disclosed',
+        wrong_CRC_accepted_quality='arbitrary in [-1,1]; never identified with a clean-prefix state',
+        development_read=False,independent_metric_used=False,physical_measurements_started=False)
+    coverage=dict(status='UNCERTIFIED_CONTINUOUS_SNR_COVERAGE',physical_curves=curves.coverage,
+        missing_physical_keys=sorted(unknown_keys),candidate_count=len(profiles),SINGLE=sum(p['G']==1 for p in profiles),
+        GROUPED=sum(p['G']==2 for p in profiles),nonmonotone_quality_profile_count=len(nonmonotone),
+        correct_probability_field='p_correct',CRC_acceptance='p_correct+p_undetected',
+        isolated_measured_SNR_points_have_zero_Rayleigh_mass=True,finite_grid_convergence_is_not_coverage_proof=True,
+        integration_cells=[dict(lo_db=None if a==-math.inf else a,hi_db=None if b==math.inf else b) for a,b in pairs],
+        rayleigh_cell_masses={str(s):mass[i].tolist() for i,s in enumerate(SNRS)},
+        point_model=reg['point_probability_model'],numerical_bound='Bernstein convex-hull bounds for the interpolation surrogate; exact Rayleigh cell masses plus floating roundoff allowance',
+        source_quality_mean_and_outage='Mean Q is linear in state weights; outage averages each source indicator Q_i(state)<tau before weighting',
+        statistical_intervals='Wilson marginal95% count boxes only; their transport between SNRs is a surrogate diagnostic, not joint95% or true-curve certification')
+    by_id={p['stable_id']:p for p in profiles}
+    def describe(pid):
+        if pid is None:return None
+        p=by_id[pid]
+        return {k:p.get(k) for k in ('stable_id','G','m','K','j','used_body_symbols','idle_symbols','full_state_id','prefix_state_id')}|dict(
+            group_MCS=[g.get('mcs_id') for g in p['groups']],group_symbols=[g.get('symbols') for g in p['groups']],
+            phy_keys=[p['header_phy_key'],*[g['phy_key'] for g in p['groups']]])
+    summary=dict(status='PRACTICAL_SURROGATE_ONLY',selection_metric=METRIC,
+        assumptions=dict(curves=reg['point_probability_model'],CRC_undetected_quality_point=reg['undetected_point_quality'],
+            actual_CRC_undetected_quality_bounds=reg['undetected_quality_range'],true_continuous_PHY_curve_certified=False,
+            probability_count_intervals='marginal Wilson95%, not a joint CI',Q_uncertainty='empirical mean of the fixed 1000 calibration sources; no population-generalization claim'),
+        cells=[dict(average_snr_db=c['average_snr_db'],single_point=c['strict_gate'].get('single_point'),
+            grouped_point=c['strict_gate'].get('grouped_point'),point_gain=c['strict_gate'].get('point_gain'),
+            single_profile=describe(c['strict_gate'].get('selected_single')),grouped_profile=describe(c['strict_gate'].get('selected_grouped')),
+            joint_best=describe(c['joint_selection_allows_SINGLE']['id']),CSI_REF_point=c['CSI_REF']['point'],
+            strict_status=c['strict_gate']['status'],strict_delta_width=c['strict_gate'].get('delta_width')) for c in cells],
+        practical_estimates_are_actual_Rayleigh_measurements=False,
+        uncertainty_causes=['No verified tail or interval envelope for categorical PHY probabilities; uncovered continuous probability mass is one.',
+            'Finite random-payload block counts have sampling error; reported Wilson boxes are marginal.',
+            'CRC-accepted wrong payloads have unknown source-image quality and may not map to clean-prefix quality states.',
+            'Existing body curves use the registered iid scrambled-payload approximation, without completed image-payload validation.',
+            'Constant endpoint tails and linear interpolation are diagnostic assumptions; numerical bounds only enclose that surrogate.'])
+    return dict(strict_gate=strict,practical_summary=summary,practical_ranking=ranking,coverage=coverage,
+        refinement_request=refinement_request(profiles,ranking,curves,reg),integrand_diagnostics=details)
+
+
+def main():
+    p=argparse.ArgumentParser();p.add_argument('--profiles',required=True);p.add_argument('--quality',required=True)
+    p.add_argument('--bler',required=True);p.add_argument('--registration',required=True);p.add_argument('--output',required=True)
+    args=p.parse_args();paths={k:Path(getattr(args,k)).resolve() for k in ('profiles','quality','bler','registration')}
+    registered=read(paths['registration']);reg=validate_registration(registered)
+    bindings=registered.get('input_bindings',{})
+    for key in ('profiles','quality','bler'):
+        require(bindings.get(str(paths[key]))==sha(paths[key]),'Current asset is not bound by pre-run registration: '+key)
+    started=time.monotonic();result=screen(read(paths['profiles']),read(paths['quality']),read(paths['bler']),reg)
+    require(time.monotonic()-started<=reg['resources']['max_wall_seconds'],'Frozen F1 wall budget exceeded')
+    out=Path(args.output).resolve();out.mkdir(parents=True,exist_ok=True)
+    for name,value in result.items():
+        if name=='practical_ranking':
+            dest=out/(name+'.csv');require(not dest.exists(),'Existing ranking is immutable')
+            fields=list(dict.fromkeys(k for row in value for k in row))
+            with dest.open('w',newline='',encoding='utf-8') as f:
+                writer=csv.DictWriter(f,fieldnames=fields);writer.writeheader()
+                writer.writerows({k:json.dumps(v,sort_keys=True,separators=(',',':')) if isinstance(v,(dict,list)) else v for k,v in r.items()} for r in value)
+        else:write(out/(name+'.json'),value)
+    artifacts={str(f):sha(f) for f in out.iterdir() if f.is_file()}
+    write(out/'completion.json',dict(status=result['strict_gate']['status'],version=VERSION,
+        F2_authorized=result['strict_gate']['F2_authorized'],elapsed_seconds=time.monotonic()-started,
+        outputs=artifacts,input_bindings={str(v):sha(v) for v in paths.values()},source_sha256=sha(__file__),
+        physical_codeblocks_generated=0,visual_GPU_used=False,development_read=False,automatic_refinement_started=False))
+    print(json.dumps(dict(status=result['strict_gate']['status'],candidates=len(read(paths['profiles'])),F2_authorized=result['strict_gate']['F2_authorized'])))
+
+
+if __name__=='__main__':main()

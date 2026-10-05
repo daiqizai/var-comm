@@ -1,0 +1,197 @@
+"""Publisher ownership/recovery fixtures; no SSH, Git mutation, or deployment."""
+import hashlib
+import json
+from pathlib import Path
+import tempfile
+import unittest
+from unittest import mock
+import publish_probe as p
+
+
+def text(path,data):path.parent.mkdir(parents=True,exist_ok=True);path.write_text(data,encoding='utf-8')
+def write(path,value):text(path,json.dumps(value))
+def fixture(root):
+    out=root/'outputs/CONTENT-FEEDBACK-PROBE-20261005';code=out/'code';final=out/'final'
+    for name in ('AGENTS.md','README.md','RESEARCH_STATUS.md','PROGRESS.md','EXPERIMENTS.md'):text(root/name,'Original unchanged '+name+'\n')
+    for name in ('EXECUTION_PLAN.md','ASSET_STATUS.md'):text(out/name,'Independent probe\n')
+    for name in ('protocol.json','INPUT_MANIFEST.json','S0_completion.json'):write(out/name,dict(status='BOUND'))
+    text(code/'publish_probe.py','# Independent frozen source\n');text(code/'worker.py','# Worker source\n')
+    write(out/'C/gate.json',dict(status='MODEL_POTENTIAL_ONLY'))
+    write(out/'C/completion.json',dict(status='COMPLETE',outputs={'gate.json':p.sha(out/'C/gate.json')}))
+    write(out/'R/policy_search.json',dict(status='NO_LARGE_GAIN_IN_WORKING_MODEL'))
+    write(out/'R/completion.json',dict(status='NO_LARGE_GAIN_IN_WORKING_MODEL',stage='R_MODEL_SEARCH',outputs={'policy_search.json':p.sha(out/'R/policy_search.json')}))
+    text(final/'FINAL_REPORT.md','# Bounded result\n');write(final/'analysis.json',dict(status='DONE'))
+    write(final/'completion.json',dict(status='COMPLETE',scope='C_R_BOUNDED_PROBE_DELIVERY',V_physical_probe_complete=False,
+        new_visual_validation_complete=False,automatic_GPU_launch=False,input_bindings={},
+        outputs={str(x):p.sha(x) for x in final.iterdir()}))
+    write(out/'V/verification/source_checkpoints/000.json',dict(payload=dict(bits=12,hex='123')))
+    (out/'V/budget.sqlite').write_bytes(b'forbidden database')
+    write(out/'V/verification_disposition.json',dict(status='TERMINAL_MISSING_ASSET'))
+    text(root/'outputs/UNIFIED-METRICS-20261002/environment/bin/python','fixture interpreter path')
+    text(root/'release_manifest.json','{}')
+    return out,code,final
+
+
+class FakeCommands:
+    def __init__(self,root):
+        self.root=root;self.calls=[];self.staged={};self.head='a'*40;self.remote=self.head;self.fail_push=False;self.foreign_unstaged=False
+    def run(self,args):
+        self.calls.append(list(args))
+        if args[0]=='git':return self.git(*args[1:],_record=False)
+        if args[-1]=='tools/update_repository_manifest.py':text(self.root/'release_manifest.json','{"updated": true}\n')
+        return 'PASS'
+    def git(self,*args,_record=True):
+        if _record:self.calls.append(['git',*args])
+        if args==('diff','--cached','--name-only'):return '\n'.join(sorted(self.staged))
+        if args==('diff','--name-only'):return 'OTHER.py' if self.foreign_unstaged else ''
+        if args==('diff','--cached','--check'):return ''
+        if args==('branch','--show-current'):return 'main'
+        if args==('rev-parse','HEAD'):return self.head
+        if args==('ls-remote','origin','refs/heads/main'):return self.remote+'\trefs/heads/main'
+        if args[0]=='rev-parse' and args[1].startswith(':'):return self.staged[args[1][1:]]
+        if args[:2]==('hash-object','--'):return p.sha(self.root/args[2])
+        if args[:2]==('add','--'):
+            for name in args[2:]:self.staged[name]=p.sha(self.root/name)
+            return ''
+        if args==('write-tree',):return hashlib.sha256(json.dumps(self.staged,sort_keys=True).encode()).hexdigest()
+        if args[0]=='commit':self.head='b'*40;self.staged={};return 'committed'
+        if args==('push','origin','HEAD:main'):
+            if self.fail_push:raise RuntimeError('Simulated connection failure')
+            self.remote=self.head;return 'pushed'
+        raise AssertionError(args)
+
+
+class PublisherTests(unittest.TestCase):
+    def test_prepare_exact_scope_no_raw_payload_no_old_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);out,code,final=fixture(root);old={n:p.sha(root/n) for n in ('PROGRESS.md','RESEARCH_STATUS.md')}
+            inventory=p.prepare(root,out,code,final)
+            self.assertTrue(all(not x.endswith('.py') for x in inventory['files']))
+            self.assertTrue(any(x.endswith('worker.py.txt') for x in inventory['files']))
+            self.assertFalse(any('source_checkpoints' in x or 'sqlite' in x for x in inventory['files']))
+            self.assertEqual(old,{n:p.sha(root/n) for n in old})
+            self.assertEqual(inventory,p.prepare(root,out,code,final))
+
+    def test_large_utf8_and_mixed_CRLF_reconstruct_exact_original(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);source=root/'source.json';raw='{\r\n  "说明": "内容",\n  "values": [1,2]\r\n}\n'.encode();source.write_bytes(raw)
+            with mock.patch.object(p,'CHUNK',15):
+                # Direct split limit is fixed by default, so exercise boundary function separately.
+                parts=p.utf8_parts(raw.replace(b'\r\n',b'\n'),15)
+                self.assertGreater(len(parts),2)
+            converted=p.materialize(source,root/p.RESULT/'source.json',root)
+            data=bytearray(b''.join((root/x['path']).read_bytes() for x in converted['files']))
+            for offset in reversed(converted['restore_CR_before_normalized_offsets']):data[offset:offset]=b'\r'
+            self.assertEqual(bytes(data),raw)
+
+    def test_raw_fields_binary_and_path_escape_are_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);path=root/'bad.json';write(path,dict(payload=dict(hex='123')))
+            with self.assertRaisesRegex(RuntimeError,'Forbidden raw'):p.materialize(path,root/p.RESULT/'bad.json',root)
+            with self.assertRaisesRegex(RuntimeError,'scope'):p.allowed_destination('PROGRESS.md')
+            with self.assertRaisesRegex(RuntimeError,'Relative'):p.allowed_destination('../results/content_feedback_probe_20261005/x')
+            data=root/'a.npz';data.write_bytes(b'123')
+            with self.assertRaisesRegex(RuntimeError,'Nontext'):p.normalized_text(data)
+
+    def test_R_payload_length_metadata_allowed_but_actual_sequences_forbidden(self):
+        # Shape used by R resource and policy records, not a mock image payload.
+        metadata=dict(action_id='append_m4_m5',group=dict(payload_bits=300,source_bits=300,information_bits=316,
+            transmitted_bits=480,symbols=240,modulation='QPSK',nominal_rate='2/3',
+            layout=dict(payload_bits=300,rate_matching=dict(source_bits=316,transmitted_bits=480))))
+        p.reject_raw_content(metadata)
+        for value in ([0,1,1],'0011',-1,True):
+            bad=dict(metadata,group=dict(payload_bits=value))
+            with self.assertRaisesRegex(RuntimeError,'Forbidden raw'):p.reject_raw_content(bad)
+
+    def test_foreign_uid_proc_is_skipped_without_reading_private_daemon_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);(root/'77').mkdir()
+            with mock.patch.object(p.os,'geteuid',return_value=123456,create=True):
+                # The directory has another UID, and no status/cmdline files.
+                self.assertIsNone(p.process_identity(77,root))
+
+    def test_foreign_index_waits_without_any_staging_or_clearing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);out,code,final=fixture(root);p.prepare(root,out,code,final);cmd=FakeCommands(root);cmd.staged={'foreign.py':'foreign'}
+            with self.assertRaises(p.Blocked):p.publish(root,out,cmd,guard=lambda root:[])
+            self.assertEqual(cmd.staged,{'foreign.py':'foreign'})
+            self.assertFalse(any(x[:2]==['git','add'] for x in cmd.calls))
+            self.assertFalse((out/'publication_completion.json').exists())
+
+    def test_push_receipt_only_after_verified_remote_normal_commit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);out,code,final=fixture(root);p.prepare(root,out,code,final);cmd=FakeCommands(root)
+            receipt=p.publish(root,out,cmd,guard=lambda root:[])
+            self.assertEqual(receipt['status'],'PUBLISHED');self.assertEqual(receipt['commit'],cmd.remote)
+            self.assertIn(str(final/'completion.json'),receipt['outputs'])
+            self.assertFalse(receipt['force_push'])
+            names=[x[-1] for x in cmd.calls if x[0]!='git']
+            self.assertEqual(names,['tools/update_repository_manifest.py','tools/run_cpu_checks.py','tools/verify_repository.py'])
+            add_at=next(i for i,c in enumerate(cmd.calls) if c[:2]==['git','add'])
+            update_at=next(i for i,c in enumerate(cmd.calls) if c[-1]=='tools/update_repository_manifest.py')
+            self.assertLess(add_at,update_at)
+            self.assertFalse(any(any(x in c for x in ('--force','reset','clean')) for c in cmd.calls))
+
+    def test_committed_failed_push_retries_only_push_not_experiments_or_commit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);out,code,final=fixture(root);p.prepare(root,out,code,final);cmd=FakeCommands(root);cmd.fail_push=True
+            with self.assertRaisesRegex(RuntimeError,'connection failure'):p.publish(root,out,cmd,guard=lambda root:[])
+            self.assertFalse((out/'publication_completion.json').exists());self.assertEqual(p.read(out/'publication_state.json')['status'],'COMMITTED')
+            previous=len(cmd.calls);cmd.fail_push=False;receipt=p.publish(root,out,cmd,guard=lambda root:[])
+            self.assertEqual(receipt['status'],'PUBLISHED')
+            later=cmd.calls[previous:]
+            self.assertFalse(any(c[:2]==['git','commit'] or c[:2]==['git','add'] for c in later))
+            self.assertFalse(any(c[0]!='git' for c in later))
+
+    def test_owned_staging_can_resume_but_one_foreign_entry_blocks(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);out,code,final=fixture(root);inventory=p.prepare(root,out,code,final);cmd=FakeCommands(root)
+            state=dict(out=str(out),inventory_sha256=p.sha(out/'publication_inventory.json'))
+            name=next(iter(inventory['files']));cmd.staged[name]=p.sha(root/name)
+            self.assertEqual(p.index_ownership(cmd,root,inventory,state),{name})
+            cmd.staged['unrelated.md']='x'
+            with self.assertRaises(p.Blocked):p.index_ownership(cmd,root,inventory,state)
+            self.assertIn('unrelated.md',cmd.staged)
+
+    def test_repository_busy_guard_prevents_mutating_index(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);out,code,final=fixture(root);p.prepare(root,out,code,final);cmd=FakeCommands(root)
+            def busy(root):raise p.Blocked('A1 report phase')
+            with self.assertRaises(p.Blocked):p.publish(root,out,cmd,guard=busy)
+            self.assertEqual(cmd.calls,[])
+
+    def test_real_A1_step_schema_blocks_publication_and_reused_PID_does_not(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);proc=root/'proc';proc.mkdir()
+            a1=root/'outputs/M1-ACTION-SPACE-CLOSURE-20261005'
+            a2=root/'outputs/PARALLEL-V2-20261005'
+            write(a1/'owner_status.json',dict(status='RUNNING',step='repository_manifest',pid=77))
+            write(a2/'owner_status.json',dict(status='COMPLETE'))
+            live=dict(pid=77,start_ticks='100',uid=str(a1.stat().st_uid),argv=['python','m9_owner.py'],cwd=str(root))
+            with mock.patch.object(p,'process_identity',return_value=live):
+                with self.assertRaises(p.Blocked):p.guard_publication(root,proc)
+            live=dict(live,cwd=str(root/'other'),argv=['unrelated-daemon'])
+            with mock.patch.object(p,'process_identity',return_value=live):
+                self.assertEqual(len(p.guard_publication(root,proc)),2)
+
+    def test_same_uid_pam_hidden_cwd_is_not_queried_but_writer_hidden_cwd_blocks(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);proc=root/'proc';process=proc/'542030';process.mkdir(parents=True)
+            write(root/'outputs/M1-ACTION-SPACE-CLOSURE-20261005/owner_status.json',dict(status='COMPLETE'))
+            write(root/'outputs/PARALLEL-V2-20261005/owner_status.json',dict(status='COMPLETE'))
+            uid=process.stat().st_uid
+            text(process/'status','Uid:\t'+str(uid)+'\t'+str(uid)+'\n')
+            text(process/'stat','542030 (sd-pam) '+' '.join(['S']+['0']*18+['100']))
+            (process/'cmdline').write_bytes(b'(sd-pam)\0')
+            original=Path.resolve
+            def hidden_cwd(path,*args,**kwargs):
+                if path==process/'cwd':raise PermissionError('same-UID pam hides cwd')
+                return original(path,*args,**kwargs)
+            with mock.patch.object(p.os,'geteuid',return_value=uid,create=True),mock.patch.object(Path,'resolve',hidden_cwd):
+                self.assertEqual(len(p.guard_publication(root,proc)),2)
+                (process/'cmdline').write_bytes(b'git\0add\0--\0some-file\0')
+                with self.assertRaisesRegex(p.Blocked,'identify a potentially active'):
+                    p.guard_publication(root,proc)
+
+
+if __name__=='__main__':unittest.main()
