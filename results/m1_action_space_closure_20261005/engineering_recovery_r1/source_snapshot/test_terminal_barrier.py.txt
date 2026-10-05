@@ -1,0 +1,146 @@
+"""CPU tests: no normal worker exit before parent release; strict lineage."""
+import copy
+import os
+from pathlib import Path
+import tempfile
+from types import SimpleNamespace
+import unittest
+from unittest.mock import patch
+import terminal_barrier as b
+from probe_entry import redirected_command
+import probe_entry
+import worker_entry
+
+
+class BarrierTests(unittest.TestCase):
+    def fixture(self,folder,worker_self=False):
+        out=folder/'out';owner=dict(pid=987654,start_ticks='1',uid=1002,argv=['parent'])
+        if not worker_self:owner['pid']=os.getpid()
+        workers=[dict(worker_id='worker_%02d'%i,pid=(os.getpid() if worker_self and i==0 else 80001+i),
+                      start_ticks=str(i+5),uid=1002,argv=['entry',str(i)],source_indices=[i]) for i in range(2)]
+        manifest=dict(schema='M1_GPU_COHORT_V1',status='READY',stage='production',owner=owner,workers=workers)
+        mp=out/'production/cohort.json';b.write(mp,manifest);mh=b.sha(mp)
+        reg=dict(root=str(folder),out=str(out),recovery_dir=str(folder/'recovery'),sha256='recovery-sha',original_registration_sha256='old-sha')
+        for worker in workers:
+            result=out/('payload_'+worker['worker_id']+'.json');b.write(result,dict(real_result='fixture'))
+            cp=b.completion_path(out,'production',worker)
+            b.write(cp,dict(status='COMPLETE',stage='calibrate_'+worker['worker_id'],source_indices=worker['source_indices'],
+                registration_sha256='old-sha',synthetic=False,development_read=False,training_updates=0,sources=1,
+                physical_frames=1473,outputs={str(result):b.sha(result)}))
+        calls=[]
+        c=SimpleNamespace(assert_process=lambda r:calls.append(r['pid']),
+            validate_manifest=lambda m,cfg:next(w for w in m['workers'] if w['worker_id']==cfg['worker_id']))
+        return out,manifest,mp,mh,reg,c,calls
+
+    def ready(self,worker,out,mh,reg):
+        cp=b.completion_path(out,'production',worker)
+        p=b.barrier_directory('production',mh,reg)/(b.worker_token(worker)+'.json')
+        b.seal(p,b.marker_value(worker,'production',mh,reg,cp));return p
+
+    def test_parent_does_not_release_until_every_terminal_marker_exists(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out,m,mp,mh,reg,c,calls=self.fixture(Path(tmp));waits=[]
+            children=[(SimpleNamespace(pid=w['pid'],wait=lambda timeout,p=w['pid']:waits.append(p) or 0),w) for w in m['workers']]
+            self.ready(m['workers'][0],out,mh,reg)
+            with patch.object(b,'load_module',return_value=c):
+                self.assertFalse(b.maybe_release(mp,children,'production',reg));self.assertEqual(waits,[])
+                self.ready(m['workers'][1],out,mh,reg)
+                self.assertTrue(b.maybe_release(mp,children,'production',reg))
+            self.assertEqual(set(waits),{w['pid'] for w in m['workers']})
+            self.assertTrue((b.barrier_directory('production',mh,reg)/'PARENT_REAPED.json').exists())
+
+    def test_parent_checks_live_identity_before_release_and_rejects_zombie(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out,m,mp,mh,reg,c,calls=self.fixture(Path(tmp))
+            for w in m['workers']:self.ready(w,out,mh,reg)
+            children=[(SimpleNamespace(pid=w['pid'],wait=lambda timeout:0),w) for w in m['workers']]
+            def strict(record):
+                if record['pid']==m['workers'][1]['pid']:raise RuntimeError('Cohort PID is not live')
+            c.assert_process=strict
+            with patch.object(b,'load_module',return_value=c):
+                with self.assertRaisesRegex(RuntimeError,'not live'):b.maybe_release(mp,children,'production',reg)
+            self.assertFalse((b.barrier_directory('production',mh,reg)/'RELEASE.json').exists())
+
+    def test_worker_with_all_markers_still_waits_for_parent_release(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out,m,mp,mh,reg,c,calls=self.fixture(Path(tmp),worker_self=True)
+            self.ready(m['workers'][1],out,mh,reg);ticks=[0];sleeps=[]
+            cfg=dict(worker_id='worker_00',source_indices=[0],stage='production',cohort_manifest=str(mp),stop_file=str(out/'STOP'))
+            def sleep(seconds):
+                sleeps.append(seconds);ticks[0]+=seconds
+                directory=b.barrier_directory('production',mh,reg)
+                if len(sleeps)==2:
+                    markers={str(directory/(b.worker_token(w)+'.json')):b.sha(directory/(b.worker_token(w)+'.json')) for w in m['workers']}
+                    b.seal(directory/'RELEASE.json',b.release_value(mh,reg,markers))
+            with patch.object(b,'load_module',return_value=c):
+                receipt=b.wait_for_all(cfg,'production',reg,clock=lambda:ticks[0],sleep=sleep,install_signals=False)
+            self.assertEqual(len(sleeps),2);self.assertEqual(receipt['status'],'PARENT_RELEASE_AFTER_ALL_ORIGINAL_WORKERS_RETURNED')
+
+    def test_marker_cannot_hide_changed_completion_or_foreign_pid(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out,m,mp,mh,reg,c,calls=self.fixture(Path(tmp));w=m['workers'][0];cp=b.completion_path(out,'production',w)
+            value=b.marker_value(w,'production',mh,reg,cp);bad=copy.deepcopy(value);bad['worker']['pid']+=1
+            with self.assertRaisesRegex(RuntimeError,'lineage'):b.validate_marker(bad,w,'production',mh,reg,cp)
+            changed=b.read(cp);changed['physical_frames']=1;b.write(cp,changed)
+            with self.assertRaisesRegex(RuntimeError,'lineage'):b.validate_marker(value,w,'production',mh,reg,cp)
+
+    def test_parent_requires_successful_reaping_after_release(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out,m,mp,mh,reg,c,calls=self.fixture(Path(tmp))
+            for w in m['workers']:self.ready(w,out,mh,reg)
+            children=[(SimpleNamespace(pid=w['pid'],wait=lambda timeout:1),w) for w in m['workers']]
+            with patch.object(b,'load_module',return_value=c):
+                with self.assertRaisesRegex(RuntimeError,'failed while'):b.maybe_release(mp,children,'production',reg)
+            self.assertFalse((b.barrier_directory('production',mh,reg)/'PARENT_REAPED.json').exists())
+
+    def test_release_precedes_wait_and_original_later_poll_cannot_check_dead_pid(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out,m,mp,mh,reg,c,calls=self.fixture(Path(tmp));directory=b.barrier_directory('production',mh,reg)
+            for w in m['workers']:self.ready(w,out,mh,reg)
+            testcase=self
+            class Process:
+                def __init__(self,pid):self.pid=pid;self.returncode=None
+                def poll(self):return self.returncode
+                def wait(self,timeout):
+                    testcase.assertTrue((directory/'RELEASE.json').exists());self.returncode=0;return 0
+            children=[(Process(w['pid']),w) for w in m['workers']]
+            with patch.object(b,'load_module',return_value=c):self.assertTrue(b.maybe_release(mp,children,'production',reg))
+            for process,record in children:
+                if process.poll() is None:self.fail('Original parent would still try to assert a dead PID')
+                self.assertEqual(process.returncode,0)
+
+    def test_foreign_child_or_invalid_original_completion_prevents_release(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out,m,mp,mh,reg,c,calls=self.fixture(Path(tmp))
+            for w in m['workers']:self.ready(w,out,mh,reg)
+            children=[(SimpleNamespace(pid=w['pid'],wait=lambda timeout:0),w) for w in m['workers']]
+            children[0][0].pid+=50
+            with patch.object(b,'load_module',return_value=c):
+                with self.assertRaisesRegex(RuntimeError,'differs from sealed'):b.maybe_release(mp,children,'production',reg)
+            cp=b.completion_path(out,'production',m['workers'][0]);value=b.read(cp);value['physical_frames']=1;b.write(cp,value)
+            with self.assertRaisesRegex(RuntimeError,'coverage differs'):b.validate_completion(cp,'production',m['workers'][0],'old-sha',mh)
+            self.assertFalse((b.barrier_directory('production',mh,reg)/'RELEASE.json').exists())
+
+    def test_original_worker_exception_never_enters_terminal_barrier(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            def failure(*_):raise RuntimeError('original scientific failure')
+            original=SimpleNamespace(main=failure,worker=failure)
+            with patch.object(b,'registration',return_value={}),patch.object(b,'load_module',return_value=original),patch.object(b,'wait_for_all') as terminal:
+                with self.assertRaisesRegex(RuntimeError,'original scientific failure'):
+                    worker_entry.main(['--root',tmp,'--output',tmp,'--stage','calibrate-shard','--cohort-config',str(Path(tmp)/'cfg.json')])
+                terminal.assert_not_called()
+                with self.assertRaisesRegex(RuntimeError,'original scientific failure'):
+                    probe_entry.run_worker(dict(root=tmp,out=tmp))
+                terminal.assert_not_called()
+
+    def test_only_exact_old_probe_worker_command_is_redirected(self):
+        original=Path('frozen/cohort_probe.py').resolve();replacement=Path('recovery/probe_entry.py').resolve()
+        command=['python','-B',str(original),'--worker-config','worker.json']
+        result=redirected_command(command,original,replacement)
+        self.assertEqual(result[2],str(replacement));self.assertEqual(command[2],str(original))
+        for unrelated in (['nvidia-smi','--query-gpu'],['python','-B','other.py','--worker-config','x'],
+                          ['python','-B',str(original),'--root','x']):
+            self.assertIs(redirected_command(unrelated,original,replacement),unrelated)
+
+
+if __name__=='__main__':unittest.main(verbosity=2)

@@ -1,0 +1,209 @@
+"""Same-source serial/parallel parity and memory admission for the closure run."""
+import argparse
+import importlib.util
+import json
+import math
+import os
+from pathlib import Path
+import signal
+import subprocess
+import sys
+import time
+import traceback
+
+
+def module(path):
+    spec=importlib.util.spec_from_file_location('_closure_cohort_runtime',path)
+    m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m);return m
+
+
+def serial_proof(out,registration_sha256):
+    import m9_common as u
+    out=Path(out);receipt=u.read(out/'benchmark_completion.json');path=out/'benchmark_registration.json'
+    u.require(receipt.get('status')=='COMPLETE' and receipt.get('stage')=='benchmark'
+              and receipt.get('registration_sha256')==registration_sha256
+              and receipt.get('sources')==2 and receipt.get('physical_frames')==2946
+              and receipt.get('synthetic') is False and receipt.get('training_updates')==0,
+              'Complete current-registration serial benchmark required')
+    expected=[path]+[out/'benchmark/source_checkpoints'/('%04d.json'%i) for i in range(2)]
+    u.require(all(receipt['outputs'].get(str(p))==u.sha(p) for p in expected),
+              'Serial receipt does not bind the benchmark registration and both source checkpoints')
+    u.verify(receipt['outputs']);reg=u.read(path)
+    u.require(reg.get('registration_sha256')==registration_sha256,'Serial registration lineage changed')
+    return reg,receipt
+
+
+def validate_worker_config(config):
+    import m9_common as u
+    required=('root','out','protocol','worker_id','source_indices','stage','output_dir','cohort_manifest',
+              'stop_file','config_path','source_bindings','registration_sha256')
+    u.require(all(k in config for k in required),'Incomplete cohort probe worker configuration')
+    i=config['worker_id'];out=Path(config['out']).resolve();dest=out/'cohort_probe'/('worker_'+str(i))
+    u.require(type(i) is int and i in (0,1) and config['source_indices']==[i] and config['stage']=='benchmark',
+              'Probe must assign exactly one of the two benchmark sources to each worker')
+    u.require(Path(config['output_dir']).resolve()==dest and Path(config['config_path']).resolve()==dest/'config.json'
+              and Path(config['cohort_manifest']).resolve()==out/'cohort_probe/cohort_manifest.json'
+              and Path(config['stop_file']).resolve()==out/'STOP','Probe paths differ from the owned output namespace')
+    u.require(u.read(config['config_path'])==config,'Worker configuration changed after launch')
+    u.require(u.sha(out/'registration.json')==config['registration_sha256'],'Worker registration changed')
+    u.require(u.read(out/'registration.json')['source_bindings']==config['source_bindings'],'Worker source bindings changed')
+    u.require(not (dest/'completion.json').exists() and not (dest/'failure.json').exists(),
+              'Existing worker outcome requires review, never blind probe rerun')
+    u.require(not (out/'cohort_probe/source_checkpoints'/('%04d.json'%i)).exists(),
+              'Fresh complete-source computation required; probe cache reuse is forbidden')
+    return config
+
+
+def admit_worker_count(total,used,reserve,peak_reserved_bytes,samples):
+    import m9_common as u
+    u.require(all(math.isfinite(float(x)) for x in (total,used,reserve,peak_reserved_bytes))
+              and total>used>=0 and reserve>=4096 and peak_reserved_bytes>0 and samples,
+              'Finite measured memory and the registered4GiB reserve are required')
+    u.require(all(math.isfinite(float(s['memory_mib'])) and 0<=s['memory_mib']<=total for s in samples),
+              'Invalid GPU memory samples')
+    observed=max(0.,(max(s['memory_mib'] for s in samples)-used)/2)
+    per_worker=max(peak_reserved_bytes/(1024**2),observed)+512
+    count=min(4,int((total-used-reserve)//per_worker))
+    u.require(count>=2,'Measured memory cannot support qualified parallel execution')
+    return (4 if count>=4 else 2),per_worker
+
+
+def worker(config):
+    import m9_common as u
+    from m9_run import Runner
+    root=Path(config['root']);out=Path(config['out']);dest=Path(config['output_dir'])
+    try:
+        validate_worker_config(config)
+        reg,serial=serial_proof(out,config['registration_sha256']);binding=u.identity(reg)
+        r=Runner(root,config['protocol'],out,worker_index=config['worker_id'],workers=2,cohort_config=config['config_path'])
+        r.stage='cohort_probe_worker_'+str(config['worker_id'])
+        native=r.load();data=native.data('calibration')
+        tasks=r.task_grid(native.actions(),u.CAL_SEEDS,new_only=True)
+        u.require(native.flags==reg['numerical_runtime'],'Cohort numerical runtime differs from serial benchmark')
+        u.require(native.loaded['identity']==reg['frozen_identity']
+                  and native.proofs['calibration']==reg['original_population']
+                  and data.get('bindings',{})==reg['data_bindings'],'Cohort model or source population differs')
+        u.require(len(tasks)==1473 and u.identity(sorted(r.expected_keys(tasks)))==reg['task_grid_sha256'],
+                  'Cohort task grid differs from serial benchmark')
+        outputs={};digests={};times={}
+        for index in config['source_indices']:
+            expected_path=out/'benchmark/source_checkpoints'/('%04d.json'%index)
+            reference_sha=u.sha(expected_path)
+            saved,p=r.calibration_source('cohort_probe',binding,data,index,tasks)
+            expected=u.checkpoint(expected_path,binding,index)
+            u.require(reference_sha==u.sha(expected_path)==serial['outputs'][str(expected_path)],'Serial reference changed during probe')
+            r.validate_rows(expected['rows'],data,index,tasks)
+            u.require(u.identity(saved['rows'])==u.identity(expected['rows']),'Parallel real rows differ from serial benchmark')
+            outputs[str(p)]=u.sha(p);digests[str(index)]=u.identity(saved['rows']);times[str(index)]=saved['seconds']
+            outputs[str(expected_path)]=reference_sha
+        native.torch.cuda.synchronize();native.frozen();r.cohort_guard.require_available()
+        u.verify(config['source_bindings'],root)
+        done=dict(status='COMPLETE_ROWS_EXACT',source_indices=config['source_indices'],rows_sha256=digests,
+            source_seconds=times,peak_cuda_reserved_bytes=int(native.torch.cuda.max_memory_reserved()),
+            numerical_runtime=native.flags,outputs=outputs,synthetic=False,development_read=False,training_updates=0,
+            registration_sha256=config['registration_sha256'],worker_config_sha256=u.sha(config['config_path']),
+            cohort_manifest_sha256=r.cohort_guard.manifest_sha256,
+            serial_completion_sha256=u.sha(out/'benchmark_completion.json'),calibration_binding=binding,
+            fresh_computation=True,complete_physical_rows=1473)
+        u.seal(dest/'completion.json',done)
+    except BaseException as e:
+        u.write(dest/'failure.json',dict(status='FAILED',error=repr(e),traceback=traceback.format_exc()));raise
+
+
+def parent(root,out):
+    import m9_common as u
+    root=Path(root).resolve();out=Path(out).resolve();code=Path(__file__).resolve().parent
+    c=module(root/'experiments/m1-gpu-workers-20261004/cohort_runtime.py')
+    u.require(not (out/'cohort_probe_completion.json').exists(),'Existing completed probe must be verified, not rerun')
+    u.require(not (out/'cohort_probe/failure.json').exists(),'Previous probe failure requires review')
+    protocol=u.read(code/'protocol.json');registration=u.read(out/'registration.json')
+    u.verify(registration['source_bindings'],root)
+    reg,serial=serial_proof(out,u.sha(out/'registration.json'))
+    old_path=root/'outputs/M1-N2048-GPU-WORKERS-20261004-R1/benchmark_decision.json';old=u.read(old_path)
+    u.require(old['selected_workers']==4 and any(x['workers']==4 and x['status']=='EXACT_FULL_ROWS_PARITY_PASS' for x in old['trials']),
+              'Original four-worker parity qualification absent')
+    gpu=subprocess.check_output(['nvidia-smi','--query-compute-apps=pid','--format=csv,noheader,nounits'],text=True).strip()
+    u.require(not gpu,'Foreign GPU worker before owned cohort probe: '+gpu)
+    total,used=map(float,subprocess.check_output(['nvidia-smi','--query-gpu=memory.total,memory.used','--format=csv,noheader,nounits'],text=True).strip().split(','))
+    folder=out/'cohort_probe'
+    u.require(not folder.exists() or not any(folder.iterdir()),'Existing probe evidence requires explicit review before retry')
+    folder.mkdir(exist_ok=True);manifest_path=folder/'cohort_manifest.json'
+    u.require(not manifest_path.exists(),'Existing cohort manifest needs explicit recovery')
+    env=dict(os.environ,CUDA_VISIBLE_DEVICES='0',CUBLAS_WORKSPACE_CONFIG=':4096:8',OMP_NUM_THREADS='6',MKL_NUM_THREADS='6',OPENBLAS_NUM_THREADS='6',PYTHONDONTWRITEBYTECODE='1')
+    env['PYTHONPATH']=os.pathsep.join(map(str,[code,root/'experiments/var-latent-enhancement-20260917/mechanisms/src',root/'src']))
+    native=root/'outputs/UNIFIED-METRICS-20261002/environment/bin/python';children=[];handles=[];records=[];started=time.monotonic();samples=[]
+    try:
+        for i in range(2):
+            dest=folder/('worker_'+str(i));dest.mkdir(exist_ok=True);cfg_path=dest/'config.json'
+            cfg=dict(root=str(root),out=str(out),protocol=str(code/'protocol.json'),worker_id=i,source_indices=[i],stage='benchmark',
+                output_dir=str(dest),cohort_manifest=str(manifest_path),stop_file=str(out/'STOP'),config_path=str(cfg_path),source_bindings=registration['source_bindings'],
+                registration_sha256=u.sha(out/'registration.json'))
+            u.seal(cfg_path,cfg);log=(dest/'worker.log').open('ab');handles.append(log)
+            p=subprocess.Popen([str(native),'-B',str(Path(__file__)),'--worker-config',str(cfg_path)],cwd=root,env=env,stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+            children.append(p);record=c.process_identity(p.pid);records.append(dict(**record,worker_id=i,source_indices=[i]))
+        for child,record in zip(children,records):
+            u.require(child.poll() is None,'Probe child exited before cohort sealing');c.assert_process(record)
+        u.seal(manifest_path,dict(schema='M1_GPU_COHORT_V1',status='READY',stage='benchmark',owner=c.process_identity(os.getpid()),workers=records))
+        while any(p.poll() is None for p in children):
+            u.require(not (out/'STOP').exists(),'Probe stop requested')
+            u.require(all(p.poll() in (None,0) for p in children),'A probe worker failed')
+            for child,record in zip(children,records):
+                if child.poll() is None:c.assert_process(record)
+            memory,util,temp=map(float,subprocess.check_output(['nvidia-smi','--query-gpu=memory.used,utilization.gpu,temperature.gpu','--format=csv,noheader,nounits'],text=True).strip().split(','))
+            samples.append(dict(time=time.time(),memory_mib=memory,gpu_percent=util,temperature_c=temp))
+            u.write(folder/'status.json',dict(status='PROBING',workers=records,elapsed_seconds=time.monotonic()-started,latest=samples[-1]))
+            u.require(temp<86,'Probe thermal boundary reached; stop owned workers')
+            time.sleep(2)
+        u.require(all(p.returncode==0 for p in children),'Probe child failure')
+        outputs={};peak=0;source_times=[]
+        for i in range(2):
+            p=folder/('worker_'+str(i))/'completion.json';x=u.read(p)
+            u.require(x['status']=='COMPLETE_ROWS_EXACT' and x['source_indices']==[i]
+                      and x['registration_sha256']==u.sha(out/'registration.json')
+                      and x['serial_completion_sha256']==u.sha(out/'benchmark_completion.json')
+                      and x['cohort_manifest_sha256']==u.sha(manifest_path)
+                      and x['worker_config_sha256']==u.sha(folder/('worker_'+str(i))/'config.json')
+                      and x['fresh_computation'] is True and x['complete_physical_rows']==1473,
+                      'Incomplete or foreign exact probe source')
+            u.verify(x['outputs']);outputs[str(p)]=u.sha(p);outputs.update(x['outputs'])
+            peak=max(peak,x['peak_cuda_reserved_bytes']);source_times.extend(x['source_seconds'].values())
+        # Include measured per-process driver/context overhead and a conservative
+        # extra512MiB per process. Never trade away the registered4GiB reserve.
+        selected,per_worker=admit_worker_count(total,used,protocol['gpu_reserve_mib'],peak,samples)
+        u.verify(registration['source_bindings'],root)
+        for p in [manifest_path,old_path,out/'benchmark_completion.json',out/'benchmark_registration.json']:
+            outputs[str(p)]=u.sha(p)
+        for i in range(2):outputs[str(folder/('worker_'+str(i))/'config.json')]=u.sha(folder/('worker_'+str(i))/'config.json')
+        value=dict(status='COHORT_PARITY_COMPLETE',sources=2,exact_complete_row_parity=True,selected_workers=selected,
+            original_four_worker_qualification=str(old_path),original_four_worker_qualification_sha256=u.sha(old_path),
+            this_probe_workers=2,source_seconds=source_times,elapsed_seconds=time.monotonic()-started,
+            gpu_total_mib=total,gpu_initial_used_mib=used,gpu_reserve_mib=protocol['gpu_reserve_mib'],
+            measured_worker_peak_reserved_bytes=peak,admitted_memory_per_worker_mib=per_worker,
+            samples=samples,outputs=outputs,registration_sha256=u.sha(out/'registration.json'),
+            scientific_updates=False,development_read=False,synthetic=False,
+            caveat='New two-worker exact-row check plus preserved four-worker engineering qualification; production speed will be measured, not assumed.')
+        u.seal(out/'cohort_probe_completion.json',value);u.write(folder/'status.json',dict(status='COMPLETE',selected_workers=selected))
+    except BaseException as e:
+        u.write(folder/'failure.json',dict(status='FAILED',error=repr(e),traceback=traceback.format_exc()))
+        for p,record in zip(children,records):
+            if p.poll() is None:
+                c.assert_process(record);p.terminate()
+        for p,record in zip(children,records):
+            if p.poll() is None:
+                try:p.wait(timeout=60)
+                except subprocess.TimeoutExpired:c.assert_process(record);p.kill();p.wait()
+        raise
+    finally:
+        for f in handles:f.close()
+
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--root');p.add_argument('--out');p.add_argument('--worker-config');a=p.parse_args()
+    if a.worker_config:worker(json.loads(Path(a.worker_config).read_text()))
+    else:
+        def interrupted(signum,_frame):raise RuntimeError('Cohort probe interrupted by signal '+str(signum))
+        signal.signal(signal.SIGTERM,interrupted);signal.signal(signal.SIGINT,interrupted)
+        import fcntl
+        Path(a.out).mkdir(parents=True,exist_ok=True)
+        with (Path(a.out)/'cohort_probe.execution.lock').open('a+') as lock:
+            fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB);parent(a.root,a.out)

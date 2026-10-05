@@ -1,0 +1,258 @@
+"""CPU-only boundary tests: no scientific stages, GPU calls or Git mutation."""
+from pathlib import Path
+import os
+import tempfile
+import unittest
+from unittest import mock
+
+import m9_owner as owner
+
+
+class OwnerTests(unittest.TestCase):
+    def setUp(self):
+        owner.STOP = False
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name).resolve()
+        self.code = self.root / 'runtime'; self.code.mkdir()
+        self.out = self.root / 'outputs/new'; self.out.mkdir(parents=True)
+        self.legacy = self.root / 'outputs/old'; self.legacy.mkdir()
+        for name in ('m9_owner.py', 'test_m9_owner.py', 'm9_run.py', 'm9_score_report.py',
+                     'm9_score_report_base.py.txt', 'cohort_probe.py', 'ensure_visual_controls.py'):
+            (self.code / name).write_text('# frozen ' + name + '\n', encoding='utf-8')
+        self.input = self.root / 'input.json'; owner.write(self.input, {'input': True})
+        owner.write(self.code / 'protocol.json', dict(original_output=str(self.legacy), result_dir='results/m1_action_space_closure_20261005', report_path='reports/m1_action_space_closure_20261005.md', fixed_source_indices=list(range(16))))
+        self.registration = dict(status='REGISTERED', protocol_sha256=owner.sha(self.code / 'protocol.json'),
+            source_bindings={str(p): owner.sha(p) for p in self.code.iterdir() if p.name != 'protocol.json'},
+            input_bindings={str(self.input): owner.sha(self.input)})
+        owner.write(self.out / 'registration.json', self.registration)
+        old_cp = self.legacy / 'checkpoint.json'; owner.write(old_cp, {'source_index': 0})
+        owner.write(self.out / 'legacy_compatibility.json', dict(status='LEGACY_CALIBRATION_REUSE_AUDITED',
+            incompatible_header_count=0, sources=1000, target_rows=2187000,
+            datasets=[dict(source_checkpoint_sha256={str(old_cp): owner.sha(old_cp)})]*2))
+        self.worker = owner.Owner(self.root, self.out, self.code)
+        owner.write(self.out / 'm1_policy.json', {'frozen_policy': True})
+
+    def completion(self, stage):
+        artifact = self.out / (stage + '_artifact.json'); owner.write(artifact, {'stage': stage})
+        value = dict(status='COMPLETE', stage=stage, registration_sha256=self.worker.registration_sha256,
+            outputs={str(artifact): owner.sha(artifact)}, synthetic=False, training_updates=0, development_read=False)
+        if stage == 'qualify': value.update(sources=1, physical_frames=244)
+        if stage == 'benchmark': value.update(sources=2, physical_frames=2946)
+        if stage == 'cohort_probe': value.update(status='COHORT_PARITY_COMPLETE', selected_workers=4,
+            exact_complete_row_parity=True, scientific_updates=False)
+        if stage == 'calibrate_prepare': value.update(workers=4, new_tasks_per_source=1473, total_tasks_per_source=3660)
+        if stage == 'calibrate': value.update(sources=1000, physical_frames=3660000, newly_evaluated_frames=1473000, legacy_reused_frames=2187000)
+        if stage == 'development': value.update(sources=100, method_rows=31500, max_method_rows=36000, development_used_for_selection=False)
+        if stage.startswith('calibrate_worker_'):
+            i=int(stage.rsplit('_',1)[1]);indices=list(range(i,1000,4))
+            value.update(workers=4,source_indices=indices,sources=len(indices),physical_frames=1473*len(indices))
+        if stage in ('calibrate', 'development'): value['policy_sha256'] = owner.sha(self.out / 'm1_policy.json')
+        if stage == 'score':
+            reg = self.out / 'metrics/registration.json'; owner.write(reg, {'models': 'frozen'})
+            value.update(status='M1_ACTION_CLOSURE_METRICS_COMPLETE', sources=100, expanded_rows=31500,
+                max_expanded_rows=36000, historical_rows=10000, legacy_rows=7000, P_rows=3000,
+                rows=41500, selection_updates=0, registration_sha256=owner.sha(reg),
+                input_bindings={str(self.input): owner.sha(self.input)})
+        owner.write(self.out / (stage + '_completion.json'), value)
+        return value
+
+    def report(self):
+        self.completion('score')
+        result = self.worker.result; result.mkdir(parents=True)
+        (result / 'source_snapshot').mkdir()
+        (result / 'REPORT.md').write_text('# Actual report\n', encoding='utf-8')
+        (result / 'protocol.json').write_bytes((self.code / 'protocol.json').read_bytes())
+        for source in self.worker.source_paths:
+            (result / 'source_snapshot' / (source.name + '.txt')).write_bytes(source.read_bytes())
+        def metadata(path): return dict(sha256=owner.sha(path), bytes=path.stat().st_size)
+        outputs = {p.relative_to(result).as_posix(): metadata(p) for p in result.rglob('*') if p.is_file()}
+        manifest = dict(status='M1_ACTION_CLOSURE_STATIC_REPORT_COMPLETE', sources=100, outputs=outputs,
+            model_inference=False, metric_recomputation=False, training_updates=0,
+            input_bindings={str(self.input): owner.sha(self.input)})
+        owner.write(result / 'MANIFEST.json', manifest)
+        mirror = self.worker.mirror; mirror.parent.mkdir(parents=True)
+        mirror.write_text('# Mirrored report\n', encoding='utf-8')
+        all_metadata = {str(result / name): info for name, info in outputs.items()}
+        all_metadata[str(result / 'MANIFEST.json')] = metadata(result / 'MANIFEST.json')
+        all_metadata[str(mirror)] = metadata(mirror)
+        done = dict(status='M1_ACTION_CLOSURE_REPORT_COMPLETE', sources=100, expanded_rows=31500,
+            model_inference=False, training_updates=0, score_completion_sha256=owner.sha(self.out / 'score_completion.json'),
+            manifest_path=str(result / 'MANIFEST.json'), manifest_sha256=owner.sha(result / 'MANIFEST.json'),
+            outputs={p: info['sha256'] for p, info in all_metadata.items()}, output_metadata=all_metadata,
+            input_bindings={str(self.input): owner.sha(self.input)})
+        owner.write(self.out / 'report_completion.json', done)
+        return manifest, done
+
+    def test_all_stage_completion_scopes_and_dynamic_unavailable_oracle(self):
+        for stage in owner.STAGES[:-1]:
+            self.completion(stage)
+            self.assertIsNotNone(self.worker.receipt(stage))
+        self.report()
+        self.assertIsNotNone(self.worker.receipt('report'))
+
+    def test_complete_status_alone_cannot_hide_changed_output(self):
+        self.completion('qualify')
+        (self.out / 'qualify_artifact.json').write_text('changed')
+        with self.assertRaisesRegex(RuntimeError, 'Bound artifact changed'):
+            self.worker.receipt('qualify')
+
+    def test_incomplete_scope_and_synthetic_receipt_rejected(self):
+        for change in ({'physical_frames': 2945}, {'synthetic': True}, {'development_read': True}):
+            value = self.completion('benchmark'); value.update(change)
+            owner.write(self.out / 'benchmark_completion.json', value)
+            with self.assertRaises(RuntimeError): self.worker.receipt('benchmark')
+
+    def test_protocol_and_source_changes_are_rejected_before_launch(self):
+        (self.code / 'm9_run.py').write_text('# changed')
+        with self.assertRaisesRegex(RuntimeError, 'Bound artifact changed'): self.worker.check()
+
+    def test_new_unregistered_source_is_rejected(self):
+        (self.code / 'extra.py').write_text('# unregistered')
+        with self.assertRaisesRegex(RuntimeError, 'inventory changed'): self.worker.check()
+
+    def test_stop_prevents_new_stage(self):
+        (self.out / 'STOP').touch()
+        with mock.patch.object(self.worker, 'execute') as execute:
+            with self.assertRaisesRegex(RuntimeError, 'stop requested'): self.worker.run()
+            execute.assert_not_called()
+
+    def test_previous_failure_refuses_blind_restart(self):
+        owner.write(self.out / 'owner_failure.json', {'error': 'retained'})
+        with self.assertRaisesRegex(RuntimeError, 'requires explicit review'):
+            owner.Owner(self.root, self.out, self.code)
+
+    def test_native_environment_restores_threads_and_cpu_hides_gpu(self):
+        with mock.patch.dict(os.environ, {'OMP_NUM_THREADS': '99', 'CUDA_VISIBLE_DEVICES': '8', 'PYTHONPATH': 'wrong'}):
+            gpu, cpu = self.worker.environment(True), self.worker.environment(False)
+        for environment in (gpu, cpu):
+            for name in ('OMP_NUM_THREADS', 'MKL_NUM_THREADS', 'OPENBLAS_NUM_THREADS'): self.assertEqual(environment[name], '6')
+            self.assertTrue(environment['PATH'].startswith(str(self.worker.native.parent)))
+            self.assertNotIn('wrong', environment['PYTHONPATH'])
+        self.assertEqual(gpu['CUDA_VISIBLE_DEVICES'], '0'); self.assertEqual(cpu['CUDA_VISIBLE_DEVICES'], '')
+
+    def test_stage_cli_matches_original_output_and_score_contracts(self):
+        run = list(map(str, self.worker.stage_argv('benchmark')))
+        self.assertIn('--output', run); self.assertIn('--protocol', run); self.assertNotIn('--out', run)
+        score = list(map(str, self.worker.stage_argv('score')))
+        self.assertIn('--out', score); self.assertIn('--legacy-out', score)
+
+    def test_sequential_stage_gate_and_no_later_stage_after_failure(self):
+        events = []
+        def execute(stage, *args, **kwargs):
+            events.append(stage)
+            if stage == 'calibrate_prepare': raise RuntimeError('scientific stage failed')
+            self.completion(stage)
+        with (mock.patch.object(self.worker, 'execute', side_effect=execute),
+              mock.patch.object(self.worker, 'publish') as publish, mock.patch.object(self.worker,'production') as production):
+            with self.assertRaisesRegex(RuntimeError, 'scientific stage failed'): self.worker.run()
+            self.assertEqual(events, ['qualify', 'benchmark', 'cohort_probe', 'calibrate_prepare'])
+            publish.assert_not_called(); production.assert_not_called()
+
+    def test_live_child_prevents_a_second_launch(self):
+        self.worker.child = mock.Mock(); self.worker.child.poll.return_value = None
+        with mock.patch.object(owner.subprocess, 'Popen') as popen:
+            with self.assertRaisesRegex(RuntimeError, 'Single-child'): self.worker.execute('bad', ['fake'], gpu=True)
+            popen.assert_not_called()
+
+    def test_gpu_busy_does_not_signal_or_launch_external_owner(self):
+        with mock.patch.object(owner.subprocess, 'check_output', return_value='1234\n'), mock.patch.object(owner.subprocess, 'Popen') as popen:
+            with self.assertRaisesRegex(RuntimeError, 'Existing GPU compute owner'): self.worker.execute('gpu', ['fake'], gpu=True)
+            popen.assert_not_called()
+
+    def test_publication_inventory_contains_text_snapshots_never_python(self):
+        self.report()
+        inventory = self.worker.publication_files()
+        self.assertTrue(any(name.endswith('.py.txt') for name in inventory))
+        self.assertFalse(any(name.endswith('.py') for name in inventory))
+        self.assertIn('results/m1_action_space_closure_20261005/MANIFEST.json', inventory)
+        self.assertIn('reports/m1_action_space_closure_20261005.md', inventory)
+        self.assertIn('results/m1_action_space_closure_20261005/source_snapshot/m9_score_report_base.py.txt.txt', inventory)
+
+    def test_executed_text_snapshot_change_is_rejected(self):
+        (self.code/'m9_score_report_base.py.txt').write_text('# changed historical executable')
+        with self.assertRaisesRegex(RuntimeError, 'Bound artifact changed'):
+            self.worker.check()
+
+    def test_cohort_receipt_requires_qualified_count_and_complete_row_parity(self):
+        for change in ({'selected_workers':3}, {'exact_complete_row_parity':False}, {'scientific_updates':True}):
+            value=self.completion('cohort_probe');value.update(change)
+            owner.write(self.out/'cohort_probe_completion.json',value)
+            with self.assertRaisesRegex(RuntimeError,'Unqualified cohort'):
+                self.worker.receipt('cohort_probe')
+
+    def test_shard_receipt_cannot_hide_missing_sources(self):
+        self.completion('cohort_probe')
+        value=self.completion('calibrate_worker_01')
+        self.worker.receipt('calibrate_worker_01')
+        value['source_indices']=value['source_indices'][:-1]
+        owner.write(self.out/'calibrate_worker_01_completion.json',value)
+        with self.assertRaisesRegex(RuntimeError,'Invalid source shard'):
+            self.worker.receipt('calibrate_worker_01')
+
+    def test_production_seals_exact_nonoverlapping_process_cohort(self):
+        self.completion('cohort_probe');self.completion('calibrate_prepare')
+        owner.write(self.out/'calibrate_registration.json',{'workers':4})
+        for i in range(4):self.completion('calibrate_worker_%02d'%i)
+        manifest_path=self.out/'production/cohort.json'
+        children=[]
+        class Child:
+            def __init__(self,pid): self.pid=pid;self.returncode=None
+            def poll(self):
+                if manifest_path.exists():self.returncode=0
+                return self.returncode
+        def popen(*_,**__):
+            child=Child(10000+len(children));children.append(child);return child
+        def identity(pid):return dict(pid=pid,start_ticks=str(pid+100),uid=1002,argv=['registered-worker',str(pid)])
+        with (mock.patch.object(owner.subprocess,'Popen',side_effect=popen),
+              mock.patch.object(owner,'process_identity',side_effect=identity),
+              mock.patch.object(self.worker,'gpu_idle')):
+            self.worker.production()
+        manifest=owner.read(manifest_path)
+        self.assertEqual(manifest['status'],'READY');self.assertEqual(manifest['stage'],'production')
+        indices=[]
+        for i,record in enumerate(manifest['workers']):
+            self.assertEqual(record['pid'],10000+i)
+            self.assertEqual(record['source_indices'],list(range(i,1000,4)))
+            self.assertTrue(owner.same_process(record,identity(record['pid'])))
+            config=owner.read(self.out/'production'/('worker_%02d'%i)/'config.json')
+            self.assertEqual(config['stage'],'production')
+            self.assertEqual(config['source_indices'],record['source_indices'])
+            indices.extend(record['source_indices'])
+        self.assertEqual(sorted(indices),list(range(1000)))
+        self.assertEqual(owner.read(self.out/'production/completion.json')['workers'],4)
+        with self.assertRaisesRegex(RuntimeError,'Existing cohort'):
+            self.worker.production()
+
+    def test_process_identity_checks_pid_start_uid_and_exact_command(self):
+        record=dict(pid=123,start_ticks='456',uid=1002,argv=['python','worker.py'])
+        self.assertTrue(owner.same_process(record,dict(record,start_ticks=456)))
+        for key,value in (('pid',124),('start_ticks','457'),('uid',0),('argv',['python','other.py'])):
+            self.assertFalse(owner.same_process(record,dict(record,**{key:value})))
+
+    def test_modified_published_snapshot_is_rejected(self):
+        self.report()
+        (self.worker.result / 'source_snapshot/m9_run.py.txt').write_text('# altered')
+        with self.assertRaisesRegex(RuntimeError, 'digest or byte count'): self.worker.publication_files()
+
+    def test_nested_metadata_exact_bytes_and_digest(self):
+        path = self.input; info = dict(sha256=owner.sha(path), bytes=path.stat().st_size)
+        owner.validate_metadata(path, info)
+        for invalid in (dict(info, bytes=info['bytes'] + 1), dict(info, sha256='0' * 64), dict(info, bytes=True), info['sha256']):
+            with self.assertRaises(RuntimeError): owner.validate_metadata(path, invalid)
+
+    def test_relative_manifest_escape_paths_rejected(self):
+        for name in ('../input.json', '/input.json', 'C:/input.json', 'nested/../input.json', './input.json', 'nested\\file', 'nested//file'):
+            with self.subTest(name=name), self.assertRaises(RuntimeError): owner.relative_file(self.root, name)
+
+    def test_missing_source_snapshot_is_rejected_even_with_consistent_manifest(self):
+        manifest, done = self.report()
+        key = 'source_snapshot/m9_run.py.txt'
+        manifest['outputs'].pop(key)
+        owner.write(self.worker.result / 'MANIFEST.json', manifest)
+        with self.assertRaisesRegex(RuntimeError, 'Missing or changed executable text snapshot'): self.worker.publication_files()
+
+
+
+if __name__ == '__main__':
+    unittest.main()

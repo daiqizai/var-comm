@@ -1,0 +1,267 @@
+"""Prepare fixed P images; verify each against existing scientific pixel hashes.
+
+Use existing P caches first. Missing P1024 display frames are decoded from the
+original sealed receive latent using the historical three-noise batch shape.
+Only noise seed2001 is saved. There is no transmission, calibration or training.
+"""
+from __future__ import annotations
+import argparse
+import importlib.util
+import os
+from pathlib import Path
+import signal
+import sys
+import time
+import numpy as np
+import m9_score_report as s
+
+def load(name,path):
+    spec=importlib.util.spec_from_file_location(name,path);module=importlib.util.module_from_spec(spec)
+    sys.modules[name]=module;spec.loader.exec_module(module);return module
+
+def match(image,target,row):
+    s.require(s.rgb_sha(image)==row['image_sha256'] and s.rgb_sha(target)==row['reference_sha256'],
+        'P display image/reference differs from completed scientific metrics')
+
+def save_archive(path,images,target,ids):
+    arrays=dict(images=np.stack(images),source_rgb=s.pixels(target),row_ids=np.asarray(ids),image_slots=np.arange(len(images),dtype=np.int64))
+    path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
+    if path.exists():
+        with np.load(path,allow_pickle=False) as old:
+            s.require(set(old.files)==set(arrays) and all(np.array_equal(old[k],v) for k,v in arrays.items()),'Existing P cache differs; preserve for review')
+    else:
+        temp=path.with_name(path.name+'.tmp')
+        with temp.open('wb') as f:np.savez(f,**arrays)
+        os.replace(temp,path)
+
+def preflight(root,out,legacy):
+    """Read existing receipts/RGB and original CPU latents before new results exist."""
+    root,out,legacy=map(lambda p:Path(p).resolve(),(root,out,legacy));bindings={}
+    def bind(path,digest=None):
+        path=Path(path);actual=s.sha(path);s.require(digest is None or digest==actual,'Visual preflight binding differs: '+str(path))
+        bindings[str(path)]=actual;return path
+    folder=root/'outputs/UNIFIED-METRICS-20261002';results=root/'results/unified_metrics_20261002'
+    done=s.read(bind(folder/'scoring_completion.json'));invpath=results/'scoring_inventory.json';regpath=results/'metrics_registration.json'
+    inventory=s.read(bind(invpath,done['outputs'][str(invpath)]));reg=s.read(bind(regpath,done['outputs'][str(regpath)]))
+    uep=root/'outputs/PRIOR-AWARE-UEP-20261004-V1/p1024_scores';pdone=s.read(bind(uep/'completion.json'))
+    s.require(pdone['status']=='P1024_BASELINE_EVALUATION_COMPLETE' and pdone['synthetic'] is False,'P1024 caches are not complete')
+    preg=s.read(bind(uep/'registration.json',pdone['registration_sha256']));expected={};records={};targets={};verified=[]
+    for i in s.FIXED:
+        path=folder/'source_checkpoints'/f'{i:03d}.json';cp=s.read(bind(path,inventory['source_checkpoint_sha256'][str(path)]));s.validate_seal(cp,s.ident(reg),i)
+        baseline=cp['baseline'];records[i]=dict(source_index=i,image_id=baseline['source_id'],preprocessing_id=baseline['preprocessing_id'],class_index=int(baseline['true_class_index']))
+        rows=[r for r in cp['rows'] if r.get('experiment')=='N1024' and r.get('method')=='P1024']
+        s.require(len(rows)==15,'Original fixed P1024 metrics incomplete')
+        for r in rows:expected[i,int(r['snr_db']),int(r['noise_seed'])]=r
+        path=uep/'source_checkpoints'/f'{i:04d}.json';cached=s.read(bind(path,pdone['outputs'][str(path)]));s.validate_seal(cached,s.ident(preg),i)
+        proof=cached['float_reconstructions'];archive=bind(proof['path'],pdone['outputs'][proof['path']]);s.require(s.sha(archive)==proof['sha256'],'P1024 cache proof differs')
+        with np.load(archive,allow_pickle=False) as z:
+            target=s.pixels(z['source_rgb']).copy();targets[i]=target
+            s.require(z['row_ids'].tolist()==[r['row_id'] for r in cached['rows']],'UEP P row mapping differs')
+            for r in cached['rows']:
+                snr=int(r['snr_db']);seed=int(r['noise_seed'])
+                if snr not in (4,7,13):continue
+                image=z['images'][int(r['image_slot'])];match(image,target,expected[i,snr,seed])
+                verified.append(dict(source_index=i,N=1024,snr_db=snr,noise_seed=seed,image_sha256=s.rgb_sha(image)))
+    # A CPU tensor load verifies the exact latent population, never a neural model.
+    observations=root/'outputs/EXTREME-BW-20261001-R1-N1024/plugin/development_observations.pt'
+    descriptor=s.read(bind(Path(str(observations)+'.json')));bind(observations,descriptor['sha256'])
+    import torch
+    value=torch.load(observations,map_location='cpu',weights_only=True)
+    s.require(tuple(value['Z'].shape)==(1500,32,16,16) and bool(torch.isfinite(value['Z']).all()),'Original P latent tensor invalid')
+    by={(int(r['source_index']),int(r['snr_db']),int(r['noise_seed'])):j for j,r in enumerate(value['rows'])}
+    s.require(len(by)==1500 and len(value['rows'])==1500,'Original P latent keys duplicate')
+    for i in s.FIXED:
+        for snr in (1,19):
+            for seed in s.SEEDS:
+                j=by[i,snr,seed];r=value['rows'][j];old=expected[i,snr,seed]
+                s.require(int(value['source_indices'][j])==i and value['identity']['source_ids'][i]==records[i]['image_id']
+                    and value['identity']['preprocessing_ids'][i]==records[i]['preprocessing_id'],'Original P latent source association differs')
+                for field in ('waveform_sha256','observation_sha256'):
+                    s.require(r[field]==old[field],'Original P latent/metric channel binding differs')
+    runtime=root/'outputs/EXTERNAL-COMPARISON-20261004/runtime';sys.path.insert(0,str(runtime))
+    from step0_reference_prepare import admitted
+    import step0_cache_export as cache
+    _,receipt,more=admitted(root,'FINAL_P2048_P3060')
+    for p,h in more.items():bind(p,h)
+    path=root/'results/historical_metrics_r2_20261003/FINAL_P2048_P3060/registration.json';p2048reg=s.read(bind(path,receipt['bindings'][str(path)]))
+    olddone=s.read(bind(legacy/'score_completion.json'));path=legacy/'metrics/historical_controls.csv.gz'
+    p2048={(int(r['source_index']),int(r['snr_db']),int(r['noise_seed'])):r for r in s.read_csv(bind(path,olddone['outputs'][str(path)])) if r['method']=='P2048'}
+    for i in s.FIXED:
+        path=root/'outputs/HISTORICAL-METRICS-R2-20261003/FINAL_P2048_P3060/source_checkpoints'/f'{i:04d}.json'
+        cp=s.read(bind(path,receipt['bindings'][str(path)]));proof=cp['float_reconstructions'];archive=bind(proof['path'],receipt['bindings'][proof['path']])
+        target,images,slots=cache.verified_arrays(cp,p2048reg,records[i],'FINAL_P2048_P3060',archive)
+        s.require(np.array_equal(target,targets[i]),'P2048/P1024 target differs')
+        for r in cp['rows']:
+            meta=s.json.loads(r['history_metadata_json']);snr=int(float(r['snr_db']));seed=int(r['noise_seed'])
+            if meta.get('method_id')!='P2048' or seed!=2001 or snr not in s.SNRS:continue
+            image=images[slots[r['history_row_id']]];match(image,target,p2048[i,snr,seed]);verified.append(dict(source_index=i,N=2048,snr_db=snr,noise_seed=seed,image_sha256=s.rgb_sha(image)))
+    s.require(len(verified)==224,'Preflight existing RGB coverage differs')
+    result=dict(status='FIXED_P_INPUTS_PREFLIGHT_PASS',source_indices=list(s.FIXED),verified_existing_RGB_frames=224,
+        cached_P1024_frames=144,cached_P2048_seed2001_frames=80,verified_original_latent_frames_for_missing_1_19=96,
+        model_inference=False,gpu_inference=False,model_parameters_loaded=False,scientific_metrics_recomputed=False,
+        source_bindings={str(Path(__file__).resolve()):s.sha(__file__),str(Path(s.__file__).resolve()):s.sha(s.__file__)},
+        input_bindings=bindings,verified_images=verified)
+    s.verify(bindings);s.seal(out/'fixed_p_images/preflight.json',result);return result
+
+class Controls:
+    def __init__(self,root,out,legacy):
+        self.inputs=s.Inputs(root,out,legacy).load();self.root=self.inputs.root;self.out=self.inputs.out/'fixed_p_images'
+        self.out.mkdir(parents=True,exist_ok=True);self.native=None;self.original=None;self.decoder_frames=0
+        self.expected={(r['source_index'],r['N'],r['snr_db'],r['noise_seed']):r for r in self.inputs.history_rows if r['comparison_scope']=='P'}
+        runtime=self.root/'outputs/EXTERNAL-COMPARISON-20261004/runtime';sys.path.insert(0,str(runtime));self.runtime=runtime
+        from step0_reference_prepare import admitted
+        import step0_cache_export as cache
+        self.cache=cache;_,self.p2048_receipt,bindings=admitted(self.root,'FINAL_P2048_P3060')
+        for p,h in bindings.items():self.inputs.bind(p,h)
+        self.inputs.bind(cache.__file__)
+        p=self.root/'results/historical_metrics_r2_20261003/FINAL_P2048_P3060/registration.json'
+        self.p2048_reg=s.read(self.inputs.bind(p,self.p2048_receipt['bindings'][str(p)]))
+        self.p1024_dir=self.root/'outputs/PRIOR-AWARE-UEP-20261004-V1/p1024_scores'
+        self.p1024_done=s.read(self.inputs.bind(self.p1024_dir/'completion.json'))
+        s.require(self.p1024_done['status']=='P1024_BASELINE_EVALUATION_COMPLETE' and self.p1024_done['sources']==100
+            and self.p1024_done['rows']==1200 and self.p1024_done['synthetic'] is False,'Original UEP P1024 cache incomplete')
+        self.p1024_reg=s.read(self.inputs.bind(self.p1024_dir/'registration.json',self.p1024_done['registration_sha256']))
+        self.extra_outputs={}
+        base=self.root/'outputs/EXTERNAL-COMPARISON-20261004'
+        receipts=[base/'own_controls/export-n1024_completion.json',base/'fixed80k_revision/five_column_comparison/replay_all16/manifest.json',
+            base/'fixed80k_revision/m1_headline_16qam13/replay_all16/manifest.json']
+        for path in receipts:
+            if not path.exists():continue
+            receipt=s.read(self.inputs.bind(path))
+            s.require(receipt['status'] in ('OWN_CONTROL_STAGE_COMPLETE','EXACT_COMPLETED_RGB_EXPORT_PASS') and receipt.get('synthetic') is False,'Extra P cache not admitted')
+            for p,h in receipt['outputs'].items():
+                s.require(p not in self.extra_outputs or self.extra_outputs[p]==h,'Conflicting P cache inventories')
+                self.extra_outputs[p]=h
+    def p2048(self,index):
+        folder=self.root/'outputs/HISTORICAL-METRICS-R2-20261003/FINAL_P2048_P3060'
+        path=folder/'source_checkpoints'/f'{index:04d}.json';archive=folder/'reconstructions'/f'{index:04d}.npz'
+        cp=s.read(self.inputs.bind(path,self.p2048_receipt['bindings'][str(path)]));self.inputs.bind(archive,self.p2048_receipt['bindings'][str(archive)])
+        target,images,slots=self.cache.verified_arrays(cp,self.p2048_reg,dict(source_index=index,**self.inputs.records[index]),'FINAL_P2048_P3060',archive)
+        s.require(np.array_equal(target,self.inputs.targets[index]),'P2048/M1 target differs');result={}
+        for r in cp['rows']:
+            meta=s.json.loads(r['history_metadata_json'])
+            if meta.get('method_id')!='P2048' or int(r['noise_seed'])!=2001 or int(float(r['snr_db'])) not in s.SNRS:continue
+            snr=int(float(r['snr_db']));s.require(snr not in result and meta['decoder']=='Dc' and meta['training_seed']==2026092304 and meta['label_conditioned'] is False,'P2048 model/scope differs')
+            image=images[slots[r['history_row_id']]];match(image,target,self.expected[index,2048,snr,2001]);result[snr]=(image,'existing_admitted_P2048_float')
+        s.require(set(result)==set(s.SNRS),'P2048 fixed source incomplete');return result
+    def p1024_cached(self,index):
+        path=self.p1024_dir/'source_checkpoints'/f'{index:04d}.json'
+        cp=s.read(self.inputs.bind(path,self.p1024_done['outputs'][str(path)]));s.validate_seal(cp,s.ident(self.p1024_reg),index)
+        proof=cp['float_reconstructions'];archive=self.inputs.bind(proof['path'],self.p1024_done['outputs'][proof['path']])
+        s.require(s.sha(archive)==proof['sha256'],'P1024 archive proof differs');result={}
+        with np.load(archive,allow_pickle=False) as z:
+            s.require(z['row_ids'].tolist()==[r['row_id'] for r in cp['rows']] and z['image_slots'].tolist()==[r['image_slot'] for r in cp['rows']],'P1024 cache mapping differs')
+            target=s.pixels(z['source_rgb']);s.require(np.array_equal(target,self.inputs.targets[index]),'P1024/M1 source differs')
+            for r in cp['rows']:
+                if int(r['snr_db']) not in (4,7,13) or int(r['noise_seed'])!=2001:continue
+                snr=int(r['snr_db']);image=z['images'][int(r['image_slot'])].copy()
+                match(image,target,r);match(image,target,self.expected[index,1024,snr,2001]);result[snr]=(image,'existing_UEP_P1024_float')
+        s.require(set(result)=={4,7,13},'Cached P1024 SNR coverage differs')
+        # All candidate extra exports are admitted by their completion receipt;
+        # they are never discovered by using arbitrary unbound NPZ files.
+        for filename,digest in self.extra_outputs.items():
+            path=Path(filename)
+            if path.suffix!='.json' or path.parent.name!='source_checkpoints' or path.stem not in (f'{index:03d}',f'{index:04d}'):continue
+            cp=s.read(self.inputs.bind(path,digest));proof=cp.get('float_reconstructions')
+            if not proof:continue
+            archive=self.inputs.bind(proof['path'],proof['sha256'])
+            with np.load(archive,allow_pickle=False) as z:
+                images=z['images'];target=z['source_rgb'] if 'source_rgb' in z.files else z['comparison_reference']
+                for r in cp['rows']:
+                    if r.get('method') not in ('P','P1024') or int(r.get('N',0))!=1024 or int(r.get('noise_seed',0))!=2001:continue
+                    snr=int(r['snr_db'])
+                    if snr not in (1,19):continue
+                    image=images[int(r['image_slot'])].copy();match(image,target,self.expected[index,1024,snr,2001])
+                    if snr in result:s.require(np.array_equal(image,result[snr][0]),'Extra P caches disagree')
+                    result[snr]=(image,'existing_admitted_P1024_export')
+        return result
+    def load_native(self):
+        if self.native is not None:return
+        sys.path.insert(0,str(self.runtime))
+        load('own_controls_common',self.runtime/'own_controls_common.py')
+        implementation=load('_closure_fixed_original_native',self.runtime/'own_controls_native.py')
+        self.native=implementation.Native(self.root,lambda *_:setattr(s,'STOP',True))
+        performance_path=self.root/'experiments/m1-n2048-full-grid-20261004/m1_performance.py'
+        perf=load('_closure_fixed_health',performance_path);probe=self.native.assets.old.b
+        probe.SAFETY=perf.HealthyPolling(probe.SAFETY)
+        self.original=self.native.replay_engine();adapter=self.original.adapters['N1024']
+        s.require(adapter.pmeta['selected']['N']==1024 and adapter.pmeta['selected']['step']==40000 and adapter.p.uses==1024,'Wrong original P1024 model')
+        s.require(not adapter.p.training and not any(p.requires_grad for p in adapter.p.parameters()),'P1024 is not frozen')
+        for p in (self.runtime/'own_controls_common.py',self.runtime/'own_controls_native.py',performance_path):self.inputs.bind(p)
+        for p,h in self.native.common.source_bindings().items():self.inputs.bind(p,h)
+        self.native.frozen();self.original.verify_frozen()
+        s.seal(self.out/'replay_registration.json',dict(status='FROZEN_P1024_DISPLAY_REPLAY_REGISTERED',source_indices=list(s.FIXED),
+            allowed_snrs=[1,19],saved_noise_seed=2001,original_decoder_batch_seeds=list(s.SEEDS),
+            decoder_batch_size=3,maximum_decoder_frames=96,selected=adapter.pmeta['selected'],
+            selected_receipt_sha256=adapter.pmeta['selected_sha256'],decoder_sha256=adapter.pmeta['decoder_sha256'],
+            original_model_state_sha256=adapter.pcfg['identity']['models']['P1024'],numerical_runtime=self.native.flags,
+            policy_sha256=s.sha(self.inputs.out/'m1_policy.json'),input_bindings=dict(self.inputs.bindings),
+            no_new_channel_simulation=True,calibration_updates=0,selection_updates=0,training_updates=0))
+    def p1024_decode(self,index,snr):
+        s.require(index in s.FIXED and snr in (1,19),'Unregistered P image decode request');self.load_native();s.pause()
+        e=self.original;p=e.adapters['N1024'];t=self.native.torch;self.native.common.check()
+        indices=[p.obs_index[index,snr,seed] for seed in s.SEEDS];Z=p.obs['Z'][indices];ii=p.obs['source_indices'][indices]
+        s.require(ii.tolist()==[index]*3,'Original sealed P latent source mapping differs')
+        with t.no_grad():
+            _,images=p.plugin.images_metrics(Z,ii,e.records,p.models,e.data['reference'].to(e.loaded['device']),t.tensor(e.mismatch),save_images=True)
+        s.require(len(images)==3,'Original P decoder batch omitted repeats');self.decoder_frames+=3
+        for seed,image in zip(s.SEEDS,images):match(s.pixels(image.numpy()),e.target(index),self.expected[index,1024,snr,seed])
+        return s.pixels(images[0].numpy()),'original_sealed_P1024_latent_exact_RGB_batch3'
+    def run(self):
+        registration=dict(status='FIXED_P_IMAGES_REGISTERED',source_indices=list(s.FIXED),snrs=list(s.SNRS),budgets=[1024,2048],noise_seed=2001,
+            score_completion_sha256=s.sha(self.inputs.out/'score_completion.json'),source_sha256=s.sha(__file__),
+            authorized_decode='only missing fixed16 P1024 at1/19dB; original latent and batch3; save seed2001',training_updates=0,selection_updates=0)
+        s.seal(self.out/'registration.json',registration);rows=[];outputs={};started=time.monotonic()
+        for index in s.FIXED:
+            s.pause();path=self.out/'source_checkpoints'/f'{index:04d}.json'
+            if path.exists():
+                saved=s.read(path);s.validate_seal(saved,s.ident(registration),index);s.verify(saved['input_bindings'])
+                self.inputs.bindings.update(saved['input_bindings']);s.require(s.sha(saved['archive'])==saved['archive_sha256'],'Resumed P archive changed')
+                with np.load(saved['archive'],allow_pickle=False) as z:
+                    for r in saved['rows']:match(z['images'][r['image_slot']],z['source_rgb'],self.expected[index,r['N'],r['snr_db'],2001])
+            else:
+                before=dict(self.inputs.bindings);p1024=self.p1024_cached(index);p2048=self.p2048(index)
+                for snr in (1,19):
+                    if snr not in p1024:p1024[snr]=self.p1024_decode(index,snr)
+                images=[];source_rows=[];target=self.inputs.targets[index]
+                for N,chosen in ((1024,p1024),(2048,p2048)):
+                    for snr in s.SNRS:
+                        image,origin=chosen[snr];expected=self.expected[index,N,snr,2001];match(image,target,expected)
+                        source_rows.append(dict(source_index=index,source_id=expected['source_id'],N=N,snr_db=snr,noise_seed=2001,
+                            image_slot=len(images),image_sha256=s.rgb_sha(image),reference_sha256=s.rgb_sha(target),origin=origin,
+                            original_metric_row_identity=s.ident(expected)));images.append(image)
+                archive=self.out/'reconstructions'/f'{index:04d}.npz';save_archive(archive,images,target,[s.ident(r) for r in source_rows])
+                for r in source_rows:r.update(archive=str(archive),archive_sha256=s.sha(archive))
+                saved=dict(binding=s.ident(registration),source_index=index,rows=source_rows,archive=str(archive),archive_sha256=s.sha(archive),
+                    input_bindings={p:h for p,h in self.inputs.bindings.items() if p not in before},synthetic=False)
+                saved['payload_sha256']=s.ident(saved);s.seal(path,saved)
+            rows.extend(saved['rows']);outputs[str(path)]=s.sha(path);outputs[saved['archive']]=saved['archive_sha256']
+            s.write(self.out/'status.json',dict(status='RUNNING',sources=len(rows)//10,row_count=len(rows),decoder_frames_this_process=self.decoder_frames,elapsed_seconds=time.monotonic()-started))
+        if self.native is not None:self.native.frozen();self.original.verify_frozen()
+        s.verify(self.inputs.bindings);s.require(len(rows)==160 and len({(r['source_index'],r['N'],r['snr_db']) for r in rows})==160,'Fixed P display coverage differs')
+        outputs[str(self.out/'registration.json')]=s.sha(self.out/'registration.json')
+        if (self.out/'replay_registration.json').exists():outputs[str(self.out/'replay_registration.json')]=s.sha(self.out/'replay_registration.json')
+        manifest=dict(status='FIXED_P_IMAGES_COMPLETE',source_indices=list(s.FIXED),snrs=list(s.SNRS),budgets=[1024,2048],noise_seed=2001,
+            rows=rows,row_count=160,source_count=16,outputs=outputs,input_bindings=self.inputs.bindings,synthetic=False,
+            scientific_metrics_recomputed=False,training_updates=0,selection_updates=0,calibration_updates=0,
+            generated_reference_pixels=False,all_images_match_original_scientific_pixel_hash=True,
+            original_P1024_decoder_frames=sum(3 for r in rows if r['origin']=='original_sealed_P1024_latent_exact_RGB_batch3'))
+        s.seal(self.out/'manifest.json',manifest);s.write(self.out/'status.json',dict(status='COMPLETE',row_count=160,sources=16));return manifest
+
+def main():
+    p=argparse.ArgumentParser(description=__doc__)
+    for name in ('root','out','legacy-out'):p.add_argument('--'+name,type=Path,required=True)
+    p.add_argument('--preflight',action='store_true');a=p.parse_args()
+    def stop(*_):s.STOP=True
+    signal.signal(signal.SIGTERM,stop);signal.signal(signal.SIGINT,stop)
+    import fcntl
+    dest=a.out/'fixed_p_images';dest.mkdir(parents=True,exist_ok=True)
+    with (dest/'writer.lock').open('a+') as lock:
+        fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        try:
+            result=preflight(a.root,a.out,a.legacy_out) if a.preflight else Controls(a.root,a.out,a.legacy_out).run()
+            print(result['status'],flush=True);return 0
+        except InterruptedError as error:s.write(dest/'status.json',dict(status='PAUSED',reason=str(error)));return 75
+        except Exception as error:s.write(dest/'failure.json',dict(status='FAILED_REQUIRES_REVIEW',error=repr(error)));raise
+
+if __name__=='__main__':raise SystemExit(main())

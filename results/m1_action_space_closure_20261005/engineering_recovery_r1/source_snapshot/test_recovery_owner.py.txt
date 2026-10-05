@@ -1,0 +1,125 @@
+"""Recovery-owner contract checks, without GPU work or Git mutation."""
+from pathlib import Path
+import importlib.util
+import sys
+import tempfile
+import unittest
+from unittest import mock
+
+import recovery_owner as recovery
+
+HERE = Path(__file__).resolve().parent
+ORIGINAL = next(p for p in (HERE.parent/'code/m9_owner.py', HERE.parent/'runtime/m9_owner.py') if p.is_file())
+spec = importlib.util.spec_from_file_location('_recovery_test_original_owner', ORIGINAL)
+base = importlib.util.module_from_spec(spec); spec.loader.exec_module(base)
+
+
+class RecoveryOwnerTests(unittest.TestCase):
+    def setUp(self):
+        base.STOP = False
+        self.temporary = tempfile.TemporaryDirectory(); self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name).resolve()
+        self.out = self.root/'outputs/closure'; self.out.mkdir(parents=True)
+        self.code = self.out/'code'; self.code.mkdir()
+        self.recovery = self.out/'recovery_r1'; self.recovery.mkdir()
+        self.legacy = self.root/'outputs/legacy'; self.legacy.mkdir()
+        self.source = self.root/'frozen_source.json'; base.write(self.source, {'bound':True})
+        for name in ('m9_owner.py','cohort_probe.py','m9_run.py','test_closure_owner.py'):
+            (self.code/name).write_bytes(ORIGINAL.read_bytes() if name=='m9_owner.py' else b'# frozen\n')
+        base.write(self.code/'protocol.json',dict(original_output=str(self.legacy),
+            result_dir='results/m1_action_space_closure_20261005',report_path='reports/m1_action_space_closure_20261005.md'))
+        base.write(self.out/'registration.json',dict(status='REGISTERED',protocol_sha256=base.sha(self.code/'protocol.json'),
+            source_bindings={str(p):base.sha(p) for p in self.code.glob('*.py')},
+            input_bindings={str(self.source):base.sha(self.source)}))
+        cp=self.legacy/'0000.json';base.write(cp,dict(original=True))
+        base.write(self.out/'legacy_compatibility.json',dict(status='LEGACY_CALIBRATION_REUSE_AUDITED',sources=1000,
+            incompatible_header_count=0,target_rows=2187000,datasets=[dict(source_checkpoint_sha256={str(cp):base.sha(cp)})]*2))
+        for name in ('recovery_owner.py','probe_entry.py','worker_entry.py','test_recovery_owner.py'):
+            (self.recovery/name).write_text('# registered recovery '+name+'\n',encoding='utf-8')
+        self.archive=self.recovery/'failure_archive_receipt.json';base.write(self.archive,dict(original_failure_preserved=True))
+        self.registration=dict(status=recovery.STATUS,version=recovery.VERSION,root=str(self.root),out=str(self.out),
+            original_registration_sha256=base.sha(self.out/'registration.json'),protocol_sha256=base.sha(self.code/'protocol.json'),
+            source_bindings={str(p):base.sha(p) for p in self.recovery.glob('*.py')},
+            input_bindings={str(self.archive):base.sha(self.archive),str(self.out/'registration.json'):base.sha(self.out/'registration.json')},
+            failure_archive_receipt_sha256=base.sha(self.archive),scientific_protocol_changed=False)
+        base.write(self.recovery/'execution_registration.json',self.registration)
+        self.cls=recovery.owner_class(base)
+        self.worker=self.cls(self.root,self.out,self.recovery)
+
+    def test_only_two_child_script_paths_change_and_every_argument_is_retained(self):
+        for stage in ('qualify','benchmark','cohort_probe','calibrate_prepare','calibrate_shard','calibrate_merge','development','score','report'):
+            before=base.Owner.stage_argv(self.worker,stage,workers=4,worker_index=2,cohort_config='/registered/config.json')
+            after=self.worker.stage_argv(stage,workers=4,worker_index=2,cohort_config='/registered/config.json')
+            if stage in ('cohort_probe','calibrate_shard'):
+                self.assertEqual(sum(str(a)!=str(b) for a,b in zip(before,after)),1)
+                replacement='probe_entry.py' if stage=='cohort_probe' else 'worker_entry.py'
+                self.assertIn(self.recovery/replacement,after)
+            else:self.assertEqual(before,after)
+
+    def test_original_stage_and_publication_implementations_remain_inherited(self):
+        for method in ('execute','production','receipt','publication_files','publish','run'):
+            self.assertIs(getattr(self.cls,method),getattr(base.Owner,method))
+
+    def test_changed_recovery_source_or_added_source_fails_before_next_stage(self):
+        (self.recovery/'probe_entry.py').write_text('# changed')
+        with self.assertRaisesRegex(RuntimeError,'Recovery evidence changed'):self.worker.check()
+        (self.recovery/'unregistered.py').write_text('# extra')
+        with self.assertRaisesRegex(RuntimeError,'inventory changed'):self.worker.check()
+
+    def test_changed_recovery_registration_or_archive_is_rejected(self):
+        self.registration['scientific_protocol_changed']=True
+        base.write(self.recovery/'execution_registration.json',self.registration)
+        with self.assertRaisesRegex(RuntimeError,'registration changed'):self.worker.check()
+        with self.assertRaisesRegex(RuntimeError,'outside this recovery'):self.cls(self.root,self.out,self.recovery)
+
+    def test_original_checks_still_reject_source_changes_and_new_owner_failure(self):
+        base.write(self.out/'owner_failure.json',dict(error='new failure'))
+        with self.assertRaisesRegex(RuntimeError,'requires explicit review'):self.cls(self.root,self.out,self.recovery)
+        (self.code/'m9_run.py').write_text('# mutated original')
+        with self.assertRaisesRegex(RuntimeError,'Bound artifact changed'):self.worker.check()
+
+    def test_missing_bound_archive_cannot_start_recovery(self):
+        self.archive.write_text('{}')
+        with self.assertRaisesRegex(RuntimeError,'Recovery evidence changed'):self.cls(self.root,self.out,self.recovery)
+
+    def test_status_identifies_recovery_while_original_protocol_identity_is_retained(self):
+        self.worker.status('RUNNING',step='cohort_probe')
+        status=base.read(self.out/'owner_status.json')
+        self.assertEqual(status['execution_revision'],recovery.VERSION)
+        self.assertEqual(status['recovery_registration_sha256'],base.sha(self.recovery/'execution_registration.json'))
+        self.assertEqual(self.worker.registration_sha256,self.registration['original_registration_sha256'])
+
+    def test_original_owner_import_is_hash_checked_before_execution(self):
+        module=recovery.load_original_owner(self.root,self.out,self.recovery)
+        self.assertEqual(Path(module.__file__),self.code/'m9_owner.py')
+        self.addCleanup(sys.modules.pop,'_m1_closure_frozen_owner_for_recovery',None)
+        (self.code/'m9_owner.py').write_text('raise Exception("must not execute")')
+        with self.assertRaisesRegex(RuntimeError,'not bound'):
+            recovery.load_original_owner(self.root,self.out,self.recovery)
+
+    def test_production_parent_releases_and_waits_inside_check_before_next_PID_assertion(self):
+        manifest=self.out/'production/cohort.json';base.write(manifest,{'status':'READY'})
+        child=mock.Mock();child.poll.return_value=None
+        children=[(child,dict(pid=123))];self.worker.cohort_children=children
+        helper=mock.Mock();helper.registration.return_value={'registered':True}
+        def complete(*_):child.poll.return_value=0;return True
+        helper.maybe_release.side_effect=complete
+        with mock.patch.object(self.worker,'barrier_module',return_value=helper):
+            self.worker.check()
+            helper.maybe_release.assert_called_once_with(manifest,children,'production',{'registered':True})
+            self.assertEqual(child.poll(),0)
+            self.worker.check()
+            self.assertEqual(helper.maybe_release.call_count,1)
+
+    def test_parent_does_not_release_before_READY_or_when_original_checks_fail(self):
+        child=mock.Mock();child.poll.return_value=None
+        self.worker.cohort_children=[(child,dict(pid=123))]
+        with mock.patch.object(self.worker,'barrier_module') as helper:
+            self.worker.check();helper.assert_not_called()
+            base.write(self.out/'production/cohort.json',{'status':'READY'})
+            (self.code/'m9_run.py').write_text('# changed original')
+            with self.assertRaisesRegex(RuntimeError,'Bound artifact changed'):self.worker.check()
+            helper.assert_not_called()
+
+
+if __name__=='__main__':unittest.main()

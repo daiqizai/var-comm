@@ -1,0 +1,25 @@
+"""Run frozen production worker unchanged, then hold its process at a barrier."""
+import argparse
+from pathlib import Path
+import sys
+import terminal_barrier as b
+
+
+def main(argv=None):
+    argv=list(sys.argv[1:] if argv is None else argv)
+    parser=argparse.ArgumentParser(add_help=False);parser.add_argument('--root',required=True)
+    parser.add_argument('--output',required=True);parser.add_argument('--stage',required=True)
+    parser.add_argument('--cohort-config',required=True);args,_=parser.parse_known_args(argv)
+    b.require(args.stage=='calibrate-shard','Only original production source workers use this recovery entry')
+    reg=b.registration(args.root,args.output);code=Path(args.output).resolve()/'code'
+    sys.path.insert(0,str(code));original=b.load_module('_closure_original_production_entry',code/'m9_run.py')
+    previous=sys.argv
+    try:
+        sys.argv=[str(code/'m9_run.py')]+argv
+        original.main()  # Includes original frozen checks, receipt and finally.
+    finally:sys.argv=previous
+    # If original.main raised, this line is never reached and no marker is made.
+    return b.wait_for_all(b.read(args.cohort_config),'production',reg)
+
+
+if __name__=='__main__':main()

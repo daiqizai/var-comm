@@ -1,0 +1,50 @@
+{
+  "status": "DIAGNOSED_TERMINAL_PEER_EXIT_RACE",
+  "original_registration_sha256": "2317949d14ac2c93444a045e50dfcc9dec50b807a0832a274c0ad42149e04292",
+  "exact_source_rows": [
+    {
+      "source_index": 0,
+      "serial_path": "/home/liulu/projects/VAR_COMM/outputs/M1-ACTION-SPACE-CLOSURE-20261005/benchmark/source_checkpoints/0000.json",
+      "serial_sha256": "2b2b71671cb61fb3d8df1a0a9ebc463c961499072bf0b21fc49bc78fd569f352",
+      "parallel_path": "/home/liulu/projects/VAR_COMM/outputs/M1-ACTION-SPACE-CLOSURE-20261005/cohort_probe/source_checkpoints/0000.json",
+      "parallel_sha256": "ef3a7e2935ca9642a74b46f64d1460a875e1589203373c904f2a32d859221fd1",
+      "rows_sha256": "7e5cf7c841d7afe697a0df22049551a3205c24f8ef25cc53146041d962e6f0a4",
+      "physical_rows": 1473,
+      "parallel_seconds": 66.1447967060376,
+      "serial_seconds": 58.844818972051144
+    },
+    {
+      "source_index": 1,
+      "serial_path": "/home/liulu/projects/VAR_COMM/outputs/M1-ACTION-SPACE-CLOSURE-20261005/benchmark/source_checkpoints/0001.json",
+      "serial_sha256": "6c93d10c384d9e5e5d23b92432815186fa8b0d8f7592d493bff5d76c6fff9eb7",
+      "parallel_path": "/home/liulu/projects/VAR_COMM/outputs/M1-ACTION-SPACE-CLOSURE-20261005/cohort_probe/source_checkpoints/0001.json",
+      "parallel_sha256": "006b6e6f927b03142c10373f1be73d4cd1b5257e3512f84238e379bebed502dc",
+      "rows_sha256": "b22b85276a2cf7383395e2a3fb0db133dd52a55c6dec75f9c6046f3afa2d54fb",
+      "physical_rows": 1473,
+      "parallel_seconds": 66.53047409304418,
+      "serial_seconds": 59.23919357685372
+    }
+  ],
+  "original_worker0_failure": {
+    "status": "FAILED",
+    "error": "ResourceBusy('Cohort PID is not live')",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/liulu/projects/VAR_COMM/experiments/m1-gpu-workers-20261004/cohort_runtime.py\", line 103, in require_available\n    self.check_identities(self.original_foreign_gpu_processes());break\n  File \"/home/liulu/projects/VAR_COMM/experiments/m1-gpu-workers-20261004/cohort_runtime.py\", line 95, in check_identities\n    assert_process(self.allowed[pid],self.reader)\n  File \"/home/liulu/projects/VAR_COMM/experiments/m1-gpu-workers-20261004/cohort_runtime.py\", line 63, in assert_process\n    require(reader(wanted['pid'])==wanted,'Cohort process identity changed: '+str(wanted['pid']))\n  File \"/home/liulu/projects/VAR_COMM/experiments/m1-gpu-workers-20261004/cohort_runtime.py\", line 49, in process_identity\n    require(len(tail)>19 and tail[0]!='Z','Cohort PID is not live')\n  File \"/home/liulu/projects/VAR_COMM/experiments/m1-gpu-workers-20261004/cohort_runtime.py\", line 17, in require\n    if not value:raise RuntimeError(message)\nRuntimeError: Cohort PID is not live\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/home/liulu/projects/VAR_COMM/outputs/M1-ACTION-SPACE-CLOSURE-20261005/code/cohort_probe.py\", line 99, in worker\n    native.torch.cuda.synchronize();native.frozen();r.cohort_guard.require_available()\n  File \"/home/liulu/projects/VAR_COMM/experiments/m1-gpu-workers-20261004/cohort_runtime.py\", line 110, in require_available\n    raise self.runtime.ResourceBusy(str(error)) from error\nlatent_enhancement.runtime.ResourceBusy: Cohort PID is not live\n"
+  },
+  "original_owner_failure": {
+    "status": "FAILED_REQUIRES_REVIEW",
+    "version": "M1_ACTION_CLOSURE_OWNER_V1",
+    "error": "RuntimeError('Child failed (exit 1); preserve log and receipts: /home/liulu/projects/VAR_COMM/outputs/M1-ACTION-SPACE-CLOSURE-20261005/logs/cohort_probe.log')",
+    "time": 1791168461.6198382,
+    "cleanup_error": null,
+    "automatic_retry": false,
+    "retained_completed_evidence": true,
+    "uep_automatically_restarted": false
+  },
+  "scientific_rows_finished_before_failure": true,
+  "source_result_mismatch": false,
+  "scientific_protocol_changed": false,
+  "model_or_data_changed": false,
+  "new_calibration_started": false,
+  "recovery_plan": "Keep original guarded science unchanged; rerun fresh probe with parent-controlled terminal READY/RELEASE barrier and use same barrier for production exit",
+  "time": 1791168820.8797872
+}

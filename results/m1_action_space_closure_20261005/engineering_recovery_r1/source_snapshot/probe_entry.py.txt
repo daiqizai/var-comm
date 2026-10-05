@@ -1,0 +1,66 @@
+"""Frozen fresh probe with only its child entry replaced by a terminal barrier."""
+import argparse
+from pathlib import Path
+import signal
+import subprocess
+import sys
+import terminal_barrier as b
+
+
+def redirected_command(command,original_script,recovery_script):
+    if isinstance(command,(list,tuple)) and len(command)>=5 and '--worker-config' in command:
+        if Path(str(command[2])).resolve()==Path(original_script).resolve():
+            result=list(command);result[2]=str(Path(recovery_script).resolve());return result
+    return command
+
+
+def run_worker(config):
+    reg=b.registration(config['root'],config['out']);code=Path(config['out']).resolve()/'code'
+    sys.path.insert(0,str(code));original=b.load_module('_closure_original_probe_entry',code/'cohort_probe.py')
+    original.worker(config)  # Original final frozen/guard/completion all run first.
+    return b.wait_for_all(config,'probe',reg)
+
+
+def run_parent(root,out):
+    reg=b.registration(root,out);code=Path(out).resolve()/'code';sys.path.insert(0,str(code))
+    original=b.load_module('_closure_original_probe_entry',code/'cohort_probe.py')
+    real_popen=subprocess.Popen;group=[];released=False;checking=False
+    def release_when_ready():
+        nonlocal released,checking
+        if released or checking:return
+        path=Path(out)/'cohort_probe/cohort_manifest.json'
+        if not path.exists():return
+        manifest=b.read(path);records={r['pid']:r for r in manifest['workers']}
+        if len(group)!=len(records):return
+        b.require(all(p.pid in records for p in group),'Recovery probe subprocess differs from admitted cohort')
+        checking=True
+        try:released=b.maybe_release(path,[(p,records[p.pid]) for p in group],'probe',reg)
+        finally:checking=False
+    class OwnedProcess:
+        def __init__(self,process):self.process=process
+        def __getattr__(self,name):return getattr(self.process,name)
+        def poll(self):
+            release_when_ready();return self.process.poll()
+    def owned_worker_popen(command,*args,**kwargs):
+        redirected=redirected_command(command,code/'cohort_probe.py',Path(__file__))
+        process=real_popen(redirected,*args,**kwargs)
+        if redirected is not command:group.append(process);return OwnedProcess(process)
+        return process
+    subprocess.Popen=owned_worker_popen
+    try:return original.parent(root,out)
+    finally:subprocess.Popen=real_popen
+
+
+def main(argv=None):
+    parser=argparse.ArgumentParser();parser.add_argument('--root');parser.add_argument('--out');parser.add_argument('--worker-config')
+    args=parser.parse_args(argv)
+    if args.worker_config:return run_worker(b.read(args.worker_config))
+    b.require(args.root and args.out,'Parent root and output are required')
+    def stopped(signum,_frame):raise RuntimeError('Recovery probe interrupted by signal '+str(signum))
+    signal.signal(signal.SIGTERM,stopped);signal.signal(signal.SIGINT,stopped)
+    import fcntl
+    with (Path(args.out)/'cohort_probe.execution.lock').open('a+') as lock:
+        fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB);return run_parent(args.root,args.out)
+
+
+if __name__=='__main__':main()

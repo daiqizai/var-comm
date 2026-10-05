@@ -1,0 +1,291 @@
+"""CPU protocol checks for the paid full-scale M1 action closure.
+
+Native MAP decoding is exercised on the Linux experiment host. The local
+Windows run checks accounting, wire compatibility, and receiver decisions;
+its native-test skips are not reported as physical roundtrip passes.
+"""
+from pathlib import Path
+import importlib.util
+import os
+import shutil
+import sys
+import unittest
+from unittest.mock import patch
+
+import numpy as np
+
+HERE = Path(__file__).resolve().parent
+for parent in HERE.parents:
+    for suffix in ('src', 'methods_20261002/repo_reference/src'):
+        candidate = parent / suffix
+        if (candidate / 'var_comm/scale_channel.py').is_file():
+            sys.path.insert(0, str(candidate))
+            break
+import m9_phy as new
+import m9_common as common
+from var_comm import scale_channel as channel
+
+
+def load_reference(alias, *suffixes):
+    candidates = [parent / suffix for parent in HERE.parents for suffix in suffixes]
+    path = next((p for p in candidates if p.is_file()), None)
+    if path is None:
+        raise RuntimeError('Original frozen PHY source required: ' + alias)
+    spec = importlib.util.spec_from_file_location(alias, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[alias] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+LOW = load_reference('_closure_test_low',
+    'action_space_audit_20261005/reference/m1_low/partial_phy.py',
+    'experiments/scale-causal-partial-residual-20261002/partial_phy.py')
+OLD = load_reference('_closure_test_n2048',
+    'action_space_audit_20261005/reference/m1_n2048/m1_phy.py',
+    'experiments/m1-n2048-full-grid-20261004/m1_phy.py')
+M9 = load_reference('_closure_test_m9',
+    'm1_n2048_m9_20261004/runtime/m9_phy.py',
+    'outputs/M1-N2048-M9-EXTENSION-20261004/code/m9_phy.py')
+CELLS = ((1024, '16QAM'), (2048, 'QPSK'), (2048, '16QAM'))
+NATIVE = (os.name == 'posix' and shutil.which('g++') is not None
+          and Path(channel.__file__).with_name('token_trellis.cpp').is_file())
+
+
+def source_scales():
+    rng = np.random.default_rng(2026100409)
+    return [rng.integers(0, 4096, p*p, dtype=np.int64) for p in new.SIZES]
+
+
+def positions(action):
+    if not action.q:
+        return None
+    return np.random.default_rng(991+action.m+action.q).permutation(
+        new.next_length(action.m))[:action.q]
+
+
+def raw_header(mode, wire_q, code):
+    return np.concatenate((channel.indices_to_bits([mode], 3),
+                           channel.indices_to_bits([wire_q], 7),
+                           channel.indices_to_bits([code], 2)))
+
+
+class CodecTests(unittest.TestCase):
+    def test_registered_protocol_pins_cells_seeds_and_full_grid_counts(self):
+        protocol = dict(protocol=new.PROTOCOL, cells=[list(c) for c in CELLS],
+            action_counts={'N1024/16QAM': 73, 'N2048/QPSK': 73, 'N2048/16QAM': 98},
+            phy_families=['QPSK', '16QAM'], snrs_db=[1, 4, 7, 13, 19],
+            methods=['whole', 'raster', 'random', 'entropy', 'oracle'],
+            same_k_ablations=['raster', 'random', 'oracle'],
+            calibration_sources=1000, calibration_noise_seeds=[4101, 4102, 4103],
+            development_sources=100, development_noise_seeds=[2001, 2002, 2003],
+            qualification_sources=1, benchmark_sources=2, header_uses=68,
+            training_updates=0, holdout_access=False)
+        self.assertEqual(common.validate_protocol(protocol), protocol)
+        for field, changed in (('cells', [[512, 'QPSK']]), ('snrs_db', [7, 13, 19]),
+                               ('calibration_sources', 300), ('development_sources', 16),
+                               ('calibration_noise_seeds', [4101]), ('header_uses', 69),
+                               ('action_counts', {'N2048/16QAM': 82})):
+            with self.subTest(field=field), self.assertRaises(RuntimeError):
+                common.validate_protocol(dict(protocol, **{field: changed}))
+
+    def test_grid_counts_and_exact_new_actions(self):
+        self.assertEqual([len(new.action_grid(*c)) for c in CELLS], [73, 73, 98])
+        self.assertEqual(len(new.action_grid(1024, 'QPSK')), 47)
+        for n, phy, q, oracle_q in ((1024, '16QAM', 27, 13), (2048, 'QPSK', 38, 24)):
+            extra = [a for a in new.action_grid(n, phy) if a.m == 8 and a.q]
+            self.assertEqual([(a.order, a.q) for a in extra],
+                             [(o, oracle_q if o == 'oracle' else q) for o in new.ORDERS])
+        for order in new.ORDERS:
+            acts = new.action_grid(2048, '16QAM', orders=(order,), include_whole=False)
+            self.assertEqual([a.q for a in acts if a.m == 8], [42, 84, 126, 168])
+            self.assertEqual([a.q for a in acts if a.m == 9],
+                             [64, 128, 144 if order == 'oracle' else 166])
+        self.assertFalse(new.registration()['mathematical_full_action_space'])
+
+    def test_every_var_scale_is_considered_and_budget_is_the_only_upper_limit(self):
+        self.assertEqual(new.raw_bits(10), 8160)
+        self.assertEqual(new.next_length(8), 169)
+        self.assertEqual(new.next_length(9), 256)
+        for n, phy in CELLS:
+            self.assertFalse(new._allocation(n, phy, 10, 0, 'whole')['eligible'])
+            with self.assertRaises(ValueError):
+                new.Action(n, phy, 10, 0, 'whole')
+        for m in range(4, 10):
+            with self.assertRaises(ValueError):
+                new.Action(2048, '16QAM', m, new.next_length(m), 'raster')
+
+    def test_all_legal_integer_K_actions_have_unique_reversible_paid_headers(self):
+        for n, phy in CELLS:
+            seen = {}
+            for m in range(4, 11):
+                if new._allocation(n, phy, m, 0, 'whole')['eligible']:
+                    action = new.Action(n, phy, m, 0, 'whole')
+                    bits = new.header_bits(action)
+                    self.assertEqual(new.decode_header_fields(bits), (m, 0, 0))
+                    seen[tuple(bits)] = action.name
+                if m == 10:
+                    continue
+                for order in new.ORDERS:
+                    for q in range(1, new.next_length(m)):
+                        if not new._allocation(n, phy, m, q, order)['eligible']:
+                            continue
+                        action = new.Action(n, phy, m, q, order)
+                        bits = new.header_bits(action)
+                        self.assertEqual(len(bits), 12)
+                        self.assertNotIn(tuple(bits), seen)
+                        seen[tuple(bits)] = action.name
+                        self.assertEqual(new.decode_header_fields(bits),
+                                         (m, q, new.ORDERS.index(order)))
+
+    def test_m8_K168_uses_bank_seven_without_changing_m9_bank(self):
+        for order in new.ORDERS:
+            for m, q, mode, wire_q in ((8, 128, 7, 0), (8, 168, 7, 40),
+                                       (9, 128, 6, 0), (9, 144, 6, 16)):
+                a = new.Action(2048, '16QAM', m, q, order)
+                bits = new.header_bits(a)
+                np.testing.assert_array_equal(bits, raw_header(mode, wire_q, new.ORDERS.index(order)))
+                self.assertEqual(new.decode_header_fields(bits), (m, q, new.ORDERS.index(order)))
+
+    def test_all_4096_header_words_are_canonical_or_rejected(self):
+        for n, phy in CELLS:
+            accepted = 0
+            for word in range(4096):
+                bits = channel.indices_to_bits([word], 12)
+                m, q, code = new.decode_header_fields(bits)
+                try:
+                    action = new.Action(n, phy, m, q, new.ORDERS[code] if q else 'whole')
+                except ValueError:
+                    continue
+                if not q and code != 0:
+                    continue
+                accepted += 1
+                np.testing.assert_array_equal(new.header_bits(action), bits)
+            self.assertGreater(accepted, len(new.action_grid(n, phy)))
+
+    def test_all_registered_actions_pay_crc_tail_mask_and_symbol_budget(self):
+        scales = source_scales()
+        for n, phy in CELLS:
+            for action in new.action_grid(n, phy):
+                wave, r = new.transmit(scales, action, positions(action))
+                width = 2 if phy == 'QPSK' else 4
+                self.assertEqual(wave.shape, (n, 2))
+                self.assertEqual(r['N_prefix'] + r['N_partial'] + r['N_header'], n)
+                self.assertEqual(r['N_header'], 68)
+                self.assertEqual(r['header_source_bits'], 12)
+                self.assertEqual(r['header_coded_bits'], 136)
+                self.assertEqual(r['prefix_information_bits'], new.raw_bits(action.m)+22)
+                self.assertLessEqual(10*r['prefix_information_bits'], 9*width*r['N_prefix'])
+                self.assertEqual(r['body_crc_bits'], 16*(1+bool(action.q)))
+                self.assertEqual(r['body_tail_bits'], 6*(1+bool(action.q)))
+                self.assertEqual(r['mask_bits'], new.next_length(action.m)
+                                 if action.q and action.order == 'oracle' else 0)
+                if action.q:
+                    self.assertEqual(r['partial_information_bits'], 12*action.q+r['mask_bits']+22)
+                    self.assertLessEqual(10*r['partial_information_bits'], 9*width*r['N_partial'])
+                self.assertEqual(r['E'], float(np.square(wave, dtype=np.float64).sum()))
+                if phy == 'QPSK':
+                    self.assertEqual(r['E'], 2*n)
+
+    def test_original_low_and_n2048_waveforms_and_ledgers_are_bit_exact(self):
+        scales = source_scales()
+        for module, n, phy in ((LOW, 1024, '16QAM'), (LOW, 1024, 'QPSK'),
+                               (OLD, 2048, 'QPSK'), (OLD, 2048, '16QAM'),
+                               (M9, 2048, '16QAM')):
+            for old in module.action_grid(n, phy):
+                fresh = new.Action(**old.to_dict())
+                pos = positions(fresh)
+                before, bl = module.transmit(scales, old, pos)
+                after, al = new.transmit(scales, fresh, pos)
+                self.assertEqual(before.tobytes(), after.tobytes(), fresh.name)
+                for key in ('N_header', 'N_body', 'N_prefix', 'N_partial',
+                            'source_bits', 'mask_bits', 'E'):
+                    self.assertEqual(bl[key], al[key], (fresh.name, key))
+
+    def test_invalid_fields_close_receiver_before_body_access(self):
+        for n, phy, mode, q, code in (
+                (2048, '16QAM', 7, 41, 0), (2048, '16QAM', 7, 127, 3),
+                (2048, '16QAM', 6, 127, 0), (2048, '16QAM', 5, 0, 2),
+                (2048, '16QAM', 0, 25, 0), (1024, '16QAM', 7, 40, 0),
+                (2048, 'QPSK', 5, 0, 0)):
+            with patch.object(new, 'decode_packet', return_value=(raw_header(mode, q, code), True, 0.)) as decoder:
+                event = new.receive(np.ones((n, 2)), 13., n, phy)
+            self.assertTrue(event['header_crc_ok'])
+            self.assertFalse(event['header_fields_legal'])
+            self.assertFalse(event['header_ok'])
+            self.assertIsNone(event['action'])
+            self.assertEqual(event['prefix'], [])
+            self.assertEqual(decoder.call_count, 1)
+
+    def test_crc_failure_drops_partial_and_preserves_original_hard_prefix_rule(self):
+        action = new.Action(1024, '16QAM', 8, 27, 'entropy')
+        scales = source_scales()
+        prefix = channel.indices_to_bits(np.concatenate(scales[:8]))
+        partial = channel.indices_to_bits(scales[8][:27])
+        with patch.object(new, 'decode_packet', side_effect=(
+                (new.header_bits(action), True, 0.), (prefix, False, 0.), (partial, True, 0.))):
+            event = new.receive(np.ones((1024, 2)), 13., 1024, '16QAM')
+        self.assertTrue(event['header_ok'])
+        self.assertFalse(event['partial_usable'])
+        self.assertEqual(event['partial_discard_reason'], 'prefix_crc_failure')
+        self.assertTrue(event['raw_candidate_used_after_crc_failure'])
+        for got, want in zip(event['prefix'], scales[:8]):
+            np.testing.assert_array_equal(got, want)
+        with patch.object(new, 'decode_packet', return_value=(new.header_bits(action), False, 0.)) as decoder:
+            event = new.receive(np.ones((1024, 2)), 13., 1024, '16QAM')
+        self.assertFalse(event['header_ok'])
+        self.assertEqual(event['prefix'], [])
+        self.assertEqual(decoder.call_count, 1)
+
+
+@unittest.skipUnless(NATIVE, 'Original native MAP decoder requires the Linux experiment host')
+class ActualPhysicalTests(unittest.TestCase):
+    def test_m9_original_noisy_event_decisions_and_high_bank_unchanged(self):
+        scales = source_scales(); rng = np.random.default_rng(2026100509)
+        for previous in M9.action_grid(2048, '16QAM'):
+            action = new.Action(**previous.to_dict())
+            np.testing.assert_array_equal(M9.header_bits(previous), new.header_bits(action))
+            self.assertEqual(M9.decode_header_fields(M9.header_bits(previous)),
+                             new.decode_header_fields(new.header_bits(action)))
+            wave, _ = new.transmit(scales, action, positions(action))
+            observed = new.apply_channel(wave, 19., rng.standard_normal(wave.shape))
+            old_event = M9.receive(observed, 19., 2048, '16QAM')
+            event = new.receive(observed, 19., 2048, '16QAM')
+            self.assertTrue(old_event['header_ok'])
+            self.assertEqual(M9.event_fields(old_event), new.event_fields(event))
+            for before, after in zip(old_event['prefix'], event['prefix']):
+                np.testing.assert_array_equal(before, after)
+            np.testing.assert_array_equal(old_event['partial_values'], event['partial_values'])
+            if action.q and action.order == 'oracle':
+                np.testing.assert_array_equal(old_event['partial_positions'], event['partial_positions'])
+
+    def test_every_registered_action_actual_noiseless_roundtrip(self):
+        scales = source_scales()
+        for n, phy in CELLS:
+            for action in new.action_grid(n, phy):
+                pos = positions(action)
+                wave, _ = new.transmit(scales, action, pos)
+                event = new.receive(wave, 60., n, phy)
+                self.assertTrue(event['header_ok'] and event['prefix_crc_ok']
+                                and event['body_crc_ok'], action.name)
+                self.assertEqual(event['action'], action)
+                for got, want in zip(event['prefix'], scales[:action.m]):
+                    np.testing.assert_array_equal(got, want)
+                if action.q:
+                    expected = np.sort(pos) if action.order == 'oracle' else pos
+                    np.testing.assert_array_equal(event['partial_values'], scales[action.m][expected])
+                    self.assertTrue(event['partial_usable'])
+                    if action.order == 'oracle':
+                        np.testing.assert_array_equal(event['partial_positions'], expected)
+
+    def test_actual_CRC_valid_illegal_headers_reject_without_body_decode(self):
+        for mode, wire_q, code in ((7, 41, 0), (7, 127, 3), (6, 127, 0), (5, 0, 2), (0, 25, 0)):
+            header = channel.encode_packet(raw_header(mode, wire_q, code), 68)['symbols']
+            event = new.receive(np.concatenate((header, np.ones((1980, 2)))), 60., 2048, '16QAM')
+            self.assertTrue(event['header_crc_ok'])
+            self.assertFalse(event['header_ok'])
+            self.assertEqual(event['prefix'], [])
+
+
+if __name__ == '__main__':
+    unittest.main()

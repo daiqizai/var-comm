@@ -1,0 +1,176 @@
+"""CPU checks for complete coverage, prior-row admission and selection isolation."""
+from pathlib import Path
+import ast
+import copy
+import sys
+import tempfile
+from types import SimpleNamespace
+import unittest
+
+HERE=Path(__file__).resolve().parent
+for parent in HERE.parents:
+    for suffix in ('src','methods_20261002/repo_reference/src'):
+        candidate=parent/suffix
+        if (candidate/'var_comm/scale_channel.py').is_file():sys.path.insert(0,str(candidate))
+import m9_common as u
+import m9_phy as phy
+from m9_run import Runner,PauseRequested,rank,reused_dataset
+from m9_native import Native
+
+
+def all_actions():return [a for N,f in u.CELLS for a in phy.action_grid(N,f)]
+
+
+def rows_for(tasks,index=0):
+    return [dict(N=a.N,phy_family=a.phy,snr_db=s,action_id=u.action_id(a),noise_seed=n,source_index=index,
+        source_id='image'+str(index),preprocessing_id='pixels'+str(index),m=a.m,q=a.q,order=a.order,
+        psnr_db=20.,lpips_alex=.25,dino_cosine=.5,E=2*a.N,header_ok=True,body_crc_ok=True,
+        header_crc_ok=True,header_fields_legal=True) for a,s,n in tasks]
+
+
+class ScopeTests(unittest.TestCase):
+    def test_full_grid_and_new_reused_partition_cover_all_scope_exactly(self):
+        actions=all_actions();alltasks=Runner.task_grid(actions,u.CAL_SEEDS)
+        new=Runner.task_grid(actions,u.CAL_SEEDS,new_only=True)
+        old=[t for t in alltasks if reused_dataset(t[0],t[1]) is not None]
+        self.assertEqual(len(actions),244);self.assertEqual((len(alltasks),len(new),len(old)),(3660,1473,2187))
+        self.assertFalse(Runner.expected_keys(new)&Runner.expected_keys(old))
+        self.assertEqual(Runner.expected_keys(new)|Runner.expected_keys(old),Runner.expected_keys(alltasks))
+        self.assertEqual(sum(a.N==1024 for a,s,n in new),1095)
+        self.assertEqual(sum(a.N==2048 and a.phy=='QPSK' for a,s,n in new),60)
+        self.assertEqual(sum(a.N==2048 and a.phy=='16QAM' for a,s,n in new),318)
+        self.assertEqual({s for a,s,n in new if a.m==9},{1,4})
+
+    def test_native_and_cpu_grid_agree_without_loading_models(self):
+        native=Native.__new__(Native);native.phy=phy
+        self.assertEqual([u.action_id(a) for a in native.actions()],[u.action_id(a) for a in all_actions()])
+        self.assertEqual(len(Runner.__new__(Runner).actions()),244)
+
+    def test_missing_duplicate_foreign_budget_and_source_rejected(self):
+        runner=Runner.__new__(Runner);tasks=Runner.task_grid(all_actions(),u.CAL_SEEDS,new_only=True)
+        rows=rows_for(tasks);data=dict(records=[dict(image_id='image0',preprocessing_id='pixels0')])
+        runner.validate_rows(rows,data,0,tasks)
+        for bad in (rows[:-1],rows[:-1]+rows[:1]):
+            with self.assertRaisesRegex(RuntimeError,'physical events'):runner.validate_rows(bad,data,0,tasks)
+        bad=copy.deepcopy(rows);bad[0]['N']=512
+        with self.assertRaisesRegex(RuntimeError,'physical events'):runner.validate_rows(bad,data,0,tasks)
+        bad=copy.deepcopy(rows);bad[0]['source_id']='foreign'
+        with self.assertRaisesRegex(RuntimeError,'identity'):runner.validate_rows(bad,data,0,tasks)
+        bad=copy.deepcopy(rows);bad[0]['lpips_alex']=float('nan')
+        with self.assertRaisesRegex(RuntimeError,'Nonfinite'):runner.validate_rows(bad,data,0,tasks)
+
+    def test_summaries_never_mix_budgets_and_keep_original_failure_definition(self):
+        rows=rows_for(Runner.task_grid(all_actions(),u.CAL_SEEDS));rows[0]['header_ok']=False;rows[1]['body_crc_ok']=False
+        sums,first={},{};Runner.aggregate_rows(sums,first,rows);summary=Runner.summaries(sums,first)
+        self.assertEqual(len(summary),1220);self.assertTrue(all(r['rows']==3 for r in summary))
+        entry=next(r for r in summary if r['action_id']==rows[0]['action_id'] and r['snr_db']==1)
+        self.assertEqual(entry['failure_fraction'],2/3)
+        self.assertEqual(sum(r['N']==1024 for r in summary),365)
+
+    def test_rank_is_original_rule_with_no_dino_reward(self):
+        base=dict(failure_fraction=0.,m=8,q=0,action_id='ref',psnr_db=20.,lpips_alex=.30,dino_cosine=.9)
+        good=dict(base,action_id='good',psnr_db=19.75,lpips_alex=.25,dino_cosine=-.5)
+        outside=dict(base,action_id='outside',psnr_db=19.749,lpips_alex=.10,dino_cosine=1.)
+        # ref has greater m, so it defines the registered PSNR feasibility floor.
+        good['m']=outside['m']=7
+        ranked,ref=rank([base,good,outside]);self.assertEqual(ref['action_id'],'ref');self.assertEqual(ranked[0]['action_id'],'good')
+        changed=copy.deepcopy([base,good,outside])
+        for i,r in enumerate(changed):r['dino_cosine']=i*1000
+        self.assertEqual([r['action_id'] for r in rank(changed)[0]],[r['action_id'] for r in ranked])
+
+    def test_rank_ast_matches_bound_original_source(self):
+        candidates=[parent/suffix for parent in HERE.parents for suffix in (
+            'experiments/scale-causal-partial-residual-20261002/m1_runner.py',
+            'action_space_audit_20261005/reference/m1_low/m1_runner.py')]
+        original=next((p for p in candidates if p.is_file()),None)
+        self.assertIsNotNone(original,'Original source must be available for rank equivalence')
+        def function(path):
+            result=next(n for n in ast.parse(path.read_text(encoding='utf-8')).body if isinstance(n,ast.FunctionDef) and n.name=='rank')
+            if isinstance(result.body[0],ast.Expr) and isinstance(result.body[0].value,ast.Constant):result.body=result.body[1:]
+            return ast.dump(result,include_attributes=False)
+        self.assertEqual(function(HERE/'m9_run.py'),function(original))
+
+
+class ReuseTests(unittest.TestCase):
+    def fixture(self,root):
+        runner=Runner.__new__(Runner);actions=all_actions();tasks=Runner.task_grid(actions,u.CAL_SEEDS);datasets={};payloads={}
+        for name in ('original69','m9_high'):
+            path=root/name/'calibrate/source_checkpoints/0000.json'
+            rows=rows_for([t for t in tasks if reused_dataset(t[0],t[1])==name])
+            payload=dict(binding=name,source_index=0,rows=rows,synthetic=False,development_read=False)
+            u.sealed_checkpoint(path,payload);payloads[name]=payload
+            datasets[name]=dict(original_out=str(root/name),calibration_binding=name,source_checkpoint_sha256={str(path):u.sha(path)})
+        data=dict(records=[dict(image_id='image0',preprocessing_id='pixels0')])
+        return runner,actions,datasets,payloads,data
+
+    def test_reuse_requires_both_complete_original_scopes_without_scoring(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runner,actions,datasets,payloads,data=self.fixture(Path(tmp))
+            rows=runner.legacy_source(datasets,data,0,actions)
+            self.assertEqual(len(rows),2187);self.assertEqual(sum(r['phy_family']=='QPSK' for r in rows),1035)
+
+    def test_changed_sealed_checkpoint_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);runner,actions,datasets,payloads,data=self.fixture(root)
+            path=root/'m9_high/calibrate/source_checkpoints/0000.json';value=u.read(path);value['rows'][0]['lpips_alex']=1.;u.write(path,value)
+            with self.assertRaisesRegex(RuntimeError,'checkpoint changed'):runner.legacy_source(datasets,data,0,actions)
+
+    def test_newly_legal_crc_accepted_header_never_silently_reused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);runner,actions,datasets,payloads,data=self.fixture(root)
+            path=root/'original69/calibrate/source_checkpoints/0000.json';payload=payloads['original69'];payload['rows'][0]['header_fields_legal']=False
+            u.write(path,dict(payload,payload_sha256=u.identity(payload)));datasets['original69']['source_checkpoint_sha256'][str(path)]=u.sha(path)
+            with self.assertRaisesRegex(RuntimeError,'formerly illegal'):runner.legacy_source(datasets,data,0,actions)
+
+    def test_wrong_source_or_dropped_event_in_old_cache_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);runner,actions,datasets,payloads,data=self.fixture(root)
+            path=root/'m9_high/calibrate/source_checkpoints/0000.json';payload=payloads['m9_high'];payload['rows'].pop()
+            u.write(path,dict(payload,payload_sha256=u.identity(payload)));datasets['m9_high']['source_checkpoint_sha256'][str(path)]=u.sha(path)
+            with self.assertRaisesRegex(RuntimeError,'physical events'):runner.legacy_source(datasets,data,0,actions)
+
+
+class SameKAndReceiptTests(unittest.TestCase):
+    def choices(self):
+        runner=Runner.__new__(Runner);native=Native.__new__(Native);native.phy=phy;runner.load=lambda:native
+        cells={}
+        for N,f in u.CELLS:
+            for s in u.SNRS:
+                for m in u.METHODS:
+                    q=phy.max_legal_q(N,f,8,'entropy') if m=='entropy' else 0
+                    a=phy.Action(N,f,8,q,'entropy' if q else 'whole')
+                    cells[N,f,s,m]=dict(action=u.action_dict(a))
+        return runner,cells
+
+    def test_all_fifteen_cell_snr_points_have_five_policies_and_paid_same_k(self):
+        runner,cells=self.choices();choices=runner.development_choices(cells)
+        self.assertEqual(len(choices),15)
+        for (N,f,s),methods in choices.items():
+            self.assertTrue(all(methods[m+'_policy'].N==N for m in u.METHODS))
+            self.assertEqual(methods['raster_at_entropy'].q,methods['entropy_policy'].q)
+            self.assertEqual(methods['random_at_entropy'].q,methods['entropy_policy'].q)
+            if (N,f)==(2048,'16QAM'):self.assertIn('oracle_at_entropy',methods)
+            else:self.assertNotIn('oracle_at_entropy',methods)
+        self.assertEqual(len(runner.unavailable_actions),10)
+
+    def test_stage_cannot_complete_without_all_required_receipts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runner=Runner.__new__(Runner);runner.out=Path(tmp);runner.registration_sha256='registered'
+            with self.assertRaisesRegex(RuntimeError,'incomplete'):runner.require_stage('calibrate_worker_03')
+            u.write(runner.out/'calibrate_worker_03_completion.json',dict(status='FAILED',registration_sha256='registered',outputs={}))
+            with self.assertRaisesRegex(RuntimeError,'different registration'):runner.require_stage('calibrate_worker_03')
+
+    def test_source_boundary_pause_preserves_cache(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runner=Runner.__new__(Runner);runner.out=Path(tmp);runner.stop=False;runner.guard();runner.stopped()
+            with self.assertRaises(PauseRequested):runner.guard()
+
+    def test_status_can_repeat_registered_worker_count(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runner=Runner.__new__(Runner);runner.out=Path(tmp);runner.stage='calibrate_prepare';runner.worker_index=0;runner.workers=4
+            runner.status('COMPLETE',workers=4,sources=1000)
+            value=u.read(runner.out/'calibrate_prepare_status.json')
+            self.assertEqual(value['workers'],4);self.assertEqual(value['sources'],1000)
+
+
+if __name__=='__main__':unittest.main(verbosity=2)

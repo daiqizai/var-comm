@@ -1,0 +1,78 @@
+"""Audit preserved N2048 rows before reuse in the complete-scale extension."""
+import argparse
+import hashlib
+import json
+import math
+from pathlib import Path
+import time
+
+
+def sha(p):
+    return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+
+
+def read(p):
+    return json.loads(Path(p).read_text())
+
+
+def ident(x):
+    return hashlib.sha256(json.dumps(x,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
+
+
+def write(p,x):
+    p=Path(p);p.parent.mkdir(parents=True,exist_ok=True)
+    t=p.with_name(p.name+'.tmp');t.write_text(json.dumps(x,indent=2)+'\n');t.replace(p)
+
+
+def main():
+    a=argparse.ArgumentParser();a.add_argument('--root',type=Path,required=True);a.add_argument('--out',type=Path,required=True);args=a.parse_args()
+    root=args.root.resolve();out=args.out.resolve();out.mkdir(parents=True,exist_ok=True)
+    datasets=[];bad=[];begun=time.time()
+    specs=[('original69','M1-N2048-FULL-GRID-20261004-FAST-R1',2070,[1,4,7,13,19],[[2048,'QPSK'],[2048,'16QAM']]),
+           ('m9_high','M1-N2048-M9-EXTENSION-20261004',117,[7,13,19],[[2048,'16QAM']])]
+    for name,run,nrows,snrs,cells in specs:
+        d=root/'outputs'/run;reg=read(d/'calibrate_registration.json');binding=ident(reg)
+        done=read(d/'calibrate_completion.json');assert done['status']=='COMPLETE' and done['sources']==1000
+        publication=read(d/'publication_completion.json');assert publication.get('commit',publication.get('remote_commit'))
+        paths={};actions=None;expected=None;record_identity=[]
+        for index in range(1000):
+            p=d/'calibrate/source_checkpoints'/('%04d.json'%index);h=sha(p)
+            assert done['outputs'][str(p)]==h
+            cp=read(p);seal=cp.pop('payload_sha256');assert ident(cp)==seal and cp['binding']==binding and cp['source_index']==index
+            assert cp.get('synthetic') is False and cp.get('development_read') is False
+            rows=cp['rows'];assert len(rows)==nrows
+            seen={(r['N'],r['phy_family'],r['action_id'],r['snr_db'],r['noise_seed']) for r in rows}
+            if expected is None:
+                by={(r['N'],r['phy_family'],r['action_id']) for r in rows}
+                expected={(N,f,act,s,n) for N,f,act in by for s in snrs for n in [4101,4102,4103]}
+                assert len(by)==(138 if name=='original69' else 13)
+                assert {(N,f) for N,f,_ in by}=={tuple(x) for x in cells}
+                actions=sorted({act for _,_,act in by})
+            assert seen==expected and len(seen)==nrows
+            records={(r['source_id'],r['preprocessing_id']) for r in rows};assert len(records)==1
+            record_identity.append(list(next(iter(records))))
+            for r in rows:
+                assert r['source_index']==index and r['N']==2048
+                assert all(math.isfinite(float(r[k])) for k in ['psnr_db','lpips_alex','dino_cosine','E'])
+                assert type(r['header_crc_ok']) is bool and type(r['header_fields_legal']) is bool
+                if r['header_crc_ok'] and not r['header_fields_legal']:
+                    bad.append(dict(dataset=name,**{k:r[k] for k in ['source_index','action_id','snr_db','noise_seed']}))
+            paths[str(p)]=h
+            if (index+1)%25==0:write(out/'legacy_audit_status.json',dict(status='AUDITING',dataset=name,sources=index+1,total_sources=1000,incompatible_headers=len(bad),elapsed_seconds=time.time()-begun))
+        datasets.append(dict(name=name,original_out=str(d),calibration_registration_sha256=sha(d/'calibrate_registration.json'),calibration_binding=binding,
+            source_checkpoint_sha256=paths,target_rows_per_source=nrows,target_snrs=snrs,cells=cells,action_ids=actions,
+            record_identities=record_identity,original_publication_sha256=sha(d/'publication_completion.json'),
+            original_calibration_completion_sha256=sha(d/'calibrate_completion.json'),original_calibration_summary_sha256=sha(d/'calibration_summary.csv')))
+    assert datasets[0]['record_identities']==datasets[1]['record_identities']
+    result=dict(status='LEGACY_CALIBRATION_REUSE_AUDITED' if not bad else 'INCOMPATIBLE_HEADERS_REVIEW_REQUIRED',sources=1000,
+        incompatible_header_count=len(bad),incompatible_headers=bad,target_rows=2187000,datasets=datasets,
+        source_sha256=sha(__file__),seconds=time.time()-begun,model_inference=False,development_read=False,
+        rationale='Old TX fields and bits remain unchanged. CRC-failed headers still erase. Every CRC-passed header must be old-legal before quality rows can be reused under the expanded RX domain. Header byte parity is separately qualified before GPU production.')
+    p=out/'legacy_compatibility.json'
+    if p.exists():raise RuntimeError('Refuse replacing an existing audited receipt')
+    write(p,result);write(out/'legacy_audit_status.json',{k:v for k,v in result.items() if k!='datasets'})
+    print(json.dumps({k:v for k,v in result.items() if k!='datasets'}))
+    assert not bad,'Newly legal CRC-passed historical header requires explicit replay; no blind reuse'
+
+
+if __name__=='__main__':main()

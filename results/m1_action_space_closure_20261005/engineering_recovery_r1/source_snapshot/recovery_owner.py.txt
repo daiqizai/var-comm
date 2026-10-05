@@ -1,0 +1,202 @@
+"""Engineering-only owner recovery for exact-identity cohort exit barriers.
+
+The registered scientific owner, sources, protocol, completed qualification,
+and serial benchmark remain unchanged. This module changes two child entry
+paths, adds immutable recovery evidence checks, and releases completed source
+workers through the shared parent barrier. The original owner retains its
+stage/receipt gates, process admission, publication rules, and stop rule.
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import signal
+import sys
+import time
+
+
+VERSION = 'M1_ACTION_CLOSURE_COHORT_EXIT_BARRIER_R1'
+STATUS = 'ENGINEERING_RECOVERY_REGISTERED'
+
+
+def require(condition, message):
+    if not condition:
+        raise RuntimeError(message)
+
+
+def read(path):
+    return json.loads(Path(path).read_text(encoding='utf-8-sig'))
+
+
+def sha(path):
+    digest = hashlib.sha256()
+    with Path(path).open('rb') as stream:
+        for block in iter(lambda: stream.read(8*1024*1024), b''):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def verify(bindings):
+    require(isinstance(bindings, dict) and bool(bindings), 'Nonempty recovery bindings required')
+    for name, expected in bindings.items():
+        path = Path(name)
+        require(path.is_absolute() and path.is_file(), 'Missing absolute recovery evidence: '+name)
+        require(sha(path) == expected, 'Recovery evidence changed: '+name)
+
+
+def registration(root, out, recovery):
+    root, out, recovery = (Path(p).resolve() for p in (root, out, recovery))
+    require(root in out.parents and out in recovery.parents, 'Recovery must stay inside this output directory')
+    path = recovery/'execution_registration.json'; value = read(path)
+    require(value.get('status') == STATUS and value.get('version') == VERSION,
+            'Explicit registered cohort recovery required')
+    require(Path(value['root']).resolve() == root and Path(value['out']).resolve() == out,
+            'Recovery targets another experiment')
+    require(value.get('scientific_protocol_changed') is False, 'Scientific protocol changes are outside this recovery')
+    code = Path(value.get('original_code', out/'code')).resolve()
+    require(root in code.parents, 'Original code must remain inside the repository')
+    require(value.get('original_registration_sha256') == sha(out/'registration.json')
+            and value.get('protocol_sha256') == sha(code/'protocol.json'),
+            'Original registration or protocol differs from the diagnosed run')
+    verify(value['source_bindings']); verify(value['input_bindings'])
+    sources = sorted(p.resolve() for p in recovery.glob('*.py'))
+    require(sources and all(value['source_bindings'].get(str(p)) == sha(p) for p in sources),
+            'Every recovery executable and test must be bound')
+    archive = recovery/'failure_archive_receipt.json'
+    require(value.get('failure_archive_receipt_sha256') == sha(archive)
+            and value['input_bindings'].get(str(archive)) == sha(archive),
+            'Exact original failure archive receipt is required')
+    return value, code, sources
+
+
+def load_original_owner(root, out, recovery):
+    """Verify the frozen owner's registration before importing executable code."""
+    value, code, _ = registration(root, out, recovery)
+    original = read(Path(out)/'registration.json')
+    path = code/'m9_owner.py'
+    require(original['source_bindings'].get(str(path)) == sha(path), 'Original owner executable is not bound')
+    alias = '_m1_closure_frozen_owner_for_recovery'
+    if alias in sys.modules:
+        module = sys.modules[alias]
+        require(Path(module.__file__).resolve() == path, 'Original owner module alias changed')
+        return module
+    spec = importlib.util.spec_from_file_location(alias, path)
+    module = importlib.util.module_from_spec(spec); sys.modules[alias] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def owner_class(original):
+    class RecoveryOwner(original.Owner):
+        def __init__(self, root, out, recovery):
+            self.recovery_dir = Path(recovery).resolve()
+            self.recovery_registration_path = self.recovery_dir/'execution_registration.json'
+            self.recovery_registration, code, self.recovery_sources = registration(root, out, self.recovery_dir)
+            self.recovery_registration_sha256 = sha(self.recovery_registration_path)
+            # Original __init__ invokes self.check(); recovery fields are ready.
+            super().__init__(root, out, code=code)
+
+        def check(self, all_inputs=False):
+            super().check(all_inputs=all_inputs)
+            require(sha(self.recovery_registration_path) == self.recovery_registration_sha256,
+                    'Sealed recovery registration changed')
+            require(sorted(p.resolve() for p in self.recovery_dir.glob('*.py')) == self.recovery_sources,
+                    'Recovery executable inventory changed after registration')
+            verify(self.recovery_registration['source_bindings'])
+            if all_inputs:
+                verify(self.recovery_registration['input_bindings'])
+            manifest = self.out/'production/cohort.json'
+            children = getattr(self, 'cohort_children', [])
+            if children and manifest.is_file() and any(child.poll() is None for child, _ in children):
+                barrier = self.barrier_module()
+                reg = barrier.registration(self.root, self.out)
+                # Completed workers remain live until the parent validates all
+                # terminal markers. Release and direct wait finish here before
+                # the frozen production loop makes its next PID assertion.
+                barrier.maybe_release(manifest, children, 'production', reg)
+
+        def barrier_module(self):
+            path = self.recovery_dir/'terminal_barrier.py'
+            require(self.recovery_registration['source_bindings'].get(str(path)) == sha(path),
+                    'Terminal barrier helper is not registered')
+            if not hasattr(self, '_barrier_module'):
+                alias = '_m1_closure_recovery_terminal_barrier'
+                spec = importlib.util.spec_from_file_location(alias, path)
+                module = importlib.util.module_from_spec(spec); sys.modules[alias] = module
+                spec.loader.exec_module(module)
+                self._barrier_module = module
+            require(Path(self._barrier_module.__file__).resolve() == path, 'Terminal barrier module points elsewhere')
+            return self._barrier_module
+
+        def stage_argv(self, stage, workers=None, worker_index=None, cohort_config=None):
+            argv = super().stage_argv(stage, workers, worker_index, cohort_config)
+            if stage == 'cohort_probe':
+                expected, replacement = self.code/'cohort_probe.py', self.recovery_dir/'probe_entry.py'
+            elif stage == 'calibrate_shard':
+                expected, replacement = self.code/'m9_run.py', self.recovery_dir/'worker_entry.py'
+            else:
+                return argv
+            require(self.recovery_registration['source_bindings'].get(str(replacement)) == sha(replacement),
+                    'Recovery entry is not registered')
+            matches = [i for i, item in enumerate(argv) if str(item) == str(expected)]
+            require(len(matches) == 1, 'Original child invocation contract changed')
+            argv[matches[0]] = replacement
+            return argv
+
+        def status(self, state, **fields):
+            super().status(state, execution_revision=VERSION,
+                recovery_registration_sha256=self.recovery_registration_sha256, **fields)
+
+    return RecoveryOwner
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--root', required=True); parser.add_argument('--out', required=True)
+    parser.add_argument('--recovery', default=str(Path(__file__).resolve().parent))
+    args = parser.parse_args(); out = Path(args.out).resolve(); recovery = Path(args.recovery).resolve()
+    import fcntl
+    lock = (out/'owner.lock').open('a+')
+    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    original = None; owner = None
+    try:
+        original = load_original_owner(args.root, out, recovery)
+        def stop(*_):
+            original.STOP = True
+        signal.signal(signal.SIGTERM, stop); signal.signal(signal.SIGINT, stop)
+        owner = owner_class(original)(args.root, out, recovery)
+        original.seal(recovery/'recovery_owner_identity.json', dict(version=VERSION,
+            recovery_registration_sha256=owner.recovery_registration_sha256,
+            original_registration_sha256=owner.registration_sha256,
+            **original.process_identity(os.getpid())))
+        owner.run()
+        original.seal(recovery/'completion.json', dict(status='RECOVERY_DELIVERED_AND_STOPPED', version=VERSION,
+            recovery_registration_sha256=owner.recovery_registration_sha256,
+            original_registration_sha256=owner.registration_sha256,
+            publication_completion_sha256=sha(out/'publication_completion.json'),
+            scientific_protocol_changed=False, old_queues_started=False))
+    except BaseException as error:
+        cleanup_error = None
+        if owner is not None:
+            try:
+                owner.cleanup()
+            except BaseException as problem:
+                cleanup_error = repr(problem)
+        if original is not None:
+            failure = out/'owner_failure.json'
+            if not failure.exists():
+                original.write(failure, dict(status='FAILED_REQUIRES_REVIEW', version=VERSION,
+                    error=repr(error), cleanup_error=cleanup_error, time=time.time(), automatic_retry=False,
+                    recovery_registration_sha256=sha(recovery/'execution_registration.json'),
+                    retained_completed_evidence=True, uep_automatically_restarted=False))
+        raise
+    finally:
+        lock.close()
+
+
+if __name__ == '__main__':
+    main()

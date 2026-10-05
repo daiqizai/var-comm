@@ -1,0 +1,68 @@
+"""Verify inputs and CPU qualification before freezing this new M1 execution."""
+from __future__ import annotations
+import argparse
+import os
+from pathlib import Path
+import subprocess
+import sys
+import time
+import m9_common as u
+
+
+def main():
+    p=argparse.ArgumentParser();p.add_argument('--root',required=True);p.add_argument('--out',required=True)
+    args=p.parse_args();root=Path(args.root).resolve();out=Path(args.out).resolve();code=Path(__file__).resolve().parent
+    target=out/'registration.json'
+    u.require(not target.exists(),'Registration already exists; do not overwrite bound scientific code')
+    u.require(code==out/'code' and root in out.parents,'New output directory only')
+    u.require(not subprocess.check_output(['nvidia-smi','--query-compute-apps=pid','--format=csv,noheader,nounits'],text=True).strip(),'Existing GPU compute process')
+    protocol=u.validate_protocol(u.read(code/'protocol.json'))
+    oldpath=root/'outputs/M1-N2048-M9-EXTENSION-20261004/registration.json'
+    old=u.read(oldpath);u.verify(old['source_bindings'],root);u.verify(old['input_bindings'],root)
+    sources=dict(old['source_bindings']);inputs=dict(old['input_bindings'])
+    for rel in subprocess.check_output(['git','ls-files','--','*.py'],cwd=root,text=True).splitlines():
+        sources[str(root/rel)]=u.sha(root/rel)
+    # Keep original imported sources bound; add only the new ignored code closure.
+    for path in sorted(code.iterdir()):
+        if path.is_file() and (path.suffix=='.py' or path.name.endswith('.py.txt')):
+            sources[str(path)]=u.sha(path)
+    extras=[oldpath,out/'legacy_compatibility.json',
+        root/'outputs/M1-N2048-GPU-WORKERS-20261004-R1/benchmark_decision.json',
+        root/'outputs/PRIOR-AWARE-UEP-20261004-V1/p1024_scores/completion.json',
+        root/'outputs/PRIOR-AWARE-UEP-20261004-V1/p1024_scores/registration.json',
+        root/'outputs/UNIFIED-METRICS-20261002/supervisor_registration.json',
+        root/'results/unified_metrics_20261002/scoring_inventory.json',
+        root/'results/unified_metrics_20261002/metrics_registration.json']
+    for folder in (protocol['original_output'],protocol['m9_output']):
+        for name in ('registration.json','calibrate_registration.json','calibrate_completion.json','development_completion.json',
+                     'score_completion.json','publication_completion.json','m1_policy.json'):
+            extras.append(Path(folder)/name)
+    for path in extras:inputs[str(path)]=u.sha(path)
+    proof=u.read(out/'legacy_compatibility.json')
+    u.require(proof['status']=='LEGACY_CALIBRATION_REUSE_AUDITED' and proof['incompatible_header_count']==0
+        and proof['sources']==1000 and proof['target_rows']==2187000,'Incomplete legacy compatibility')
+    for dataset in proof['datasets']:u.verify(dataset['source_checkpoint_sha256'])
+    env=os.environ.copy();env.update(CUDA_VISIBLE_DEVICES='',PYTHONDONTWRITEBYTECODE='1',VAR_COMM_ROOT=str(root),
+        PYTHONPATH=os.pathsep.join(map(str,(code,root/'src'))))
+    native=root/'outputs/UNIFIED-METRICS-20261002/environment/bin/python'
+    command=[str(native),'-B','-m','unittest','discover','-s',str(code),'-p','test_closure_*.py','-v']
+    test=subprocess.run(command,cwd=root,env=env,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+    log=out/'cpu_tests.log';log.write_text(test.stdout,encoding='utf-8')
+    u.require(test.returncode==0,'CPU qualification failed; inspect '+str(log))
+    receipt=out/'cpu_test_receipt.json'
+    u.seal(receipt,dict(status='PASS',command=command,returncode=0,log_sha256=u.sha(log),
+        source_bindings=sources,gpu_model_inference=False,synthetic_scientific_results=False))
+    inputs[str(receipt)]=u.sha(receipt);inputs[str(log)]=u.sha(log)
+    u.verify(sources,root);u.verify(inputs,root)
+    head=subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip()
+    u.seal(target,dict(status='REGISTERED',protocol_path=str(code/'protocol.json'),protocol_sha256=u.sha(code/'protocol.json'),
+        source_bindings=sources,input_bindings=inputs,git_head=head,time=time.time(),synthetic=False,
+        training_updates=0,holdout_access=False,development_used_for_selection=False,
+        legacy_reused_calibration_rows=2187000,new_calibration_frames=1473000,calibration_frames=3660000,
+        action_counts=protocol['action_counts'],live_code_ignored=True,published_code_suffix='.py.txt',
+        independent_source_workers_max=4,uep_resume=False,old_queues_started=False))
+    print('REGISTERED',u.sha(target),'sources',len(sources),'inputs',len(inputs),flush=True)
+    print(test.stdout.splitlines()[-4:],flush=True)
+
+
+if __name__=='__main__':main()

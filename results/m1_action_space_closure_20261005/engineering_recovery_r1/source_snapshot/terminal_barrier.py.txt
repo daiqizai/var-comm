@@ -1,0 +1,211 @@
+"""Keep completed cohort members live until every peer has left scientific code.
+
+This module never patches GPU admission or a scientific function. A terminal
+marker is written only after the original worker callable has returned.
+"""
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import re
+import signal
+import sys
+import time
+
+
+def require(value,message):
+    if not value:raise RuntimeError(message)
+
+
+def read(path):return json.loads(Path(path).read_text(encoding='utf-8-sig'))
+
+
+def sha(path):
+    digest=hashlib.sha256()
+    with Path(path).open('rb') as handle:
+        for block in iter(lambda:handle.read(8*1024*1024),b''):digest.update(block)
+    return digest.hexdigest()
+
+
+def write(path,value):
+    path=Path(path);path.parent.mkdir(parents=True,exist_ok=True);tmp=path.with_name(path.name+'.%d.tmp'%os.getpid())
+    tmp.write_text(json.dumps(value,indent=2,sort_keys=True,allow_nan=False)+'\n',encoding='utf-8');os.replace(tmp,path)
+
+
+def seal(path,value):
+    if Path(path).exists():require(read(path)==value,'Immutable terminal evidence changed: '+str(path))
+    else:write(path,value)
+
+
+def verify(bindings,root=None):
+    require(isinstance(bindings,dict) and bindings,'Artifact bindings are required')
+    for p,digest in bindings.items():
+        path=Path(p)
+        if not path.is_absolute() and root is not None:path=Path(root)/path
+        require(sha(path)==digest,'Bound artifact changed: '+str(path))
+
+
+def load_module(alias,path):
+    path=Path(path).resolve()
+    if alias in sys.modules:
+        result=sys.modules[alias];require(Path(result.__file__).resolve()==path,'Module path collision');return result
+    spec=importlib.util.spec_from_file_location(alias,path);result=importlib.util.module_from_spec(spec)
+    sys.modules[alias]=result;spec.loader.exec_module(result);return result
+
+
+def registration(root,out):
+    root,out=Path(root).resolve(),Path(out).resolve();here=Path(__file__).resolve().parent
+    path=here/'execution_registration.json';reg=read(path)
+    require(reg.get('status')=='ENGINEERING_RECOVERY_REGISTERED'
+            and reg.get('version')=='M1_ACTION_CLOSURE_COHORT_EXIT_BARRIER_R1'
+            and Path(reg['root']).resolve()==root and Path(reg['out']).resolve()==out
+            and reg.get('scientific_protocol_changed') is False,'Registered terminal-only recovery required')
+    require(sha(out/'registration.json')==reg['original_registration_sha256']
+            and sha(out/'code/protocol.json')==reg['protocol_sha256'],'Original registration or scientific protocol changed')
+    verify(reg['source_bindings'],root);verify(reg['input_bindings'],root)
+    require(str(Path(__file__).resolve()) in reg['source_bindings'],'Terminal helper must be bound')
+    original=read(out/'registration.json');verify(original['source_bindings'],root)
+    require(sha(out/'code/protocol.json')==original['protocol_sha256'],'Frozen protocol identity mismatch')
+    return dict(reg,path=str(path),sha256=sha(path),recovery_dir=str(here))
+
+
+def worker_token(worker):
+    value=str(worker['worker_id']);require(re.fullmatch(r'[A-Za-z0-9_]+',value) is not None,'Unsafe worker identifier')
+    return value
+
+
+def completion_path(out,kind,worker):
+    token=worker_token(worker)
+    if kind=='probe':
+        require(token in ('0','1'),'Unexpected probe worker')
+        return Path(out)/'cohort_probe'/('worker_'+token)/'completion.json'
+    require(kind=='production' and re.fullmatch(r'worker_\d{2}',token) is not None,'Unexpected production worker')
+    return Path(out)/('calibrate_'+token+'_completion.json')
+
+
+def validate_completion(path,kind,worker,original_registration_sha256,manifest_sha256):
+    value=read(path)
+    require(value.get('status')==('COMPLETE_ROWS_EXACT' if kind=='probe' else 'COMPLETE')
+            and value.get('source_indices')==worker['source_indices']
+            and value.get('registration_sha256')==original_registration_sha256
+            and value.get('synthetic') is False and value.get('development_read') is False
+            and value.get('training_updates')==0,'Incomplete or foreign terminal scientific receipt')
+    if kind=='probe':
+        require(value.get('cohort_manifest_sha256')==manifest_sha256 and value.get('fresh_computation') is True
+                and value.get('complete_physical_rows')==1473,'Probe terminal receipt lacks fresh complete-row evidence')
+    else:
+        require(value.get('stage')=='calibrate_'+worker_token(worker)
+                and value.get('sources')==len(worker['source_indices'])
+                and value.get('physical_frames')==1473*len(worker['source_indices']),
+                'Production terminal source coverage differs')
+    verify(value['outputs']);return value
+
+
+def marker_value(worker,kind,manifest_sha256,reg,path):
+    return dict(status='ORIGINAL_WORKER_RETURNED_AFTER_FINAL_SAFETY',kind=kind,
+        worker={k:worker[k] for k in ('worker_id','pid','start_ticks','uid','argv','source_indices')},
+        cohort_manifest_sha256=manifest_sha256,recovery_registration_sha256=reg['sha256'],
+        original_completion=str(path),original_completion_sha256=sha(path),
+        scientific_code_returned=True,guard_modified=False)
+
+
+def validate_marker(marker,worker,kind,manifest_sha256,reg,path):
+    require(marker==marker_value(worker,kind,manifest_sha256,reg,path),'Terminal marker lineage or completed receipt changed')
+    validate_completion(path,kind,worker,reg['original_registration_sha256'],manifest_sha256)
+
+
+def barrier_directory(kind,manifest_sha256,reg):
+    return Path(reg['recovery_dir'])/'barriers'/kind/manifest_sha256
+
+
+def release_value(manifest_sha256,reg,markers):
+    return dict(status='PARENT_RELEASE_AFTER_ALL_ORIGINAL_WORKERS_RETURNED',cohort_manifest_sha256=manifest_sha256,
+        recovery_registration_sha256=reg['sha256'],terminal_markers=markers,guard_modified=False,scientific_protocol_changed=False)
+
+
+def maybe_release(manifest_path,children,kind,reg):
+    """Parent alone releases live terminal workers and reaps all before returning.
+
+    Returning True guarantees later original-parent poll calls see exited child
+    processes, so there is no successful-exit gap before its identity checks.
+    """
+    manifest_path=Path(manifest_path)
+    if not manifest_path.exists():return False
+    manifest=read(manifest_path);manifest_sha256=sha(manifest_path)
+    require(manifest.get('schema')=='M1_GPU_COHORT_V1' and manifest.get('status')=='READY','Ready cohort required for release')
+    require(manifest['owner']['pid']==os.getpid(),'Only the original owning parent may release terminal peers')
+    peers=manifest['workers'];expected_pids={w['pid'] for w in peers};actual_pids={p.pid for p,_ in children}
+    if len(children)<len(peers):return False
+    require(len(children)==len(peers) and actual_pids==expected_pids,'Release child cohort differs from sealed manifest')
+    c=load_module('_closure_terminal_cohort',Path(reg['root'])/'experiments/m1-gpu-workers-20261004/cohort_runtime.py')
+    directory=barrier_directory(kind,manifest_sha256,reg);markers={}
+    for peer in peers:
+        path=directory/(worker_token(peer)+'.json')
+        if not path.exists():return False
+        validate_marker(read(path),peer,kind,manifest_sha256,reg,completion_path(reg['out'],kind,peer))
+        markers[str(path)]=sha(path)
+    expected=release_value(manifest_sha256,reg,markers);release=directory/'RELEASE.json'
+    c.assert_process(manifest['owner'])
+    if release.exists():require(read(release)==expected,'Parent release evidence changed')
+    else:
+        for peer in peers:c.assert_process(peer)
+        seal(release,expected)
+    codes=[]
+    for child,_ in children:
+        code=child.wait(timeout=60);require(code==0,'Terminal worker failed while the parent released the cohort');codes.append(code)
+    seal(directory/'PARENT_REAPED.json',dict(status='ALL_RELEASED_WORKERS_REAPED_ZERO',release_sha256=sha(release),
+        pids=sorted(expected_pids),returncodes=codes,recovery_registration_sha256=reg['sha256']))
+    return True
+
+
+def wait_for_all(config,kind,reg,*,clock=time.monotonic,sleep=time.sleep,timeout=86400.,install_signals=True):
+    """Called strictly after the original worker/main returns successfully."""
+    root=Path(reg['root']);out=Path(reg['out']);manifest_path=Path(config['cohort_manifest'])
+    c=load_module('_closure_terminal_cohort',root/'experiments/m1-gpu-workers-20261004/cohort_runtime.py')
+    manifest=read(manifest_path);manifest_sha256=sha(manifest_path);mine=c.validate_manifest(manifest,config)
+    require(mine['pid']==os.getpid(),'Terminal wrapper PID differs from its admitted cohort')
+    c.assert_process(mine);c.assert_process(manifest['owner'])
+    own_path=completion_path(out,kind,mine)
+    validate_completion(own_path,kind,mine,reg['original_registration_sha256'],manifest_sha256)
+    directory=barrier_directory(kind,manifest_sha256,reg)
+    own_marker=directory/(worker_token(mine)+'.json')
+    seal(own_marker,marker_value(mine,kind,manifest_sha256,reg,own_path))
+    old_signals={};started=clock();verified={}
+    def stopped(signum,_frame):raise RuntimeError('Terminal cohort wait interrupted by signal '+str(signum))
+    if install_signals:
+        for number in (signal.SIGTERM,signal.SIGINT):old_signals[number]=signal.signal(number,stopped)
+    try:
+        while True:
+            require(sha(manifest_path)==manifest_sha256,'Sealed cohort manifest changed during terminal wait')
+            require(not Path(config['stop_file']).exists(),'Cohort stop requested during terminal wait')
+            c.assert_process(manifest['owner']);pending=[]
+            for peer in manifest['workers']:
+                token=worker_token(peer);path=directory/(token+'.json')
+                if path.exists():
+                    digest=sha(path)
+                    if token in verified:require(verified[token]==digest,'Verified terminal marker changed')
+                    else:
+                        validate_marker(read(path),peer,kind,manifest_sha256,reg,completion_path(out,kind,peer));verified[token]=digest
+                else:
+                    # Original strict process check is unchanged. Only peers with
+                    # successful terminal evidence may already have exited.
+                    c.assert_process(peer);pending.append(peer['worker_id'])
+            release_path=directory/'RELEASE.json'
+            if release_path.exists():
+                require(not pending,'Parent released before every original worker returned')
+                expected=release_value(manifest_sha256,reg,{str(directory/(key+'.json')):digest for key,digest in verified.items()})
+                require(read(release_path)==expected,'Parent terminal release differs from validated markers')
+                seal(directory/(worker_token(mine)+'_released.json'),dict(status='PARENT_RELEASE_VERIFIED',
+                    worker_id=mine['worker_id'],release_sha256=sha(release_path),guard_modified=False))
+                return expected
+            write(directory/(worker_token(mine)+'_waiting.json'),dict(status='WAITING_AFTER_FINAL_SAFETY',
+                pid=os.getpid(),waiting_for_worker_ids=pending,elapsed_seconds=clock()-started,
+                waiting_for_parent_release=not pending,cohort_manifest_sha256=manifest_sha256))
+            require(clock()-started<timeout,'Terminal peers did not finish before the engineering wait limit')
+            sleep(.5)
+    except BaseException as error:
+        write(directory/(worker_token(mine)+'_failure.json'),dict(status='FAILED',pid=os.getpid(),error=repr(error),
+            cohort_manifest_sha256=manifest_sha256,automatic_retry=False));raise
+    finally:
+        for number,handler in old_signals.items():signal.signal(number,handler)

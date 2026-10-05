@@ -1,0 +1,144 @@
+"""I/O and frozen scope for the audited M1 action-space closure."""
+from __future__ import annotations
+import csv
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import sys
+
+import numpy as np
+
+SNRS = [1, 4, 7, 13, 19]
+FAMILIES = ["QPSK", "16QAM"]
+CELLS = [(1024, "16QAM"), (2048, "QPSK"), (2048, "16QAM")]
+ACTION_COUNTS = {"N1024/16QAM": 73, "N2048/QPSK": 73, "N2048/16QAM": 98}
+METHODS = ["whole", "raster", "random", "entropy", "oracle"]
+CAL_SEEDS = [4101, 4102, 4103]
+DEV_SEEDS = [2001, 2002, 2003]
+
+
+def require(test, message):
+    if not test:
+        raise RuntimeError(message)
+
+
+def sha(path):
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for block in iter(lambda: handle.read(8*1024*1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def jsonable(value):
+    if isinstance(value, dict):
+        return {str(k): jsonable(v) for k, v in value.items()}
+    if isinstance(value, (tuple, list)):
+        return [jsonable(v) for v in value]
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, Path):
+        return str(value)
+    return value
+
+
+def identity(value):
+    return hashlib.sha256(json.dumps(jsonable(value), sort_keys=True, separators=(",", ":"), allow_nan=False).encode()).hexdigest()
+
+
+def read(path):
+    return json.loads(Path(path).read_text(encoding="utf-8-sig"))
+
+
+def write(path, value):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_text(json.dumps(jsonable(value), indent=2, ensure_ascii=False, allow_nan=False)+"\n", encoding="utf-8")
+    os.replace(temporary, path)
+
+
+def seal(path, value):
+    if Path(path).exists():
+        require(read(path) == jsonable(value), "Immutable artifact changed: " + str(path))
+    else:
+        write(path, value)
+
+
+def verify(bindings, root=None):
+    for path, digest in bindings.items():
+        p = Path(path)
+        if root is not None and not p.is_absolute():
+            p = Path(root)/p
+        require(sha(p) == digest, "Bound artifact changed: " + str(p))
+
+
+def load_module(alias, path):
+    path = Path(path).resolve()
+    if alias in sys.modules:
+        module = sys.modules[alias]
+        require(Path(module.__file__).resolve() == path, "Module alias collision: " + alias)
+        return module
+    spec = importlib.util.spec_from_file_location(alias, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[alias] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def validate_protocol(protocol):
+    fixed = dict(protocol='m1-action-space-closure-20261005-v1',
+                 cells=[list(cell) for cell in CELLS], action_counts=ACTION_COUNTS,
+                 phy_families=FAMILIES, snrs_db=SNRS, methods=METHODS,
+                 same_k_ablations=["raster", "random", "oracle"],
+                 calibration_sources=1000, calibration_noise_seeds=CAL_SEEDS,
+                 development_sources=100, development_noise_seeds=DEV_SEEDS,
+                 qualification_sources=1, benchmark_sources=2, header_uses=68,
+                 training_updates=0, holdout_access=False)
+    for key, value in fixed.items():
+        require(protocol.get(key) == value, "Registered closure field changed: " + key)
+    return protocol
+
+
+def action_dict(action):
+    return dict(N=int(action.N), phy=action.phy, m=int(action.m), q=int(action.q), order=action.order)
+
+
+def action_id(action):
+    return "N%d/%s/m%d/K%d/%s" % (action.N, action.phy, action.m, action.q, action.order)
+
+
+def write_csv(path, rows):
+    require(bool(rows), "Refuse empty table")
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fields = list(dict.fromkeys(k for row in rows for k in row))
+    temporary = path.with_name(path.name + ".tmp")
+    with temporary.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(rows)
+    os.replace(temporary, path)
+
+
+def checkpoint(path, binding, index):
+    payload = read(path)
+    digest = payload.pop("payload_sha256")
+    require(identity(payload) == digest and payload["binding"] == binding and payload["source_index"] == index,
+            "Source checkpoint identity mismatch")
+    return payload
+
+
+def sealed_checkpoint(path, payload):
+    seal(path, dict(payload, payload_sha256=identity(payload)))
+    return payload
+
+
+def rgb_sha(image):
+    a = np.ascontiguousarray(image, dtype=np.float32)
+    require(a.shape == (3, 256, 256) and np.isfinite(a).all(), "Finite CHW float32 RGB required")
+    return hashlib.sha256(b"float32:3,256,256:RGB\0" + a.tobytes()).hexdigest()

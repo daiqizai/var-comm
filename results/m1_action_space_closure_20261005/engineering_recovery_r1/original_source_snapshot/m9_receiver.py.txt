@@ -1,0 +1,219 @@
+"""Unconditional VAR prefix logits, deterministic order, and partial clamping.
+
+The next-scale logits depend on the complete received coarser prefix. Known
+tokens are clamped after that one prediction; they change only finer-scale
+conditioning. No same-scale inpainting, clean feature, or receiver truth input.
+"""
+import hashlib
+
+import numpy as np
+import torch
+from m9_phy import SIZES, Action, action_record, next_length
+
+RANDOM_SEED = 2026100201
+ENTROPY_DECIMALS = 6
+ORDER_VERSION = 'prefix-derived-order-v1'
+
+
+def _prefix(prefix):
+    if not 4 <= len(prefix) <= 9:
+        raise ValueError('Complete m4..m9 prefix required')
+    values = []
+    for k, tokens in enumerate(prefix):
+        tokens = np.asarray(tokens)
+        if tokens.shape != (SIZES[k]**2,) or not np.issubdtype(tokens.dtype, np.integer) or np.any(tokens<0) or np.any(tokens>=4096):
+            raise ValueError('Actual complete received 12-bit token arrays required')
+        values.append(tokens.astype(np.int64))
+    return values
+
+
+def prefix_sha(prefix):
+    prefix = _prefix(prefix); h = hashlib.sha256(f'{ORDER_VERSION}|m{len(prefix)}|'.encode())
+    for tokens in prefix:
+        h.update(np.asarray(tokens, dtype='<u2').tobytes())
+    return h.hexdigest()
+
+
+def entropy_values(logits):
+    logits = np.asarray(logits)
+    if logits.ndim != 2 or logits.shape[1] != 4096 or logits.dtype != np.float32 or not np.isfinite(logits).all():
+        raise ValueError('Finite CPU FP32 full-codebook logits required')
+    x = logits.astype(np.float64); x -= x.max(1, keepdims=True)
+    logp = x-np.log(np.exp(x).sum(1, keepdims=True))
+    entropy = -(np.exp(logp)*logp).sum(1)
+    if not np.isfinite(entropy).all():
+        raise FloatingPointError('Nonfinite next-scale entropy')
+    return entropy
+
+
+def order_positions(prefix, order, q, logits=None, truth_next=None):
+    """Only the TX oracle may pass truth_next; all deployable orders ignore it."""
+    prefix = _prefix(prefix); m = len(prefix); length = next_length(m)
+    if isinstance(q, (bool, np.bool_)) or not isinstance(q, (int, np.integer)) or not 0 <= q < length:
+        raise ValueError('Registered partial q required')
+    if q == 0:
+        return np.empty(0, dtype=np.int64)
+    if order not in ('raster', 'random', 'entropy', 'oracle'):
+        raise ValueError('Registered partial order required')
+    if truth_next is not None and order != 'oracle':
+        raise ValueError('Truth is permitted only at the TX oracle')
+    indices = np.arange(length, dtype=np.int64)
+    if order == 'raster':
+        ranked = indices
+    elif order == 'random':
+        # A per-position SHA256 permutation avoids platform-specific PRNG draws,
+        # unsent image IDs, mutable draw counts, and call-order dependence.
+        key = f'{ORDER_VERSION}|seed{RANDOM_SEED}|{prefix_sha(prefix)}|'
+        ranked = np.array(sorted(indices.tolist(), key=lambda j:(hashlib.sha256((key+str(j)).encode()).digest(), j)), dtype=np.int64)
+    else:
+        if logits is None or np.asarray(logits).shape != (length, 4096):
+            raise ValueError('Full next-scale logits required')
+        rounded = np.rint(entropy_values(logits)*10**ENTROPY_DECIMALS).astype(np.int64)
+        if order == 'entropy':
+            ranked = np.lexsort((indices, -rounded))
+        else:
+            truth = np.asarray(truth_next)
+            if truth.shape != (length,) or not np.issubdtype(truth.dtype, np.integer) or np.any(truth<0) or np.any(truth>=4096):
+                raise ValueError('TX oracle requires the true next-scale tokens')
+            wrong = truth != np.asarray(logits).argmax(1)
+            ranked = np.lexsort((indices, -rounded, -wrong.astype(np.int64)))
+    chosen = ranked[:int(q)].astype(np.int64)
+    return np.sort(chosen) if order == 'oracle' else chosen
+
+
+class _Prior:
+    """Fresh official cached forward, fixed class1000 and batch size one."""
+    def __init__(self, vae, var, device=None):
+        if tuple(vae.quantize.v_patch_nums) != SIZES or var.training or float(var.cond_drop_rate) != 0:
+            raise ValueError('Frozen official ten-scale VAR with dropout disabled required')
+        self.vae, self.var = vae, var
+        self.device = next(var.parameters()).device if device is None else torch.device(device)
+        if next(var.parameters()).device != self.device:
+            raise ValueError('VAR and declared device differ')
+        label = torch.full((1,), 1000, dtype=torch.long, device=self.device)
+        self.cond = var.class_emb(label); self.condition = var.shared_ada_lin(self.cond)
+        if self.cond.dtype != torch.float32 or self.condition.dtype != torch.float32 or vae.quantize.embedding.weight.dtype != torch.float32:
+            raise ValueError('Pinned FP32 prior and VQ embedding required')
+        self.positions = var.lvl_embed(var.lvl_1L)+var.pos_1LC
+        self.x = self.cond[:, None].expand(-1, var.first_l, -1)+var.pos_start+self.positions[:, :var.first_l]
+        self.offset = 0; self.fhat = self.cond.new_zeros(1, var.Cvae, SIZES[-1], SIZES[-1])
+        for block in var.blocks:
+            block.attn.kv_caching(True)
+
+    def logits(self, k):
+        if self.x.shape[1] != SIZES[k]**2:
+            raise ValueError('VAR cached prefix length changed')
+        h = self.x
+        for block in self.var.blocks:
+            h = block(x=h, cond_BD=self.condition, attn_bias=None)
+        logits = self.var.get_logits(h, self.cond).float()
+        if not torch.isfinite(logits).all():
+            raise FloatingPointError('Nonfinite next-scale logits')
+        return logits
+
+    def advance(self, tokens, k):
+        q = self.vae.quantize
+        indices = torch.as_tensor(np.asarray(tokens), dtype=torch.long, device=self.device)[None]
+        if indices.shape != (1, SIZES[k]**2):
+            raise ValueError('Complete scale needed before finer-scale conditioning')
+        embedded = q.embedding(indices).transpose(1, 2).reshape(1, self.var.Cvae, SIZES[k], SIZES[k])
+        self.fhat, nxt = q.get_next_autoregressive_input(k, len(SIZES), self.fhat, embedded)
+        self.offset += SIZES[k]**2
+        if k+1 < len(SIZES):
+            self.x = self.var.word_embed(nxt.reshape(1, self.var.Cvae, -1).transpose(1, 2))+self.positions[:, self.offset:self.offset+SIZES[k+1]**2]
+
+    def close(self):
+        for block in self.var.blocks:
+            block.attn.kv_caching(False)
+
+
+@torch.no_grad()
+def prefix_logits(vae, var, prefix, device=None):
+    """Independent fresh forward; returns a CPU FP32 ndarray [L,4096]."""
+    prefix = _prefix(prefix); pr = _Prior(vae, var, device)
+    try:
+        for k, tokens in enumerate(prefix):
+            pr.logits(k); pr.advance(tokens, k)
+        return pr.logits(len(prefix))[0].cpu().numpy().copy()
+    finally:
+        pr.close()
+
+
+def _event_partial(event):
+    action = event.get('action')
+    if not isinstance(action, Action):
+        raise ValueError('An actual received-header Action is required')
+    prefix = _prefix(event['prefix'])
+    if len(prefix) != action.m:
+        raise ValueError('Received action and hard-prefix length differ')
+    usable = bool(action.q and event['prefix_crc_ok'] and event['partial_crc_ok'] and event['partial_fields_legal'] and event['partial_usable'])
+    values = np.asarray(event['partial_values'], dtype=np.int64)
+    if usable and (values.shape != (action.q,) or np.any(values<0) or np.any(values>=4096)):
+        raise ValueError('Actual received partial values differ from the paid action')
+    return action, prefix, usable, values
+
+
+def received_cache_key(event):
+    """Only actual received sequences and decisions; never a source/truth lookup."""
+    if not event['header_ok']:
+        return 'header-erasure'
+    action, prefix, usable, values = _event_partial(event)
+    h = hashlib.sha256(f'{ORDER_VERSION}|U1000|{prefix_sha(prefix)}|'.encode())
+    if usable:
+        h.update(f'm{action.m}|q{action.q}|{action.order}|'.encode())
+        h.update(np.asarray(values, dtype='<u2').tobytes())
+        if action.order == 'oracle':
+            h.update(np.asarray(event['partial_positions'], dtype='<u2').tobytes())
+    else:
+        h.update(b'no-usable-partial')
+    return h.hexdigest()
+
+
+@torch.no_grad()
+def complete_partial(vae, var, event, device=None, return_logits=False):
+    """RX uses received event only. fhat is CPU FP32 [1,32,16,16].
+
+    tokens are ten CPU int64 ndarrays. diagnostics are JSON-safe. For a head
+    erasure fhat=None and tokens=[]; render the original constant RGB .5.
+    Prefix CRC passing is a protocol decision, never proof of truth equality.
+    """
+    if not event['header_ok']:
+        return dict(fhat=None, tokens=[], logits=None, next_prior_tokens=None, diagnostics=dict(latent_valid=False,
+            decoder_applied=False, partial_used=False, known_count=0, known_tokens_fixed=True,
+            source_error='header_erasure', order_sha256=None))
+    action, prefix, usable, values = _event_partial(event)
+    pr = _Prior(vae, var, device); chosen = []; positions = np.empty(0, dtype=np.int64)
+    next_logits = None; next_greedy = None; kept = True
+    try:
+        for k in range(len(SIZES)):
+            logits = pr.logits(k)
+            if k < len(prefix):
+                indices = prefix[k].copy()
+            else:
+                indices = logits[0].argmax(-1).cpu().numpy().astype(np.int64)
+                if k == action.m:
+                    next_greedy = indices.copy(); next_logits = logits[0].cpu().numpy().copy()
+                    if usable:
+                        if action.order == 'oracle':
+                            positions = np.asarray(event['partial_positions'], dtype=np.int64)
+                            if positions.shape != (action.q,) or len(set(positions.tolist()))!=action.q or np.any(positions<0) or np.any(positions>=next_length(action.m)):
+                                raise ValueError('Actual paid oracle mask positions are illegal')
+                        else:
+                            positions = order_positions(prefix, action.order, action.q, next_logits)
+                        indices = indices.copy(); indices[positions] = values
+                        kept = bool(np.array_equal(indices[positions], values))
+            chosen.append(indices); pr.advance(indices, k)
+        fhat = pr.fhat.float().cpu().clone()
+    finally:
+        pr.close()
+    order_sha = hashlib.sha256(np.asarray(positions, dtype='<u2').tobytes()).hexdigest() if usable else None
+    diagnostics = dict(latent_valid=True, decoder_applied=True,
+        partial_used=usable, known_count=int(len(positions)), known_positions=positions.tolist(),
+        known_values=values.tolist() if usable else [], known_tokens_fixed=kept,
+        next_scale=action.m+1, order_sha256=order_sha, prefix_sha256=prefix_sha(prefix),
+        prefix_crc_ok=bool(event['prefix_crc_ok']), partial_crc_ok=event['partial_crc_ok'],
+        partial_discard_reason=event['partial_discard_reason'],
+        same_scale_prediction='single logits map from coarser prefix; clamp received subset after argmax',
+        source_error=event['source_error'])
+    return dict(fhat=fhat, tokens=chosen, logits=next_logits if return_logits else None,
+                next_prior_tokens=next_greedy, diagnostics=diagnostics)
