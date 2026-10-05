@@ -1,0 +1,254 @@
+{
+  "schema": "H_CODEC_PROTOCOL_V1",
+  "status": "FROZEN_BEFORE_DATA",
+  "date": "2026-10-06",
+  "branch": "H",
+  "source_plan_sha256": "a5ce33f6a84d3ac581d87230f218aeff9dbd43078cbbdfb13b39ac97324c4984",
+  "user_additions_sha256": "2a0dfd112bd49c01e1608a1f0e3abfe413e746acf9d720f7adcc9341a471a8ab",
+  "N": 1024,
+  "header_symbols": 68,
+  "body_symbols": 956,
+  "channel": "AWGN",
+  "Es": 2,
+  "N0": "2/10**(SNR_dB/10)",
+  "real_noise_variance": "N0/2",
+  "main_snrs_db": [
+    13,
+    19
+  ],
+  "diagnostic_only_snrs_db": [
+    16
+  ],
+  "modulation_bits": [
+    4,
+    6
+  ],
+  "rates": [
+    "1/2",
+    "2/3",
+    "3/4",
+    "5/6"
+  ],
+  "max_ldpc_iterations": 20,
+  "power": "Fixed mean-Es2 constellation, no per-frame normalization; record all frame energies, mean/SD/quantiles/extrema",
+  "source": {
+    "class_index": 1000,
+    "cfg": false,
+    "sampling": false,
+    "choice": "greedy first argmax",
+    "precision": "original FP32",
+    "whole_targets": [
+      6,
+      7,
+      8,
+      9
+    ],
+    "sizes": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      8,
+      10,
+      13,
+      16
+    ],
+    "codebook_size": 4096,
+    "raw_bits_per_token": 12,
+    "ordering": "public raster",
+    "decoder": "frozen common Dc",
+    "new_training": 0
+  },
+  "raw64": {
+    "enumeration": "Every nonempty canonical (m,K) with 12*(sum(s_i**2 for i<m)+K)<=k-29, for each admitted actual backend bucket",
+    "K": "Every integer, including K=0; full next scale canonicalizes to m+1,K0. No artificial m8 boundary.",
+    "empty": "No-payload/gray is a failure reference, not an uncharged competing action",
+    "required_bucket_count": 4,
+    "resource_projection_counts": [
+      236,
+      316,
+      356,
+      395
+    ],
+    "resource_projection_maxima": [
+      "m7K81",
+      "m8K61",
+      "m8K101",
+      "m8K140"
+    ],
+    "projection_is_not_actual_admission": true,
+    "catalogue_limit": 4096,
+    "search_claim": "Complete legal action enumeration within these four rates; bounded expected-quality prescreen plus real shortlisted calibration, not globally proven optimal PHY",
+    "clean_quality": "All distinct legal raw64 states on the fixed hash200, mean per-source PSNR/MSE; same reconstruction reused across physical rates",
+    "shortlist": "After registered physical table/refinement, retain top3 distinct candidate profiles per main SNR by expected PSNR; all integer K participate",
+    "real_calibration": "Each retained profile on original1000 with3 fresh calibration noises; select mean per-image PSNR, all frames retained"
+  },
+  "wire": {
+    "header": "12-bit public profile ID, CRC16, tail6 convolutional protected/rate-matched to136 bits =68 QPSK symbols",
+    "body": "13-bit L | exactly L source bits | zeros to k-16 | CRC16",
+    "L": "Includes canonical arithmetic termination; excludes storage-only byte padding",
+    "CRC": "Covers length, source payload and all actual zero padding; receive CRC before parse",
+    "layout": "Public profile gives k,n,q,m,K,mode before body decode. Unknown ID rejected; wrong accepted known ID follows actual selected layout.",
+    "arithmetic": "One continuous stream for a whole prefix; 32-bit integer state, TOTAL2**24, minfrequency1, floor(prob*(TOTAL-4096))+1, remainder to first maximum",
+    "finite_zero_extension": {
+      "max_bits": 30,
+      "canonical_valid_bits": 30,
+      "rule": "Allow only30 zero reads beyond declared payload; independently re-encode decoded tokens under receiver-generated CDF and require exact canonical bit equality",
+      "reason": "Current finish emits renormalization_count+2 bits; this decoder consumes renormalization_count+32. Never read k-padding as source stream."
+    },
+    "invalid": "CRC-accepted illegal L/padding/noncanonical/truncated stream produces registered gray; record decode_invalid",
+    "accepted_wrong": "If parser accepts wrong actual bits, render actual recovered tokens. Ground truth comparison is evaluation only."
+  },
+  "scrambling": {
+    "rule": "One public PCG64 mask from SHA256(protocol,session,public_frame_counter,group) after rate matching",
+    "source_or_noise_dependent": false,
+    "search": false,
+    "receiver_knows_public_frame_counter": true,
+    "not_legacy_waveform": true
+  },
+  "fallback": {
+    "order": "Target whole m then m-1 down to m6; final paid profile carries actual m and mode",
+    "arithmetic_choice": "For each attempted m use arithmetic only if strictly shorter than raw; raw wins equal length; retain attempted lengths",
+    "if_no_m6_fits": "Transmit registered m6 raw (fits all planned buckets); if actual backend rejects that bucket, bucket is unavailable",
+    "after_transmission": "No retransmission or free m8 rescue. All four H arms use whole-body DROP gray on rejection.",
+    "gray_rgb": 0.5,
+    "all_frames_included": true
+  },
+  "population": {
+    "initial": "Reuse exact S1 source200 list, originally source-ID hash200 from construction800; no reselection",
+    "full_calibration": "Original registered1000 only; full1000 is calibration, not independent holdout",
+    "development": "Original100 sources; fixed3 new channel noise draws",
+    "initial_and_full_cal_noise_seeds": [
+      6101,
+      6102,
+      6103
+    ],
+    "development_noise_seeds": [
+      6201,
+      6202,
+      6203
+    ],
+    "seed_rule": "PCG64 from first16 SHA256 bytes of canonical [H protocol,stage,source_id,snr,seed]; same underlying1024x2 standard Gaussian for matched methods; different waveform is not same observation",
+    "qualification_seed": 2026100601,
+    "coarse_seed": 2026100602,
+    "expected_prescreen": "Clean-state PSNR and measured header/body C/R/U frequencies; unknown accepted image state uses gray PSNR ONLY as explicit screening surrogate; actual shortlisted U must be decoded/rendered. No real U image may be scored by the surrogate."
+  },
+  "calibration": {
+    "coarse": "8 unique admitted q/r body layouts x3 SNR x2048 independent random messages; each body call charged; header separately qualified",
+    "real_payload_noise_count_per_configuration": 3,
+    "refine": "At most2 body layout/SNR cells receive6144 additional calls to total8192; no automatic transfer from later phase quotas",
+    "refine_eligible": "Main SNR13/19 only, 0.01<=observed BLER<=0.99, and that cell is used by a top2 expected-PSNR candidate whose Wilson95 PSNR interval overlaps the current best candidate interval",
+    "refine_order": "Descending induced PSNR interval width among qualifying top2 candidates; tie SNR ascending, q ascending, exact rational rate ascending; freeze list before any added calls",
+    "four_arm_initial": "For each4 arms x2 main SNR choose at most2 target-m/r policies by expected PSNR over all whole targets/rates/fallback outcomes; actual200x3 per candidate; at most19200 header/body calls",
+    "four_arm_full": "Per arm/SNR retain1 by actual200 mean PSNR, then full1000x3 real payload validation;48000 calls maximum. Full1000 not an excuse to add an unregistered alternative.",
+    "partial_full": "At most3 candidates per SNR,1000x3,36000 calls maximum; select after complete population",
+    "ties": "Mean per-image PSNR within1e-12: fewer average attempted TX probability scales, then lower q, lower rational rate, lower target m/K, lexical profile key",
+    "no_development_selection": true
+  },
+  "matched_attribution": {
+    "m": 7,
+    "K": 0,
+    "nominal_rate": "1/2",
+    "arms": [
+      "H16-R",
+      "H16-A",
+      "H64-R",
+      "H64-A"
+    ],
+    "source": "Same155 raw tokens at all arms; arithmetic may choose raw if not shorter, paid mode; no source truncation differences",
+    "status_rule": "Must be actual-admitted existing whole-grid point; otherwise NOT_FEASIBLE, never replace from development",
+    "purpose": "Auxiliary fixed-source contrast; optimized per-arm system results reported separately",
+    "new_large_grid": false
+  },
+  "development": {
+    "arms": [
+      "H16-R best",
+      "H16-A best",
+      "H64-R best",
+      "H64-A best",
+      "H64 raw partial best",
+      "fixedm7 H16-R",
+      "fixedm7 H16-A",
+      "fixedm7 H64-R",
+      "fixedm7 H64-A",
+      "main calibrated QPSK",
+      "main calibrated16QAM"
+    ],
+    "maximum_packet_calls": 13200,
+    "P": "P1024 same100 sources13/19dB; reuse compatible checkpoints, otherwise inference only; exact seed compatibility explicit"
+  },
+  "qualification": {
+    "layouts": 8,
+    "noiseless_messages_per_layout": 8,
+    "header_roundtrips": 8,
+    "curve_messages_per_layout_snr": 64,
+    "curve_snrs": [
+      13,
+      16,
+      19
+    ],
+    "maximum_packet_calls": 2000,
+    "uncoded_symbols_per_q_snr": 100000,
+    "uncoded_check": "Exact coherent uniform square-QAM SER at Es/N0, and independent actual decision-region integration; empirical discrepancy <=5 standard errors+0.001",
+    "coded_check": "No invented closed-form LDPC BLER; report measured curve and Wilson intervals. Adjacent-SNR nonoverlap of99.9% Wilson success intervals in reversed direction flags implementation for diagnosis; weak but valid performance is scientific evidence.",
+    "bits_interleaver": "Exact no-noise decoded bits, LLR sign for every constellation label, permutation/inverse, k/n/filler/puncturing all verified",
+    "sampling_power": "Constellation exact Es2; actual scrambled frame energy distribution recorded, not normalized"
+  },
+  "success": {
+    "statistics": "Per-source mean3 noises, then paired percentile95 bootstrap10000 repetitions seed2026100605 per SNR; original100 development, not new holdout",
+    "main_reference": "Both full1000-calibrated raster+KEEP LDPC QPSK and16QAM, with registered within-family objective unchanged; S1 bridge is not full calibration",
+    "positive": "For each13/19dB H-versus-main PSNR CI lower>0; LPIPS difference CI upper<=0; CLIP and ConvNeXt source-prediction-agreement difference CI lower>=0",
+    "primary_independent_classifier": "ConvNeXt (existing metric identity), never used in selection; ResNet50 supplementary",
+    "noninferiority_margin": 0,
+    "uncertainty": "CI crossing0 is UNRESOLVED, never evidence of no deterioration",
+    "coverage": "Report each SNR/reference separately; full two-SNR superiority claim needs both SNRs. All matched P gaps still reported.",
+    "P_gap": "Narrowing of (P-main)-(P-H) equals H-main; do not double-count it as independent evidence",
+    "only_DINO": "representation-target-only, no claim of content correctness"
+  },
+  "timing": {
+    "separate": [
+      "TX visual encoding",
+      "TX VAR probability",
+      "integer CDF/arith encode",
+      "header/body PHY encode",
+      "header/body PHY decode",
+      "RX VAR probability",
+      "canonical parse/arith decode",
+      "suffix VAR and Dc"
+    ],
+    "online": "Fixed16 development sources, isolated GPU, no per-image probability/final-output cache; all failed/fallback attempts counted",
+    "preparation_timing_is_online": false
+  },
+  "schedule": {
+    "order": [
+      "H qualification",
+      "H source/finite calibration",
+      "full main calibration needed for comparisons",
+      "H final evaluation and report",
+      "C-REAL",
+      "final freeze before holdout"
+    ],
+    "max_visual_gpu_jobs": 1,
+    "cpu_workers_max": 2,
+    "cpu_threads_each": 2,
+    "cpu_nice": 15,
+    "qualification_start_unix": 1791219005.9549868,
+    "review_hours": 72,
+    "hard_deadline_hours": 96,
+    "deadline_unix": 1791564605.9549868,
+    "on_unqualified_deadline": "Pause H; prioritize original main-system calibration and paper evidence; do not substitute C or extend deadline",
+    "failure": "Preserve evidence; stop dependent stages and diagnose; no blind automatic retries",
+    "execution": "Immutable stage-batch revisions bind implemented entrypoints. Pending stages are explicitly not launched until their executable revision is sealed; scientific selection rules stay unchanged."
+  },
+  "limits": {
+    "no_new_training": true,
+    "no_A1_A2_restart": true,
+    "no_C_times_H": true,
+    "no_256QAM": true,
+    "no_full_m10_arithmetic": true,
+    "no_new_holdout_read": true,
+    "no_scope_extension": true
+  }
+}

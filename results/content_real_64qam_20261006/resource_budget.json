@@ -1,0 +1,20 @@
+{
+  "schema": "H_PACKET_BUDGET_V1",
+  "status": "FROZEN",
+  "branch": "H",
+  "total_cap": 200000,
+  "phase_limits": {
+    "qualification": 2000,
+    "coarse": 49152,
+    "refine": 12288,
+    "initial_true200": 20000,
+    "whole_calibration": 48000,
+    "partial_calibration": 36000,
+    "development": 13200,
+    "engineering_reserve": 19360
+  },
+  "units": "Every actual header or body decoder invocation; reserve atomically before call, including failures",
+  "no_automatic_transfers": true,
+  "no_automatic_reserve_spending": true,
+  "accounting": "Persistent SQLite ledger; failures remain charged; old byte-identical receipts may be reused without new call"
+}

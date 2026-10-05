@@ -1,0 +1,176 @@
+{
+  "correct_probability_compatibility": {
+    "basis": "Same terminated linear/affine CRC+convolutional waveform, rate matching, symmetric QPSK AWGN and uninformative trellis metric; old source-independent C model is reused. A correctly decoded transmitted legal ID always passes membership.",
+    "new_population": "Only transmitted IDs in the finite H codebook, unknown decoded IDs rejected",
+    "not_same_measured_sample": "Old uniform IDs are not replayed through the new finite codebook; no claim of identical old/new C/R/U sample vectors",
+    "old_population": "Uniform raw profile IDs0..4095, receiver codebook=None",
+    "restrictions": "Finite membership can move wrong CRC accepts from U to R; old R/U are not exact new-codebook measurements. No free correction from true profile ID.",
+    "reused": "Only the probability of exact recovery of a transmitted legal12-bit profile ID"
+  },
+  "diagnostic_16dB": {
+    "action": "Body-only physical diagnostic; no interpolation of header data and no full-link score at16dB",
+    "header_probability": null,
+    "status": "NOT_MEASURED"
+  },
+  "helper_source_sha256": "8337f6006f63776a6c2f7f98bd925d4c200c6df044d51cd674303e1eb108831c",
+  "historical_source_comparisons": [
+    {
+      "current_sha256": "1f1fad07942e30cbc844e0cc3c2d7da7c747b568639d27115dc33eaec49cc65b",
+      "exact_bytes_equal": true,
+      "historical_sha256": "1f1fad07942e30cbc844e0cc3c2d7da7c747b568639d27115dc33eaec49cc65b",
+      "path": "experiments/prior-aware-grouped-mcs-v1/uep_phy.py",
+      "ref": "040e94d"
+    },
+    {
+      "current_sha256": "35cae80a94d3997584342b6e4566a6cff53cf4914ca4745a59b0a9bba48c8145",
+      "exact_bytes_equal": true,
+      "historical_sha256": "35cae80a94d3997584342b6e4566a6cff53cf4914ca4745a59b0a9bba48c8145",
+      "path": "src/var_comm/scale_channel.py",
+      "ref": "040e94d"
+    },
+    {
+      "current_sha256": "035058221b35df245fe1520a0e14f741528b53d84c0a987359d0df0d226a7b52",
+      "exact_bytes_equal": true,
+      "historical_sha256": "035058221b35df245fe1520a0e14f741528b53d84c0a987359d0df0d226a7b52",
+      "path": "src/var_comm/token_trellis.cpp",
+      "ref": "040e94d"
+    }
+  ],
+  "input_bindings": {
+    "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/execution_v1/execution_registration.json": "999b4692fbab484eefd581bd7ca586e2685cff16984a51c0fac63b3f7c61fa9f",
+    "REPO/outputs/PRIOR-AWARE-UEP-20261004-V1/bler_refined_02.json": "e7e316ba722e2315261b4ba3c75aa0b4d33973fab09ad50978fe4b46909d4f52",
+    "REPO/outputs/PRIOR-AWARE-UEP-20261004-V1/phy_shards/0/points/2fa8eef84b8520b8cfa916a6f21089e0632720eaadaddbe26643cf2a42744307/checkpoint.json": "e2c9c493a6bca205c760c7ed645dd01a3aea22399b183c59f431ec6784db9192",
+    "REPO/outputs/PRIOR-AWARE-UEP-20261004-V1/phy_shards/0/points/2fa8eef84b8520b8cfa916a6f21089e0632720eaadaddbe26643cf2a42744307/refined.json": "e2c9c493a6bca205c760c7ed645dd01a3aea22399b183c59f431ec6784db9192",
+    "REPO/outputs/PRIOR-AWARE-UEP-20261004-V1/phy_shards/0/points/353617a689653e4439bca3d78677f08645b9c1c18774212de44c161ca27d5c75/checkpoint.json": "14d547ea2859ba99185752ff343ad08d0c490cf99e44064588dc7e62eb22b971",
+    "REPO/outputs/PRIOR-AWARE-UEP-20261004-V1/phy_shards/0/points/353617a689653e4439bca3d78677f08645b9c1c18774212de44c161ca27d5c75/refined.json": "14d547ea2859ba99185752ff343ad08d0c490cf99e44064588dc7e62eb22b971"
+  },
+  "main_snrs_db": [
+    13,
+    19
+  ],
+  "new_ledger_charges": 0,
+  "new_packet_decodes": 0,
+  "old_files_modified": false,
+  "points": [
+    {
+      "U_envelope_condition": "Under the same message-independent symmetric header channel, legal-ID filtering can only remove unrestricted wrong CRC accepts; this is an uncertainty envelope, not a new measured U rate.",
+      "checkpoint": {
+        "batches": 625,
+        "binding": "d99f9df90f0bb426bc03e3a5fd29a9698434395c51c14699d5c9a44aed1bb4eb",
+        "checkpoint_path": "REPO/outputs/PRIOR-AWARE-UEP-20261004-V1/phy_shards/0/points/353617a689653e4439bca3d78677f08645b9c1c18774212de44c161ca27d5c75/checkpoint.json",
+        "file_sha256": "14d547ea2859ba99185752ff343ad08d0c490cf99e44064588dc7e62eb22b971",
+        "refined_path": "REPO/outputs/PRIOR-AWARE-UEP-20261004-V1/phy_shards/0/points/353617a689653e4439bca3d78677f08645b9c1c18774212de44c161ca27d5c75/refined.json",
+        "sha256_of_internal_payload": "180bee788c7f0ab03cfb79356c7002b12ab4fec42a7b7b63310a3560c3b215fe",
+        "verified_packet_count": 20000
+      },
+      "new_finite_codebook_R_exact_reuse": false,
+      "new_finite_codebook_U_exact_reuse": false,
+      "new_finite_codebook_U_probability": null,
+      "new_finite_codebook_U_upper_envelope": 0.00019203605610462553,
+      "old_counts": {
+        "n_blocks": 20000,
+        "n_correct": 20000,
+        "n_reject": 0,
+        "n_undetected": 0
+      },
+      "old_raw_uniform_id_empirical_C_R_U": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "old_stored_individual_wilson95": {
+        "correct": [
+          0.9998079639438954,
+          0.9999999999999999
+        ],
+        "reject": [
+          0.0,
+          0.00019203605610462553
+        ],
+        "undetected": [
+          0.0,
+          0.00019203605610462553
+        ]
+      },
+      "old_unrestricted_U_wilson95": [
+        0.0,
+        0.00019203605610462553
+      ],
+      "p_header_correct_point": 1.0,
+      "p_header_correct_wilson95": [
+        0.9998079639438954,
+        1.0
+      ],
+      "snr_db": 13,
+      "zero_observed_errors_is_not_true_zero_failure": true
+    },
+    {
+      "U_envelope_condition": "Under the same message-independent symmetric header channel, legal-ID filtering can only remove unrestricted wrong CRC accepts; this is an uncertainty envelope, not a new measured U rate.",
+      "checkpoint": {
+        "batches": 625,
+        "binding": "d99f9df90f0bb426bc03e3a5fd29a9698434395c51c14699d5c9a44aed1bb4eb",
+        "checkpoint_path": "REPO/outputs/PRIOR-AWARE-UEP-20261004-V1/phy_shards/0/points/2fa8eef84b8520b8cfa916a6f21089e0632720eaadaddbe26643cf2a42744307/checkpoint.json",
+        "file_sha256": "e2c9c493a6bca205c760c7ed645dd01a3aea22399b183c59f431ec6784db9192",
+        "refined_path": "REPO/outputs/PRIOR-AWARE-UEP-20261004-V1/phy_shards/0/points/2fa8eef84b8520b8cfa916a6f21089e0632720eaadaddbe26643cf2a42744307/refined.json",
+        "sha256_of_internal_payload": "d1181d48d6e220303fd72a4f7a9a1084d6c244166ed5959ab5489d2ff112a625",
+        "verified_packet_count": 20000
+      },
+      "new_finite_codebook_R_exact_reuse": false,
+      "new_finite_codebook_U_exact_reuse": false,
+      "new_finite_codebook_U_probability": null,
+      "new_finite_codebook_U_upper_envelope": 0.00019203605610462553,
+      "old_counts": {
+        "n_blocks": 20000,
+        "n_correct": 20000,
+        "n_reject": 0,
+        "n_undetected": 0
+      },
+      "old_raw_uniform_id_empirical_C_R_U": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "old_stored_individual_wilson95": {
+        "correct": [
+          0.9998079639438954,
+          0.9999999999999999
+        ],
+        "reject": [
+          0.0,
+          0.00019203605610462553
+        ],
+        "undetected": [
+          0.0,
+          0.00019203605610462553
+        ]
+      },
+      "old_unrestricted_U_wilson95": [
+        0.0,
+        0.00019203605610462553
+      ],
+      "p_header_correct_point": 1.0,
+      "p_header_correct_wilson95": [
+        0.9998079639438954,
+        1.0
+      ],
+      "snr_db": 19,
+      "zero_observed_errors_is_not_true_zero_failure": true
+    }
+  ],
+  "prescreen": {
+    "estimator": "pH_C*pB_C*mean_source_PSNR_of_correct_state + (1-pH_C*pB_C)*mean_source_gray_PSNR",
+    "header_C_point_source": "points[].p_header_correct_point",
+    "selection_updates": "No new samples, no C-REAL weights updated, no protocol or candidate objective changed",
+    "uncertainty": "Propagate individual header C Wilson95 bounds together with separately measured body uncertainty; these are not simultaneous95% candidate bounds.",
+    "unknown_accepted": "Gray PSNR is the already registered screening surrogate only; actual wrong accepted/parseable outputs must be decoded and rendered in real-image validation."
+  },
+  "schema": "H_HEADER_REUSE_V1",
+  "scope": "PSNR_PRESCREEN_ONLY; actual shortlisted/development headers still undergo paid real decoding",
+  "source_bindings": {
+    "REPO/experiments/content-real-64qam-20261006/h64_phy.py": "8e8db829efac84247d1ac6c312f59558eb7d2ebe06e7d8888509891b9c140ab7",
+    "REPO/experiments/prior-aware-grouped-mcs-v1/uep_phy.py": "1f1fad07942e30cbc844e0cc3c2d7da7c747b568639d27115dc33eaec49cc65b",
+    "REPO/src/var_comm/scale_channel.py": "35cae80a94d3997584342b6e4566a6cff53cf4914ca4745a59b0a9bba48c8145",
+    "REPO/src/var_comm/token_trellis.cpp": "035058221b35df245fe1520a0e14f741528b53d84c0a987359d0df0d226a7b52"
+  },
+  "status": "H_HEADER_CORRECT_PROBABILITY_REUSE_REGISTERED"
+}

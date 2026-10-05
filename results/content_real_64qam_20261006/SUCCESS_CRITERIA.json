@@ -1,0 +1,29 @@
+{
+  "H": {
+    "statistics": "Per-source mean3 noises, then paired percentile95 bootstrap10000 repetitions seed2026100605 per SNR; original100 development, not new holdout",
+    "main_reference": "Both full1000-calibrated raster+KEEP LDPC QPSK and16QAM, with registered within-family objective unchanged; S1 bridge is not full calibration",
+    "positive": "For each13/19dB H-versus-main PSNR CI lower>0; LPIPS difference CI upper<=0; CLIP and ConvNeXt source-prediction-agreement difference CI lower>=0",
+    "primary_independent_classifier": "ConvNeXt (existing metric identity), never used in selection; ResNet50 supplementary",
+    "noninferiority_margin": 0,
+    "uncertainty": "CI crossing0 is UNRESOLVED, never evidence of no deterioration",
+    "coverage": "Report each SNR/reference separately; full two-SNR superiority claim needs both SNRs. All matched P gaps still reported.",
+    "P_gap": "Narrowing of (P-main)-(P-H) equals H-main; do not double-count it as independent evidence",
+    "only_DINO": "representation-target-only, no claim of content correctness"
+  },
+  "statistics": "Per-source mean3 noises, then paired percentile95 bootstrap10000 repetitions seed2026100605 per SNR; original100 development, not new holdout",
+  "C": {
+    "primary": "DINOv2-L",
+    "independent": [
+      "CLIP",
+      "ConvNeXt source-prediction agreement"
+    ],
+    "gain": "DINO-L paired95CI lower>0",
+    "non_deterioration": "Independent differences paired95CI lower>=0, margin0",
+    "unclear": "Independent intervals crossing0 => unresolved; report effect and interval",
+    "DINO_only": "仅对表征目标有效；不声称内容更正确；分支停止",
+    "source_level": "Each of64 sources averaged over16 independent fading/noise instances before paired bootstrap",
+    "no_more_samples": true,
+    "no_weight_update": true,
+    "stop_after_registered_delivery": true
+  }
+}

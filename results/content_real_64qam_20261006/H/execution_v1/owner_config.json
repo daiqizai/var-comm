@@ -1,0 +1,132 @@
+{
+  "root": "REPO",
+  "out": "REPO/outputs/CONTENT-REAL-64QAM-20261006/H",
+  "owner_out": "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/execution_v1",
+  "branch": "H",
+  "registration": "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/execution_v1/execution_registration.json",
+  "budget_registration": "REPO/outputs/CONTENT-REAL-64QAM-20261006/resource_budget.json",
+  "budget_registration_sha256": "f3107e48b13f94815d68ffa9c6f750dec1c3342603fd70790c83130017c558d2",
+  "budget_path": "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/packet_budget.sqlite",
+  "phase_limits": {
+    "qualification": 2000,
+    "coarse": 49152,
+    "refine": 12288,
+    "initial_true200": 20000,
+    "whole_calibration": 48000,
+    "partial_calibration": 36000,
+    "development": 13200,
+    "engineering_reserve": 19360
+  },
+  "S1_gate": {
+    "path": "REPO/outputs/PAPER-CONSOLIDATION-20261005/S1/completion.json",
+    "sha256": "4fb30b92b97825b52a16db63dc0316736b8de19f1cd7d50dd42226afc721ec70",
+    "status": "S1_BRIDGE_COMPLETE_AWAIT_NEXT_DECISION"
+  },
+  "qualification_started_unix": 1791219005.9549868,
+  "qualification_deadline_unix": 1791564605.9549868,
+  "overall_deadline_unix": 1791564605.9549868,
+  "cpu_affinities": [
+    [
+      0,
+      1
+    ],
+    [
+      2,
+      3
+    ]
+  ],
+  "gpu_affinity": [
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "gpu_threads": 6,
+  "gpu_device": 0,
+  "nvidia_smi": "/usr/bin/nvidia-smi",
+  "visual_lock_path": "REPO/outputs/CONTENT-REAL-64QAM-20261006/shared_visual.lock",
+  "stages": [
+    {
+      "id": "qualification",
+      "resource": "cpu",
+      "requires": [],
+      "max_seconds": 14400,
+      "jobs": [
+        {
+          "id": "qualification",
+          "argv": [
+            "REPO/outputs/PRIOR-AWARE-UEP-20261004-V1/ldpc_environment/bin/python",
+            "-B",
+            "REPO/experiments/content-real-64qam-20261006/h64_qualification.py",
+            "--config",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/execution_v1/qualification_config.json"
+          ],
+          "cwd": "REPO",
+          "out": "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/qualification",
+          "completion": "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/qualification/completion.json",
+          "accepted_statuses": [
+            "H_PHY_QUALIFICATION_PASS"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "source",
+      "resource": "gpu",
+      "requires": [
+        "qualification"
+      ],
+      "max_seconds": 14400,
+      "jobs": [
+        {
+          "id": "source200",
+          "argv": [
+            "REPO/outputs/UNIFIED-METRICS-20261002/environment/bin/python",
+            "-B",
+            "REPO/experiments/content-real-64qam-20261006/h_source_driver.py",
+            "--config",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/execution_v1/source_config.json",
+            "--stage",
+            "source200"
+          ],
+          "cwd": "REPO",
+          "out": "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/source200",
+          "completion": "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/source200/completion.json",
+          "accepted_statuses": [
+            "H_SOURCE200_COMPLETE"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "clean_quality",
+      "resource": "gpu",
+      "requires": [
+        "source"
+      ],
+      "max_seconds": 86400,
+      "jobs": [
+        {
+          "id": "clean-quality200",
+          "argv": [
+            "REPO/outputs/UNIFIED-METRICS-20261002/environment/bin/python",
+            "-B",
+            "REPO/experiments/content-real-64qam-20261006/h_source_driver.py",
+            "--config",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/execution_v1/source_config.json",
+            "--stage",
+            "clean-quality200"
+          ],
+          "cwd": "REPO",
+          "out": "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/clean-quality200",
+          "completion": "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/clean-quality200/completion.json",
+          "accepted_statuses": [
+            "H_CLEAN_QUALITY200_COMPLETE"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,151 @@
+{
+  "status": "FROZEN_CALIBRATION_METRIC_METADATA_REUSE_AUDIT",
+  "quality_registration_sha256": "bb7f8d7d08616a1b634885ceb5663a4aba1d570460f222b5ac9237ea30a28e2a",
+  "primary": "dinov2_vitl14_cosine",
+  "metrics": {
+    "clip": {
+      "status": "READY",
+      "model_id": "OpenAI CLIP ViT-L/14 (224px), image-image cosine",
+      "preprocessing": {
+        "resize": 224,
+        "crop": 224,
+        "interpolation": "bicubic",
+        "antialias": true,
+        "mean": [
+          0.48145466,
+          0.4578275,
+          0.40821073
+        ],
+        "std": [
+          0.26862954,
+          0.26130258,
+          0.27577711
+        ],
+        "tensor_vs_PIL": "same geometry/constants, floating tensor interpolation; no claim of bitwise PIL equivalence"
+      }
+    },
+    "dists": {
+      "status": "READY",
+      "model_id": "DISTS official learned alpha/beta; torchvision VGG16 IMAGENET1K_V1",
+      "preprocessing": {
+        "resize": null,
+        "input_size": [
+          256,
+          256
+        ],
+        "normalization": "official forward internal ImageNet mean/std",
+        "batch_average": false
+      }
+    },
+    "resnet50": {
+      "status": "READY",
+      "model_id": "torchvision ResNet50_Weights.IMAGENET1K_V2",
+      "preprocessing": {
+        "resize": 232,
+        "crop": 224,
+        "interpolation": "bilinear",
+        "antialias": true,
+        "normalization": "official torchvision IMAGENET1K_V2 transforms"
+      }
+    },
+    "dinov2_vitl14": {
+      "status": "READY",
+      "model_id": "Meta DINOv2 ViT-L/14 standard LVD-142M backbone, no registers, 1024-d x_norm_clstoken cosine",
+      "preprocessing": {
+        "resize": [
+          224,
+          224
+        ],
+        "crop": null,
+        "interpolation": "torch.nn.functional.interpolate bicubic",
+        "align_corners": false,
+        "antialias": false,
+        "mean": [
+          0.485,
+          0.456,
+          0.406
+        ],
+        "std": [
+          0.229,
+          0.224,
+          0.225
+        ],
+        "embedding": "forward_features()['x_norm_clstoken']",
+        "dimensions": 1024,
+        "num_register_tokens": 0,
+        "matches_retained_S14_preprocessing": true
+      }
+    },
+    "dreamsim": {
+      "status": "READY",
+      "model_id": "DreamSim ensemble v0.2.0-checkpoints: dino_vitb16,clip_vitb16,open_clip_vitb16 + LoRA",
+      "preprocessing": {
+        "resize": [
+          224,
+          224
+        ],
+        "crop": null,
+        "interpolation": "bicubic",
+        "antialias": true,
+        "normalization": "official per-backbone internal normalization and normalize_embeds=True"
+      }
+    },
+    "ms_ssim": {
+      "status": "READY",
+      "model_id": "VainF/pytorch-msssim MS-SSIM, RGB, data_range=1, five scales",
+      "preprocessing": {
+        "resize": null,
+        "data_range": 1.0,
+        "size_average": false,
+        "win_size": 11,
+        "win_sigma": 1.5,
+        "weights": [
+          0.0448,
+          0.2856,
+          0.3001,
+          0.2363,
+          0.1333
+        ],
+        "K": [
+          0.01,
+          0.03
+        ]
+      }
+    }
+  },
+  "existing_dino": "Retain registered dino_cosine=DINOv2 ViT-S/14 unchanged; dinov2_vitl14_cosine is a separate added column",
+  "input": "RGB BCHW float32 [0,1]; no additional 8-bit quantization",
+  "renderer_loaded_state_hashes": {
+    "vae": "6830fc533a34d52c8f765a7b212782a5b5ef6138992099e8a817ce920fe6fe2b",
+    "var": "b82cb0855b24e1d0d8d0aacebbb2d2d6728c2dcc6509b667dfa697c9330347d5",
+    "decoder": "bf1d64bf8ff7eeda416032daa2ada1654fb37de2553235e85d364211ddfefad1",
+    "lpips": "973be7f57af4d36c6aeecee198cb98ae315192054653634e3ba5d1a421a5023b",
+    "dino": "5ba70ff8cbcc944b73eb1d49f71e1ea54b009ad866b34d0cb8b84ed143aa56eb"
+  },
+  "renderer_generation": "unconditional_class1000_greedy_argmax_no_CFG_no_sampling",
+  "quality_source_count": 1000,
+  "cached_ConvNeXt": "not loaded; development only",
+  "ConvNeXt_actual_validation": "REQUIRED_NEW_SCORING_OR_IDENTITY_MATCHED_CACHE; unavailable in old C calibration Q",
+  "mse": "Compute each actual RGB frame MSE to the registered float32 reference. Preserve mean per-image PSNR separately from PSNR(mean MSE).",
+  "old_cached_U": "Point quality 0 and bounds [-1,1] are model diagnostics only; never use them as actual corrupted-image metrics.",
+  "final_metric_columns": [
+    "psnr_db",
+    "mse",
+    "lpips_alex",
+    "dino_cosine",
+    "dinov2_vitl14_cosine",
+    "clip_image_cosine",
+    "dists",
+    "dreamsim",
+    "ms_ssim",
+    "resnet50_top1_label",
+    "resnet50_top1_source_prediction",
+    "convnext_top1_label",
+    "convnext_top1_source_prediction",
+    "source_correct_to_reconstruction_wrong_R50",
+    "source_correct_to_reconstruction_wrong_ConvNeXt"
+  ],
+  "classifier_selection": false,
+  "label_conditioning": false,
+  "missing_metric_policy": "MISSING_ASSET until scored; not zero"
+}
