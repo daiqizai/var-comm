@@ -1,0 +1,160 @@
+"""Registered Markdown exception and provenance fixtures; no actual Git writes."""
+import hashlib
+from pathlib import Path
+import sys
+import tempfile
+import unittest
+
+import publisher_recovery_r2 as r
+
+RUNTIME = Path(__file__).resolve().parent.parent / 'runtime'
+if not RUNTIME.is_dir():
+    RUNTIME = Path(__file__).resolve().parent.parent / 'code'
+sys.path.insert(0, str(RUNTIME))
+import publish_probe as p
+from test_publish_probe import fixture as base_fixture, FakeCommands, text, write
+
+
+def fixture(root):
+    out, code, final = base_fixture(root)
+    lines = ['# Plan', '## Frozen protocol', '', r.HARD_BREAKS[4], r.HARD_BREAKS[5], r.HARD_BREAKS[6], 'Scientific text.']
+    text(out / 'EXECUTION_PLAN.md', '\n'.join(lines) + '\n')
+    done = p.read(final / 'completion.json')
+    done.update(C_model_complete=True, R_model_complete=True, V_disposition='TERMINAL_MISSING_ASSET',
+                V_any_physical_results=False, independent_ConvNeXt_complete=False,
+                A1_A2_complete_not_asserted=True, old_F1_status_unchanged=True)
+    write(final / 'completion.json', done)
+    inventory = p.prepare(root, out, code, final)
+    return out, code, final, inventory
+
+
+class Commands(FakeCommands):
+    def __init__(self, root):
+        super().__init__(root)
+        self.fail_other = self.fail_plan = False
+        self.wrong_provenance_blob = False
+
+    def git(self, *args, _record=True):
+        if args[:5] == ('diff', '--cached', '--check', '--', '.'):
+            self.calls.append(['git', *args])
+            if self.fail_other: raise RuntimeError('Other file whitespace failure')
+            return ''
+        if args[:2] == ('-c', 'core.whitespace=-blank-at-eol'):
+            self.calls.append(['git', *args])
+            if self.fail_plan: raise RuntimeError('Non-exempt plan whitespace failure')
+            return ''
+        if args[:2] == ('merge-base', '--is-ancestor'):
+            self.calls.append(['git', *args]); return ''
+        if args[0] == 'rev-parse' and ':' in args[1] and not args[1].startswith(':'):
+            self.calls.append(['git', *args])
+            return 'wrong' if self.wrong_provenance_blob else p.sha(self.root / args[1].split(':', 1)[1])
+        return super().git(*args, _record=_record)
+
+
+class RecoveryTests(unittest.TestCase):
+    def test_only_exact_check_is_split_and_all_other_paths_keep_default_rules(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); out, code, final, inventory = fixture(root)
+            original = Commands(root)
+            original.staged = {r.PLAN: p.sha(root / r.PLAN)}
+            commands = r.scoped_commands(p, root, out, inventory, original)
+            self.assertEqual(commands.git('diff', '--cached', '--check'), '')
+            self.assertIn(['git', 'diff', '--cached', '--check', '--', '.', ':(exclude)' + r.PLAN], original.calls)
+            self.assertIn(['git', '-c', 'core.whitespace=-blank-at-eol', 'diff', '--cached', '--check', '--', r.PLAN], original.calls)
+            self.assertFalse(any(call[:2] == ['git', 'config'] for call in original.calls))
+            self.assertEqual(commands.git('rev-parse', 'HEAD'), original.head)
+
+    def test_extra_trailing_spaces_even_with_matching_hash_are_not_exempt(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); out, code, final, inventory = fixture(root)
+            path = root / r.PLAN
+            before = path.read_text(encoding='utf-8')
+            for modified in (before + 'Extra  \n', before.replace(r.HARD_BREAKS[4], r.HARD_BREAKS[4] + ' '),
+                             before.replace(r.HARD_BREAKS[5], r.HARD_BREAKS[5].rstrip() + '\t')):
+                with self.subTest(modified=modified):
+                    path.write_bytes(modified.encode('utf-8')); inventory['files'][r.PLAN] = p.sha(path)
+                    with self.assertRaisesRegex(RuntimeError, 'Only the three'):
+                        r.validate_plan(p, root, inventory, Commands(root))
+
+    def test_staged_plan_must_match_frozen_plan(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); out, code, final, inventory = fixture(root)
+            commands = Commands(root); commands.staged[r.PLAN] = 'foreign'
+            with self.assertRaisesRegex(RuntimeError, 'Staged plan differs'):
+                r.validate_plan(p, root, inventory, commands)
+
+    def test_other_whitespace_failure_propagates_without_running_scoped_exception(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); out, code, final, inventory = fixture(root)
+            original = Commands(root); original.fail_other = True
+            with self.assertRaisesRegex(RuntimeError, 'Other file whitespace'):
+                r.scoped_commands(p, root, out, inventory, original).git('diff', '--cached', '--check')
+            self.assertFalse(any(call[:2] == ['git', '-c'] for call in original.calls))
+
+    def test_other_plan_whitespace_rules_still_fail(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); out, code, final, inventory = fixture(root)
+            original = Commands(root); original.fail_plan = True
+            with self.assertRaisesRegex(RuntimeError, 'Non-exempt plan'):
+                r.scoped_commands(p, root, out, inventory, original).git('diff', '--cached', '--check')
+
+    def test_foreign_staging_still_blocks_original_publisher(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); out, code, final, inventory = fixture(root)
+            original = Commands(root); original.staged = {'unrelated.py': 'foreign'}
+            commands = r.scoped_commands(p, root, out, inventory, original)
+            with self.assertRaises(p.Blocked): p.publish(root, out, commands, guard=lambda root: [])
+            self.assertEqual(original.staged, {'unrelated.py': 'foreign'})
+            self.assertFalse(any(call[:2] == ['git', 'add'] for call in original.calls))
+
+    def test_original_publish_scoped_check_exports_only_light_provenance_and_final_remote_verification(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); out, code, final, inventory = fixture(root)
+            inventory_sha = p.sha(out / 'publication_inventory.json')
+            recovery = out / r.RECOVERY
+            text(recovery / 'publisher_recovery_r2.py', '# Independent wrapper\r\n')
+            write(recovery / 'diagnosis.json', dict(exception_lines=[4, 5, 6]))
+            write(out / 'publication_recovery_r1/failure.json', dict(status='FAILED', error='Original whitespace failure'))
+            registration = recovery / 'execution_registration.json'
+            record = dict(version=r.VERSION,
+                          inventory=dict(path=str(out / 'publication_inventory.json'), sha256=inventory_sha),
+                          science_receipt=dict(path=str(final / 'completion.json'), sha256=p.sha(final / 'completion.json')),
+                          failure_bindings={str(out / 'publication_recovery_r1/failure.json'): p.sha(out / 'publication_recovery_r1/failure.json')},
+                          protected_bindings={str(out / 'V/budget.sqlite'): p.sha(out / 'V/budget.sqlite')})
+            write(registration, record)
+            original = Commands(root)
+            commands = r.scoped_commands(p, root, out, inventory, original)
+            main = p.publish(root, out, commands, guard=lambda root: [])
+            step = recovery / 'publication_step_completion.json'
+            write(step, dict(status='MAIN_PUBLICATION_COMPLETE_PROVENANCE_PENDING', scientific_report_commit=main['commit']))
+            evidence = [registration, recovery / 'publisher_recovery_r2.py', recovery / 'diagnosis.json']
+            provenance = r.export_provenance(p, root, out, evidence, step)
+            self.assertEqual(p.sha(out / 'publication_inventory.json'), inventory_sha)
+            self.assertTrue(any(path.endswith('publisher_recovery_r2.py.txt') for path in provenance['files']))
+            self.assertFalse(any(path.endswith('.py') or 'sqlite' in path for path in provenance['files']))
+            self.assertEqual(provenance, r.export_provenance(p, root, out, evidence, step))
+            commit = 'c' * 40
+            with self.assertRaisesRegex(RuntimeError, 'not currently verified'):
+                r.finalize(p, root, out, registration, record, commit, commands)
+            self.assertFalse((out / 'completion.json').exists())
+            original.head = original.remote = commit
+            original.wrong_provenance_blob = True
+            with self.assertRaisesRegex(RuntimeError, 'registered bytes'):
+                r.finalize(p, root, out, registration, record, commit, commands)
+            original.wrong_provenance_blob = False
+            proof = recovery / 'provenance_publication_completion.json'
+            write(proof, dict(status='PROVENANCE_PUBLISHED', commit=commit, remote_commit=commit,
+                              main_result_commit=main['commit'], files=provenance['files'],
+                              inventory_sha256=p.sha(recovery / 'provenance_inventory.json'),
+                              normal_push=True, force_push=False))
+            completed = r.finalize(p, root, out, registration, record, commit, commands)
+            self.assertEqual(completed['status'], 'COMPLETE')
+            self.assertEqual(completed['scientific_report_commit'], main['commit'])
+            self.assertFalse((out / 'publication_recovery_r1/completion.json').exists())
+            self.assertEqual(completed['outputs'][str(proof)], p.sha(proof))
+            self.assertEqual(p.read(out / 'publication_recovery_r1/failure.json')['status'], 'FAILED')
+            self.assertEqual(completed, r.finalize(p, root, out, registration, record, commit, commands))
+
+
+if __name__ == '__main__':
+    unittest.main()

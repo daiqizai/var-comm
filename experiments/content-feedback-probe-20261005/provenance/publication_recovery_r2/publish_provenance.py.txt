@@ -1,0 +1,113 @@
+"""Normally publish the exact R2 provenance inventory after the main result."""
+import argparse
+import hashlib
+import importlib.util
+import json
+from pathlib import Path
+import time
+
+
+def read(path):
+    return json.loads(Path(path).read_text(encoding='utf-8-sig'))
+
+
+def sha(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--root', required=True)
+    parser.add_argument('--out', required=True)
+    args = parser.parse_args()
+    root = Path(args.root).resolve()
+    out = Path(args.out).resolve()
+    rec = out / 'publication_recovery_r2'
+    registration = read(rec / 'execution_registration.json')
+    binding = registration['original_publisher']
+    assert sha(binding['path']) == binding['sha256']
+    spec = importlib.util.spec_from_file_location('original_publisher', binding['path'])
+    pub = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pub)
+    pub.limits()
+    commands = pub.Commands(root, out)
+    inventory_path = rec / 'provenance_inventory.json'
+    inventory = read(inventory_path)
+    files = inventory['files']
+    prefix = 'experiments/content-feedback-probe-20261005/provenance/publication_recovery_r2/'
+    assert files and all(name.startswith(prefix) for name in files)
+    assert all((root / name).is_file() and sha(root / name) == digest for name, digest in files.items())
+    main_receipt = read(out / 'publication_completion.json')
+    base = main_receipt['commit']
+    assert main_receipt['status'] == 'PUBLISHED' and main_receipt['remote_commit'] == base
+    state_path = rec / 'provenance_publication_state.json'
+    receipt_path = rec / 'provenance_publication_completion.json'
+    assert not state_path.exists() and not receipt_path.exists(), 'Existing attempt needs explicit diagnosis'
+    assert commands.git('branch', '--show-current') == 'main'
+    assert commands.git('rev-parse', 'HEAD') == base
+    assert commands.git('ls-remote', 'origin', 'refs/heads/main').split()[0] == base
+    assert not commands.git('diff', '--cached', '--name-only')
+    assert not commands.git('diff', '--name-only')
+    pub.guard_publication(root)
+    state = dict(status='STAGING', base_head=base, files=files,
+                 inventory_sha256=sha(inventory_path), started_time=time.time())
+    pub.write(state_path, state, immutable=True)
+
+    def guard():
+        pub.guard_publication(root)
+        assert sha(inventory_path) == state['inventory_sha256']
+        assert all(sha(root / name) == digest for name, digest in files.items())
+        staged = set(commands.git('diff', '--cached', '--name-only').splitlines())
+        assert staged <= set(files) | {'release_manifest.json'}
+        for name in staged:
+            digest = state.get('manifest_sha256') if name == 'release_manifest.json' else files[name]
+            assert digest and sha(root / name) == digest
+            assert commands.git('rev-parse', ':' + name) == commands.git('hash-object', '--', name)
+
+    try:
+        commands.git('add', '--', *sorted(files))
+        guard()
+        python = root / 'outputs/UNIFIED-METRICS-20261002/environment/bin/python'
+        commands.run([str(python), '-B', 'tools/update_repository_manifest.py'])
+        state['manifest_sha256'] = sha(root / 'release_manifest.json')
+        state['status'] = 'MANIFEST_READY'
+        pub.write(state_path, state)
+        commands.git('add', '--', 'release_manifest.json')
+        guard()
+        commands.run([str(python), '-B', 'tools/run_cpu_checks.py'])
+        commands.run([str(python), '-B', 'tools/verify_repository.py'])
+        commands.git('diff', '--cached', '--check')
+        state.update(status='CHECKS_PASSED', checked_tree=commands.git('write-tree'))
+        pub.write(state_path, state)
+        guard()
+        assert not commands.git('diff', '--name-only')
+        assert commands.git('rev-parse', 'HEAD') == base
+        assert commands.git('ls-remote', 'origin', 'refs/heads/main').split()[0] == base
+        assert commands.git('write-tree') == state['checked_tree']
+        commands.git('commit', '-m', 'Record content-feedback publication recovery evidence')
+        commit = commands.git('rev-parse', 'HEAD')
+        state.update(status='COMMITTED', commit=commit)
+        pub.write(state_path, state)
+        guard()
+        commands.git('push', 'origin', 'HEAD:main')
+        remote = commands.git('ls-remote', 'origin', 'refs/heads/main').split()[0]
+        assert remote == commit
+        receipt = dict(status='PROVENANCE_PUBLISHED', commit=commit, remote_commit=remote,
+                       main_result_commit=base, normal_push=True, force_push=False,
+                       files=files, inventory_sha256=sha(inventory_path),
+                       checks=['tools/run_cpu_checks.py', 'tools/verify_repository.py',
+                               'git diff --cached --check'], scientific_jobs_started=0,
+                       original_scientific_sources_changed=False)
+        pub.write(receipt_path, receipt, immutable=True)
+        state['status'] = 'PUSHED_AND_VERIFIED'
+        pub.write(state_path, state)
+        print(json.dumps(dict(status=receipt['status'], commit=commit, remote_commit=remote)))
+    except Exception as error:
+        pub.write(rec / 'provenance_publication_failure.json',
+                  dict(status='FAILED', error_type=type(error).__name__, error=str(error),
+                       scientific_jobs_started=0, time=time.time()))
+        raise
+
+
+if __name__ == '__main__':
+    main()

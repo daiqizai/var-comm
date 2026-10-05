@@ -1,0 +1,268 @@
+"""Resume the owned publication with one registered Markdown hard-break exception.
+
+Original publication and R1 code, inventories and failures are never edited.
+The root operator publishes the exported R2 provenance in a separate commit.
+"""
+from __future__ import annotations
+import argparse
+import importlib.util
+import json
+from pathlib import Path
+import re
+import time
+
+VERSION = 'CONTENT_FEEDBACK_PUBLICATION_RECOVERY_R2'
+RECOVERY = 'publication_recovery_r2'
+PLAN = 'experiments/content-feedback-probe-20261005/EXECUTION_PLAN.md'
+HARD_BREAKS = {
+    4: '**日期：2026-10-05**  ',
+    5: '**核对仓库：`daiqizai/var-comm`**  ',
+    6: '**本版基线提交：`9f79c23fc5ddc0033f31a556ce6c07c95b64528e`**  ',
+}
+
+
+def require(condition, message):
+    if not condition:
+        raise RuntimeError(message)
+
+
+def load(path, name):
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def validate_plan(publisher, root, inventory, commands):
+    path = Path(root) / PLAN
+    require(PLAN in inventory['files'] and publisher.sha(path) == inventory['files'][PLAN],
+            'Registered plan bytes changed')
+    raw = path.read_bytes()
+    require(b'\r' not in raw and b'\0' not in raw, 'Expected the inventoried LF-only Markdown plan')
+    lines = raw.decode('utf-8-sig').splitlines()
+    trailing = {number: line for number, line in enumerate(lines, 1) if re.search(r'[ \t]+$', line)}
+    require(trailing == HARD_BREAKS, 'Only the three registered two-space Markdown hard breaks are allowed')
+    staged = set(filter(None, commands.git('diff', '--cached', '--name-only').splitlines()))
+    if PLAN in staged:
+        require(commands.git('rev-parse', ':' + PLAN) == commands.git('hash-object', '--', PLAN),
+                'Staged plan differs from the registered working bytes')
+    return dict(path=PLAN, sha256=publisher.sha(path), exact_hard_break_lines=[4, 5, 6],
+                all_other_trailing_whitespace_rejected=True)
+
+
+def scoped_commands(publisher, root, out, inventory, base=None):
+    """Delegate every operation except this exact old diff-check invocation."""
+    original = base or publisher.Commands(root, out)
+
+    class ScopedCommands:
+        def run(self, args):
+            return original.run(args)
+
+        def git(self, *args):
+            if args != ('diff', '--cached', '--check'):
+                return original.git(*args)
+            validate_plan(publisher, root, inventory, original)
+            other = original.git('diff', '--cached', '--check', '--', '.', ':(exclude)' + PLAN)
+            plan = original.git('-c', 'core.whitespace=-blank-at-eol', 'diff', '--cached', '--check', '--', PLAN)
+            return '\n'.join(item for item in (other, plan) if item)
+    return ScopedCommands()
+
+
+def validate_registration(root, out, registration, self_path=None):
+    root, out, registration = Path(root).resolve(), Path(out).resolve(), Path(registration).resolve()
+    require(out == root / 'outputs/CONTENT-FEEDBACK-PROBE-20261005', 'Wrong independent output directory')
+    recovery = out / RECOVERY
+    require(registration == recovery / 'execution_registration.json', 'Wrong R2 registration path')
+    record = json.loads(registration.read_text(encoding='utf-8-sig'))
+    require(record['version'] == VERSION, 'Unknown R2 registration')
+    # Verify the already-registered R1 loader before importing it.
+    import hashlib
+    r1_path = Path(record['r1_wrapper']['path']).resolve()
+    require(r1_path == out / 'publication_recovery_r1/publisher_recovery_r1.py'
+            and hashlib.sha256(r1_path.read_bytes()).hexdigest() == record['r1_wrapper']['sha256'], 'R1 wrapper changed')
+    r1 = load(r1_path, '_frozen_publication_r1_loader')
+    publisher_path = r1.bind(record['original_publisher'], out)
+    require(publisher_path == out / 'code/publish_probe.py', 'Wrong original publisher')
+    publisher = load(publisher_path, '_frozen_content_publisher_r2')
+    r1.bind(record['r1_registration'], out)
+    r1.bind(record['diagnosis'], recovery)
+    inventory_path = r1.bind(record['inventory'], out)
+    require(inventory_path == out / 'publication_inventory.json', 'Wrong existing publication inventory')
+    science = r1.bind(record['science_receipt'], out)
+    require(science == out / 'final/completion.json', 'Wrong science receipt')
+    require(publisher.read(science)['status'] == 'COMPLETE', 'Science has no completion receipt')
+    failures = r1.verify_bindings(record['failure_bindings'], out)
+    require(out / 'publication_recovery_r1/failure.json' in failures, 'Original R1 failure must be preserved')
+    r1.verify_bindings(record['protected_bindings'], out)
+    sources = r1.verify_bindings(record['source_bindings'], recovery)
+    require(Path(self_path or __file__).resolve() in sources
+            and any(path.name == 'test_publisher_recovery_r2.py' for path in sources), 'R2 code and tests must be bound')
+    evidence = []
+    for item in record['publication_evidence_paths']:
+        path = r1.bind(item, recovery)
+        require(path.suffix.lower() in {'.json', '.md', '.txt', '.py'}, 'Only registered light provenance may be exported')
+        require(path.parent != recovery or path.name not in
+                {'status.json', 'preflight.json', 'failure.json', 'completion.json', 'provenance_inventory.json'},
+                'Dynamic recovery evidence cannot be inventoried')
+        evidence.append(path)
+    require(all(path in evidence for path in sources)
+            and Path(record['diagnosis']['path']).resolve() in evidence, 'Missing source or diagnosis provenance')
+    require(registration not in evidence, 'Registration cannot bind itself')
+    inventory = publisher.read(inventory_path)
+    for path, digest in inventory['sources'].items():
+        r1.bind(dict(path=path, sha256=digest), out)
+    for name, digest in inventory['files'].items():
+        publisher.allowed_destination(name)
+        r1.bind(dict(path=str(root / name), sha256=digest), root)
+    return record, publisher, inventory, [registration, *evidence]
+
+
+def export_provenance(publisher, root, out, evidence, step):
+    recovery = Path(out) / RECOVERY
+    conversions = []
+    for source in [*evidence, step]:
+        target = (publisher.EXPERIMENT + '/provenance/' + RECOVERY + '/'
+                  + source.relative_to(recovery).as_posix() + ('.txt' if source.suffix == '.py' else ''))
+        conversions.append(publisher.materialize(source, Path(root) / target, root))
+    manifest = dict(status='READY_FOR_SEPARATE_NORMAL_COMMIT', version=VERSION,
+                    original_publication_inventory_unchanged=True, source_files=conversions,
+                    files={item['path']: item['sha256'] for conversion in conversions for item in conversion['files']})
+    destination = Path(root) / publisher.EXPERIMENT / 'provenance' / RECOVERY / 'source_manifest.json'
+    publisher.write(destination, manifest, immutable=True)
+    manifest['files'] = {**manifest['files'], destination.relative_to(root).as_posix(): publisher.sha(destination)}
+    publisher.write(recovery / 'provenance_inventory.json', manifest, immutable=True)
+    return manifest
+
+
+def verify_main_receipt(publisher, root, out, record):
+    receipt = publisher.read(Path(out) / 'publication_completion.json')
+    commit = receipt.get('commit', '')
+    require(receipt.get('status') == 'PUBLISHED' and re.fullmatch('[0-9a-f]{40}', commit)
+            and receipt.get('remote_commit') == commit and receipt.get('normal_push') is True
+            and receipt.get('force_push') is False, 'Main publication is not a verified normal push')
+    require(receipt.get('inventory_sha256') == record['inventory']['sha256'], 'Original publication inventory changed')
+    require(receipt['outputs'].get(record['science_receipt']['path']) == record['science_receipt']['sha256'],
+            'Main receipt is not bound to the original science completion')
+    for path, digest in receipt['outputs'].items():
+        require(Path(path).resolve().is_relative_to(Path(root).resolve()) and publisher.sha(path) == digest,
+                'Published output changed: ' + path)
+    return receipt
+
+
+def finalize(publisher, root, out, registration, record, provenance_commit, commands):
+    root, out, registration = Path(root), Path(out), Path(registration)
+    receipt = verify_main_receipt(publisher, root, out, record)
+    require(re.fullmatch('[0-9a-f]{40}', provenance_commit), 'Explicit provenance commit required')
+    require(commands.git('ls-remote', 'origin', 'refs/heads/main').split()[0] == provenance_commit,
+            'Provenance push is not currently verified on remote')
+    commands.git('merge-base', '--is-ancestor', receipt['commit'], provenance_commit)
+    require(not commands.git('diff', '--cached', '--name-only'), 'Index must be empty after the provenance commit')
+    require(not commands.git('diff', '--name-only'), 'Tracked worktree must be clean after the provenance commit')
+    require(commands.git('rev-parse', 'HEAD') == provenance_commit, 'Local HEAD differs from the verified provenance commit')
+    inventory_path = out / RECOVERY / 'provenance_inventory.json'
+    inventory = publisher.read(inventory_path)
+    provenance_receipt_path = out / RECOVERY / 'provenance_publication_completion.json'
+    if provenance_receipt_path.exists():
+        provenance = publisher.read(provenance_receipt_path)
+        require(provenance.get('status') == 'PROVENANCE_PUBLISHED'
+                and provenance.get('commit') == provenance_commit
+                and provenance.get('remote_commit') == provenance_commit
+                and provenance.get('main_result_commit') == receipt['commit']
+                and provenance.get('files') == inventory['files']
+                and provenance.get('inventory_sha256') == publisher.sha(inventory_path)
+                and provenance.get('normal_push') is True and provenance.get('force_push') is False,
+                'Independent provenance publication receipt differs from verified evidence')
+    for conversion in inventory['source_files']:
+        require(publisher.sha(conversion['source_path']) == conversion['source_sha256'], 'Recovery provenance source changed')
+    for name, digest in inventory['files'].items():
+        require(publisher.sha(root / name) == digest
+                and commands.git('rev-parse', provenance_commit + ':' + name) == commands.git('hash-object', '--', name),
+                'Remote provenance commit does not contain registered bytes: ' + name)
+    science = publisher.read(record['science_receipt']['path'])
+    outputs = {str(out / 'publication_completion.json'): publisher.sha(out / 'publication_completion.json'),
+               str(registration): publisher.sha(registration), str(inventory_path): publisher.sha(inventory_path),
+               record['science_receipt']['path']: record['science_receipt']['sha256'],
+               **record['failure_bindings'], **record['protected_bindings']}
+    if provenance_receipt_path.exists():
+        outputs[str(provenance_receipt_path)] = publisher.sha(provenance_receipt_path)
+    for path, digest in outputs.items():
+        require(publisher.sha(path) == digest, 'Protected completion input changed: ' + path)
+    completion = dict(status='PUBLICATION_RECOVERY_COMPLETE', version=VERSION,
+                      scope='PUBLICATION_ONLY_RECOVERY', commit=provenance_commit,
+                      remote_commit=provenance_commit, scientific_report_commit=receipt['commit'],
+                      original_and_R1_failures_preserved=True, original_inventory_unchanged=True,
+                      scientific_jobs_started=0, scientific_receipt_unchanged=True, ledger_unchanged=True,
+                      outputs=outputs)
+    destination = out / RECOVERY / 'completion.json'
+    publisher.write(destination, completion, immutable=True)
+    overall = dict(status='COMPLETE', scope='C_R_BOUNDED_PROBE_DELIVERY_WITH_PUBLICATION', version=VERSION,
+                   commit=provenance_commit, remote_commit=provenance_commit,
+                   scientific_report_commit=receipt['commit'], publication_recovered=True,
+                   original_owner_status='FAILED_DURING_PUBLICATION_PRESERVED',
+                   original_R1_status='FAILED_DURING_PUBLICATION_PRESERVED',
+                   outputs={**outputs, str(destination): publisher.sha(destination)})
+    for key in ('C_model_complete', 'R_model_complete', 'V_disposition', 'V_physical_probe_complete',
+                'V_any_physical_results', 'new_visual_validation_complete', 'independent_ConvNeXt_complete',
+                'automatic_GPU_launch', 'A1_A2_complete_not_asserted', 'old_F1_status_unchanged'):
+        overall[key] = science[key]
+    publisher.write(out / 'completion.json', overall, immutable=True)
+    return overall
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    for name in ('root', 'out', 'registration'):
+        parser.add_argument('--' + name, required=True)
+    parser.add_argument('--stage', choices=['preflight', 'publish', 'finalize'], required=True)
+    parser.add_argument('--provenance-commit')
+    args = parser.parse_args()
+    root, out, registration = Path(args.root).resolve(), Path(args.out).resolve(), Path(args.registration).resolve()
+    record, publisher, inventory, evidence = validate_registration(root, out, registration)
+    registration_sha = publisher.sha(registration)
+    publisher.limits()
+    commands = scoped_commands(publisher, root, out, inventory)
+    recovery = out / RECOVERY
+    try:
+        publisher.guard_publication(root)
+        state = publisher.read(out / 'publication_state.json')
+        publisher.index_ownership(commands, root, inventory, state)
+        plan = validate_plan(publisher, root, inventory, commands)
+        if args.stage == 'preflight':
+            commands.git('diff', '--cached', '--check')
+            result = dict(status='R2_SCOPED_CHECK_PREFLIGHT_PASS', version=VERSION, plan=plan,
+                          original_inventory_sha256=publisher.sha(out / 'publication_inventory.json'), git_mutations=0)
+            publisher.write(recovery / 'preflight.json', result)
+        elif args.stage == 'publish':
+            import fcntl
+            lock = (out / 'publication.lock').open('a+')
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            publisher.publish(root, out, commands=commands)
+            receipt = verify_main_receipt(publisher, root, out, record)
+            require(commands.git('ls-remote', 'origin', 'refs/heads/main').split()[0] == receipt['commit'],
+                    'Main push not currently verified')
+            result = dict(status='MAIN_PUBLICATION_COMPLETE_PROVENANCE_PENDING', version=VERSION,
+                          scientific_report_commit=receipt['commit'], plan=plan,
+                          publication_receipt_sha256=publisher.sha(out / 'publication_completion.json'),
+                          registration_sha256=registration_sha, original_inventory_unchanged=True,
+                          original_and_R1_failures_preserved=True, scientific_jobs_started=0)
+            step = recovery / 'publication_step_completion.json'
+            publisher.write(step, result, immutable=True)
+            export_provenance(publisher, root, out, evidence, step)
+        else:
+            result = finalize(publisher, root, out, registration, record, args.provenance_commit or '', commands)
+        require(publisher.sha(registration) == registration_sha, 'R2 registration changed during publication')
+        validate_registration(root, out, registration)
+        print(json.dumps({key: result[key] for key in ('status', 'commit', 'remote_commit') if key in result}))
+    except publisher.Blocked as error:
+        result = dict(status='WAITING_FOR_PUBLICATION', reason=str(error), scientific_stages_restarted=False,
+                      existing_staging_preserved=True)
+        publisher.write(recovery / 'publication_wait.json', result)
+        print(json.dumps(result))
+    except Exception as error:
+        publisher.write(recovery / 'failure.json', dict(status='FAILED', stage=args.stage, error=str(error),
+                        time=time.time(), original_and_R1_failures_preserved=True, scientific_jobs_started=0))
+        raise
+
+
+if __name__ == '__main__':
+    main()

@@ -1,0 +1,19 @@
+Traceback (most recent call last):
+  File "/home/liulu/projects/VAR_COMM/outputs/CONTENT-FEEDBACK-PROBE-20261005/publication_recovery_r1/publisher_recovery_r1.py", line 311, in <module>
+    main()
+  File "/home/liulu/projects/VAR_COMM/outputs/CONTENT-FEEDBACK-PROBE-20261005/publication_recovery_r1/publisher_recovery_r1.py", line 289, in main
+    publisher.main()
+  File "/home/liulu/projects/VAR_COMM/outputs/CONTENT-FEEDBACK-PROBE-20261005/code/publish_probe.py", line 430, in main
+    result=publish(args.root,out)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/liulu/projects/VAR_COMM/outputs/CONTENT-FEEDBACK-PROBE-20261005/code/publish_probe.py", line 394, in publish
+    commands.git('diff','--cached','--check')
+  File "/home/liulu/projects/VAR_COMM/outputs/CONTENT-FEEDBACK-PROBE-20261005/code/publish_probe.py", line 324, in git
+    def git(self,*args):return self.run(['git',*args])
+                               ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/liulu/projects/VAR_COMM/outputs/CONTENT-FEEDBACK-PROBE-20261005/code/publish_probe.py", line 322, in run
+    require(result.returncode==0,'Publication command failed; preserve '+str(path))
+  File "/home/liulu/projects/VAR_COMM/outputs/CONTENT-FEEDBACK-PROBE-20261005/code/publish_probe.py", line 39, in require
+    if not value:raise RuntimeError(message)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: Publication command failed; preserve /home/liulu/projects/VAR_COMM/outputs/CONTENT-FEEDBACK-PROBE-20261005/publication_checks/1791192350460400553-676-git.log
