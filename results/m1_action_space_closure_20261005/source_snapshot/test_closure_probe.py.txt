@@ -1,0 +1,76 @@
+"""CPU guards for fresh probe execution, source lineage and memory admission."""
+from pathlib import Path
+import copy
+import tempfile
+import unittest
+import m9_common as u
+from cohort_probe import validate_worker_config,serial_proof,admit_worker_count
+
+
+class ProbeTests(unittest.TestCase):
+    def config(self,root):
+        out=root/'out';dest=out/'cohort_probe/worker_0';path=dest/'config.json'
+        source=root/'native.py';source.write_text('# bound source\n')
+        registration=dict(source_bindings={str(source):u.sha(source)})
+        u.write(out/'registration.json',registration)
+        cfg=dict(root=str(root),out=str(out),protocol=str(root/'protocol.json'),worker_id=0,source_indices=[0],stage='benchmark',
+            output_dir=str(dest),cohort_manifest=str(out/'cohort_probe/cohort_manifest.json'),stop_file=str(out/'STOP'),
+            config_path=str(path),source_bindings=registration['source_bindings'],registration_sha256=u.sha(out/'registration.json'))
+        u.write(path,cfg);return cfg,out
+
+    def test_existing_source_cannot_masquerade_as_fresh_benchmark(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg,out=self.config(Path(tmp));validate_worker_config(cfg)
+            u.write(out/'cohort_probe/source_checkpoints/0000.json',dict(rows=[]))
+            with self.assertRaisesRegex(RuntimeError,'cache reuse is forbidden'):validate_worker_config(cfg)
+
+    def test_wrong_assignment_and_output_namespace_are_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg,out=self.config(Path(tmp));bad=copy.deepcopy(cfg);bad['source_indices']=[1]
+            with self.assertRaisesRegex(RuntimeError,'assign exactly'):validate_worker_config(bad)
+            bad=copy.deepcopy(cfg);bad['output_dir']=str(out/'some_other_run')
+            with self.assertRaisesRegex(RuntimeError,'owned output namespace'):validate_worker_config(bad)
+
+    def test_worker_with_prior_failure_or_changed_config_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg,out=self.config(Path(tmp));u.write(Path(cfg['output_dir'])/'failure.json',dict(error='old failure'))
+            with self.assertRaisesRegex(RuntimeError,'Existing worker outcome'):validate_worker_config(cfg)
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg,out=self.config(Path(tmp));u.write(cfg['config_path'],dict(cfg,worker_id=1))
+            with self.assertRaisesRegex(RuntimeError,'configuration changed'):validate_worker_config(cfg)
+
+    def serial(self,out):
+        registration='reg-sha';regpath=out/'benchmark_registration.json'
+        u.write(regpath,dict(registration_sha256=registration));paths=[regpath]
+        for i in range(2):
+            p=out/'benchmark/source_checkpoints'/('%04d.json'%i);u.write(p,dict(source_index=i));paths.append(p)
+        receipt=dict(status='COMPLETE',stage='benchmark',sources=2,physical_frames=2946,synthetic=False,training_updates=0,
+            registration_sha256=registration,outputs={str(p):u.sha(p) for p in paths})
+        u.write(out/'benchmark_completion.json',receipt);return registration,receipt
+
+    def test_serial_proof_must_bind_current_registration_and_both_sources(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out=Path(tmp);registration,receipt=self.serial(out);serial_proof(out,registration)
+            with self.assertRaisesRegex(RuntimeError,'current-registration'):serial_proof(out,'foreign')
+            receipt['outputs'].pop(str(out/'benchmark/source_checkpoints/0001.json'));u.write(out/'benchmark_completion.json',receipt)
+            with self.assertRaisesRegex(RuntimeError,'both source checkpoints'):serial_proof(out,registration)
+
+    def test_serial_source_mutation_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out=Path(tmp);registration,_=self.serial(out);u.write(out/'benchmark/source_checkpoints/0000.json',dict(source_index=99))
+            with self.assertRaisesRegex(RuntimeError,'both source checkpoints'):serial_proof(out,registration)
+
+    def test_memory_admission_uses_only_two_or_four_and_keeps_reserve(self):
+        selected,per=admit_worker_count(24576,100,4096,3*1024**3,[dict(memory_mib=6500)])
+        self.assertEqual(selected,4);self.assertGreaterEqual(per,3584)
+        selected,_=admit_worker_count(24576,100,4096,6*1024**3,[dict(memory_mib=12500)])
+        self.assertEqual(selected,2)  # Three would fit, but has not been qualified.
+        with self.assertRaisesRegex(RuntimeError,'cannot support'):admit_worker_count(24576,100,4096,11*1024**3,[dict(memory_mib=23000)])
+
+    def test_absent_or_nonfinite_memory_cannot_admit_parallel_run(self):
+        for values in ((24576,100,4096,1024,[]),(24576,100,2048,1024,[dict(memory_mib=100)]),
+                       (float('nan'),100,4096,1024,[dict(memory_mib=100)])):
+            with self.assertRaisesRegex(RuntimeError,'Finite measured memory'):admit_worker_count(*values)
+
+
+if __name__=='__main__':unittest.main(verbosity=2)

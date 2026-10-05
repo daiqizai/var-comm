@@ -1,0 +1,169 @@
+"""CPU tests for multi-budget identities, paid-mask gaps and source bootstrap."""
+import copy
+import importlib.util
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import unittest
+from unittest.mock import patch
+import numpy as np
+
+HERE=Path(__file__).resolve().parent
+for parent in HERE.parents:
+    for suffix in ('src','methods_20261002/repo_reference/src'):
+        candidate=parent/suffix
+        if (candidate/'var_comm/scale_channel.py').is_file():sys.path.insert(0,str(candidate));break
+import m9_phy as phy
+import m9_score_report as s
+import ensure_visual_controls as v
+
+def policy():
+    rows=[]
+    for N,p in s.CELLS:
+        for snr in s.SNRS:
+            for method in ('whole','raster','random','entropy','oracle'):
+                candidates=[a for a in phy.action_grid(N,p) if a.q==0] if method=='whole' else [a for a in phy.action_grid(N,p) if a.order==method]
+                a=max(candidates,key=lambda a:(a.m,a.q))
+                rows.append(dict(N=N,phy_family=p,snr_db=snr,method=method,action=a.to_dict()))
+    return dict(sources=1000,noise_seeds=[4101,4102,4103],full_grid=True,development_read=False,cells=rows)
+
+def unavailable(chosen):
+    rows=[]
+    for N,p in s.CELLS:
+        for snr in s.SNRS:
+            a=s.action_for(chosen,N,p,snr,'oracle_at_entropy');maximum=phy.max_legal_q(N,p,a['m'],'oracle')
+            if a['q']>maximum:
+                rows.append(dict(N=N,phy_family=p,snr_db=snr,method='oracle_at_entropy',m=a['m'],q=a['q'],maximum_legal_q=maximum,
+                    status='NOT_FEASIBLE',reason='same_K_exceeds_paid_oracle_mask_budget'))
+    return dict(rows=rows)
+
+def fixture(directory,excluded=()):
+    source=np.zeros((3,256,256),np.float32);images=np.stack([source+.25,source+.5]);rows=[]
+    for index,N,p,snr,seed,method in sorted(s.expected_source(0,excluded)):
+        slot=len(rows)%2;rows.append(dict(source_index=index,source_id='source',preprocessing_id='preprocess',N=N,phy_family=p,
+            snr_db=snr,noise_seed=seed,method=method,replay_row_id='r'+str(len(rows)),image_slot=slot,
+            image_sha256=s.rgb_sha(images[slot]),reference_sha256=s.rgb_sha(source),label_conditioned=False))
+    archive=Path(directory)/'source.npz';np.savez(archive,images=images,source_rgb=source,row_ids=np.asarray([r['replay_row_id'] for r in rows]),image_slots=np.asarray([r['image_slot'] for r in rows],np.int64))
+    cp=dict(source_index=0,record=dict(image_id='source',preprocessing_id='preprocess'),rows=rows,float_reconstructions=dict(path=str(archive),sha256=s.sha(archive)))
+    cp['payload_sha256']=s.ident(cp);return cp
+
+def population(excluded=()):
+    rows=[]
+    for i in range(100):
+        for N,p in s.CELLS:
+            for snr in s.SNRS:
+                for seed in s.SEEDS:
+                    history='legacy_low_screened' if N==1024 else 'legacy69'
+                    for scope,methods in (('expanded',s.METHODS),(history,('whole_policy','entropy_policy'))):
+                        for method in methods:
+                            if scope=='expanded' and (N,p,snr,method) in excluded:continue
+                            value=i+(seed-2001)*10+(3 if scope=='expanded' else 0)
+                            r=dict(source_index=i,source_id=f'source{i}',preprocessing_id=f'pre{i}',reference_sha256=f'ref{i}',
+                                N=N,snr_db=snr,noise_seed=seed,comparison_scope=scope,method=method,phy_family=p)
+                            r.update({m:value for m in s.METRICS});rows.append(r)
+        for N in (1024,2048):
+            for snr in s.SNRS:
+                for seed in s.SEEDS:
+                    r=dict(source_index=i,source_id=f'source{i}',preprocessing_id=f'pre{i}',reference_sha256=f'ref{i}',
+                        N=N,snr_db=snr,noise_seed=seed,comparison_scope='P',method=f'P{N}',phy_family='continuous')
+                    r.update({m:i+(seed-2001)*10 for m in s.METRICS});rows.append(r)
+    return rows
+
+class Contracts(unittest.TestCase):
+    def test_three_cells_all_five_snr_frozen_policy(self):
+        chosen=s.policy_index(policy());self.assertEqual(len(chosen),75)
+        bad=policy();bad['cells'].pop()
+        with self.assertRaises(RuntimeError):s.policy_index(bad)
+        bad=policy();bad['development_read']=True
+        with self.assertRaises(RuntimeError):s.policy_index(bad)
+        bad=policy();bad['cells'][0]['action']['N']=2048
+        with self.assertRaises(RuntimeError):s.policy_index(bad)
+
+    def test_unavailable_paid_oracle_keeps_original_K_per_cell(self):
+        chosen=s.policy_index(policy());receipt=unavailable(chosen);excluded=s.unavailable_cells(chosen,receipt)
+        self.assertEqual(len(excluded),15)
+        self.assertEqual({(r['N'],r['phy_family'],r['q'],r['maximum_legal_q']) for r in receipt['rows']},
+            {(1024,'16QAM',27,13),(2048,'QPSK',38,24),(2048,'16QAM',166,144)})
+        bad=copy.deepcopy(receipt);bad['rows'][0]['q']=bad['rows'][0]['maximum_legal_q']
+        with self.assertRaises(RuntimeError):s.unavailable_cells(chosen,bad)
+        with self.assertRaises(RuntimeError):s.unavailable_cells(chosen,{'rows':[]})
+
+    def test_source_identity_includes_bandwidth_and_modulation(self):
+        excluded={(1024,'16QAM',7,'oracle_at_entropy')}
+        with tempfile.TemporaryDirectory() as d:
+            cp=fixture(d,excluded);rows,_,_,_=s.validate_source(cp,0,excluded);self.assertEqual(len(rows),357)
+            with self.assertRaises(RuntimeError):s.validate_source(cp,0)
+            bad=copy.deepcopy(cp);bad['rows'][0]['N']=2048;bad['payload_sha256']=s.ident({k:v for k,v in bad.items() if k!='payload_sha256'})
+            with self.assertRaises(RuntimeError):s.validate_source(bad,0,excluded)
+
+    def test_whole_choice_is_not_claimed_as_partial(self):
+        self.assertIn('no partial-token',s.action_interpretation(dict(m=9,q=0)))
+        chosen=s.policy_index(policy());chosen[1024,'16QAM',7,'entropy']['action']=dict(N=1024,phy='16QAM',m=8,q=0,order='whole')
+        self.assertEqual(s.action_for(chosen,1024,'16QAM',7,'oracle_at_entropy')['order'],'whole')
+
+    def test_pairing_averages_three_noises_before_bootstrap(self):
+        excluded={(1024,'16QAM',7,'oracle_at_entropy')};rows=population(excluded);original=s.interval
+        with patch.object(s,'METRICS',('psnr_db',)),patch.object(s,'EXTRA',()),patch.object(s,'EVENTS',()),\
+             patch.object(s,'interval',lambda x,draws:original(x,draws[:8])):
+            summary,paired=s.analyze(rows,excluded)
+            historical=[r for r in paired if r['contrast']=='expanded_minus_historical_grid']
+            self.assertEqual(len(historical),30)
+            self.assertTrue(all(r['mean']==r['ci_low']==r['ci_high']==3 for r in historical))
+            self.assertEqual(len([r for r in summary if r['comparison_scope']=='expanded']),119)
+            self.assertFalse(any(r['N']==1024 and r['snr_db']==7 and r['method_A']=='oracle_at_entropy' for r in paired))
+
+    def test_pairing_rejects_wrong_target_or_missing_P_frame(self):
+        original=s.interval
+        with patch.object(s,'METRICS',('psnr_db',)),patch.object(s,'EXTRA',()),patch.object(s,'EVENTS',()),\
+             patch.object(s,'interval',lambda x,draws:original(x,draws[:2])):
+            rows=population();rows[0]['reference_sha256']='wrong'
+            with self.assertRaises(RuntimeError):s.analyze(rows)
+            with self.assertRaises(RuntimeError):s.analyze(population()[:-1])
+
+    def test_mandatory_old_image_metrics_cannot_be_imputed(self):
+        rows=population();next(r for r in rows if r['comparison_scope']=='P')['psnr_db']=None
+        with patch.object(s,'METRICS',('psnr_db',)),patch.object(s,'EXTRA',()),patch.object(s,'EVENTS',()):
+            with self.assertRaises(RuntimeError):s.analyze(rows)
+
+    def test_history_optional_missing_diagnostics_are_explicit(self):
+        with tempfile.TemporaryDirectory() as d:
+            obj=s.Inputs(d,Path(d)/'out',Path(d)/'old');target=np.zeros((3,256,256),np.float32)
+            obj.records=[dict(image_id='id',preprocessing_id='prep')];obj.targets=[target]
+            row=dict(N='1024',source_id='id',preprocessing_id='prep',reference_sha256=s.rgb_sha(target),snr_db='7',noise_seed='2001',
+                dino_cosine='.8',dino_mismatched='.2',resnet50_top1_source_prediction='1')
+            result=obj.check_history_row(row,0,'P')
+            self.assertAlmostEqual(result['dino_specificity'],.6);self.assertEqual(result['semantic_error'],0)
+            self.assertIn('confidently_wrong',result['history_missing_metrics']);self.assertNotIn('confidently_wrong',result)
+
+    def test_visual_save_preserves_float_and_rejects_replacement(self):
+        with tempfile.TemporaryDirectory() as d:
+            target=np.zeros((3,256,256),np.float32);image=target+.125;path=Path(d)/'archive.npz'
+            v.save_archive(path,[image],target,['id']);v.save_archive(path,[image],target,['id'])
+            with np.load(path,allow_pickle=False) as z:self.assertTrue(np.array_equal(z['images'][0],image))
+            with self.assertRaises(RuntimeError):v.save_archive(path,[image+.1],target,['id'])
+            v.match(image,target,dict(image_sha256=s.rgb_sha(image),reference_sha256=s.rgb_sha(target)))
+            with self.assertRaises(RuntimeError):v.match(image+.1,target,dict(image_sha256=s.rgb_sha(image),reference_sha256=s.rgb_sha(target)))
+
+    def test_report_layout_all_columns_use_real_float_inputs(self):
+        chosen=s.policy_index(policy());target=np.zeros((3,256,256),np.float32);saved={}
+        for i in s.FIXED[:4]:
+            by={(1024,'16QAM',7,m):(target+(.1+j*.1),{}) for j,m in enumerate(('P1024','whole_policy','entropy_policy','oracle_policy'))}
+            saved[i]=target,by
+        canvas,proof,columns=s.fixed_page(1024,'16QAM',7,0,s.FIXED[:4],saved,chosen)
+        self.assertEqual(canvas.size,(1420,1326));self.assertEqual(len(proof),20);self.assertEqual(len(columns),5);canvas.close()
+
+    def test_artifact_size_guard_and_CPU_import(self):
+        with tempfile.TemporaryDirectory() as d:
+            p=Path(d)/'r.txt';p.write_bytes(b'ab');self.assertEqual(s.artifact_metadata(p),dict(sha256=s.sha(p),bytes=2))
+        code='import sys,m9_score_report,ensure_visual_controls; assert "torch" not in sys.modules; assert "torchvision" not in sys.modules'
+        result=subprocess.run([sys.executable,'-c',code],cwd=HERE,capture_output=True,text=True)
+        self.assertEqual(result.returncode,0,result.stderr)
+
+    def test_csv_output_is_LF_and_values_roundtrip(self):
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/'table.csv';s.csv_write(path,[dict(source='image01',score=1.25),dict(source='image02',score=-2.)])
+            self.assertNotIn(b'\r\n',path.read_bytes())
+            self.assertEqual(s.read_csv(path),[dict(source='image01',score='1.25'),dict(source='image02',score='-2.0')])
+
+if __name__=='__main__':unittest.main()

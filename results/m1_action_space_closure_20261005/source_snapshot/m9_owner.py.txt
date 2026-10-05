@@ -1,0 +1,534 @@
+"""Exclusive execution and publication of the M1 action-space closure.
+
+Archived Python text is public evidence. Live executables remain in this new
+output directory. This owner never resumes UEP or another historical queue.
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path, PurePosixPath, PureWindowsPath
+import signal
+import subprocess
+import sys
+import time
+
+VERSION = 'M1_ACTION_CLOSURE_OWNER_V1'
+LIMIT = 10_000_000
+STAGES = ('qualify', 'benchmark', 'cohort_probe', 'calibrate_prepare', 'calibrate', 'development', 'score', 'report')
+SCIENTIFIC = ('qualify', 'benchmark', 'calibrate_prepare', 'calibrate', 'development')
+STOP = False
+
+
+def require(condition, message):
+    if not condition:
+        raise RuntimeError(message)
+
+
+def read(path):
+    return json.loads(Path(path).read_text(encoding='utf-8-sig'))
+
+
+def write(path, value):
+    path = Path(path); path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(path.name + '.%d.tmp' % os.getpid())
+    temporary.write_text(json.dumps(value, indent=2, ensure_ascii=False, allow_nan=False) + '\n', encoding='utf-8')
+    os.replace(temporary, path)
+
+
+def seal(path, value):
+    if Path(path).exists():
+        require(read(path) == value, 'Immutable owner evidence differs: ' + str(path))
+    else:
+        write(path, value)
+
+
+def sha(path):
+    digest = hashlib.sha256()
+    with Path(path).open('rb') as handle:
+        for data in iter(lambda: handle.read(8 * 1024 * 1024), b''):
+            digest.update(data)
+    return digest.hexdigest()
+
+
+def valid_digest(value):
+    return isinstance(value, str) and len(value) == 64 and all(c in '0123456789abcdef' for c in value)
+
+
+def verify(bindings, root=None, within=None):
+    require(isinstance(bindings, dict) and bool(bindings), 'Nonempty file bindings required')
+    boundary = Path(within).resolve() if within is not None else None
+    resolved = {}
+    for name, digest in bindings.items():
+        require(isinstance(name, str) and valid_digest(digest), 'Malformed SHA256 binding')
+        path = Path(name)
+        if not path.is_absolute():
+            require(root is not None, 'Absolute output binding required')
+            path = Path(root) / path
+        path = path.resolve()
+        require(path.is_file() and (boundary is None or boundary in path.parents), 'Missing or escaped bound artifact: ' + name)
+        require(sha(path) == digest, 'Bound artifact changed: ' + name)
+        resolved[path] = digest
+    return resolved
+
+
+def relative_file(base, name):
+    require(isinstance(name, str) and name and '\\' not in name and not PurePosixPath(name).is_absolute()
+            and not PureWindowsPath(name).drive and all(p not in ('', '.', '..') for p in name.split('/')),
+            'Strict relative publication path required: ' + repr(name))
+    base = Path(base).resolve(); path = base.joinpath(*name.split('/')).resolve()
+    require(base in path.parents and path.is_file(), 'Publication file missing or escapes result directory: ' + name)
+    return path
+
+
+def validate_metadata(path, info):
+    require(isinstance(info, dict) and set(info) == {'sha256', 'bytes'} and valid_digest(info['sha256'])
+            and type(info['bytes']) is int and 0 <= info['bytes'] < LIMIT, 'Invalid nested publication metadata')
+    require(path.is_file() and path.stat().st_size == info['bytes'] and sha(path) == info['sha256'],
+            'Publication digest or byte count mismatch: ' + str(path))
+
+
+def process_identity(pid):
+    directory = Path('/proc') / str(pid)
+    fields = (directory / 'stat').read_text().rsplit(')', 1)[1].split()
+    return dict(pid=pid, start_ticks=int(fields[19]), uid=directory.stat().st_uid,
+                argv=[x.decode() for x in (directory / 'cmdline').read_bytes().split(b'\0') if x])
+
+
+def same_process(record, actual):
+    return (record.get('pid') == actual.get('pid') and str(record.get('start_ticks')) == str(actual.get('start_ticks'))
+            and record.get('uid') == actual.get('uid') and record.get('argv') == actual.get('argv'))
+
+
+class Owner:
+    def __init__(self, root, out, code=None):
+        self.root, self.out = Path(root).resolve(), Path(out).resolve()
+        self.code = Path(code).resolve() if code else Path(__file__).resolve().parent
+        require(self.root in self.out.parents and self.root in self.code.parents, 'Code and output must reside in the repository')
+        self.protocol_path = self.code / 'protocol.json'
+        self.protocol = read(self.protocol_path)
+        self.registration_path = self.out / 'registration.json'
+        self.registration = read(self.registration_path)
+        self.registration_sha256 = sha(self.registration_path)
+        self.protocol_sha256 = sha(self.protocol_path)
+        require(self.registration.get('status') == 'REGISTERED'
+                and self.registration.get('protocol_sha256') == self.protocol_sha256, 'Frozen protocol registration required')
+        self.native = self.root / 'outputs/UNIFIED-METRICS-20261002/environment/bin/python'
+        self.legacy = Path(self.protocol['original_output']).resolve()
+        self.result = self.root / 'results/m1_action_space_closure_20261005'
+        self.mirror = self.root / 'reports/m1_action_space_closure_20261005.md'
+        require(self.protocol.get('result_dir') == self.result.relative_to(self.root).as_posix()
+                and self.protocol.get('report_path') == self.mirror.relative_to(self.root).as_posix(),
+                'Publication scope changed')
+        self.child = None; self.child_record = None; self.cohort_children = []
+        self.check(all_inputs=True)
+        bound = verify(self.registration['source_bindings'], self.root)
+        self.source_paths = self.executable_sources()
+        require(self.source_paths and all(p in bound for p in self.source_paths), 'Every live Python source and test must be registered')
+        proof = read(self.out / 'legacy_compatibility.json')
+        require(proof.get('status') == 'LEGACY_CALIBRATION_REUSE_AUDITED'
+                and proof.get('incompatible_header_count') == 0 and proof.get('sources') == 1000
+                and proof.get('target_rows') == 2187000 and len(proof.get('datasets', [])) == 2,
+                'Successful exact legacy compatibility audit required')
+        for dataset in proof['datasets']:
+            verify(dataset['source_checkpoint_sha256'])
+        self.compatibility_sha256 = sha(self.out / 'legacy_compatibility.json')
+        require(not (self.out / 'publication_completion.json').exists(), 'Already published; do not restart the scientific queue')
+        require(not (self.out / 'owner_failure.json').exists(), 'Previous owner failure requires explicit review; no blind retry')
+
+    def check(self, all_inputs=False):
+        require(not STOP and not (self.out / 'STOP').exists(), 'M1 closure owner stop requested; completed evidence is retained')
+        require(sha(self.registration_path) == self.registration_sha256 and sha(self.protocol_path) == self.protocol_sha256,
+                'Frozen registration or protocol changed')
+        verify(self.registration['source_bindings'], self.root)
+        if all_inputs:
+            verify(self.registration['input_bindings'], self.root)
+        if hasattr(self, 'source_paths'):
+            require(self.executable_sources() == self.source_paths, 'Executable source inventory changed after registration')
+        if hasattr(self, 'compatibility_sha256'):
+            require(sha(self.out / 'legacy_compatibility.json') == self.compatibility_sha256, 'Legacy compatibility receipt changed')
+
+    def executable_sources(self):
+        # The bound historical score module is executed from its .py.txt snapshot.
+        return sorted({p.resolve() for pattern in ('*.py', '*.py.txt') for p in self.code.glob(pattern)})
+
+    def status(self, state, **fields):
+        write(self.out / 'owner_status.json', dict(status=state, version=VERSION, pid=os.getpid(), time=time.time(), **fields))
+
+    def environment(self, gpu=False):
+        environment = os.environ.copy()
+        environment.update(CUDA_VISIBLE_DEVICES='0' if gpu else '', CUBLAS_WORKSPACE_CONFIG=':4096:8',
+            OMP_NUM_THREADS='6', MKL_NUM_THREADS='6', OPENBLAS_NUM_THREADS='6', PYTHONDONTWRITEBYTECODE='1',
+            VAR_COMM_ROOT=str(self.root))
+        environment['PYTHONPATH'] = os.pathsep.join(map(str, (self.code,
+            self.root / 'experiments/var-latent-enhancement-20260917/mechanisms/src', self.root / 'src')))
+        environment['PATH'] = str(self.native.parent) + os.pathsep + environment.get('PATH', '')
+        return environment
+
+    def gpu_idle(self):
+        active = subprocess.check_output(['nvidia-smi', '--query-compute-apps=pid', '--format=csv,noheader,nounits'],
+                                         text=True, timeout=15).strip()
+        require(not active, 'Existing GPU compute owner; refuse to launch a competing worker: ' + active)
+
+    def active_record(self):
+        children = [record for child, record in self.cohort_children if child.poll() is None]
+        if self.child is not None and self.child.poll() is None:
+            children.append(self.child_record)
+        write(self.out / 'active_children.json', dict(owner_pid=os.getpid(), time=time.time(), children=children))
+        write(self.out / 'active_child.json', dict(owner_pid=os.getpid(), time=time.time(),
+              child=self.child_record if self.child is not None and self.child.poll() is None else None))
+
+    def execute(self, name, argv, gpu=False, capture=False):
+        self.check()
+        require((self.child is None or self.child.poll() is not None)
+                and not any(child.poll() is None for child, _ in self.cohort_children), 'Single-child ownership violated')
+        if gpu:
+            self.gpu_idle()
+        log = self.out / 'logs' / (name + '.log'); log.parent.mkdir(parents=True, exist_ok=True)
+        self.status('RUNNING', step=name, gpu=gpu, log=str(log))
+        with log.open('ab') as stream:
+            start_offset = stream.tell()
+            self.child = subprocess.Popen([str(x) for x in argv], cwd=self.root, env=self.environment(gpu),
+                stdin=subprocess.DEVNULL, stdout=stream, stderr=subprocess.STDOUT, start_new_session=True)
+            try:
+                identity = process_identity(self.child.pid)
+            except FileNotFoundError:
+                # Fast CPU commands can exit before /proc is read; they never
+                # become a running GPU cohort or receive an external signal.
+                require(self.child.poll() is not None, 'Live child identity disappeared')
+                identity = dict(pid=self.child.pid, exited_before_identity=True)
+            self.child_record = dict(name=name, gpu=gpu, command=[str(x) for x in argv], **identity)
+            self.active_record()
+            while self.child.poll() is None:
+                self.check(); self.active_record(); time.sleep(5.)
+            returncode = self.child.returncode
+        self.active_record()
+        require(returncode == 0, 'Child failed (exit %s); preserve log and receipts: %s' % (returncode, log))
+        self.check()
+        if capture:
+            with log.open('rb') as stream:
+                stream.seek(start_offset)
+                return stream.read().decode('utf-8').strip()
+
+    def cleanup(self):
+        children = list(self.cohort_children)
+        if self.child is not None:
+            children.append((self.child, self.child_record))
+        for child, record in children:
+            if child.poll() is None:
+                require(record is not None and same_process(record, process_identity(child.pid)),
+                        'Refuse to signal a changed process identity')
+                child.terminate()
+        deadline = time.monotonic()+180.
+        while any(child.poll() is None for child, _ in children) and time.monotonic() < deadline:
+            self.status('STOPPING_OWN_CHILDREN', checkpoint_policy='retain completed sources')
+            self.active_record(); time.sleep(5.)
+        for child, record in children:
+            if child.poll() is None:
+                require(same_process(record, process_identity(child.pid)), 'Refuse changed PID during final cleanup')
+                child.kill(); child.wait(timeout=10.)
+        self.active_record()
+
+    def stage_argv(self, stage, workers=None, worker_index=None, cohort_config=None):
+        if stage == 'cohort_probe':
+            return [self.native, '-B', self.code / 'cohort_probe.py', '--root', self.root, '--out', self.out]
+        if stage in ('qualify', 'benchmark', 'calibrate_prepare', 'calibrate_shard', 'calibrate_merge', 'development'):
+            argv = [self.native, '-B', self.code / 'm9_run.py', '--root', self.root,
+                    '--protocol', self.protocol_path, '--output', self.out, '--stage', stage.replace('_', '-')]
+            if workers is not None:
+                argv += ['--workers', str(workers)]
+            if worker_index is not None:
+                argv += ['--worker-index', str(worker_index)]
+            if cohort_config is not None:
+                argv += ['--cohort-config', str(cohort_config)]
+            return argv
+        if stage == 'visual_controls':
+            return [self.native, '-B', self.code/'ensure_visual_controls.py', '--root', self.root,
+                    '--out', self.out, '--legacy-out', self.legacy]
+        require(stage in ('score', 'report'), 'Unknown stage')
+        return [self.native, '-B', self.code / 'm9_score_report.py', '--root', self.root,
+                '--out', self.out, '--legacy-out', self.legacy, '--stage', stage]
+
+    def receipt(self, stage, required=True):
+        path = self.out / (stage + '_completion.json')
+        if not path.exists():
+            require(not required, 'Missing stage completion: ' + stage)
+            return None
+        value = read(path)
+        statuses = dict(cohort_probe='COHORT_PARITY_COMPLETE', score='M1_ACTION_CLOSURE_METRICS_COMPLETE',
+                        report='M1_ACTION_CLOSURE_REPORT_COMPLETE')
+        require(value.get('status') == statuses.get(stage, 'COMPLETE'), 'Unexpected completion status: ' + stage)
+        verify(value['outputs'])
+        if stage not in ('report', 'cohort_probe'):
+            require(value.get('synthetic') is False and value.get('training_updates') == 0, 'Invalid scientific receipt scope')
+        if stage == 'cohort_probe':
+            require(value.get('registration_sha256') == self.registration_sha256
+                    and type(value.get('selected_workers')) is int and value['selected_workers'] in (2, 4)
+                    and value.get('exact_complete_row_parity') is True
+                    and value.get('development_read') is False and value.get('synthetic') is False
+                    and value.get('scientific_updates') is False, 'Unqualified cohort selection')
+        if stage in SCIENTIFIC or stage.startswith('calibrate_worker_'):
+            require(value.get('stage') == stage and value.get('registration_sha256') == self.registration_sha256,
+                    'Stage registration mismatch: ' + stage)
+            expected = {'qualify': dict(sources=1, physical_frames=244),
+                'benchmark': dict(sources=2, physical_frames=2946),
+                'calibrate_prepare': dict(new_tasks_per_source=1473, total_tasks_per_source=3660),
+                'calibrate': dict(sources=1000, physical_frames=3660000, newly_evaluated_frames=1473000, legacy_reused_frames=2187000),
+                'development': dict(sources=100, max_method_rows=36000)}.get(stage, {})
+            for key, count in expected.items():
+                require(value.get(key) == count, 'Incomplete stage scope: ' + stage + '/' + key)
+            if stage == 'development':
+                require(value.get('development_used_for_selection') is False and 31500 <= value['method_rows'] <= 36000,
+                        'Development scope or selection contamination')
+            else:
+                require(value.get('development_read') is False, 'Development read during calibration/engineering stage')
+            if stage == 'calibrate_prepare' or stage.startswith('calibrate_worker_'):
+                require(value.get('workers') == self.receipt('cohort_probe')['selected_workers'], 'Unqualified worker count')
+            if stage.startswith('calibrate_worker_'):
+                i = int(stage.rsplit('_', 1)[1]); n = value['workers']; indices = list(range(i, 1000, n))
+                require(0 <= i < n and value.get('source_indices') == indices and value.get('sources') == len(indices)
+                        and value.get('physical_frames') == 1473*len(indices), 'Invalid source shard receipt')
+        if stage in ('calibrate', 'development'):
+            require(value.get('policy_sha256') == sha(self.out / 'm1_policy.json'), 'Frozen policy mismatch')
+        if stage == 'score':
+            require(value.get('sources') == 100 and value.get('max_expanded_rows') == 36000
+                    and 31500 <= value['expanded_rows'] <= 36000 and value.get('selection_updates') == 0,
+                    'Incomplete unified score scope')
+            require(value.get('P_rows') == 3000 and type(value.get('historical_rows')) is int
+                    and value.get('legacy_rows') == value['historical_rows']-3000
+                    and value.get('rows') == value['expanded_rows']+value['historical_rows'],
+                    'Incomplete P/historical comparison row accounting')
+            require(value.get('registration_sha256') == sha(self.out / 'metrics/registration.json'), 'Metric registration mismatch')
+            verify(value['input_bindings'])
+        if stage == 'report':
+            require(value.get('sources') == 100 and 31500 <= value['expanded_rows'] <= 36000
+                    and value.get('model_inference') is False and value.get('training_updates') == 0,
+                    'Invalid completed report scope')
+            require(value.get('score_completion_sha256') == sha(self.out / 'score_completion.json')
+                    and value.get('manifest_path') == str(self.result / 'MANIFEST.json')
+                    and value.get('manifest_sha256') == sha(self.result / 'MANIFEST.json'), 'Report lineage differs')
+            verify(value['input_bindings'])
+        return value
+
+    def visual_receipt(self):
+        path = self.out/'fixed_p_images/manifest.json'
+        value = read(path)
+        require(value.get('status') == 'FIXED_P_IMAGES_COMPLETE' and value.get('synthetic') is False
+                and value.get('source_indices') == self.protocol['fixed_source_indices']
+                and value.get('snrs') == [1,4,7,13,19] and value.get('budgets') == [1024,2048]
+                and value.get('noise_seed') == 2001 and value.get('row_count') == 160
+                and isinstance(value.get('rows'), list) and len(value['rows']) == 160,
+                'Fixed P visual controls are incomplete')
+        verify(value['outputs']); verify(value['input_bindings'])
+        return value
+
+    def production(self):
+        """Admit disjoint complete-source workers after the sealed parity proof."""
+        self.check(all_inputs=True)
+        n = self.receipt('cohort_probe')['selected_workers']
+        self.receipt('calibrate_prepare')
+        require(read(self.out/'calibrate_registration.json')['workers'] == n, 'Prepared partition differs')
+        directory = self.out/'production'; directory.mkdir(parents=True, exist_ok=True)
+        manifest_path = directory/'cohort.json'
+        require(not manifest_path.exists(), 'Existing cohort requires explicit review; no blind relaunch')
+        require(not self.cohort_children and (self.child is None or self.child.poll() is not None), 'Another child is active')
+        self.gpu_idle()
+        records = []; configs = []
+        for i in range(n):
+            config_path = directory/('worker_%02d'%i)/'config.json'
+            config = dict(root=str(self.root), out=str(self.out), protocol=str(self.protocol_path),
+                          stage='production', worker_id='worker_%02d'%i,
+                          source_indices=list(range(i, 1000, n)), cohort_manifest=str(manifest_path),
+                          stop_file=str(self.out/'STOP'), source_bindings=self.registration['source_bindings'])
+            seal(config_path, config); configs.append((config_path, config))
+        self.status('STARTING_REGISTERED_COHORT', workers=n)
+        for i, (config_path, config) in enumerate(configs):
+            self.check()
+            argv = [str(x) for x in self.stage_argv('calibrate_shard', n, i, config_path)]
+            log = self.out/'logs'/('calibrate_worker_%02d.log'%i); log.parent.mkdir(parents=True, exist_ok=True)
+            with log.open('ab') as stream:
+                child = subprocess.Popen(argv, cwd=self.root, env=self.environment(True), stdin=subprocess.DEVNULL,
+                                         stdout=stream, stderr=subprocess.STDOUT, start_new_session=True)
+            record = dict(name='calibrate_worker_%02d'%i, worker_id=config['worker_id'], source_indices=config['source_indices'],
+                          gpu=True, command=argv, log=str(log), **process_identity(child.pid))
+            self.cohort_children.append((child, record)); records.append(record)
+            self.active_record()
+        manifest = dict(schema='M1_GPU_COHORT_V1', status='READY', stage='production',
+                        owner=process_identity(os.getpid()), workers=records,
+                        registration_sha256=self.registration_sha256, protocol_sha256=self.protocol_sha256,
+                        probe_completion_sha256=sha(self.out/'cohort_probe_completion.json'),
+                        calibration_registration_sha256=sha(self.out/'calibrate_registration.json'))
+        for child, record in self.cohort_children:
+            require(child.poll() is None and same_process(record, process_identity(child.pid)), 'Worker exited before cohort sealing')
+        seal(manifest_path, manifest)
+        self.status('CALIBRATING_COHORT', workers=n, cohort_manifest=str(manifest_path))
+        while any(child.poll() is None for child, _ in self.cohort_children):
+            self.check(); self.active_record()
+            for child, record in self.cohort_children:
+                code = child.poll()
+                require(code is None or code == 0, 'Cohort worker failed; preserve evidence: '+record['name'])
+                if code is None:
+                    try:
+                        actual = process_identity(child.pid)
+                    except (FileNotFoundError, ProcessLookupError):
+                        require(child.poll() == 0, 'Live cohort identity disappeared')
+                    else:
+                        require(same_process(record, actual), 'Cohort identity changed')
+            time.sleep(5.)
+        for child, record in self.cohort_children:
+            require(child.returncode == 0, 'Cohort worker failed: '+record['name'])
+            self.receipt(record['name'])
+        self.active_record()
+        seal(directory/'completion.json', dict(status='COHORT_PRODUCTION_COMPLETE', workers=n,
+             registration_sha256=self.registration_sha256, cohort_manifest_sha256=sha(manifest_path),
+             outputs={str(self.out/(r['name']+'_completion.json')): sha(self.out/(r['name']+'_completion.json'))
+                      for _, r in self.cohort_children},
+             source_partition='exact nonoverlapping modulo workers over 0..999', training_updates=0, synthetic=False))
+
+    def publication_files(self):
+        manifest_path = self.result / 'MANIFEST.json'
+        manifest = read(manifest_path)
+        require(manifest.get('status') == 'M1_ACTION_CLOSURE_STATIC_REPORT_COMPLETE' and manifest.get('sources') == 100
+                and manifest.get('model_inference') is False and manifest.get('metric_recomputation') is False
+                and manifest.get('training_updates') == 0, 'Unexpected report manifest status or scope')
+        outputs = manifest.get('outputs')
+        require(isinstance(outputs, dict) and 'REPORT.md' in outputs and 'protocol.json' in outputs, 'Incomplete report manifest')
+        paths = []
+        for name, info in outputs.items():
+            path = relative_file(self.result, name); validate_metadata(path, info); paths.append(path)
+        require(manifest_path.stat().st_size < LIMIT, 'Report manifest exceeds publication size cap')
+        if manifest.get('input_bindings'):
+            verify(manifest['input_bindings'])
+        require(sha(self.result / 'protocol.json') == self.protocol_sha256, 'Published protocol snapshot differs')
+        snapshots = {self.result / 'source_snapshot' / (p.name + '.txt'): p for p in self.source_paths}
+        for snapshot, source in snapshots.items():
+            require(snapshot in paths and sha(snapshot) == sha(source), 'Missing or changed executable text snapshot: ' + source.name)
+        actual_snapshots = set((self.result / 'source_snapshot').glob('*'))
+        require(actual_snapshots == set(snapshots), 'Unexpected or incomplete source snapshot inventory')
+        done = self.receipt('report')
+        metadata = done.get('output_metadata', {})
+        require(set(done['outputs']) == set(metadata), 'Report SHA and byte-count inventories differ')
+        for path in paths + [manifest_path, self.mirror]:
+            require(done['outputs'].get(str(path)) == sha(path), 'Publication is absent from the completed report inventory')
+            validate_metadata(path, metadata.get(str(path)))
+        require(str(self.mirror) in metadata, 'Report mirror missing from completed metadata')
+        validate_metadata(self.mirror, metadata[str(self.mirror)])
+        paths.extend((manifest_path, self.mirror))
+        for path in paths:
+            require(self.root in path.parents and path.stat().st_size < LIMIT and path.suffix != '.py',
+                    'Unsafe publication path or live Python source unexpectedly included')
+        return {path.relative_to(self.root).as_posix(): sha(path) for path in sorted(set(paths))}
+
+    def git(self, name, *args, capture=False):
+        return self.execute(name, ['git', *args], capture=capture)
+
+    def staged(self):
+        return set(filter(None, self.git('staged_paths', 'diff', '--cached', '--name-only', capture=True).splitlines()))
+
+    def publish(self):
+        self.check(all_inputs=True)
+        for stage in STAGES:
+            self.receipt(stage)
+        self.visual_receipt()
+        report_inventory = self.publication_files()
+        require(not self.staged(), 'Existing staged work requires review before publication')
+        inventory = dict(report_inventory)
+        seal(self.out / 'publication_inventory.json', dict(status='EXPLICIT_TEXT_ONLY_PUBLICATION', files=inventory,
+            registered_source_sha256={str(p): sha(p) for p in self.source_paths}, live_python_sources_staged=False))
+        self.git('fetch_origin', 'fetch', 'origin')
+        require(self.git('check_branch', 'symbolic-ref', '--short', 'HEAD', capture=True) == 'main', 'Publication branch must be main')
+        self.git('check_ancestor', 'merge-base', '--is-ancestor', 'origin/main', 'HEAD')
+        self.git('stage_results', 'add', '--', *inventory)
+        self.gpu_idle()
+        self.execute('repository_manifest', [self.native, '-B', 'tools/update_repository_manifest.py'])
+        self.git('stage_release_manifest', 'add', '--', 'release_manifest.json')
+        allowed = set(inventory) | {'release_manifest.json'}
+        require(self.staged() <= allowed, 'Unrelated staged file in publication')
+        self.execute('repository_verify', [self.native, '-B', 'tools/verify_repository.py'])
+        self.execute('repository_cpu_checks', [self.native, '-B', 'tools/run_cpu_checks.py'])
+        self.git('check_staged_whitespace', 'diff', '--cached', '--check')
+        self.check(all_inputs=True)
+        verify(inventory, self.root)
+        require(self.publication_files() == report_inventory and self.staged() <= allowed, 'Publication changed during verification')
+        self.git('commit_results', 'commit', '-m', 'Publish full-scale M1 action closure and paired evaluation')
+        self.git('push_results', 'push', 'origin', 'HEAD:main')
+        commit = self.git('local_commit', 'rev-parse', 'HEAD', capture=True)
+        remote = self.git('remote_commit', 'ls-remote', 'origin', 'refs/heads/main', capture=True).split()[0]
+        require(len(commit) == 40 and commit == remote, 'Published remote commit mismatch')
+        receipt = dict(status='PUSHED_AND_STOPPED', version=VERSION, commit=commit, remote_commit=remote, checks='PASS',
+            registration_sha256=self.registration_sha256, protocol_sha256=self.protocol_sha256,
+            score_completion_sha256=sha(self.out / 'score_completion.json'), report_completion_sha256=sha(self.out / 'report_completion.json'),
+            report_manifest_sha256=sha(self.result / 'MANIFEST.json'), publication_inventory_sha256=sha(self.out / 'publication_inventory.json'),
+            report=self.mirror.relative_to(self.root).as_posix(), live_python_sources_staged=False,
+            source_snapshot_files=len(self.source_paths), training_updates=0, additional_inference_during_publication=False,
+            uep_resume=False, old_queues_started=False)
+        seal(self.out / 'publication_completion.json', receipt)
+        self.status('PUSHED_AND_STOPPED', commit=commit)
+        return receipt
+
+    def run(self):
+        for stage in ('qualify', 'benchmark', 'cohort_probe'):
+            self.check(all_inputs=True)
+            if self.receipt(stage, required=False) is None:
+                self.execute(stage, self.stage_argv(stage), gpu=True)
+            self.receipt(stage)
+        n = self.receipt('cohort_probe')['selected_workers']
+        if self.receipt('calibrate_prepare', required=False) is None:
+            self.execute('calibrate_prepare', self.stage_argv('calibrate_prepare', workers=n), gpu=False)
+        self.receipt('calibrate_prepare')
+        if self.receipt('calibrate', required=False) is None:
+            self.production()
+            self.execute('calibrate_merge', self.stage_argv('calibrate_merge', workers=n), gpu=False)
+        self.receipt('calibrate')
+        for stage in ('development', 'score'):
+            self.check(all_inputs=True)
+            if self.receipt(stage, required=False) is None:
+                self.execute(stage, self.stage_argv(stage), gpu=True)
+            self.receipt(stage)
+        # The helper verifies its sealed cache/receipt if it has already finished.
+        self.execute('visual_controls', self.stage_argv('visual_controls'), gpu=True)
+        self.visual_receipt()
+        if self.receipt('report', required=False) is None:
+            self.execute('report', self.stage_argv('report'), gpu=False)
+        self.receipt('report')
+        self.publish()
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--root', required=True); parser.add_argument('--out', required=True)
+    args = parser.parse_args()
+    out = Path(args.out).resolve(); out.mkdir(parents=True, exist_ok=True)
+    import fcntl
+    lock = (out / 'owner.lock').open('a+')
+    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    def stop(*_):
+        global STOP
+        STOP = True
+    signal.signal(signal.SIGTERM, stop); signal.signal(signal.SIGINT, stop)
+    owner = None
+    try:
+        owner = Owner(args.root, out)
+        write(out / 'owner_identity.json', dict(version=VERSION, **process_identity(os.getpid())))
+        owner.run()
+    except BaseException as error:
+        cleanup_error = None
+        if owner is not None:
+            try:
+                owner.cleanup()
+            except BaseException as cleanup_failure:
+                cleanup_error = repr(cleanup_failure)
+        failure = out / 'owner_failure.json'
+        if not failure.exists():
+            write(failure, dict(status='FAILED_REQUIRES_REVIEW', version=VERSION, error=repr(error), time=time.time(),
+                cleanup_error=cleanup_error, automatic_retry=False, retained_completed_evidence=True,
+                uep_automatically_restarted=False))
+        raise
+    finally:
+        lock.close()
+
+
+if __name__ == '__main__':
+    main()

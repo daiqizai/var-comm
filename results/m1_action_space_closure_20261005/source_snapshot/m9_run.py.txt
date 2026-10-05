@@ -1,0 +1,412 @@
+"""Source-sharded, restartable complete-grid M1 closure; no training or old queue."""
+from __future__ import annotations
+import argparse
+import math
+import os
+from pathlib import Path
+import signal
+import time
+import numpy as np
+import m9_common as u
+
+
+class PauseRequested(RuntimeError):
+    pass
+
+
+def rank(group):
+    """Exact original m1_runner.rank rule; DINO never enters selection."""
+    ref=min(group,key=lambda r:(r['failure_fraction'],-r['m'],-r['q'],r['action_id']))
+    feasible=[r for r in group if r['psnr_db']>=ref['psnr_db']-.25]
+    return sorted(feasible,key=lambda r:(r['lpips_alex'],r['failure_fraction'],r['action_id'])),ref
+
+
+def reused_dataset(action, snr):
+    if action.N != 2048:
+        return None
+    if action.m <= 7 or (action.m == 8 and action.q == 0):
+        return 'original69'
+    if action.m == 9 and action.phy == '16QAM' and snr in (7,13,19):
+        return 'm9_high'
+    return None
+
+
+class Runner:
+    def __init__(self, root, protocol, out, worker_index=0, workers=1, cohort_config=None):
+        self.root,self.out=Path(root).resolve(),Path(out).resolve()
+        self.protocol_path=Path(protocol).resolve()
+        self.protocol=u.validate_protocol(u.read(self.protocol_path))
+        self.registration_path=self.out/'registration.json'
+        self.registration=u.read(self.registration_path)
+        u.require(self.registration['status']=='REGISTERED' and self.registration['protocol_sha256']==u.sha(self.protocol_path),
+                  'Frozen complete-grid registration required')
+        for key in ('source_bindings','input_bindings'):
+            u.verify(self.registration[key],self.root)
+        self.registration_sha256=u.sha(self.registration_path)
+        self.compatibility_path=self.out/'legacy_compatibility.json'
+        self.worker_index,self.workers=int(worker_index),int(workers)
+        u.require(1<=self.workers<=16 and 0<=self.worker_index<self.workers,'Invalid source shard')
+        self.native=None;self.stop=False;self.stage='controller'
+        self.cohort_config=Path(cohort_config).resolve() if cohort_config else None
+        self.cohort_guard=None
+
+    def stopped(self,*_): self.stop=True
+
+    def guard(self):
+        if self.stop or (self.out/'STOP').exists():
+            raise PauseRequested('Requested source-boundary pause; completed source checkpoints retained')
+
+    def status(self,status,**fields):
+        value=dict(status=status,stage=self.stage,pid=os.getpid(),time=time.time(),
+                   worker_index=self.worker_index,workers=self.workers)
+        value.update(fields)
+        u.write(self.out/(self.stage+'_status.json'),value)
+
+    def load(self):
+        self.guard()
+        if self.native is None:
+            self.status('LOADING_FROZEN_MODELS')
+            from m9_native import Native
+            if self.cohort_config is not None:
+                cohort=u.load_module('_closure_cohort_runtime',self.root/'experiments/m1-gpu-workers-20261004/cohort_runtime.py')
+                config=u.read(self.cohort_config);cohort.verify_bindings(config['source_bindings'])
+                self.cohort_guard=cohort.await_cohort(config,stopped=lambda:self.stop)
+            self.native=Native(self.root,self.stopped,cohort_guard=self.cohort_guard)
+        return self.native
+
+    def actions(self):
+        from m9_phy import action_grid
+        result=[a for N,f in u.CELLS for a in action_grid(N,f)]
+        counts={(N,f):sum((a.N,a.phy)==(N,f) for a in result) for N,f in u.CELLS}
+        u.require(counts=={(1024,'16QAM'):73,(2048,'QPSK'):73,(2048,'16QAM'):98},'Complete grid changed')
+        return result
+
+    @staticmethod
+    def task_grid(actions,seeds,new_only=False):
+        return [(a,s,n) for N,f in u.CELLS for s in u.SNRS for a in actions
+                if (a.N,a.phy)==(N,f) and (not new_only or reused_dataset(a,s) is None) for n in seeds]
+
+    @staticmethod
+    def row_key(r): return (r['N'],r['phy_family'],r['snr_db'],r['action_id'],r['noise_seed'])
+
+    @classmethod
+    def expected_keys(cls,tasks): return {(a.N,a.phy,s,u.action_id(a),n) for a,s,n in tasks}
+
+    def validate_rows(self,rows,data,index,tasks):
+        expected=self.expected_keys(tasks);actual=[self.row_key(r) for r in rows];source=data['records'][index]
+        u.require(len(rows)==len(set(actual))==len(expected) and set(actual)==expected,
+                  'Calibration source has missing, foreign or duplicate physical events')
+        u.require(all(r['source_index']==index and r['source_id']==source['image_id'] and
+                      r['preprocessing_id']==source['preprocessing_id'] for r in rows),'Source grid identity mismatch')
+        u.require(all(math.isfinite(float(r[k])) for r in rows for k in ('psnr_db','lpips_alex','dino_cosine','E')),
+                  'Nonfinite calibration quality')
+
+    def completed(self,stage):
+        path=self.out/(stage+'_completion.json')
+        if not path.exists(): return None
+        receipt=u.read(path)
+        u.require(receipt['status']=='COMPLETE' and receipt['registration_sha256']==self.registration_sha256,
+                  'Completed stage has a different registration')
+        u.verify(receipt['outputs']);return receipt
+
+    def require_stage(self,stage):
+        receipt=self.completed(stage);u.require(receipt is not None,'Required stage incomplete: '+stage);return receipt
+
+    def finish(self,stage,paths,**fields):
+        u.verify(self.registration['source_bindings'],self.root)
+        value=dict(status='COMPLETE',stage=stage,registration_sha256=self.registration_sha256,
+                   outputs={str(p):u.sha(p) for p in paths},synthetic=False,training_updates=0,**fields)
+        u.seal(self.out/(stage+'_completion.json'),value);self.status('COMPLETE',**fields);return value
+
+    def stage_registration(self,stage,data,extra=None):
+        native=self.load();role='development' if stage=='development' else 'calibration'
+        value=dict(stage=stage,registration_sha256=self.registration_sha256,protocol_sha256=u.sha(self.protocol_path),
+            source_bindings=self.registration['source_bindings'],frozen_identity=native.loaded['identity'],numerical_runtime=native.flags,
+            source_records=[{k:r[k] for k in ('image_id','preprocessing_id','class_index')} for r in data['records']],
+            data_bindings=data.get('bindings',{}),original_population=native.proofs[role],training_updates=0,
+            holdout_access=False,development_used_for_selection=False,**(extra or {}))
+        path=self.out/(stage+'_registration.json');u.seal(path,value);return u.identity(value),path
+
+    def qualify(self):
+        self.stage='qualify'
+        if self.completed(self.stage):return
+        result=self.load().qualify();u.require(result['cases']==244,'Every complete-grid action must qualify')
+        path=self.out/'native_qualification.json';u.seal(path,dict(result,registration_sha256=self.registration_sha256))
+        self.finish(self.stage,[path],sources=1,physical_frames=244,engineering_only=True,development_read=False)
+
+    def calibration_source(self,stage,binding,data,index,tasks):
+        path=self.out/stage/'source_checkpoints'/('%04d.json'%index)
+        saved=u.checkpoint(path,binding,index) if path.exists() else None
+        if saved is None:
+            benchmark_path=self.out/'benchmark/source_checkpoints'/('%04d.json'%index)
+            if stage=='calibrate' and benchmark_path.exists():
+                reg=u.read(self.out/'benchmark_registration.json');current=u.read(self.out/'calibrate_registration.json')
+                for field in ('registration_sha256','frozen_identity','numerical_runtime','source_records','data_bindings','original_population','task_grid_sha256'):
+                    u.require(reg[field]==current[field],'Benchmark reuse differs: '+field)
+                saved=dict(u.checkpoint(benchmark_path,u.identity(reg),index),binding=binding,
+                    reused_benchmark_checkpoint=str(benchmark_path),reused_benchmark_sha256=u.sha(benchmark_path))
+            else:
+                native=self.load();memo=native.memo();begun=time.monotonic();rows=[]
+                timing_start={k:dict(v) for k,v in native.timings.items()}
+                for action,snr,seed in tasks:
+                    row,_=native.score(data,index,action,snr,seed,memo);rows.append(row)
+                timing={k:{f:v[f]-timing_start[k][f] for f in ('calls','seconds')} for k,v in native.timings.items()}
+                saved=dict(binding=binding,source_index=index,rows=rows,seconds=time.monotonic()-begun,
+                    unique_receiver_events=len(memo['render']),unique_quality_images=len(memo['metric']),
+                    unique_tx_waveforms=len(memo['tx']['waves']),unique_tx_prefix_logits=len(memo['tx']['logits']),
+                    timing=timing,synthetic=False,development_read=False)
+                del memo
+            self.validate_rows(saved['rows'],data,index,tasks);u.sealed_checkpoint(path,saved)
+        self.validate_rows(saved['rows'],data,index,tasks)
+        u.require(saved['synthetic'] is False and saved['development_read'] is False,'Synthetic or leaked checkpoint rejected')
+        return saved,path
+
+    def benchmark(self):
+        self.stage='benchmark'
+        if self.completed(self.stage):return
+        self.require_stage('qualify');native=self.load();data=native.data('calibration');actions=native.actions()
+        tasks=self.task_grid(actions,u.CAL_SEEDS,new_only=True)
+        u.require(len(tasks)==1473,'New compute scope differs')
+        binding,registration=self.stage_registration('benchmark',data,dict(action_grid=[u.action_dict(a) for a in actions],
+            task_grid_sha256=u.identity(sorted(self.expected_keys(tasks))),noise_seeds=u.CAL_SEEDS,measured_sources=2,
+            full_grid=True,new_tasks_per_source=len(tasks),policy_selection=False))
+        paths=[registration];summaries=[]
+        for index in range(2):
+            self.guard();saved,path=self.calibration_source('benchmark',binding,data,index,tasks);paths.append(path)
+            summaries.append({k:saved[k] for k in ('source_index','seconds','unique_receiver_events','unique_quality_images','unique_tx_waveforms','unique_tx_prefix_logits','timing')})
+            self.status('BENCHMARK',sources=index+1,total_sources=2,source_seconds=saved['seconds'])
+        mean=sum(r['seconds'] for r in summaries)/2
+        report=dict(status='MEASURED',sources=2,physical_frames=2946,per_source=summaries,mean_source_seconds=mean,
+            projected_serial_full_calibration_seconds=mean*1000,projected_remaining_serial_seconds=mean*998,
+            estimate_caveat='Two sources; measured multi-worker throughput is required before a wall-clock estimate.',
+            current_cuda_reserved_bytes=int(native.torch.cuda.memory_reserved()),peak_cuda_reserved_bytes=int(native.torch.cuda.max_memory_reserved()),
+            numerical_runtime=native.flags,policy_selection=False,development_read=False)
+        path=self.out/'benchmark_report.json';u.seal(path,report);paths.append(path);native.frozen()
+        self.finish(self.stage,paths,sources=2,physical_frames=2946,mean_source_seconds=mean,development_read=False)
+
+    def legacy_audit(self):
+        audit=u.read(self.compatibility_path)
+        u.require(audit.get('status')=='LEGACY_CALIBRATION_REUSE_AUDITED' and audit.get('sources')==1000
+                  and audit.get('incompatible_header_count')==0 and audit.get('target_rows')==2187000,
+                  'Complete zero-incompatibility legacy audit required')
+        datasets={d['name']:d for d in audit['datasets']}
+        u.require(set(datasets)=={'original69','m9_high'},'Legacy datasets differ')
+        for name,d in datasets.items():
+            root=Path(d['original_out']);path=root/'calibrate_registration.json';reg=u.read(path)
+            u.require(u.sha(path)==d['calibration_registration_sha256'] and u.identity(reg)==d['calibration_binding'],
+                      'Legacy registration changed')
+            expected={str(root/'calibrate/source_checkpoints'/('%04d.json'%i)) for i in range(1000)}
+            u.require(set(d['source_checkpoint_sha256'])==expected,'Legacy audit must bind every1000 checkpoint')
+            u.require(d['target_rows_per_source']==({'original69':2070,'m9_high':117}[name]),'Legacy frame scope changed')
+        return audit,datasets
+
+    def legacy_source(self,datasets,data,index,actions):
+        rows=[]
+        for name,d in datasets.items():
+            path=Path(d['original_out'])/'calibrate/source_checkpoints'/('%04d.json'%index)
+            u.require(u.sha(path)==d['source_checkpoint_sha256'][str(path)],'Audited legacy checkpoint changed')
+            cp=u.checkpoint(path,d['calibration_binding'],index)
+            u.require(cp.get('synthetic') is False and cp.get('development_read') is False,'Legacy source is not real calibration')
+            tasks=[t for t in self.task_grid(actions,u.CAL_SEEDS) if reused_dataset(t[0],t[1])==name]
+            self.validate_rows(cp['rows'],data,index,tasks)
+            u.require(all(not(r['header_crc_ok'] and not r['header_fields_legal']) for r in cp['rows']),
+                      'CRC-accepted formerly illegal header requires rescore; cannot reuse')
+            rows.extend(cp['rows'])
+        return rows
+
+    def calibrate_prepare(self):
+        self.stage='calibrate_prepare'
+        if self.completed(self.stage):return
+        self.require_stage('benchmark');audit,datasets=self.legacy_audit()
+        base=u.read(self.out/'benchmark_registration.json');actions=self.actions()
+        for d in datasets.values():
+            original=u.read(Path(d['original_out'])/'calibrate_registration.json')
+            for field in ('frozen_identity','numerical_runtime','source_records','data_bindings','original_population'):
+                u.require(base[field]==original[field],'Legacy model/data/runtime differs: '+field)
+            u.require(original['noise_seeds']==u.CAL_SEEDS,'Legacy noise seeds differ')
+        value=dict(base,stage='calibrate',workers=self.workers,source_count=1000,measured_sources=None,
+            shortlist_used=False,legacy_compatibility_sha256=u.sha(self.compatibility_path),
+            source_partition='source_index modulo workers',new_tasks_per_source=1473,total_tasks_per_source=3660)
+        path=self.out/'calibrate_registration.json';u.seal(path,value)
+        self.finish(self.stage,[path,self.compatibility_path],workers=self.workers,new_tasks_per_source=1473,
+                    total_tasks_per_source=3660,development_read=False)
+
+    def calibrate_shard(self):
+        self.stage='calibrate_worker_%02d'%self.worker_index
+        if self.completed(self.stage):return
+        self.require_stage('calibrate_prepare');reg=u.read(self.out/'calibrate_registration.json')
+        u.require(reg['workers']==self.workers,'Worker partition differs from frozen registration')
+        native=self.load();data=native.data('calibration')
+        for field,value in (('frozen_identity',native.loaded['identity']),('numerical_runtime',native.flags),
+                            ('original_population',native.proofs['calibration']),('data_bindings',data.get('bindings',{}))):
+            u.require(reg[field]==value,'Shard runtime/population differs: '+field)
+        tasks=self.task_grid(native.actions(),u.CAL_SEEDS,new_only=True);binding=u.identity(reg);paths=[]
+        indices=list(range(self.worker_index,1000,self.workers));measured=[]
+        if self.cohort_config is not None:
+            cohort_config=u.read(self.cohort_config)
+            u.require(cohort_config['stage']=='production' and cohort_config['source_indices']==indices,
+                      'Cohort assignment differs from frozen modulo partition')
+        for ordinal,index in enumerate(indices):
+            self.guard();saved,path=self.calibration_source('calibrate',binding,data,index,tasks);paths.append(path)
+            measured.append(saved['seconds'])
+            self.status('CALIBRATING',sources=ordinal+1,total_sources=len(indices),source_index=index,
+                physical_frames=(ordinal+1)*1473,last_source_seconds=saved['seconds'],
+                mean_source_seconds=sum(measured)/len(measured),remaining_source_indices=len(indices)-ordinal-1)
+        native.frozen()
+        if self.cohort_guard is not None:self.cohort_guard.require_available()
+        self.finish(self.stage,paths,source_indices=indices,sources=len(indices),
+            physical_frames=1473*len(indices),workers=self.workers,development_read=False)
+
+    @staticmethod
+    def aggregate_rows(accumulated,first,rows):
+        for row in rows:
+            key=(row['N'],row['phy_family'],row['snr_db'],row['action_id']);first[key]=row
+            v=accumulated.setdefault(key,dict(n=0,psnr_db=0.,lpips_alex=0.,dino_cosine=0.,E=0.,failure_fraction=0.))
+            v['n']+=1
+            for k in ('psnr_db','lpips_alex','dino_cosine','E'):v[k]+=float(row[k])
+            v['failure_fraction']+=float(not row['header_ok'] or not row['body_crc_ok'])
+
+    @staticmethod
+    def summaries(accumulated,first):
+        result=[]
+        for key,v in sorted(accumulated.items()):
+            row=first[key];entry={k:row[k] for k in ('N','phy_family','snr_db','action_id','m','q','order')}
+            entry.update({k:x/v['n'] for k,x in v.items() if k!='n'});entry['rows']=v['n'];result.append(entry)
+        return result
+
+    def calibrate_merge(self):
+        self.stage='calibrate'
+        if self.completed(self.stage):return
+        self.require_stage('calibrate_prepare');reg=u.read(self.out/'calibrate_registration.json');binding=u.identity(reg)
+        workers=reg['workers'];bound={};indices=[];paths=[self.out/'calibrate_registration.json',self.compatibility_path]
+        for i in range(workers):
+            stage='calibrate_worker_%02d'%i;receipt=self.require_stage(stage)
+            u.require(receipt['source_indices']==list(range(i,1000,workers)),'Wrong worker partition receipt')
+            indices.extend(receipt['source_indices']);bound.update(receipt['outputs']);paths.append(self.out/(stage+'_completion.json'))
+        u.require(sorted(indices)==list(range(1000)),'All1000 source shards required before selection')
+        _,datasets=self.legacy_audit();data=dict(records=reg['source_records']);actions=self.actions()
+        tasks=self.task_grid(actions,u.CAL_SEEDS);newtasks=self.task_grid(actions,u.CAL_SEEDS,new_only=True)
+        sums,first,old_sums,old_first,new_sums,new_first={},{},{},{},{},{}
+        for index in range(1000):
+            self.guard();path=self.out/'calibrate/source_checkpoints'/('%04d.json'%index)
+            u.require(bound.get(str(path))==u.sha(path),'Source checkpoint not bound by its completed shard')
+            saved=u.checkpoint(path,binding,index);self.validate_rows(saved['rows'],data,index,newtasks)
+            old=self.legacy_source(datasets,data,index,actions);combined=old+saved['rows'];self.validate_rows(combined,data,index,tasks)
+            self.aggregate_rows(sums,first,combined);self.aggregate_rows(old_sums,old_first,old);self.aggregate_rows(new_sums,new_first,saved['rows'])
+            paths.append(path)
+            if (index+1)%25==0:self.status('MERGING_VERIFIED_SOURCES',sources=index+1,total_sources=1000)
+        summary=self.summaries(sums,first)
+        u.require(len(summary)==1220 and all(r['rows']==3000 for r in summary),'Complete full-grid calibration means required')
+        mapping={u.action_id(a):a for a in actions};cells=[]
+        for N,f in u.CELLS:
+            for snr in u.SNRS:
+                for method in u.METHODS:
+                    group=[r for r in summary if (r['N'],r['phy_family'],r['snr_db'])==(N,f,snr)
+                           and (r['q']==0 if method=='whole' else r['q']==0 or r['order']==method)]
+                    ranked,reference=rank(group);winner=ranked[0]
+                    cells.append(dict(N=N,phy_family=f,snr_db=snr,method=method,action=u.action_dict(mapping[winner['action_id']]),
+                        calibration=winner,reliability_reference=reference))
+        for name,rows in (('calibration_summary.csv',summary),('legacy_reused_calibration_summary.csv',self.summaries(old_sums,old_first)),
+                          ('new_calibration_summary.csv',self.summaries(new_sums,new_first))):
+            path=self.out/name;u.write_csv(path,rows);paths.append(path)
+        policy=self.out/'m1_policy.json';u.seal(policy,dict(cells=cells,sources=1000,noise_seeds=u.CAL_SEEDS,
+            full_grid=True,action_counts={'N1024/16QAM':73,'N2048/QPSK':73,'N2048/16QAM':98},actions=244,
+            physical_frames=3660000,newly_evaluated_frames=1473000,legacy_reused_frames=2187000,
+            registration_sha256=self.registration_sha256,calibration_binding=binding,development_read=False,training_updates=0,
+            legacy_compatibility_sha256=u.sha(self.compatibility_path),selection_rule='unchanged original m1_runner.rank',shortlist_used=False))
+        paths.append(policy);self.finish(self.stage,paths,sources=1000,physical_frames=3660000,newly_evaluated_frames=1473000,
+            legacy_reused_frames=2187000,policies=75,policy_sha256=u.sha(policy),development_read=False)
+
+    def development_choices(self,cells):
+        native=self.load();result={};self.unavailable_actions=[]
+        for N,f in u.CELLS:
+            for snr in u.SNRS:
+                choices={method+'_policy':native.action(cells[N,f,snr,method]['action']) for method in u.METHODS}
+                entropy=choices['entropy_policy']
+                for order in ('raster','random','oracle'):
+                    try:choices[order+'_at_entropy']=native.phy.Action(N,f,entropy.m,entropy.q,order)
+                    except ValueError as error:
+                        maximum=native.phy.max_legal_q(N,f,entropy.m,order)
+                        u.require(order=='oracle' and entropy.q>maximum,'Unexpected invalid same-K comparison')
+                        self.unavailable_actions.append(dict(N=N,phy_family=f,snr_db=snr,method=order+'_at_entropy',m=entropy.m,
+                            q=entropy.q,maximum_legal_q=maximum,status='NOT_FEASIBLE',reason='same_K_exceeds_paid_oracle_mask_budget',detail=str(error)))
+                result[N,f,snr]=choices
+        return result
+
+    def development(self):
+        self.stage='development'
+        if self.completed(self.stage):return
+        self.require_stage('calibrate');policy_path=self.out/'m1_policy.json';policy=u.read(policy_path)
+        u.require(policy['sources']==1000 and policy['noise_seeds']==u.CAL_SEEDS and policy['full_grid'] and not policy['development_read'],
+                  'Complete frozen calibration required')
+        native=self.load();data=native.data('development')
+        cells={(r['N'],r['phy_family'],r['snr_db'],r['method']):r for r in policy['cells']}
+        u.require(set(cells)=={(N,f,s,m) for N,f in u.CELLS for s in u.SNRS for m in u.METHODS},'Frozen policy scope incomplete')
+        choices=self.development_choices(cells);expected=len(u.DEV_SEEDS)*sum(map(len,choices.values()))
+        u.require(0<expected<=360,'Unexpected development scope')
+        unavailable=self.out/'unavailable_actions.json';u.seal(unavailable,dict(status='SAME_K_FEASIBILITY_REGISTERED',policy_sha256=u.sha(policy_path),
+            rows=self.unavailable_actions,unavailable_points=len(self.unavailable_actions),method_rows=100*expected,max_method_rows=36000,no_resource_relaxation=True))
+        binding,registration=self.stage_registration('development',data,dict(policy_sha256=u.sha(policy_path),noise_seeds=u.DEV_SEEDS,
+            source_count=100,unavailable_actions_sha256=u.sha(unavailable),expected_source_rows=expected,
+            choices=[dict(N=N,phy_family=f,snr_db=s,methods={m:u.action_dict(a) for m,a in v.items()}) for (N,f,s),v in choices.items()]))
+        paths=[registration,unavailable];allrows=[]
+        for index,source in enumerate(data['records']):
+            self.guard();path=self.out/'development/source_checkpoints'/('%04d.json'%index)
+            if path.exists():
+                saved=u.checkpoint(path,binding,index);proof=saved['float_reconstructions']
+                u.require(u.sha(proof['path'])==proof['sha256'],'Saved float image cache changed')
+            else:
+                source_rgb=np.ascontiguousarray(source['pixels'],dtype=np.float32)/np.float32(255)
+                reference_sha=u.rgb_sha(source_rgb);images=[];slots={};rows=[];row_ids=[];image_slots=[];memo=native.memo();begun=time.monotonic()
+                for (N,f,snr),methods in choices.items():
+                    for seed in u.DEV_SEEDS:
+                        for method,action in methods.items():
+                            row,image=native.score(data,index,action,snr,seed,memo,images=True)
+                            image=np.ascontiguousarray(image,dtype=np.float32);image_hash=u.rgb_sha(image)
+                            if image_hash not in slots:slots[image_hash]=len(images);images.append(image)
+                            row_id=u.identity(dict(study='M1_ACTION_CLOSURE',source_id=source['image_id'],N=N,phy_family=f,snr_db=snr,noise_seed=seed,method=method))
+                            row.update(method=method,replay_study='M1_ACTION_CLOSURE',replay_row_id=row_id,image_sha256=image_hash,
+                                reference_sha256=reference_sha,degenerate_order_no_partial=bool(method.endswith('_at_entropy') and action.q==0))
+                            rows.append(row);row_ids.append(row_id);image_slots.append(slots[image_hash])
+                            if index in self.protocol['fixed_source_indices'] and seed==self.protocol['fixed_noise_seed']:
+                                native.common.save_image(self.out/'development/fixed_png'/('src%03d_N%d_%s_snr%d_%s.png'%(index,N,f,snr,method)),image)
+                u.require(len(rows)==len(set(row_ids))==expected,'Development labels incomplete')
+                image_path=self.out/'development/reconstructions'/('%04d.npz'%index);image_path.parent.mkdir(parents=True,exist_ok=True)
+                temporary=image_path.with_name(image_path.name+'.tmp')
+                with temporary.open('wb') as handle:np.savez(handle,images=np.stack(images),source_rgb=source_rgb,row_ids=np.asarray(row_ids),image_slots=np.asarray(image_slots,dtype=np.int64))
+                os.replace(temporary,image_path)
+                saved=dict(binding=binding,source_index=index,record={k:source[k] for k in ('image_id','preprocessing_id','class_index')},rows=rows,
+                    float_reconstructions=dict(path=str(image_path),sha256=u.sha(image_path),rows=expected,unique_images=len(images),dtype='float32',layout='CHW'),
+                    seconds=time.monotonic()-begun,unique_receiver_events=len(memo['render']),unique_quality_images=len(memo['metric']),synthetic=False,development_used_for_selection=False)
+                u.sealed_checkpoint(path,saved);del memo,images
+            u.require(len(saved['rows'])==expected,'Incomplete saved development source')
+            allrows.extend(saved['rows']);paths.extend([path,Path(saved['float_reconstructions']['path'])])
+            self.status('EVALUATING',sources=index+1,total_sources=100,method_rows=len(allrows),last_source_seconds=saved['seconds'])
+        table=self.out/'development/per_frame.csv';u.write_csv(table,allrows);paths.append(table);native.frozen()
+        self.finish(self.stage,paths,sources=100,method_rows=len(allrows),max_method_rows=36000,
+            unavailable_actions_sha256=u.sha(unavailable),policy_sha256=u.sha(policy_path),development_used_for_selection=False,saved_float_rgb=True)
+
+
+def main():
+    parser=argparse.ArgumentParser();parser.add_argument('--root',required=True);parser.add_argument('--protocol',required=True)
+    parser.add_argument('--output',required=True);parser.add_argument('--worker-index',type=int,default=0);parser.add_argument('--workers',type=int,default=1)
+    parser.add_argument('--cohort-config')
+    parser.add_argument('--stage',choices=('qualify','benchmark','calibrate-prepare','calibrate-shard','calibrate-merge','development'),required=True)
+    args=parser.parse_args();out=Path(args.output);out.mkdir(parents=True,exist_ok=True)
+    import fcntl
+    lockname=('execution_worker_%02d.lock'%args.worker_index) if args.stage=='calibrate-shard' else 'execution.lock'
+    lock=(out/lockname).open('a+');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB);runner=None
+    try:
+        runner=Runner(args.root,args.protocol,out,args.worker_index,args.workers,args.cohort_config)
+        signal.signal(signal.SIGTERM,runner.stopped);signal.signal(signal.SIGINT,runner.stopped)
+        getattr(runner,args.stage.replace('-','_'))()
+    except PauseRequested as error:
+        if runner.native is not None:runner.native.frozen()
+        runner.status('PAUSED_AT_SOURCE_BOUNDARY',reason=str(error));raise SystemExit(75)
+    except Exception as error:
+        if runner is not None:runner.status('FAILED',error=repr(error))
+        raise
+    finally:lock.close()
+
+
+if __name__=='__main__':main()

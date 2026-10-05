@@ -1,0 +1,580 @@
+"""Score sealed closure RGB; publish measured, source-paired comparisons.
+
+History is read without altering its selection or existing metric values.
+This module has no reconstruction, training, or policy-selection entry point.
+"""
+from __future__ import annotations
+import argparse
+from collections import defaultdict
+import csv
+import gzip
+import hashlib
+import json
+import math
+import os
+from pathlib import Path
+import signal
+import sys
+import time
+import numpy as np
+
+CELLS=((1024,'16QAM'),(2048,'QPSK'),(2048,'16QAM'))
+COUNTS={'N1024/16QAM':73,'N2048/QPSK':73,'N2048/16QAM':98}
+SNRS=(1,4,7,13,19);SEEDS=(2001,2002,2003)
+METHODS=('whole_policy','raster_policy','random_policy','entropy_policy','oracle_policy',
+         'raster_at_entropy','random_at_entropy','oracle_at_entropy')
+METRICS=('psnr_db','lpips_alex','dino_cosine','dinov2_vitl14_cosine','clip_image_cosine',
+         'dists','dreamsim','ms_ssim','dino_specificity','resnet50_top1_label',
+         'resnet50_top1_source_prediction','semantic_error','confidently_wrong')
+EXTRA=('E','latent_sq_err_final','zero_erasure_proxy_sq_error','F_sq_error_zero_erasure_proxy')
+EVENTS=('header_ok','prefix_crc_ok','body_crc_ok','partial_used','prefix_false_accept','latent_valid')
+FIXED=(0,25,50,75,4,21,24,29,33,41,52,60,64,87,92,95)
+LIMIT=10_000_000;STOP=False
+
+def require(ok,message):
+    if not ok:raise RuntimeError(message)
+def sha(path):
+    h=hashlib.sha256()
+    with Path(path).open('rb') as f:
+        for b in iter(lambda:f.read(8*1024*1024),b''):h.update(b)
+    return h.hexdigest()
+def read(path):return json.loads(Path(path).read_text(encoding='utf-8-sig'))
+def ident(v):return hashlib.sha256(json.dumps(v,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
+def write(path,value):
+    p=Path(path);p.parent.mkdir(parents=True,exist_ok=True);tmp=p.with_name(p.name+'.tmp')
+    tmp.write_text(json.dumps(value,indent=2,ensure_ascii=False,allow_nan=False)+'\n',encoding='utf-8');os.replace(tmp,p)
+def seal(path,value):
+    if Path(path).exists():require(read(path)==value,'Immutable receipt differs: '+str(path))
+    else:write(path,value)
+def verify(bindings):
+    for p,h in bindings.items():require(sha(p)==h,'Bound input changed: '+str(p))
+def pixels(a):
+    a=np.asarray(a);require(a.dtype==np.float32 and a.shape==(3,256,256) and np.isfinite(a).all()
+        and a.min()>=0 and a.max()<=1,'Expected unchanged float32 CHW256 RGB');return np.ascontiguousarray(a)
+def rgb_sha(a):return hashlib.sha256(b'float32:3,256,256:RGB\0'+pixels(a).tobytes()).hexdigest()
+def read_csv(path):
+    opener=gzip.open if str(path).endswith('.gz') else open
+    with opener(path,'rt',encoding='utf-8-sig',newline='') as f:return list(csv.DictReader(f))
+def csv_write(path,rows):
+    p=Path(path);p.parent.mkdir(parents=True,exist_ok=True);fields=list(dict.fromkeys(k for r in rows for k in r))
+    opener=gzip.open if str(path).endswith('.gz') else open
+    with opener(path,'wt',encoding='utf-8',newline='') as f:
+        w=csv.DictWriter(f,fieldnames=fields,lineterminator='\n');w.writeheader();w.writerows(rows)
+def pause():
+    if STOP:raise InterruptedError('Requested pause at source boundary')
+def row_key(r):return(int(r['source_index']),int(r['N']),r['phy_family'],int(r['snr_db']),int(r['noise_seed']),r['method'])
+def group_key(r):return(int(r['N']),r['phy_family'],int(r['snr_db']),r['comparison_scope'],r['method'])
+def population():return {(i,n) for i in range(100) for n in SEEDS}
+def expected_source(index,excluded=()):
+    return {(index,N,p,s,n,m) for N,p in CELLS for s in SNRS for n in SEEDS for m in METHODS if (N,p,s,m) not in excluded}
+def validate_seal(cp,binding=None,index=None):
+    require(cp['payload_sha256']==ident({k:v for k,v in cp.items() if k!='payload_sha256'}),'Source checkpoint seal differs')
+    if binding is not None:require(cp['binding']==binding,'Source registration binding differs')
+    if index is not None:require(int(cp['source_index'])==index,'Source index differs')
+
+def validate_source(cp,index,excluded=()):
+    validate_seal(cp,index=index);rows=cp['rows'];expected=expected_source(index,excluded)
+    require(len(rows)==len(expected) and {row_key(r) for r in rows}==expected,'Development omits a legal frame or fabricates an unavailable oracle')
+    proof=cp['float_reconstructions'];require(sha(proof['path'])==proof['sha256'],'Development float archive changed')
+    with np.load(proof['path'],allow_pickle=False) as z:
+        require(set(z.files)=={'images','source_rgb','row_ids','image_slots'},'Float archive schema differs')
+        images=z['images'].copy();target=pixels(z['source_rgb']).copy();slots=z['image_slots'].tolist();ids=z['row_ids'].tolist()
+    require(images.dtype==np.float32 and images.ndim==4 and images.shape[1:]==(3,256,256),'Invalid float archive images')
+    require(len(slots)==len(expected) and ids==[r['replay_row_id'] for r in rows] and len(set(ids))==len(expected),'Development row mapping differs')
+    hashes=[rgb_sha(a) for a in images];reference=rgb_sha(target)
+    for row,slot in zip(rows,slots):
+        require(type(slot) is int and 0<=slot<len(images) and row.get('image_slot',slot)==slot,'Invalid image slot')
+        require(row['image_sha256']==hashes[slot] and row['reference_sha256']==reference,'Development RGB/source hash differs')
+        require(row.get('label_conditioned',False) is False,'Unexpected class conditioning')
+        require(row['source_id']==cp['record']['image_id'] and row['preprocessing_id']==cp['record']['preprocessing_id'],'Development source identity differs')
+    return rows,images,target,slots
+
+def policy_index(policy):
+    import m9_phy as phy
+    require(policy['sources']==1000 and policy['noise_seeds']==[4101,4102,4103]
+        and policy['full_grid'] is True and policy['development_read'] is False,'Complete calibration-only policy required')
+    result={};legal={(N,p):{(a.m,a.q,a.order) for a in phy.action_grid(N,p)} for N,p in CELLS}
+    for r in policy['cells']:
+        a=r['action'];key=(int(r['N']),r['phy_family'],int(r['snr_db']),r['method'])
+        require(key not in result and (key[0],key[1]) in legal,'Duplicated/outside policy cell')
+        require((int(a['N']),a['phy'])==key[:2] and (int(a['m']),int(a['q']),a['order']) in legal[key[:2]],'Unregistered policy action')
+        result[key]=r
+    require(set(result)=={(N,p,s,m) for N,p in CELLS for s in SNRS for m in ('whole','raster','random','entropy','oracle')},'Policy scope incomplete')
+    return result
+
+def action_for(policy,N,phy,snr,method):
+    if method.endswith('_at_entropy'):
+        a=dict(policy[N,phy,snr,'entropy']['action']);a['order']='whole' if a['q']==0 else method.removesuffix('_at_entropy');return a
+    return dict(policy[N,phy,snr,method.removesuffix('_policy')]['action'])
+
+def action_interpretation(a):
+    if int(a['q'])==0:return 'whole scale; no partial-token or ordering contribution'
+    return 'partial scale '+str(int(a['m'])+1)
+
+def unavailable_cells(policy,receipt):
+    import m9_phy as phy
+    expected={}
+    for N,p in CELLS:
+        for s in SNRS:
+            a=action_for(policy,N,p,s,'oracle_at_entropy')
+            try:phy.Action(**a)
+            except ValueError:
+                maximum=phy.max_legal_q(N,p,int(a['m']),'oracle')
+                require(int(a['q'])>maximum,'Unexpected invalid paid oracle')
+                expected[N,p,s,'oracle_at_entropy']=(int(a['m']),int(a['q']),maximum)
+    seen=set()
+    for r in receipt['rows']:
+        key=(int(r['N']),r['phy_family'],int(r['snr_db']),r['method'])
+        require(key in expected and key not in seen and r['status']=='NOT_FEASIBLE'
+            and isinstance(r['reason'],str) and r['reason'],'Unregistered unavailable action')
+        require((int(r['m']),int(r['q']),int(r['maximum_legal_q']))==expected[key],'Unavailable oracle silently changed K or budget')
+        seen.add(key)
+    require(seen==set(expected),'Unavailable same-K receipt differs from physical legality');return seen
+
+def interval(values,draws):
+    a=np.asarray(values,np.float64);require(a.shape==(100,) and np.isfinite(a).all(),'Complete finite source vector required')
+    lo,hi=np.quantile(a[draws].mean(1),[.025,.975])
+    return dict(mean=float(a.mean()),ci_low=float(lo),ci_high=float(hi),n_sources=100,n_frames=300,
+        bootstrap_unit='source_mean_over_three_noise_repeats',bootstrap_replicates=10000,bootstrap_seed=20261002)
+
+def analyze(rows,excluded=()):
+    groups=defaultdict(dict)
+    for r in rows:
+        g=group_key(r);key=(int(r['source_index']),int(r['noise_seed']))
+        require(g[2] in SNRS and key not in groups[g],'Unexpected or duplicate comparison frame')
+        groups[g][key]=r
+    expanded={g for g in groups if g[3]=='expanded'}
+    require(expanded=={(N,p,s,'expanded',m) for N,p in CELLS for s in SNRS for m in METHODS if (N,p,s,m) not in excluded},'Expanded group coverage differs')
+    for N in (1024,2048):
+        require(all((N,'continuous',s,'P',f'P{N}') in groups for s in SNRS),'Missing same-budget historical P group')
+    draws=np.random.default_rng(20261002).integers(0,100,(10000,100));means={};summary=[]
+    for g,by in sorted(groups.items()):
+        require(set(by)==population(),'Incomplete source/noise comparison group')
+        metadata=dict(N=g[0],phy_family=g[1],snr_db=g[2],comparison_scope=g[3],method=g[4])
+        for metric in METRICS+EXTRA:
+            values=[by[i,n].get(metric) for i in range(100) for n in SEEDS]
+            if any(v in (None,'') for v in values):
+                require(g[3]!='expanded' or metric not in METRICS,'Missing mandatory new metric: '+metric)
+                # History can lack a later diagnostic; it is absent, never imputed.
+                require(metric not in METRICS[:8]+METRICS[9:11],'Missing mandatory historical image metric: '+metric)
+                continue
+            arr=np.asarray(values,np.float64).reshape(100,3).mean(1);means[g+(metric,)]=arr
+            summary.append(dict(**metadata,metric=metric,**interval(arr,draws)))
+        for field in EVENTS:
+            if not all(field in r and type(r[field]) is bool for r in by.values()):continue
+            arr=np.array([by[i,n][field] for i in range(100) for n in SEEDS],float).reshape(100,3).mean(1)
+            summary.append(dict(**metadata,metric=field+'_fraction',**interval(arr,draws)))
+    paired=[]
+    for N,p in CELLS:
+        for snr in SNRS:
+            base=(N,p,snr);new=lambda m:base+('expanded',m)
+            contrasts=[(new(m),new('whole_policy'),'partial_policy_minus_whole') for m in METHODS[1:]]
+            contrasts += [(new('entropy_policy'),new(m),'same_m_K_order_control') for m in METHODS[5:]]
+            contrasts += [(new(m),(N,'continuous',snr,'P',f'P{N}'),'digital_minus_continuous') for m in METHODS]
+            for scope in ('legacy_low_screened','legacy69','legacy82_m9'):
+                contrasts += [(new(m),base+(scope,m),'expanded_minus_historical_grid') for m in METHODS]
+            for ga,gb,contrast in contrasts:
+                if ga not in groups or gb not in groups:continue
+                a,b=groups[ga],groups[gb]
+                for key in population():
+                    require(all(a[key][f]==b[key][f] for f in ('source_id','preprocessing_id','reference_sha256')),'Paired methods use different sources or float targets')
+                for metric in METRICS+EXTRA:
+                    if ga+(metric,) not in means or gb+(metric,) not in means:continue
+                    paired.append(dict(N=N,phy_family=p,snr_db=snr,scope_A=ga[3],method_A=ga[4],scope_B=gb[3],method_B=gb[4],
+                        contrast=contrast,metric=metric,delta='A_minus_B',**interval(means[ga+(metric,)]-means[gb+(metric,)],draws),
+                        pairing='same source and nominal seed; distinct P noise namespace' if gb[3]=='P' else 'same source and registered M1 noise convention; waveform depends on action',
+                        inference_scope='descriptive reused development after action-range revision'))
+    return summary,paired
+
+class Inputs:
+    def __init__(self,root,out,legacy):
+        self.root,self.out,self.legacy=map(lambda p:Path(p).resolve(),(root,out,legacy));self.bindings={}
+    def bind(self,path,expected=None):
+        p=Path(path);digest=sha(p);require(expected is None or digest==expected,'Input receipt hash differs: '+str(p))
+        self.bindings[str(p)]=digest;return p
+    def load(self):
+        self.dev=read(self.bind(self.out/'development_completion.json'));self.cal=read(self.bind(self.out/'calibrate_completion.json'))
+        self.reg=read(self.bind(self.out/'development_registration.json',self.dev['outputs'][str(self.out/'development_registration.json')]))
+        self.runreg=read(self.bind(self.out/'registration.json',self.dev['registration_sha256']))
+        require(self.dev['status']==self.cal['status']=='COMPLETE' and self.dev['sources']==100 and self.dev.get('synthetic') is False,'Incomplete real development')
+        require(self.cal['sources']==1000 and self.cal['physical_frames']==3660000 and self.cal['newly_evaluated_frames']==1473000,'Full closure calibration accounting differs')
+        protocol=Path(self.runreg.get('protocol_path',self.out/'code/protocol.json'))
+        if not protocol.is_absolute():protocol=self.root/protocol
+        self.protocol_path=self.bind(protocol,self.runreg['protocol_sha256']);self.protocol=read(protocol)
+        require(self.protocol['cells']==[list(x) for x in CELLS] and self.protocol['action_counts']==COUNTS,'Protocol cells/counts differ')
+        self.policy=read(self.bind(self.out/'m1_policy.json',self.dev['policy_sha256']))
+        require(self.reg['policy_sha256']==self.cal['policy_sha256']==self.dev['policy_sha256'],'Policy changed after calibration')
+        self.expanded_policy=policy_index(self.policy)
+        self.unavailable=read(self.bind(self.out/'unavailable_actions.json',self.dev['outputs'][str(self.out/'unavailable_actions.json')]))
+        self.excluded=unavailable_cells(self.expanded_policy,self.unavailable)
+        require(self.unavailable['status']=='SAME_K_FEASIBILITY_REGISTERED' and self.unavailable['no_resource_relaxation'] is True
+            and self.unavailable['policy_sha256']==self.dev['policy_sha256']
+            and self.reg['unavailable_actions_sha256']==self.dev['unavailable_actions_sha256']==sha(self.out/'unavailable_actions.json'),'Unavailable-action registration changed')
+        self.expanded_rows=100*len(expected_source(0,self.excluded))
+        require(self.dev.get('method_rows',self.dev.get('rows'))==self.expanded_rows,'Development row count differs')
+        self.checkpoints=[];self.records=[];self.targets=[]
+        for i in range(100):
+            p=self.out/'development/source_checkpoints'/f'{i:04d}.json';cp=read(self.bind(p,self.dev['outputs'][str(p)]))
+            validate_seal(cp,ident(self.reg),i);_,images,target,_=validate_source(cp,i,self.excluded);del images
+            self.bind(cp['float_reconstructions']['path'],self.dev['outputs'][cp['float_reconstructions']['path']])
+            self.checkpoints.append(cp);self.records.append(cp['record']);self.targets.append(target)
+        self.history_rows=self.load_history()
+        return self
+    def check_history_row(self,r,index,scope):
+        record=self.records[index];require(r['source_id']==record['image_id'] and r['preprocessing_id']==record['preprocessing_id']
+            and r['reference_sha256']==rgb_sha(self.targets[index]),'Historical comparison source/float target differs')
+        row=dict(r,source_index=index,N=int(float(r['N'])),snr_db=int(float(r['snr_db'])),noise_seed=int(r['noise_seed']),comparison_scope=scope)
+        require(row['noise_seed'] in SEEDS,'Historical noise scope differs')
+        for name in METRICS+EXTRA:
+            if row.get(name) not in (None,''):row[name]=float(row[name])
+        if row.get('dino_specificity') in (None,'') and row.get('dino_mismatched') not in (None,''):
+            row['dino_specificity']=float(row['dino_cosine'])-float(row['dino_mismatched'])
+        if row.get('semantic_error') in (None,'') and row.get('resnet50_top1_source_prediction') not in (None,''):
+            row['semantic_error']=1-float(row['resnet50_top1_source_prediction'])
+        row['history_missing_metrics']=','.join(m for m in METRICS if row.get(m) in (None,''))
+        row['history_values_recomputed']=False
+        return row
+    def load_history(self):
+        rows=[];done=read(self.bind(self.legacy/'score_completion.json'))
+        require(done['status']=='M1_N2048_METRICS_COMPLETE' and done['sources']==100 and done['rows']==24000 and done['synthetic'] is False,'Original69 complete metrics required')
+        reg=read(self.bind(self.legacy/'metrics/registration.json',done['registration_sha256']))
+        self.history_modelmanifest=reg['modelmanifest_sha256']
+        for i in range(100):
+            p=self.legacy/'metrics/source_checkpoints'/f'{i:04d}.json';cp=read(self.bind(p,done['outputs'][str(p)]));validate_seal(cp,ident(reg),i)
+            selected=[r for r in cp['rows'] if (int(r['N']),r['phy_family']) in CELLS and int(r['snr_db']) in SNRS]
+            require(len(selected)==240,'Original69 cell coverage differs')
+            rows.extend(self.check_history_row(r,i,'legacy69') for r in selected)
+        p=self.legacy/'metrics/historical_controls.csv.gz'
+        controls=read_csv(self.bind(p,done['outputs'][str(p)]))
+        selected=[r for r in controls if r['method']=='P2048' and int(r['N'])==2048 and int(r['snr_db']) in SNRS]
+        require(len(selected)==1500,'Historical P2048 coverage differs')
+        rows.extend(self.check_history_row(r,int(r['source_index']),'P') for r in selected)
+        old=self.root/'outputs/M1-N2048-M9-EXTENSION-20261004';done=read(self.bind(old/'score_completion.json'))
+        require(done['status']=='M1_N2048_M9_METRICS_COMPLETE' and done['sources']==100 and done['synthetic'] is False,'Old m9 real metrics required')
+        reg=read(self.bind(old/'metrics/registration.json',done['registration_sha256']))
+        require(reg['modelmanifest_sha256']==self.history_modelmanifest,'Historical m9 metric models differ')
+        for i in range(100):
+            p=old/'metrics/source_checkpoints'/f'{i:04d}.json';cp=read(self.bind(p,done['outputs'][str(p)]));validate_seal(cp,ident(reg),i)
+            for r in cp['rows']:
+                require(int(r['N'])==2048 and r['phy_family']=='16QAM' and int(r['snr_db']) in (7,13,19),'Old m9 scope differs')
+                rows.append(self.check_history_row(r,i,'legacy82_m9'))
+        result=self.root/'results/unified_metrics_20261002';completion=self.root/'outputs/UNIFIED-METRICS-20261002/scoring_completion.json'
+        completed=read(self.bind(completion));inventory_path=result/'scoring_inventory.json';regpath=result/'metrics_registration.json'
+        inv=read(self.bind(inventory_path,completed['outputs'][str(inventory_path)]));reg=read(self.bind(regpath,completed['outputs'][str(regpath)]))
+        require(reg['modelmanifest_sha256']==self.history_modelmanifest,'Historical low-bandwidth metric models differ')
+        for i in range(100):
+            p=self.root/'outputs/UNIFIED-METRICS-20261002/source_checkpoints'/f'{i:03d}.json';cp=read(self.bind(p,inv['source_checkpoint_sha256'][str(p)]));validate_seal(cp,ident(reg),i)
+            for r in cp['rows']:
+                if int(float(r.get('N',0) or 0))!=1024 or int(float(r.get('snr_db',-999) or -999)) not in SNRS:continue
+                if r.get('experiment')=='M1' and r['phy_family']=='16QAM' and r['method'] in METHODS:scope='legacy_low_screened'
+                elif r.get('experiment')=='N1024' and r['method']=='P1024':scope='P'
+                else:continue
+                require(r['decoder_id']=='Dc' and str(r['label_conditioned']).lower()=='false','Historical conditioning/decoder differs')
+                rr=dict(r)
+                if scope=='P':rr['phy_family']='continuous'
+                rows.append(self.check_history_row(rr,i,scope))
+        groups=defaultdict(set)
+        for r in rows:groups[group_key(r)].add((r['source_index'],r['noise_seed']))
+        require(all(v==population() for v in groups.values()),'Historical comparison group incomplete')
+        require(all((1024,'16QAM',s,'legacy_low_screened',m) in groups for s in SNRS for m in ('whole_policy','entropy_policy')),'Required original N1024 policies missing')
+        return rows
+
+def score(root,out,legacy):
+    root,out,legacy=map(lambda p:Path(p).resolve(),(root,out,legacy));metrics=out/'metrics';metrics.mkdir(parents=True,exist_ok=True)
+    for path in (root/'outputs/EXTERNAL-COMPARISON-20261004/runtime',root/'experiments/unified-metrics-20261002'):sys.path.insert(0,str(path))
+    inputs=Inputs(root,out,legacy).load();os.environ.setdefault('CUBLAS_WORKSPACE_CONFIG',':4096:8')
+    from step0_reference_metrics import load_suite,numeric_flags
+    import torch,runner,replay
+    from batch_speed import qualify_and_select_batch,qualified_chunks
+    evaluator,metric,native,lpips,dino,model_bindings,flags=load_suite(root,'cuda:0')
+    manifest=root/'outputs/UNIFIED-METRICS-20261002/modelmanifest.json';manifest_sha=sha(manifest)
+    require(inputs.history_modelmanifest==manifest_sha,'Historical and new metric models differ')
+    batch=qualify_and_select_batch(evaluator,torch.device('cuda:0'),manifest,metrics,
+        runtime_context=dict(study='M1_ACTION_SPACE_CLOSURE_20261005',development_sha256=sha(out/'development_completion.json'),model_bindings=model_bindings,numerical_runtime=flags))
+    registration=dict(version='M1_ACTION_CLOSURE_METRICS_V1',sources=100,expanded_rows=inputs.expanded_rows,max_expanded_rows=36000,
+        historical_rows=len(inputs.history_rows),methods=list(METHODS),snrs=list(SNRS),cells=[list(x) for x in CELLS],noise_seeds=list(SEEDS),
+        input_bindings=dict(inputs.bindings),source_sha256=sha(__file__),model_bindings=model_bindings,numerical_runtime=flags,
+        metric_evaluator_identity=evaluator.identity(),modelmanifest_sha256=manifest_sha,source_records=inputs.records,
+        bootstrap_seed=20261002,bootstrap_replicates=10000,bootstrap_unit='source_mean_over_three_noise_repeats',
+        metric_batch_qualification_sha256=sha(metrics/'metric_batch_qualification.json'),batch_size=batch['chosen_batch_size'],
+        qualified_batch_sizes=batch['qualified_batch_sizes'],DINO='DINOv2 ViT-S/14',additional_DINO='DINOv2 ViT-L/14',
+        selection_used_new_metrics=False,generation='frozen unconditional greedy VAR',history_metrics='existing values copied; unavailable later diagnostics remain N/A',
+        intervals='descriptive on reused development after candidate-range revision',training_updates=0,holdout_access=False,KID='DEFERRED_HOLDOUT',FID='NOT_EVALUATED')
+    seal(metrics/'registration.json',registration);seal(metrics/'model_metadata.json',evaluator.metadata);binding=ident(registration)
+    features=[]
+    for target in inputs.targets:
+        pause()
+        with torch.no_grad():features.append(native.dino_features(dino,torch.from_numpy(target[None]).to('cuda:0'))[0].cpu().numpy())
+    features=np.stack(features);mismatch=replay.ReplayEngine._derangement();allrows=[];outputs={};started=time.monotonic()
+    for i,(cp,record) in enumerate(zip(inputs.checkpoints,inputs.records)):
+        pause();require(numeric_flags(torch)==flags,'Frozen metric numerical runtime changed')
+        dest=metrics/'source_checkpoints'/f'{i:04d}.json';raw,images,target,slots=validate_source(cp,i,inputs.excluded)
+        historical=[r for r in inputs.history_rows if r['source_index']==i]
+        if dest.exists():
+            saved=read(dest);validate_seal(saved,binding,i)
+        else:
+            target_tensor=torch.from_numpy(target[None]);prepared=evaluator.prepare_reference(target_tensor);prediction=int(prepared['resnet50'][0])
+            quality,observed,embeddings=native.quality_metrics(target,list(images),lpips,dino,torch.device('cuda:0'))
+            np.testing.assert_allclose(observed,features[i],rtol=1e-6,atol=1e-6)
+            with torch.no_grad():
+                negative=torch.from_numpy(features[mismatch[i]][None]).to('cuda:0').expand(len(images),-1)
+                mismatched=torch.nn.functional.cosine_similarity(torch.from_numpy(embeddings).to('cuda:0'),negative,dim=1).cpu().tolist()
+            scorer=runner.PendingMetricScorer(evaluator,torch,target_tensor,prepared,int(record['class_index']),batch['chosen_batch_size'],batch['qualified_batch_sizes'])
+            rows=[]
+            for r,j in zip(raw,slots):
+                row=dict(r,comparison_scope='expanded',**quality[j],dino_mismatched=mismatched[j],dino_specificity=quality[j]['dino_cosine']-mismatched[j],
+                    mismatch_source_id=inputs.records[mismatch[i]]['image_id'],modelmanifest_sha256=manifest_sha,
+                    native_quality_json=json.dumps({k:r.get(k) for k in ('psnr_db','lpips_alex','dino_cosine','dino_mismatched')},sort_keys=True))
+                require(type(r['latent_valid']) is bool,'Explicit latent availability required')
+                row['F_sq_error_zero_erasure_proxy']=float(r['latent_sq_err_final'] if r['latent_valid'] else r['zero_erasure_proxy_sq_error'])
+                rows.append(row);scorer.add(replay.metric_cache_key(images[j],target,evaluator.identity()),images[j],row)
+            scorer.flush();confidence=[];offset=0
+            for count in qualified_chunks(len(images),batch['chosen_batch_size'],batch['qualified_batch_sizes']):
+                with torch.inference_mode():
+                    tensor=torch.from_numpy(images[offset:offset+count]).to('cuda:0')
+                    prob,pred=evaluator.models['resnet50'](metric.preprocess_resnet50(tensor)).float().softmax(-1).max(-1)
+                    confidence.extend(zip(prob.cpu().tolist(),pred.cpu().tolist()))
+                offset+=count
+            for row,j in zip(rows,slots):
+                prob,pred=confidence[j];require(pred==row['resnet50_prediction'],'Classifier confidence prediction changed')
+                row.update(resnet50_top1_probability=prob,semantic_error=int(pred!=prediction),confidently_wrong=int(prob>=.5 and pred!=prediction))
+                require(all(math.isfinite(float(row[k])) for k in METRICS),'Missing expanded metric')
+            saved=dict(binding=binding,source_index=i,rows=rows,historical_rows=historical,unique_images=len(images))
+            saved['payload_sha256']=ident(saved);seal(dest,saved)
+        require([row_key(r) for r in saved['rows']]==[row_key(r) for r in raw] and saved['historical_rows']==historical,'Scored source coverage or copied history differs')
+        allrows.extend(saved['rows']+saved['historical_rows']);outputs[str(dest)]=sha(dest)
+        write(out/'score_status.json',dict(status='RUNNING',pid=os.getpid(),sources=i+1,expanded_rows=len(saved['rows'])*(i+1),comparison_rows=len(allrows),elapsed_seconds=time.monotonic()-started))
+    summary,paired=analyze(allrows,inputs.excluded)
+    for name,rows in [('metrics_per_frame.csv.gz',allrows),('metrics_summary.csv',summary),('metrics_paired_intervals.csv',paired)]:
+        path=metrics/name;csv_write(path,rows);outputs[str(path)]=sha(path)
+    verify(inputs.bindings);verify(model_bindings)
+    for name in ('registration.json','model_metadata.json','metric_batch_qualification.json'):
+        path=metrics/name;outputs[str(path)]=sha(path)
+    prows=sum(r['comparison_scope']=='P' for r in inputs.history_rows)
+    done=dict(status='M1_ACTION_CLOSURE_METRICS_COMPLETE',sources=100,expanded_rows=inputs.expanded_rows,max_expanded_rows=36000,
+        historical_rows=len(inputs.history_rows),P_rows=prows,legacy_rows=len(inputs.history_rows)-prows,
+        rows=len(allrows),outputs=outputs,registration_sha256=sha(metrics/'registration.json'),
+        input_bindings=inputs.bindings,elapsed_seconds=time.monotonic()-started,synthetic=False,training_updates=0,selection_updates=0)
+    seal(out/'score_completion.json',done);write(out/'score_status.json',dict(status='COMPLETE',sources=100,rows=done['rows']));return done
+
+def markdown(headers,rows):
+    def cell(x):return str(x).replace('|','\\|').replace('\n',' ')
+    return '\n'.join(['| '+' | '.join(map(cell,headers))+' |','| '+' | '.join('---' for _ in headers)+' |']+['| '+' | '.join(map(cell,r))+' |' for r in rows])
+def fmt(x):return 'N/A' if x in (None,'') else f'{float(x):.4f}'
+def ci(r):return 'N/A' if r is None else f"{float(r['mean']):.4f} [{float(r['ci_low']):.4f}, {float(r['ci_high']):.4f}]"
+def artifact_metadata(path):
+    size=Path(path).stat().st_size;require(size<LIMIT,'Publication file exceeds10MB: '+str(path));return dict(sha256=sha(path),bytes=size)
+
+def fixed_page(N,phy,snr,page,indices,saved,policy):
+    from PIL import Image,ImageDraw,ImageFont
+    require((N,phy) in CELLS and snr in SNRS and 0<=page<4 and len(indices)==4,'Fixed page scope differs')
+    fontpath=next((p for p in (Path('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'),Path('C:/Windows/Fonts/arial.ttf')) if p.exists()),None)
+    font=ImageFont.truetype(str(fontpath),18) if fontpath else ImageFont.load_default();small=ImageFont.truetype(str(fontpath),14) if fontpath else ImageFont.load_default()
+    cols=[('Original','original'),(f'P{N}',f'P{N}'),('Expanded whole','whole_policy'),('Expanded entropy','entropy_policy'),('Expanded oracle','oracle_policy')]
+    canvas=Image.new('RGB',(1420,1326),'white');draw=ImageDraw.Draw(canvas)
+    draw.text((20,12),f'N{N} | {phy} {snr} dB | seed 2001 | fixed 16 sources | page {page+1}/4',fill='black',font=font)
+    draw.text((20,38),'QAM: actual frame energy varies. P: historical final model, original noise namespace.',fill='#444444',font=small)
+    proof=[]
+    for c,(label,_) in enumerate(cols):draw.text((20+c*276,66),label,fill='black',font=small)
+    for rowidx,index in enumerate(indices):
+        target,by=saved[index]
+        for column,(_,method) in enumerate(cols):
+            image=target if method=='original' else by[N,phy,snr,method][0]
+            rgb=np.rint(pixels(image).transpose(1,2,0)*255).astype(np.uint8);x,y=20+column*276,92+rowidx*302;canvas.paste(Image.fromarray(rgb),(x,y))
+            if method=='original':caption=f'source {index:03d}'
+            elif method.startswith('P'):caption=f'P{N} | historical final model'
+            else:
+                a=action_for(policy,N,phy,snr,method);caption=f"m{a['m']} K{a['q']}"+(' | whole scale' if a['q']==0 else ' | partial')
+            draw.text((x,y+261),caption,fill='#303030',font=small)
+            proof.append(dict(source_index=index,method=method,image_sha256=rgb_sha(image)))
+    return canvas,proof,[x[0] for x in cols]
+
+class Report:
+    def __init__(self,root,out,legacy,result):
+        self.root,self.out,self.legacy,self.result=map(lambda p:Path(p).resolve(),(root,out,legacy,result))
+        require(self.result!=self.out and self.out not in self.result.parents,'Report artifacts must be separate from runtime')
+        self.result.mkdir(parents=True,exist_ok=True);(self.result/'figures').mkdir(exist_ok=True);self.outputs={};self.figure_manifest=[]
+    def output(self,path):
+        path=Path(path);self.outputs[str(path.relative_to(self.result))]=artifact_metadata(path);return path
+    def load(self):
+        self.inputs=Inputs(self.root,self.out,self.legacy).load();self.done=read(self.inputs.bind(self.out/'score_completion.json'))
+        require(self.done['status']=='M1_ACTION_CLOSURE_METRICS_COMPLETE' and self.done['sources']==100 and self.done['expanded_rows']==self.inputs.expanded_rows
+            and self.done['rows']==self.inputs.expanded_rows+len(self.inputs.history_rows) and self.done['synthetic'] is False,'Complete real closure metrics required')
+        self.metricreg=read(self.inputs.bind(self.out/'metrics/registration.json',self.done['registration_sha256']));self.tables={}
+        for name in ('metrics_summary.csv','metrics_paired_intervals.csv'):
+            path=self.out/'metrics'/name;self.tables[name]=read_csv(self.inputs.bind(path,self.done['outputs'][str(path)]))
+        self.metric_rows=[]
+        for i in range(100):
+            path=self.out/'metrics/source_checkpoints'/f'{i:04d}.json';cp=read(self.inputs.bind(path,self.done['outputs'][str(path)]));validate_seal(cp,ident(self.metricreg),i)
+            self.metric_rows.extend(cp['rows']+cp['historical_rows'])
+        return self
+    def write_tables(self):
+        groups=defaultdict(dict);raw=defaultdict(list)
+        for r in self.metric_rows:raw[group_key(r)].append(r)
+        for r in self.tables['metrics_summary.csv']:groups[group_key(r)][r['metric']]=r
+        self.main=[]
+        for g,values in sorted(groups.items()):
+            N,p,s,scope,method=g;first=raw[g][0]
+            a=action_for(self.inputs.expanded_policy,N,p,s,method) if scope=='expanded' else dict(m=first.get('m',''),q=first.get('q',first.get('K','')),order=first.get('order',''))
+            row=dict(N=N,phy_family=p,snr_db=s,comparison_scope=scope,method=method,m=a['m'],K=a['q'],order=a['order'],
+                status='MEASURED',n_sources=100,n_frames=300,interpretation=action_interpretation(a) if scope=='expanded' else 'historical final P' if scope=='P' else 'historical limited candidate grid')
+            for metric,r in values.items():
+                for field in ('mean','ci_low','ci_high'):row[metric+'_'+field]=float(r[field])
+            energies=[float(x['E']) for x in raw[g]];require(len(energies)==300,'Energy population incomplete')
+            row.update(E_min=min(energies),E_max=max(energies),missing_metrics=','.join(m for m in METRICS if m not in values));self.main.append(row)
+        for N,p,s,m in sorted(self.inputs.excluded):
+            a=action_for(self.inputs.expanded_policy,N,p,s,m)
+            self.main.append(dict(N=N,phy_family=p,snr_db=s,comparison_scope='expanded',method=m,m=a['m'],K=a['q'],order=a['order'],
+                status='NOT_FEASIBLE_PAID_MASK',n_sources=0,n_frames=0,interpretation='exact entropy K exceeds paid oracle budget; no image or metric'))
+        path=self.result/'MAIN_TABLE.csv';csv_write(path,self.main);self.output(path)
+        for name,rows in self.tables.items():path=self.result/name;csv_write(path,rows);self.output(path)
+        csv_provenance=[]
+        for name in ('calibration_summary.csv','legacy_reused_calibration_summary.csv','new_calibration_summary.csv'):
+            source=self.inputs.bind(self.out/name,self.inputs.cal['outputs'][str(self.out/name)])
+            dest=self.result/name;dest.write_bytes(source.read_bytes().replace(b'\r\n',b'\n'))
+            require(read_csv(source)==read_csv(dest),'CSV line-ending normalization changed parsed scientific rows')
+            self.output(dest);csv_provenance.append(dict(source_path=str(source),source_sha256=sha(source),
+                output_file=name,output_sha256=sha(dest),transformation='CRLF to LF only',parsed_rows_equal=True))
+        table=[]
+        for r in self.main:
+            if r['method'] not in ('P1024','P2048','whole_policy','entropy_policy'):continue
+            table.append([r['N'],r['phy_family'],r['snr_db'],r['comparison_scope']+'/'+r['method'],f"{r['m']}/{r['K']}",
+                *[fmt(r.get(m+'_mean')) for m in ('E','psnr_db','lpips_alex','dinov2_vitl14_cosine','clip_image_cosine','dists')]])
+        path=self.result/'MAIN_TABLE.md';path.write_text('# 动作空间补测主表\n\n每行100张源图×3噪声。N/A为历史没有该指标，未填充。\n\n'+markdown(
+            ['N','调制','SNR','方法','m/K','实际E','PSNR↑','LPIPS↓','DINOv2-L↑','CLIP↑','DISTS↓'],table)+'\n',encoding='utf-8');self.output(path)
+        snapshots={'POLICY_EXPANDED.json':self.inputs.policy,'UNAVAILABLE_ACTIONS.json':self.inputs.unavailable,
+            'EVALUATION_REGISTRATION.json':self.metricreg,'RUN_REGISTRATION.json':self.inputs.runreg,
+            'CALIBRATION_COMPLETION.json':self.inputs.cal,'CSV_COPY_PROVENANCE.json':csv_provenance}
+        metapath=self.out/'metrics/model_metadata.json';snapshots['MODEL_METADATA.json']=read(self.inputs.bind(metapath,self.done['outputs'][str(metapath)]))
+        snapshots['COSTS.json']=dict(action_counts=COUNTS,calibration_sources=1000,calibration_logical_frames=3660000,
+            reused_calibration_frames=2187000,new_calibration_frames=1473000,development_method_rows=self.inputs.expanded_rows,
+            development_max_method_rows=36000,scoring_elapsed_seconds=self.done['elapsed_seconds'],online_single_frame_latency='NOT_MEASURED',
+            interpretation='Cached workloads are not online per-frame latency')
+        benchdone=self.inputs.bind(self.out/'benchmark_completion.json')
+        benchreceipt=read(benchdone);require(benchreceipt['status']=='COMPLETE' and benchreceipt['synthetic'] is False,'Real benchmark completion required')
+        benchpath=self.out/'benchmark_report.json';benchmark=read(self.inputs.bind(benchpath,benchreceipt['outputs'][str(benchpath)]))
+        cohort=read(self.inputs.bind(self.out/'cohort_probe_completion.json'))
+        snapshots['BENCHMARK.json']=benchmark;snapshots['COHORT_QUALIFICATION.json']=cohort
+        snapshots['COSTS.json'].update(benchmark_peak_cuda_reserved_bytes=benchmark['peak_cuda_reserved_bytes'],
+            benchmark_source_mean_seconds=benchmark['mean_source_seconds'],
+            cohort_measured_worker_peak_reserved_bytes=cohort.get('measured_worker_peak_reserved_bytes'),
+            cohort_admitted_memory_per_worker_mib=cohort.get('admitted_memory_per_worker_mib'),
+            GPU_memory_scope='Measured engineering benchmark/probe; not a claim of exclusive online receiver peak')
+        for name,value in snapshots.items():path=self.result/name;write(path,value);self.output(path)
+        protocol=self.result/'protocol.json';protocol.write_bytes(self.inputs.protocol_path.read_bytes());self.output(protocol)
+        folder=Path(__file__).resolve().parent
+        for source in sorted(list(folder.glob('*.py'))+list(folder.glob('*.py.txt'))):
+            self.inputs.bind(source);dest=self.result/'source_snapshot'/(source.name+'.txt');dest.parent.mkdir(exist_ok=True);dest.write_bytes(source.read_bytes());self.output(dest)
+    def fixed_figures(self):
+        # The independent CPU image-export step binds historical P pixels to their
+        # completed metric hashes. It may replay only registered, missing P caches.
+        path=self.out/'fixed_p_images/manifest.json';manifest=read(self.inputs.bind(path))
+        require(manifest['status']=='FIXED_P_IMAGES_COMPLETE' and manifest['synthetic'] is False
+            and manifest['source_indices']==list(FIXED) and manifest['snrs']==list(SNRS)
+            and manifest['noise_seed']==2001 and manifest['budgets']==[1024,2048],'Fixed P image manifest scope differs')
+        for p,h in manifest['input_bindings'].items():self.inputs.bind(p,h)
+        pimages={};historical={(r['source_index'],r['N'],r['snr_db'],r['noise_seed']):r for r in self.inputs.history_rows if r['comparison_scope']=='P'}
+        for row in manifest['rows']:
+            k=(int(row['source_index']),int(row['N']),int(row['snr_db']),int(row['noise_seed']));require(k not in pimages and k in historical,'Unexpected fixed P image')
+            archive=self.inputs.bind(row['archive'],row['archive_sha256'])
+            with np.load(archive,allow_pickle=False) as z:
+                image=pixels(z['images'][int(row['image_slot'])]).copy();target=pixels(z['source_rgb'])
+            require(rgb_sha(image)==row['image_sha256']==historical[k]['image_sha256'] and rgb_sha(target)==row['reference_sha256']==historical[k]['reference_sha256'],'Fixed P differs from completed scientific RGB')
+            pimages[k]=image
+        require(set(pimages)=={(i,N,s,2001) for i in FIXED for N in (1024,2048) for s in SNRS},'Fixed P images incomplete')
+        saved={}
+        for i in FIXED:
+            rows,images,target,slots=validate_source(self.inputs.checkpoints[i],i,self.inputs.excluded)
+            by={(int(r['N']),r['phy_family'],int(r['snr_db']),r['method']):(images[j],r) for r,j in zip(rows,slots) if int(r['noise_seed'])==2001}
+            for N,p in CELLS:
+                for s in SNRS:by[N,p,s,f'P{N}']=(pimages[i,N,s,2001],{})
+            saved[i]=target,by
+        for N,p in CELLS:
+            for snr in SNRS:
+                for page in range(4):
+                    indices=FIXED[page*4:page*4+4];canvas,proof,columns=fixed_page(N,p,snr,page,indices,saved,self.inputs.expanded_policy)
+                    stem=f'fixed16_N{N}_{p}_snr{snr}_page{page+1}'
+                    for ext in ('png','pdf'):
+                        path=self.result/'figures'/(stem+'.'+ext)
+                        if ext=='png':canvas.save(path,optimize=True)
+                        else:canvas.save(path,'PDF',resolution=180.)
+                        self.output(path)
+                    self.figure_manifest.append(dict(png=f'figures/{stem}.png',pdf=f'figures/{stem}.pdf',N=N,phy_family=p,snr_db=snr,
+                        source_indices=list(indices),noise_seed=2001,columns=columns,float_inputs=proof,display_conversion='round(float32 RGB*255); scientific metrics retain floats'))
+                    canvas.close()
+        path=self.result/'FIGURE_MANIFEST.json';write(path,self.figure_manifest);self.output(path)
+    def report(self):
+        paired=self.tables['metrics_paired_intervals.csv'];choices=[];comparisons=[];samek=[]
+        def find(N,p,s,sa,ma,sb,mb,metric):
+            return next((r for r in paired if int(r['N'])==N and r['phy_family']==p and int(r['snr_db'])==s
+                and (r['scope_A'],r['method_A'],r['scope_B'],r['method_B'],r['metric'])==(sa,ma,sb,mb,metric)),None)
+        for N,p in CELLS:
+            for s in SNRS:
+                a=action_for(self.inputs.expanded_policy,N,p,s,'entropy_policy')
+                for m in ('whole_policy','entropy_policy'):
+                    action=action_for(self.inputs.expanded_policy,N,p,s,m);choices.append([N,p,s,m,action['m'],action['q'],action_interpretation(action)])
+                history='legacy_low_screened' if N==1024 else 'legacy82_m9' if p=='16QAM' and s in (7,13,19) else 'legacy69'
+                for sa,ma,sb,mb,label in [('expanded','entropy_policy',history,'entropy_policy','新entropy−历史entropy'),
+                    ('expanded','entropy_policy','expanded','whole_policy','新entropy−新whole'),('expanded','entropy_policy','P',f'P{N}','新entropy−P')]:
+                    comparisons.append([N,p,s,label,*[ci(find(N,p,s,sa,ma,sb,mb,m)) for m in ('psnr_db','lpips_alex','dinov2_vitl14_cosine','clip_image_cosine','dists')]])
+                for method in METHODS[5:]:
+                    note='N/A: paid mask exceeds budget' if (N,p,s,method) in self.inputs.excluded else 'K0: identical whole action' if a['q']==0 else 'same m/K; oracle mask charged'
+                    samek.append([N,p,s,a['m'],a['q'],method,note,*[ci(find(N,p,s,'expanded','entropy_policy','expanded',method,m)) for m in ('psnr_db','lpips_alex','dinov2_vitl14_cosine')]])
+        text='\n\n'.join(['# M1 动作空间补测：N1024 与 N2048',
+            'N1024/16QAM、N2048/QPSK、N2048/16QAM；1/4/7/13/19dB。分别73、73、98个登记动作，在1000张校准图×3个校准噪声上选择，100张development图×3个噪声上评测。未训练新模型。',
+            '**扩范围是在观察旧development结果后提出。同一development上的配对区间用于描述本组数据，不是独立holdout或未经选择的确认性显著性证据。**',
+            '## 范围与复用',
+            '补齐审计登记的m8部分第9尺度及N2048原m9范围的低SNR覆盖。完整是指本次登记的四分位K加最大合法K网格；不是逐一枚举每个整数K。新增头部mode7表示m8的K≥128，仍在原12源bit/68信道使用内。旧D_U/D_C的两位模式字段未改变。',
+            '3660000校准逻辑帧中2187000帧来自已核验旧结果，新增1473000帧。N1024从原200图筛选加短名单，改为73动作全1000×3校准；策略变化同时含候选扩展与完整校准，不能全部归因新增4个动作。本轮没有另跑旧69动作全校准反事实的development。',
+            f'实际development方法行{self.inputs.expanded_rows}，理论上限36000。付费oracle同K不可行时保留N/A，不降K、不放宽码率、不生成替代灰图。',
+            '## 选中的动作',markdown(['N','调制','SNR','方法','m','K','解释'],choices),
+            'K0只传完整尺度，不能当作部分尺度或排序收益。部分尺度看entropy相对whole；排序看相同m/K下的raster/random/oracle。',
+            '## 主表与源配对差值','[全部主表](MAIN_TABLE.md) · [完整CSV](MAIN_TABLE.csv) · [配对区间](metrics_paired_intervals.csv) · [全部登记动作的校准结果](calibration_summary.csv)',
+            '先对每张图的3次噪声平均，再以100张源图配对bootstrap10000次，seed20261002。差值A−B，PSNR/DINO/CLIP正值更好，LPIPS/DISTS负值更好。',
+            markdown(['N','调制','SNR','比较','ΔPSNR [95%CI]','ΔLPIPS [95%CI]','ΔDINOv2-L [95%CI]','ΔCLIP [95%CI]','ΔDISTS [95%CI]'],comparisons),
+            '## 同m/K排序消融',markdown(['N','调制','SNR','m','K','控制','范围','ΔPSNR [95%CI]','ΔLPIPS [95%CI]','ΔDINOv2-L [95%CI]'],samek),
+            '## 公平性与指标','原始DINO为DINOv2 ViT-S/14，另列ViT-L/14；CLIP、DISTS、DreamSim、MS-SSIM、ResNet50真实标签准确率与原图预测一致率均在完整表中。骨干和权重见[模型元数据](MODEL_METADATA.json)。新指标没有参与策略选择。分类器一致率是自动代理，不等同人工语义正确性。',
+            'QPSK和连续链逐帧E=2N；16QAM保留固定星座，实际逐帧能量分别记录，不能称逐帧同能量。P使用各自历史最终模型与训练seed；只按源图及名义噪声种子配对，噪声命名空间不同。',
+            '历史指标从完成凭证复制，缺少的后加诊断显式N/A；不把N/A补成0。F误差的无有效latent分支用登记零擦除代理。已保存的批处理耗时不等于在线单帧接收成本；见[COSTS](COSTS.json)。',
+            '## 固定16张图','每个N/调制/SNR四页，列为原图/P/新whole/新entropy/新oracle，seed2001；只辅助看图，不替代100×3统计。',
+            '\n'.join(f'- N{N} {p} {s}dB：'+', '.join(f'[PNG {k}](figures/fixed16_N{N}_{p}_snr{s}_page{k}.png) / [PDF](figures/fixed16_N{N}_{p}_snr{s}_page{k}.pdf)' for k in range(1,5)) for N,p in CELLS for s in SNRS),
+            '结论应分别看语义、像素和感知指标及区间。单项获胜不等于全面优势；候选空间扩大也不保证所选策略更好。'])+'\n'
+        path=self.result/'REPORT.md';path.write_text(text,encoding='utf-8');self.output(path)
+        mirror=self.root/self.inputs.protocol['report_path'];mirror.parent.mkdir(parents=True,exist_ok=True)
+        for name in ('MAIN_TABLE.md','MAIN_TABLE.csv','metrics_paired_intervals.csv','calibration_summary.csv','MODEL_METADATA.json','COSTS.json','figures/'):
+            text=text.replace('('+name,'(../'+self.inputs.protocol['result_dir'].rstrip('/')+'/'+name)
+        mirror.write_text(text,encoding='utf-8');self.mirror=mirror
+    def build(self):
+        self.load();self.write_tables();self.fixed_figures();self.report();verify(self.inputs.bindings)
+        manifest=dict(status='M1_ACTION_CLOSURE_STATIC_REPORT_COMPLETE',sources=100,expanded_rows=self.inputs.expanded_rows,
+            historical_rows=len(self.inputs.history_rows),outputs=self.outputs,input_bindings=self.inputs.bindings,
+            mirror_report=dict(path=str(self.mirror),**artifact_metadata(self.mirror)),fixed_source_indices=list(FIXED),png_pages=60,pdf_pages=60,
+            model_inference=False,metric_recomputation=False,training_updates=0,intervals='descriptive reused development after candidate-range revision',maximum_file_bytes_exclusive=LIMIT)
+        path=self.result/'MANIFEST.json';write(path,manifest);metadata={str(self.result/name):value for name,value in self.outputs.items()}
+        metadata[str(path)]=artifact_metadata(path);metadata[str(self.mirror)]=artifact_metadata(self.mirror)
+        done=dict(status='M1_ACTION_CLOSURE_REPORT_COMPLETE',sources=100,expanded_rows=self.inputs.expanded_rows,
+            score_completion_sha256=sha(self.out/'score_completion.json'),manifest_path=str(path),manifest_sha256=sha(path),
+            outputs={p:v['sha256'] for p,v in metadata.items()},output_metadata=metadata,input_bindings=self.inputs.bindings,model_inference=False,training_updates=0)
+        seal(self.out/'report_completion.json',done);return done
+
+def main():
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--stage',choices=('score','report'),required=True)
+    for name in ('root','out','legacy-out'):parser.add_argument('--'+name,type=Path,required=True)
+    parser.add_argument('--result',type=Path);a=parser.parse_args()
+    def stop(*_):
+        global STOP
+        STOP=True
+    signal.signal(signal.SIGTERM,stop);signal.signal(signal.SIGINT,stop)
+    import fcntl
+    a.out.mkdir(parents=True,exist_ok=True)
+    with (a.out/'m9_score_report.lock').open('a+') as lock:
+        fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        try:
+            done=score(a.root,a.out,a.legacy_out) if a.stage=='score' else Report(a.root,a.out,a.legacy_out,a.result or a.root/'results/m1_action_space_closure_20261005').build()
+            print(done['status'],flush=True);return 0
+        except InterruptedError as error:
+            write(a.out/(a.stage+'_status.json'),dict(status='PAUSED',reason=str(error)));return 75
+        except Exception as error:
+            write(a.out/(a.stage+'_failure.json'),dict(status='FAILED_REQUIRES_REVIEW',error=repr(error)));raise
+
+if __name__=='__main__':raise SystemExit(main())
