@@ -1,0 +1,99 @@
+{
+  "S1_gate": {
+    "path": "REPO/outputs/PAPER-CONSOLIDATION-20261005/S1/completion.json",
+    "sha256": "4fb30b92b97825b52a16db63dc0316736b8de19f1cd7d50dd42226afc721ec70",
+    "status": "S1_BRIDGE_COMPLETE_AWAIT_NEXT_DECISION"
+  },
+  "branch": "H",
+  "budget_path": "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/packet_budget.sqlite",
+  "budget_registration": "REPO/outputs/CONTENT-REAL-64QAM-20261006/resource_budget.json",
+  "budget_registration_sha256": "f3107e48b13f94815d68ffa9c6f750dec1c3342603fd70790c83130017c558d2",
+  "cpu_affinities": [
+    [
+      0,
+      1
+    ],
+    [
+      2,
+      3
+    ]
+  ],
+  "gpu_affinity": [
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "gpu_device": 0,
+  "gpu_threads": 6,
+  "nvidia_smi": "/usr/bin/nvidia-smi",
+  "out": "REPO/outputs/CONTENT-REAL-64QAM-20261006/H",
+  "overall_deadline_unix": 1791564605.9549868,
+  "owner_out": "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/full1000_source_execution_v1",
+  "phase_limits": {
+    "coarse": 49152,
+    "development": 13200,
+    "engineering_reserve": 19360,
+    "initial_true200": 20000,
+    "partial_calibration": 36000,
+    "qualification": 2000,
+    "refine": 12288,
+    "whole_calibration": 48000
+  },
+  "prior_qualification_gate": {
+    "accepted_statuses": [
+      "H_PHY_QUALIFICATION_PASS"
+    ],
+    "path": "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/qualification/completion.json",
+    "receipt_registration": "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/execution_v1/execution_registration.json",
+    "sha256": "7f92e6e3c6d78f6a5bd09aa71b7d35c5df78bcdab215861e91b4450b1b619dc0"
+  },
+  "qualification_deadline_unix": 1791564605.9549868,
+  "qualification_started_unix": 1791219005.9549868,
+  "registration": "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/full1000_source_execution_v1/execution_registration.json",
+  "root": "REPO",
+  "stages": [
+    {
+      "id": "source",
+      "jobs": [
+        {
+          "accepted_statuses": [
+            "H_FULL1000_SOURCE_CODEC_COMPLETE"
+          ],
+          "argv": [
+            "REPO/outputs/UNIFIED-METRICS-20261002/environment/bin/python",
+            "-B",
+            "REPO/experiments/content-real-64qam-20261006/full1000_source_driver.py",
+            "--config",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/full1000_source_execution_v1/source_config.json"
+          ],
+          "completion": "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/full1000_source/completion.json",
+          "cwd": "REPO",
+          "id": "full1000_source",
+          "out": "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/full1000_source",
+          "receipt_expect": {
+            "GPU_used": true,
+            "development_used": false,
+            "full1000_calibration_complete": false,
+            "holdout_used": false,
+            "new_image_renders": 0,
+            "new_metric_calls": 0,
+            "new_packet_decodes": 0,
+            "newly_encoded_sources": 800,
+            "pending_source_encoding_count": 0,
+            "reused_codec_sources": 200,
+            "source1000_codec_complete": true,
+            "source_count": 1000,
+            "training_updates": 0
+          }
+        }
+      ],
+      "max_seconds": 10800,
+      "requires": [],
+      "resource": "gpu"
+    }
+  ],
+  "visual_lock_path": "REPO/outputs/CONTENT-REAL-64QAM-20261006/shared_visual.lock"
+}
