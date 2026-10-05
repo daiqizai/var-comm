@@ -1,0 +1,312 @@
+"""Independent exact-catalogue closure of table-model FIXED/QCSI references.
+
+Original search outputs and policies are immutable inputs. No physical decoder,
+training, image model or development data is used by this revision.
+"""
+import argparse
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import sys
+import time
+import numpy as np
+
+SCOPE = 'SYMMETRIC_EXACT_FORMATS_R1'
+INTERVALS = tuple((a, b) for a in range(8) for b in range(a + 1, 9))
+FULL = INTERVALS.index((0, 8))
+TOL = 1e-9
+
+
+def require(ok, message):
+    if not ok: raise RuntimeError(message)
+
+
+def read(path): return json.loads(Path(path).read_text(encoding='utf-8'))
+
+
+def sha(path):
+    h = hashlib.sha256()
+    with Path(path).open('rb') as f:
+        for block in iter(lambda: f.read(1024 * 1024), b''): h.update(block)
+    return h.hexdigest()
+
+
+def canonical(value): return json.dumps(value, sort_keys=True, separators=(',', ':'), allow_nan=False)
+def digest(value): return hashlib.sha256(canonical(value).encode()).hexdigest()
+
+
+def save(path, value):
+    path = Path(path); path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + '.tmp.' + str(os.getpid()))
+    tmp.write_text(json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + '\n', encoding='utf-8')
+    os.replace(tmp, path)
+
+
+def load_module(path, name):
+    spec = importlib.util.spec_from_file_location(name, path); module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module); return module
+
+
+class Envelope:
+    """Per-resource, per-interval exact winner; no pair x source allocation."""
+    def __init__(self, budgets):
+        self.budgets = tuple(sorted(set(map(int, budgets))))
+        self.scores = np.full((len(self.budgets), len(INTERVALS)), -np.inf)
+        self.records = [[None] * len(INTERVALS) for _ in self.budgets]
+        self.admissible_candidate_count = np.zeros(len(self.budgets), dtype=np.int64)
+
+    def add(self, bundle, Q, construction, costs, branch_factory):
+        c = np.asarray(bundle['coefficients'], dtype=np.float64)
+        require(c.shape[1:] == (8, 4), 'Expected exact eight-bin probability coefficients')
+        q = Q[:, construction].mean(1)
+        per_bin = c[:, :, 0] * q[bundle['gray_index']] + c[:, :, 1] * q[np.asarray(bundle['prefix_indices'])][:, None] + c[:, :, 2] * q[np.asarray(bundle['target_indices'])][:, None]
+        cumulative = np.concatenate((np.zeros((len(c), 1)), np.cumsum(per_bin, axis=1)), axis=1)
+        score = np.stack([cumulative[:, b] - cumulative[:, a] for a, b in INTERVALS], axis=1)
+        made = {}
+        for bi, budget in enumerate(self.budgets):
+            feasible = np.flatnonzero(np.asarray(costs) <= budget)
+            self.admissible_candidate_count[bi] += len(feasible)
+            if not len(feasible): continue
+            choices = feasible[np.argmax(score[feasible], axis=0)]
+            values = score[choices, np.arange(len(INTERVALS))]
+            improvements = np.flatnonzero(values > self.scores[bi] + 1e-14)
+            for col in improvements:
+                chosen = int(choices[col])
+                if chosen not in made:
+                    made[chosen] = dict(branch=branch_factory(chosen), coefficients=c[chosen].copy(),
+                        prefix_index=int(bundle['prefix_indices'][chosen]), target_index=int(bundle['target_indices'][chosen]),
+                        gray_index=int(bundle['gray_index']), forward_symbols=int(costs[chosen]))
+                self.records[bi][col] = made[chosen]
+                self.scores[bi, col] = values[col]
+
+    def at(self, budget):
+        bi = self.budgets.index(int(budget)); return self.scores[bi], self.records[bi]
+
+
+def union_envelopes(envelopes, budget):
+    values = np.full(len(INTERVALS), -np.inf); records = [None] * len(INTERVALS)
+    for envelope in envelopes:
+        score, candidates = envelope.at(budget)
+        for col in np.flatnonzero(score > values + 1e-14):
+            values[col] = score[col]; records[col] = candidates[col]
+    require(np.isfinite(values).all() and all(r is not None for r in records), 'Reference catalogue has empty resource intervals')
+    return values, records
+
+
+def evaluate_records(records, partition, Q, base, kind, pilot, bits=None, feedback=0, thresholds=None):
+    weights = {}; bad = 0.; mean = float(base); maximum = float(base); branches = []
+    for ordinal, (record, (a, b)) in enumerate(zip(records, partition)):
+        row = record['coefficients'][a:b].sum(0)
+        for index, probability in ((record['gray_index'], row[0]), (record['prefix_index'], row[1]), (record['target_index'], row[2])):
+            weights[str(index)] = weights.get(str(index), 0.) + float(probability)
+        bad += float(row[3]); mass = float(record['coefficients'][a:b].sum())
+        mean += mass * record['forward_symbols']; maximum = max(maximum, base + record['forward_symbols'])
+        branches.append(dict(record['branch'], public_header_id=ordinal))
+    require(len(branches) <= 8 and maximum <= 1024 and abs(sum(weights.values()) + bad - 1) < 1e-9, 'Closed reference violates resource/control/probability contract')
+    scores = sum(Q[int(k)] * value for k, value in weights.items())
+    policy = dict(kind=kind, reference_closure=SCOPE, pilot_symbols=pilot, branches=branches,
+                  state_weights=weights, bad_probability=bad, initial_header_bits=12,
+                  feedback_content='SNR_bin_only_NO_ACK', same_h=True)
+    if kind == 'QCSI': policy.update(feedback_bits=bits, feedback_symbols=feedback, thresholds_db=thresholds)
+    return dict(scores=np.asarray(scores), bad_probability=bad, mean_used_symbols=mean, max_used_symbols=maximum,
+                state_weights=weights, gray_index=records[0]['gray_index'], policy=policy)
+
+
+def select_reference(envelopes, Q, build, pilot, search, bits=None, feedback=0):
+    base = pilot + feedback; values, records = union_envelopes(envelopes, 1024 - base)
+    if bits is None:
+        partition = ((0, 8),); chosen = [records[FULL]]; expected = values[FULL]; kind = 'FIXED'
+    else:
+        best = None
+        for partition in search.partitions(bits):
+            indices = [INTERVALS.index(interval) for interval in partition]; value = float(values[indices].sum())
+            if best is None or value > best[0] + 1e-14: best = value, partition, indices
+        expected, partition, indices = best; chosen = [records[i] for i in indices]; kind = 'QCSI'
+    result = evaluate_records(chosen, partition, Q, base, kind, pilot, bits, feedback, search.threshold_values(partition))
+    require(abs(float(result['scores'][build].mean()) - expected) <= TOL, 'Selected reference training score does not replay')
+    return result
+
+
+def build_envelopes(model, build, budgets, search, progress):
+    profiles = sorted(list(model.profiles) + list(model.extra_profiles), key=search.profile_key)
+    catalog = Envelope(budgets); bundle = search.add_gray(model.profile_coefficients(profiles), model)
+    catalog.add(bundle, model.Q, build, bundle['forward_symbols'], lambda i: dict(format='CATALOG', profile=profiles[i]))
+    modes = (0, 68) if model.header_mode == 'measured_headers' else (0, 16, 68)
+    pairs = {h: Envelope(budgets) for h in modes}; counts = {str(h): 0 for h in modes}
+    firsts = [f for m in (4, 5, 6) for f in sorted(model.first_actions(m), key=search.action_key)]
+    for ordinal, first in enumerate(firsts):
+        for H2, envelope in pairs.items():
+            available = max(budgets) - 68 - first['symbols']
+            if available < 0: continue
+            actions = sorted(model.continuations(first, available, H2), key=search.action_key)
+            if not actions: continue
+            bundle = search.add_gray(model.score_coefficients(first, actions, H2=H2), model)
+            costs = 68 + first['symbols'] + np.asarray(bundle['second_symbols'])
+            envelope.add(bundle, model.Q, build, costs,
+                lambda i, f=first, aa=actions, h=H2: dict(format='PAIR', first=f, second=aa[i], second_header_symbols=h))
+            counts[str(H2)] += len(actions)
+        if ordinal % 20 == 0: progress('reference_candidates', ordinal + 1, len(firsts))
+    return catalog, pairs, dict(original_profiles=len(model.profiles), supplemental_profiles=len(model.extra_profiles),
+        first_actions=len(firsts), pair_candidates_by_header=counts, resource_budgets=list(budgets),
+        catalogue_resource_counts=catalog.admissible_candidate_count.tolist(),
+        pair_resource_counts={str(k): v.admissible_candidate_count.tolist() for k,v in pairs.items()})
+
+
+def replay_policy(model, policy, search):
+    partition = ((0,8),) if policy['kind'] == 'FIXED' else search.partition_from_thresholds(policy['thresholds_db'])
+    records = []
+    for branch in policy['branches']:
+        if branch['format'] == 'CATALOG':
+            bundle = search.add_gray(model.profile_coefficients([branch['profile']]), model)
+            cost = int(bundle['forward_symbols'][0])
+        else:
+            first = branch['first']; bundle = search.add_gray(model.score_coefficients(first, [branch['second']], H2=branch['second_header_symbols']), model)
+            cost = int(68 + first['symbols'] + bundle['second_symbols'][0])
+        records.append(dict(branch={k:v for k,v in branch.items() if k!='public_header_id'}, coefficients=np.asarray(bundle['coefficients'][0]),
+            prefix_index=int(bundle['prefix_indices'][0]), target_index=int(bundle['target_indices'][0]), gray_index=model.gray_index, forward_symbols=cost))
+    return evaluate_records(records, partition, model.Q, policy['pilot_symbols']+policy.get('feedback_symbols',0),
+        policy['kind'], policy['pilot_symbols'], policy.get('feedback_bits'), policy.get('feedback_symbols',0), policy.get('thresholds_db'))
+
+
+def main():
+    ap=argparse.ArgumentParser(); ap.add_argument('--snapshot',required=True); ap.add_argument('--protocol',required=True)
+    ap.add_argument('--original-model',required=True); ap.add_argument('--registration',required=True); ap.add_argument('--out',required=True)
+    ap.add_argument('--snr',type=int,choices=(4,7,10,13),required=True); ap.add_argument('--extra-qualified',required=True); ap.add_argument('--extra-bler',required=True)
+    ap.add_argument('--runtime-dir',required=True); a=ap.parse_args()
+    require(os.environ.get('CUDA_VISIBLE_DEVICES')=='','Explicit CPU-only environment required')
+    for key in ('OMP_NUM_THREADS','MKL_NUM_THREADS','OPENBLAS_NUM_THREADS'):
+        require(0<int(os.environ.get(key,'999'))<=2,'Explicit two-thread maximum required: '+key)
+    runtime=Path(a.runtime_dir).resolve(); sys.path.insert(0,str(runtime)); search=load_module(runtime/'search.py','frozen_search_r1'); Model=load_module(runtime/'model.py','frozen_model_r1').Model
+    protocol=read(a.protocol); search.validate_protocol(protocol); reg=read(a.registration)
+    require(reg['schema']=='TWO_STAGE_REFERENCE_CLOSURE_R1' and reg['status']=='FROZEN_BEFORE_SELECTION' and reg['N']==1024,'Wrong R1 registration')
+    bindings={str(Path(x).resolve()):sha(x) for x in (a.snapshot,a.protocol,a.registration,a.extra_qualified,a.extra_bler)}
+    sources={str(Path(x).resolve()):sha(x) for x in (__file__,runtime/'search.py',runtime/'model.py')}
+    for name in ('original_execution_registration','original_completion','original_protocol','closure_protocol'):
+        record=reg[name]; require(sha(record['path'])==record['sha256'],'Changed R1 parent binding: '+name); bindings[str(Path(record['path']).resolve())]=record['sha256']
+    require(Path(reg['original_protocol']['path']).resolve()==Path(a.protocol).resolve(),'Original protocol binding differs')
+    clarification=read(reg['closure_protocol']['path'])
+    require(clarification['schema']=='TWO_STAGE_REFERENCE_CATALOGUE_CLOSURE_R1' and clarification['N']==1024,'Wrong closure protocol')
+    for path,value in reg['input_bindings'].items():require(sha(path)==value,'Registered input changed: '+path)
+    for path,value in reg['source_bindings'].items():require(sha(path)==value,'Registered source changed: '+path)
+    require(all(reg['source_bindings'].get(p)==h for p,h in sources.items()),'Actual source dependency not registered')
+    require(all(reg['input_bindings'].get(p)==h for p,h in bindings.items() if p!=str(Path(a.registration).resolve())),'Actual explicit input dependency not registered')
+    require(reg['global_deadline_unix']==clarification['resources']['overall_deadline_unix'] and reg['per_snr_seconds']==7200
+            and reg['max_rss_bytes']==2147483648 and reg['max_cpu_threads']==2,
+            'Original wall cap differs')
+    old=Path(a.original_model)/('search_snr'+str(a.snr)); olddone=read(old/'completion.json')
+    require(olddone['status']=='COMPLETE','Original SNR shard not complete')
+    bindings[str((old/'completion.json').resolve())]=sha(old/'completion.json')
+    for path,value in olddone['outputs'].items():require(sha(path)==value,'Original search output changed: '+path)
+    bindings.update(olddone['outputs']); bindings.update(olddone['input_bindings'])
+    manifest=read(a.snapshot)
+    def asset(name):
+        record=manifest['assets'][name]; require(sha(record['path'])==record['sha256'],'Snapshot asset changed: '+name)
+        bindings[str(Path(record['path']).resolve())]=record['sha256']; return read(record['path'])
+    profiles=asset('profiles'); quality=asset('quality_bundle'); bler=asset('bler'); original_split=asset('source_split')
+    qualified=read(a.extra_qualified); require(qualified.get('complete') is True,'Extra qualification incomplete')
+    extra=qualified['configs']; extra_rows=read(a.extra_bler)['rows']; split=search.source_split(quality['source_ids'])
+    for key in ('ordered_source_ids','construction_source_ids','verification_source_ids'):
+        require(split[key]==original_split[key]==read(old/'split.json')[key],'Frozen split changed')
+    oldsearch=read(old/'search.json'); require(oldsearch['source_ids']==quality['source_ids'],'Original source ordering changed')
+    out=Path(a.out).resolve(); out.mkdir(parents=True,exist_ok=True)
+    binding=digest(dict(inputs=bindings,sources=sources,scope=SCOPE,snr=a.snr))
+    require(not (out/'completion.json').exists(),'R1 already complete; preserve receipt and do not repeat selection')
+    require(not (out/'failure.json').exists(),'R1 failure retained; no automatic restart')
+    started=time.monotonic(); deadline=min(time.time()+reg['per_snr_seconds'],reg['global_deadline_unix'])
+    def progress(stage,count=0,total=0):
+        require(not(out/'STOP').exists(),'R1 STOP requested; partial evidence retained')
+        require(time.time()<deadline,'Original registered wall cap reached')
+        status_file=Path('/proc/self/status')
+        if status_file.exists():
+            fields={line.split(':',1)[0]:line.split(':',1)[1].strip() for line in status_file.read_text().splitlines() if ':' in line}
+            require(int(fields['VmRSS'].split()[0])*1024<=reg['max_rss_bytes'],'Registered per-worker RSS cap reached')
+        save(out/'status.json',dict(status='RUNNING',binding=binding,stage=stage,completed=count,total=total,elapsed_seconds=time.monotonic()-started))
+    try:
+        budgets=sorted({1024-p for p in protocol['pilot_symbols']}|{1024-p-c for p in protocol['pilot_symbols'] for c in protocol['feedback_symbols']})
+        results={}; coverages={}
+        for mode in protocol['header_modes']:
+            progress('load_model_'+mode)
+            model=Model(profiles,quality,bler,extra_groups=extra,extra_rows=extra_rows,average_snr=a.snr,pilot=0,header_mode=mode)
+            require(model.state_ids==oldsearch['state_ids'],'Frozen quality state ordering changed')
+            catalog,pairs,coverage=build_envelopes(model,split['construction_indices'],budgets,search,progress); coverages[mode]=coverage
+            for H2 in protocol['second_header_symbols']:
+                formats=[catalog,pairs[0]]+([pairs[H2]] if H2!=0 and H2 in pairs else [])
+                for pilot in protocol['pilot_symbols']:
+                    fixed=select_reference(formats,model.Q,split['construction_indices'],pilot,search)
+                    for cost in protocol['feedback_symbols']:
+                        for bits in protocol['feedback_bits']:
+                            qcsi=select_reference(formats,model.Q,split['construction_indices'],pilot,search,bits,cost)
+                            results[(mode,pilot,cost,H2,bits)]={'FIXED':fixed,'QCSI':qcsi}
+            del catalog,pairs
+        grid=[]; records=[]; policies={}; dominance=[]
+        old_policies=read(old/'policies.json')['policies']
+        for ordinal,oldrecord in enumerate(oldsearch['cells']):
+            progress('materialize_cells',ordinal,len(oldsearch['cells']))
+            cid=oldrecord['cell_id']; key=tuple(oldrecord[k] for k in ('header_mode','pilot_symbols','feedback_symbols','second_header_symbols','feedback_bits'))
+            replacement=results[key]; newarrays=search.array_payload(replacement)
+            with np.load(oldrecord['array_path'],allow_pickle=False) as z: arrays={k:z[k] for k in z.files}
+            arrays.update(newarrays); target=out/'cells'/(cid+'.npz'); target.parent.mkdir(parents=True,exist_ok=True); np.savez(target,**arrays)
+            rows=[]; local={}
+            for oldrow in oldrecord['summary']:
+                method=oldrow['method']; row=dict(oldrow)
+                if method in replacement:
+                    row.update(search.summary(method,replacement[method],split)); policy=replacement[method]['policy']; local[digest(policy)]=policy
+                    delta=row['train_mean']-oldrow['train_mean']; require(delta>=-TOL,'Closed reference fell below original catalogue')
+                    dominance.append(dict(cell_id=cid,method=method,comparison='OLD_REFERENCE',construction_difference=delta))
+                elif row['status']=='MODEL_ONLY':local[row['policy_id']]=old_policies[row['policy_id']]
+                row['reference_catalogue_scope']=SCOPE if method in replacement else 'ORIGINAL_TWO_STAGE_UNCHANGED'; rows.append(row)
+            uniform=next(r for r in rows if r['method']=='TWO_STAGE'); qcsi=next(r for r in rows if r['method']=='QCSI')
+            if uniform['status']=='MODEL_ONLY':
+                delta=qcsi['train_mean']-uniform['train_mean']; require(delta>=-TOL,'Closed QCSI cannot reproduce original TWO_STAGE')
+                dominance.append(dict(cell_id=cid,method='QCSI',comparison='TWO_STAGE',construction_difference=delta))
+            record=dict(oldrecord,summary=rows,policies=local,array_path=str(target),array_sha256=sha(target),binding=binding,original_binding=oldrecord['binding'])
+            save(out/'cells'/(cid+'.json'),record); grid.extend(rows); records.append(record); policies.update(local)
+        by_cell={record['cell_id']:record for record in records}
+        def replace_table(name):
+            import csv
+            with (old/name).open(encoding='utf-8',newline='') as f: oldrows=list(csv.DictReader(f))
+            output=[]
+            for oldrow in oldrows:
+                updated=next(r for r in by_cell[oldrow['cell_id']]['summary'] if r['method']==oldrow['method'])
+                output.append(dict(oldrow,**updated))
+            search.csv_write(out/name,output); return output
+        search.csv_write(out/'grid_summary.csv',grid); selected=replace_table('selected_summary.csv'); primary=replace_table('primary_summary.csv')
+        per_source=[]
+        for cid in dict.fromkeys(r['cell_id'] for r in selected):
+            selected_rows=[r for r in selected if r['cell_id']==cid]
+            with np.load(out/'cells'/(cid+'.npz'),allow_pickle=False) as z:
+                for row in selected_rows:
+                    if row['status']!='MODEL_ONLY':continue
+                    for index in split['verification_indices']:
+                        per_source.append(dict(cell_id=cid,method=row['method'],source_id=quality['source_ids'][index],population='internal_verification200',
+                            quality_point=float(z[row['method']+'_quality_point'][index]),bad_probability=float(z[row['method']+'_bad_probability'][index]),selection_on='construction800'))
+        search.csv_write(out/'per_source.csv',per_source); save(out/'split.json',split)
+        save(out/'policies.json',dict(policies=policies,public_header_bits=12,public_tree_ids_local_to_frozen_operating_cell=True,reference_scope=SCOPE))
+        save(out/'coverage.json',dict(reference_scope=SCOPE,coverage=coverages,original_shard_completion_sha256=sha(old/'completion.json'),
+            measured_H16='Reference H0/catalogue valid; TWO_STAGE/C8 remain missing',model_only=True,real_decodes=0))
+        save(out/'construction_dominance.json',dict(status='PASS',tolerance=TOL,rows=dominance,internal200_not_required_to_dominate=True))
+        diagnostic=[]; coarse=Model(profiles,quality,bler,extra_groups=extra,extra_rows=extra_rows,average_snr=a.snr,pilot=16,header_mode='measured_headers',order=16)
+        for row in primary:
+            if row['method'] not in ('FIXED','QCSI'):continue
+            policy=policies[row['policy_id']]; values=replay_policy(coarse,policy,search)['scores']
+            with np.load(out/'cells'/(row['cell_id']+'.npz'),allow_pickle=False) as z: difference=values-z[row['method']+'_quality_point']
+            diagnostic.append(dict(method=row['method'],policy_id=row['policy_id'],max_abs_source_difference=float(np.max(abs(difference))),
+                train_mean_difference=float(difference[split['construction_indices']].mean()),review_mean_difference=float(difference[split['verification_indices']].mean()),reselected=False))
+        save(out/'primary_reference_numerical_diagnostic.json',dict(status='SAME_FROZEN_PRIMARY_REFERENCE_ORDER16_VS32',rows=diagnostic,reselected=False))
+        olddiagnostic=read(old/'primary_numerical_diagnostic.json'); olddiagnostic['rows']=[r for r in olddiagnostic['rows'] if r['method'] in ('TWO_STAGE','TWO_STAGE_C8')]
+        olddiagnostic['scope']='Original unchanged TWO_STAGE/C8 policies only; new references separately diagnosed'
+        save(out/'primary_numerical_diagnostic.json',olddiagnostic)
+        save(out/'search.json',dict(oldsearch,cells=records,binding=binding,reference_scope=SCOPE,original_binding=oldsearch['binding'],
+             runtime_seconds=time.monotonic()-started,model_only=True,real_decodes=0,new_visual_inference=False,development_read=False))
+        progress('complete')
+        outputs={str(p):sha(p) for p in out.rglob('*') if p.is_file() and p.name not in ('status.json','completion.json')}
+        save(out/'completion.json',dict(status='COMPLETE',binding=binding,reference_scope=SCOPE,outputs=outputs,input_bindings=bindings,source_bindings=sources,
+            runtime_seconds=time.monotonic()-started,selection_on='construction800',real_decodes=0,new_visual_inference=False,development_read=False,GPU_used=False))
+        print('COMPLETE')
+    except Exception as exc:
+        save(out/'failure.json',dict(status='FAILED',binding=binding,error=repr(exc),elapsed_seconds=time.monotonic()-started));raise
+
+
+if __name__=='__main__':main()

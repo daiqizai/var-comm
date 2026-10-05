@@ -1,0 +1,185 @@
+"""Synthetic mathematical tests only; never invoke a real decoder or GPU."""
+import copy
+import unittest
+import numpy as np
+import model as m
+
+
+def fixture():
+    source_ids=['a','b']
+    qualities={'gray':[.1,.2],'m4_K0':[.9,.8],'m4_K1':[.2,.1],'m5_K0':[.7,.6],'m6_K0':[.8,.7]}
+    rows=[dict(source_id=source,receiver='gray' if state=='gray' else 'VAR',state_id=state,
+               dinov2_vitl14_cosine=quality[i]) for state,quality in qualities.items() for i,source in enumerate(source_ids)]
+    quality=dict(population='calibration',development_read=False,synthetic=True,source_ids=source_ids,rows=rows)
+    groups=[]
+    for key,bits,n in [('first4',360,400),('first5',660,800),('first6',1092,1200),('partial',12,32),('second5',300,400)]:
+        groups.append(dict(phy_key=key,source_bits=bits,information_bits=bits+16,crc_bits=16,tail_bits=0,
+            modulation='QPSK',transmitted_bits=n,symbols=n//2,
+            layout=dict(k=bits+16,n=n,power_protocol='fixed_constellation_average_Es2')))
+    rows=[]
+    for key in [m.HEADER_KEY]+[g['phy_key'] for g in groups]:
+        for snr,counts in [(-5,(20,70,10)),(19,(90,5,5))]:
+            row=dict(phy_key=key,snr_db=snr,n_blocks=100,n_correct=counts[0],n_reject=counts[1],n_undetected=counts[2],
+                     p_correct=counts[0]/100,p_reject=counts[1]/100,p_undetected=counts[2]/100,
+                     applicability='iid_scrambled_payload_approximation',kind='header' if key==m.HEADER_KEY else 'body')
+            if key!=m.HEADER_KEY:
+                g=next(g for g in groups if g['phy_key']==key)
+                row['physical_configuration']={k:g[k] for k in ('source_bits','modulation','transmitted_bits','layout')}
+            rows.append(row)
+    bler=dict(synthetic=True,conditional_group_independence=True,rows=rows)
+    profile=dict(stable_id='single4',N=1024,G=1,groups=[groups[0]],header_symbols=68,header_phy_key=m.HEADER_KEY,
+                 full_state_id='m4_K0',prefix_state_id=None)
+    grouped=dict(stable_id='grouped5',N=1024,G=2,groups=[groups[0],groups[-1]],header_symbols=68,header_phy_key=m.HEADER_KEY,
+                 full_state_id='m5_K0',prefix_state_id='m4_K0')
+    return [profile,grouped],quality,bler
+
+
+class ProbabilityTests(unittest.TestCase):
+    def test_crc_acceptance_not_correct(self):
+        first=m.packet_outcomes(np.array([.8,.1,.1]),np.array([.7,.2,.1]))
+        np.testing.assert_allclose(first,[.56,.26,.18])
+        self.assertNotEqual(first[0],first[0]+first[2])
+        second=m.packet_outcomes(np.array([.8,.1,.1]),np.array([.6,.3,.1]))
+        np.testing.assert_allclose(m.two_stage_weights(first,second),[.26,.1904,.2688,.2808])
+
+    def test_first_rejection_cannot_be_repaired_using_unobserved_ack(self):
+        np.testing.assert_allclose(m.two_stage_weights(np.array([0.,1.,0.]),np.array([1.,0.,0.])),[1.,0.,0.,0.])
+
+    def test_undetected_first_is_absorbing(self):
+        np.testing.assert_allclose(m.two_stage_weights(np.array([0.,0.,1.]),np.array([1.,0.,0.])),[0.,0.,0.,1.])
+
+    def test_stop_keeps_clean_prefix_and_unknown_error_separate(self):
+        np.testing.assert_allclose(m.two_stage_weights(np.array([.56,.26,.18])),[.26,.56,0.,.18])
+
+    def test_given_h_products_before_average(self):
+        # Perfectly correlated fade: mean(c1*c2)=.5, versus mean(c1)*mean(c2)=.25.
+        packet=np.array([[0.,1.,0.],[1.,0.,0.]])
+        weights=m.two_stage_weights(packet,packet)
+        self.assertEqual(weights[:,2].mean(),.5)
+        self.assertEqual(packet[:,0].mean()**2,.25)
+
+
+class ModelTests(unittest.TestCase):
+    def model(self,**kwargs):
+        return m.Model(*fixture(),synthetic=True,**kwargs)
+
+    def test_quadrature_and_every_action_partition_eight_bins(self):
+        model=self.model();first=model.first_actions(4)[0]
+        actions=model.continuations(first,400,68)
+        result=model.score_coefficients(first,actions,H2=68)
+        self.assertEqual(result['coefficients'].shape,(len(actions),8,4))
+        np.testing.assert_allclose(result['coefficients'].sum(axis=(1,2)),np.ones(len(actions)))
+        self.assertAlmostEqual(float(model.bin_masses.sum()),1)
+        self.assertEqual(result['second_symbols'][0],0)
+        self.assertTrue(np.all(result['second_symbols'][1:]==result['body_symbols'][1:]+68))
+
+    def test_all_quality_targets_generate_partial_actions(self):
+        model=self.model();first=model.first_actions(4)[0]
+        actions=model.continuations(first,900,0)
+        partial=next(a for a in actions if a['state_id']=='m4_K1')
+        self.assertEqual(partial['payload_bits'],12)
+        self.assertTrue(partial['requires_entropy_order'])
+        self.assertTrue(model.coverage['partial_states_are_model_only'])
+
+    def test_measured_16_missing_even_when_no_body_would_fit(self):
+        model=self.model();first=model.first_actions(4)[0]
+        with self.assertRaises(m.MissingHeaderPHY):model.continuations(first,0,16)
+        with self.assertRaises(m.MissingHeaderPHY):model.header(16)
+
+    def test_ideal_controls_and_implicit_header_are_error_free(self):
+        model=self.model(header_mode='ideal_controls')
+        for h in (0,16,68):
+            np.testing.assert_allclose(model.header(h)[:,0],1)
+            np.testing.assert_allclose(model.header(h)[:,1:],0)
+        measured=self.model()
+        self.assertTrue(np.all(measured.header(68)[:,0]<1))
+        np.testing.assert_allclose(measured.header(0)[:,0],1)
+
+    def test_signed_quality_detriment_is_not_clipped(self):
+        model=self.model(header_mode='ideal_controls');first=model.first_actions(4)[0]
+        actions=model.continuations(first,800,0)
+        stop=actions[0];partial=next(a for a in actions if a['state_id']=='m4_K1')
+        result=model.score_coefficients(first,[stop,partial],H2=0)
+        scores=model.quality_scores(result['coefficients'],result['prefix_indices'],result['target_indices']).sum(axis=1)
+        self.assertTrue(np.all(scores[0]>scores[1]))
+
+    def test_pilot_is_charged_not_new_implicit_channel_improvement(self):
+        a,b=self.model(pilot=0),self.model(pilot=32)
+        first=a.first_actions(4)[0];stop=a.continuations(first,0,0)[0]
+        self.assertEqual(b.resource(first,stop,8,0)['used_symbols']-a.resource(first,stop,8,0)['used_symbols'],32)
+        np.testing.assert_allclose(a.profile_coefficients(a.profiles)['coefficients'],b.profile_coefficients(b.profiles)['coefficients'])
+
+    def test_every_sent_second_packet_is_paid_even_when_first_can_reject(self):
+        model=self.model(pilot=16);first=model.first_actions(4)[0]
+        second=next(a for a in model.continuations(first,600,68) if a['state_id']=='m5_K0')
+        resource=model.resource(first,second,32,68)
+        self.assertEqual(resource['used_symbols'],16+68+200+32+68+200)
+        self.assertTrue(resource['second_sent_even_if_first_CRC_rejected'])
+        with self.assertRaisesRegex(ValueError,'exceeds N1024'):
+            model.resource(first,dict(second,symbols=900),32,68)
+
+    def test_exact_budget_filters_and_never_clips_a_codeblock(self):
+        model=self.model();first=model.first_actions(4)[0]
+        only_stop=model.continuations(first,15,0)
+        self.assertEqual([a['action_id'] for a in only_stop],['STOP'])
+        at_boundary=model.continuations(first,16,0)
+        self.assertEqual(len(at_boundary),2)
+        self.assertEqual(at_boundary[1]['symbols'],16)
+        with self.assertRaises(ValueError):model.continuations(first,-1,0)
+
+    def test_profile_source_state_or_exact_layout_cannot_change(self):
+        model=self.model();p=copy.deepcopy(model.profiles[0]);p['groups'][0]['symbols']+=1
+        with self.assertRaisesRegex(ValueError,'layout differs'):model.profile_coefficients([p])
+        p=copy.deepcopy(model.profiles[0]);p['full_state_id']='m5_K0'
+        with self.assertRaisesRegex(ValueError,'source truncation'):model.profile_coefficients([p])
+
+    def test_full_fixed_profiles_are_retained(self):
+        model=self.model();result=model.profile_coefficients(model.profiles)
+        self.assertEqual(result['profile_ids'],['single4','grouped5'])
+        self.assertEqual(result['forward_symbols'].tolist(),[268,468])
+        np.testing.assert_allclose(result['coefficients'].sum(axis=(1,2)),[1,1])
+
+    def test_threshold_families_are_nested(self):
+        self.assertEqual([len(m.threshold_sets(b)) for b in (1,2,3)],[7,35,1])
+        for b in (1,2,3):
+            for thresholds in m.threshold_sets(b):
+                self.assertEqual(sum(m.bin_groups(thresholds),[]),list(range(8)))
+
+    def test_extra_physical_curve_needs_exact_layout(self):
+        profiles,q,bler=fixture();new=copy.deepcopy(profiles[0]['groups'][0]);new['phy_key']='new';new['symbols']=201
+        with self.assertRaisesRegex(ValueError,'resource fields'):
+            m.Model(profiles,q,bler,extra_groups=[new],synthetic=True)
+
+    def test_wrong_counts_or_development_are_rejected(self):
+        profiles,q,bler=fixture();bler['rows'][0]['p_correct']+=.01
+        with self.assertRaisesRegex(ValueError,'probabilities differ'):
+            m.Model(profiles,q,bler,synthetic=True)
+        profiles,q,bler=fixture();q['development_read']=True
+        with self.assertRaisesRegex(ValueError,'Only calibration'):
+            m.Model(profiles,q,bler,synthetic=True)
+
+    def test_vectorized_cache_matches_direct_shared_h_integration(self):
+        model=self.model();first=model.first_actions(4)[0]
+        for H2 in (0,68):
+            actions=model.continuations(first,900,H2)
+            actual=model.score_coefficients(first,actions,H2=H2)['coefficients']
+            packet=m.packet_outcomes(model.header(68),model.probabilities[first['group']['phy_key']])
+            direct=[]
+            for action in actions:
+                second=None if action['stop'] else m.packet_outcomes(model.header(H2),model.probabilities[action['group']['phy_key']])
+                direct.append(m.two_stage_weights(packet,second))
+            expected=model._integrate(np.stack(direct))
+            np.testing.assert_allclose(actual,expected,atol=1e-14,rtol=1e-13)
+
+    def test_ideal_header_cache_shared_and_memory_bounded(self):
+        model=self.model(header_mode='ideal_controls');first=model.first_actions(4)[0]
+        a=model.prepare_coefficients(first,0)
+        self.assertIs(a,model.prepare_coefficients(first,68))
+        self.assertIs(a,model.prepare_coefficients(first,16))
+        with self.assertRaises(ValueError):a[0,0,0]=9
+        model.coefficient_cache_limit_bytes=a.nbytes
+        model.prepare_coefficients(model.first_actions(5)[0],0)
+        self.assertLessEqual(model._coefficient_cache_bytes,model.coefficient_cache_limit_bytes)
+
+
+if __name__=='__main__':unittest.main()

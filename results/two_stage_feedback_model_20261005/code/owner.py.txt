@@ -1,0 +1,190 @@
+"""Bounded independent CPU scheduler. Own children only; no automatic retries."""
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import time
+import traceback
+
+
+def read(path):
+    return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+def sha(path):
+    h = hashlib.sha256()
+    with Path(path).open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def write(path, value):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_name(path.name + ".tmp." + str(os.getpid()))
+    temp.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    os.replace(temp, path)
+
+
+def identity(pid):
+    base = Path("/proc") / str(pid)
+    stat = (base / "stat").read_text()
+    uid = next(x.split()[1] for x in (base / "status").read_text().splitlines() if x.startswith("Uid:"))
+    return dict(pid=pid, start_ticks=int(stat[stat.rfind(")") + 2:].split()[19]),
+                uid=int(uid), argv=[x.decode() for x in (base / "cmdline").read_bytes().split(b"\0") if x])
+
+
+def rss_bytes(pid):
+    for line in (Path("/proc") / str(pid) / "status").read_text().splitlines():
+        if line.startswith("VmRSS:"):
+            return int(line.split()[1]) * 1024
+    return 0
+
+
+def verify(bindings):
+    for path, expected in bindings.items():
+        if sha(path) != expected:
+            raise RuntimeError("Frozen input/source changed: " + path)
+
+
+def verify_receipt(path, allowed):
+    data = read(path)
+    if data.get("status") not in allowed:
+        raise RuntimeError("Unexpected completion: " + str(path))
+    verify(data.get("outputs", {}))
+    return data
+
+
+def launch(stage, cfg, slot, root, out):
+    stage_dir = out / "stages" / stage["name"]
+    if stage_dir.exists():
+        raise RuntimeError("No automatic stage retry: " + stage["name"])
+    stage_dir.mkdir(parents=True)
+    log = (stage_dir / "worker.log").open("wb")
+    env = os.environ.copy()
+    env.update(CUDA_VISIBLE_DEVICES="", OMP_NUM_THREADS="2", MKL_NUM_THREADS="2",
+               OPENBLAS_NUM_THREADS="2", NUMEXPR_NUM_THREADS="2", PYTHONDONTWRITEBYTECODE="1")
+    affinity = cfg["resources"]["affinities"][slot]
+    def setup():
+        os.sched_setaffinity(0, affinity)
+        os.nice(cfg["resources"]["nice"])
+    process = subprocess.Popen(stage["command"], cwd=root, env=env, stdout=log,
+                               stderr=subprocess.STDOUT, start_new_session=True, preexec_fn=setup)
+    launch_info = identity(process.pid)
+    launch_info.update(command=stage["command"], stage=stage["name"], time=time.time(),
+                       cpu_affinity=affinity, CUDA_VISIBLE_DEVICES="", slot=slot)
+    write(stage_dir / "launch.json", launch_info)
+    return dict(stage=stage, process=process, log=log, launch=launch_info,
+                started=time.monotonic(), max_rss_bytes=0, stage_dir=stage_dir)
+
+
+def stop_owned(job):
+    process = job["process"]
+    if process.poll() is not None:
+        return
+    live = identity(process.pid)
+    if any(live[k] != job["launch"][k] for k in ("pid", "start_ticks", "uid")):
+        raise RuntimeError("Refuse signal: child identity changed")
+    os.killpg(process.pid, signal.SIGTERM)
+    try:
+        process.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        os.killpg(process.pid, signal.SIGKILL)
+        process.wait(timeout=10)
+
+
+def run(cfg_path):
+    import fcntl
+    cfg = read(cfg_path)
+    root, out = Path(cfg["root"]), Path(cfg["out"])
+    resources = cfg["resources"]
+    if resources["max_workers"] != 2 or resources["affinities"] != [[16, 17], [22, 23]] or resources["nice"] != 15:
+        raise RuntimeError("Registered CPU isolation changed")
+    if not 0 < resources["max_rss_bytes_per_worker"] <= 2 * 1024 ** 3:
+        raise RuntimeError("Registered memory ceiling exceeded")
+    owner_lock = (out / ".owner.lock").open("a+")
+    fcntl.flock(owner_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    if (out / "owner_identity.json").exists():
+        raise RuntimeError("Owner already launched; inspect evidence before any recovery")
+    verify(cfg["bindings"])
+    write(out / "owner_identity.json", dict(identity(os.getpid()), config=str(cfg_path),
+          config_sha256=sha(cfg_path), time=time.time()))
+    pending = list(cfg["search_stages"])
+    running = {}
+    completed = []
+    started = time.monotonic()
+    phase = "SEARCH"
+    try:
+        while pending or running:
+            if (out / "STOP").exists():
+                raise RuntimeError("User/operator STOP observed; preserve partial results")
+            if time.monotonic() - started > cfg["resources"]["total_wall_seconds"]:
+                raise RuntimeError("Registered total wall limit reached")
+            for slot in range(cfg["resources"]["max_workers"]):
+                if pending and slot not in running:
+                    running[slot] = launch(pending.pop(0), cfg, slot, root, out)
+            for slot, job in list(running.items()):
+                proc = job["process"]
+                code = proc.poll()
+                elapsed = time.monotonic() - job["started"]
+                if code is None:
+                    mem = rss_bytes(proc.pid)
+                    job["max_rss_bytes"] = max(mem, job["max_rss_bytes"])
+                    if mem > cfg["resources"]["max_rss_bytes_per_worker"]:
+                        raise RuntimeError("Registered worker memory cap reached: " + job["stage"]["name"])
+                    if elapsed > cfg["resources"]["worker_wall_seconds"]:
+                        raise RuntimeError("Registered worker wall cap reached: " + job["stage"]["name"])
+                    continue
+                job["log"].close()
+                if code != 0:
+                    raise RuntimeError("Stage failed with exit " + str(code) + ": " + job["stage"]["name"])
+                receipt = Path(job["stage"]["completion"])
+                verify_receipt(receipt, job["stage"]["accepted_statuses"])
+                record = dict(stage=job["stage"]["name"], exit_code=code,
+                              completion=str(receipt), completion_sha256=sha(receipt),
+                              elapsed_seconds=elapsed, max_rss_bytes=job["max_rss_bytes"],
+                              launch=job["launch"], time=time.time())
+                write(job["stage_dir"] / "completion.json", record)
+                completed.append(record)
+                del running[slot]
+            write(out / "owner_status.json", dict(status=phase, time=time.time(),
+                  elapsed_seconds=time.monotonic()-started, completed_stages=completed,
+                  pending_stages=[s["name"] for s in pending],
+                  active=[dict(job["launch"], max_rss_bytes=job["max_rss_bytes"]) for job in running.values()]))
+            if not pending and not running and phase == "SEARCH":
+                phase = "REPORT"
+                pending = [cfg["report_stage"]]
+            if pending or running:
+                time.sleep(5)
+        verify(cfg["bindings"])
+        write(out / "model_completion.json", dict(status="MODEL_AND_REPORT_COMPLETE", stages=completed,
+              config_sha256=sha(cfg_path), elapsed_seconds=time.monotonic()-started,
+              input_and_source_bindings=cfg["bindings"], time=time.time(),
+              new_PHY_decodes=0, new_visual_jobs=0, development_read=False,
+              publication_status="PENDING_REVIEW_AND_NORMAL_PUSH"))
+        write(out / "owner_status.json", dict(status="MODEL_AND_REPORT_COMPLETE", time=time.time(),
+              completed_stages=completed, active=[], publication_status="PENDING_REVIEW_AND_NORMAL_PUSH"))
+    except BaseException:
+        error = traceback.format_exc()
+        for job in running.values():
+            try:
+                stop_owned(job)
+                job["log"].close()
+            except BaseException:
+                error += "\nOwned-child shutdown exception:\n" + traceback.format_exc()
+        write(out / "owner_failure.json", dict(status="FAILED_PRESERVED", time=time.time(),
+              traceback=error, completed_stages=completed,
+              active_at_failure=[job["launch"] for job in running.values()],
+              automatic_restart=False, old_queues_signaled=False))
+        raise
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", required=True)
+    args = parser.parse_args()
+    run(Path(args.config).absolute())

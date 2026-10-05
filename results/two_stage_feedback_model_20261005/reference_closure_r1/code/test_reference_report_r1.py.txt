@@ -1,0 +1,97 @@
+import copy
+import importlib.util
+from pathlib import Path
+import tempfile
+import unittest
+import numpy as np
+import reference_report_r1 as r
+
+
+def row(method='QCSI', train=.6, review=.4, **overrides):
+    value = dict(method=method, average_snr_db=4, header_mode='measured_headers', pilot_symbols=16,
+                 feedback_bits=1, feedback_symbols=16, second_header_symbols=68, first_m=4,
+                 cell_id='one', status='MODEL_ONLY', train_mean=train, review_mean=review,
+                 policy_id=method, max_used_symbols=468)
+    value.update(overrides)
+    return value
+
+
+def policy(kind='QCSI'):
+    branch = dict(format='PAIR', public_header_id=0, first=dict(state_id='m4_K0', symbols=100),
+                  second=dict(start_state='m4_K0', symbols=200, stop=False), second_header_symbols=68)
+    return dict(kind=kind, reference_closure='SYMMETRIC_EXACT_FORMATS_R1', pilot_symbols=16,
+                feedback_bits=1, feedback_symbols=16, thresholds_db=[7],
+                branches=[dict(branch, public_header_id=i) for i in range(2 if kind == 'QCSI' else 1)])
+
+
+class ReferenceReportTests(unittest.TestCase):
+    def test_pair_feedback_paid_exactly_once_and_all_paths(self):
+        self.assertEqual(r.reference_paths(policy(), row()), [468,468])
+        fixed = policy('FIXED')
+        self.assertEqual(r.reference_paths(fixed, row('FIXED', max_used_symbols=452)), [452])
+
+    def test_catalog_and_stop_use_different_costs(self):
+        p = policy()
+        p['branches'][0] = dict(format='CATALOG', public_header_id=0, profile=dict(groups=[dict(symbols=700)]))
+        p['branches'][1]['second']['stop'] = True
+        self.assertEqual(r.reference_paths(p, row(max_used_symbols=800)), [800,200])
+
+    def test_no_free_or_unsupported_control(self):
+        p = policy(); p['branches'][0]['public_header_id'] = 7
+        with self.assertRaisesRegex(RuntimeError, 'IDs'):
+            r.reference_paths(p, row())
+        p = policy(); p['branches'][0]['second_header_symbols'] = 16
+        with self.assertRaisesRegex(RuntimeError, 'unavailable'):
+            r.reference_paths(p, row(second_header_symbols=16))
+        p = policy(); p['branches'][0]['second']['symbols'] = 1000
+        with self.assertRaisesRegex(RuntimeError, 'exceeds'):
+            r.reference_paths(p, row())
+
+    def test_dominance_is_training_only(self):
+        old = [row('FIXED', .3, .5), row('QCSI', .4, .6), row('TWO_STAGE', .5, .7), row('TWO_STAGE_C8', .6, .8)]
+        new = copy.deepcopy(old)
+        new[0].update(train_mean=.4, review_mean=.4, policy_id='newf')
+        new[1].update(train_mean=.5, review_mean=.3, policy_id='newq')
+        changes, checks = r.merge_checks(old, new)
+        self.assertEqual(len(changes), 2)
+        self.assertEqual(checks[0]['status'], 'PASS')
+        self.assertLess(changes[1]['review_difference'], 0)
+        new[1]['train_mean'] = .499
+        with self.assertRaisesRegex(RuntimeError, 'dominance'):
+            r.merge_checks(old, new)
+
+    def test_original_two_stage_policy_must_not_change(self):
+        old = [row('FIXED', .3), row('QCSI', .6), row('TWO_STAGE', .5), row('TWO_STAGE_C8', .6)]
+        new = copy.deepcopy(old); new[2]['policy_id'] = 'changed'
+        with self.assertRaisesRegex(RuntimeError, 'two-stage result changed'):
+            r.merge_checks(old, new)
+
+    def test_unchanged_arrays_all_cells_exactly(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            a, b = Path(tmp)/'old', Path(tmp)/'new'
+            for p in (a,b):
+                (p/'cells').mkdir(parents=True)
+            payload = {method+'_'+suffix:np.array([1.,2.]) for method in r.UNCHANGED
+                       for suffix in ('quality_point','bad_probability','mean_used_symbols','tree_id')}
+            paths = [p/'cells'/'c.npz' for p in (a,b)]
+            for path in paths:np.savez(path, **payload)
+            search = dict(source_ids=['a','b'],state_ids=['gray'])
+            bindings = {str(path.resolve()):'unused_already_verified' for path in paths}
+            result = r.verify_unchanged_arrays(None,a,b,search,search,bindings)
+            self.assertEqual(result['array_pairs_checked'], 8)
+            payload['TWO_STAGE_quality_point'][0] = 3
+            np.savez(paths[1],**payload)
+            with self.assertRaisesRegex(RuntimeError, 'array changed'):
+                r.verify_unchanged_arrays(None,a,b,search,search,bindings)
+
+    def test_markdown_clear_scope_and_whitespace(self):
+        summary = dict(full_grid_method_rows=10368, selected_method_rows=3456, selected_missing_method_rows=576)
+        text = r.report_markdown(summary,[],[],[],None,[])
+        self.assertIn('原差值',text) if '原差值' in text else self.assertIn('旧差值',text)
+        self.assertIn('没有新信道译码',text)
+        self.assertIn('200 源',text)
+        self.assertTrue(all(line == line.rstrip() for line in text.splitlines()))
+
+
+if __name__ == '__main__':
+    unittest.main()

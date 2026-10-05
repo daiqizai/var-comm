@@ -1,0 +1,40 @@
+{
+  "status": "CACHED_METRICS_REWEIGHTED_FOR_FROZEN_PRIMARY_POLICIES",
+  "available_metrics": [
+    "clip_image_cosine",
+    "dino_cosine",
+    "dinov2_vitl14_cosine",
+    "dists",
+    "dreamsim",
+    "lpips_alex",
+    "ms_ssim",
+    "psnr_db",
+    "resnet50_source_top1_label",
+    "resnet50_top1_label",
+    "resnet50_top1_source_prediction",
+    "semantic_error"
+  ],
+  "missing_metrics": [],
+  "ConvNeXt": "NOT_AVAILABLE_IN_REGISTERED_CACHE",
+  "F_recovery_error": "NOT_AVAILABLE_IN_REGISTERED_CACHE",
+  "classifier": "ResNet-50",
+  "metric_versions": "See verbatim bound parent registration/provenance; absent version metadata is NOT_AVAILABLE",
+  "backbone_versions_verbatim": {
+    "clip": "OpenAI CLIP ViT-L/14 (224px), image-image cosine",
+    "dists": "DISTS official learned alpha/beta; torchvision VGG16 IMAGENET1K_V1",
+    "resnet50": "torchvision ResNet50_Weights.IMAGENET1K_V2",
+    "dinov2_vitl14": "Meta DINOv2 ViT-L/14 standard LVD-142M backbone, no registers, 1024-d x_norm_clstoken cosine",
+    "dreamsim": "DreamSim ensemble v0.2.0-checkpoints: dino_vitb16,clip_vitb16,open_clip_vitb16 + LoRA",
+    "ms_ssim": "VainF/pytorch-msssim MS-SSIM, RGB, data_range=1, five scales",
+    "existing_dino": "Retain registered dino_cosine=DINOv2 ViT-S/14 unchanged; dinov2_vitl14_cosine is a separate added column",
+    "backbone_relationships": "Communication encoder/VAR/Dc are separate from these evaluation backbones. DreamSim includes DINO and CLIP families; evaluation metrics are not mutually independent. D_C classification is label-conditioned and descriptive only."
+  },
+  "no_new_neural_evaluations": true,
+  "no_auxiliary_selection": true,
+  "input_bindings": {
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/AUXILIARY_INPUT_MANIFEST.json": "f6f7f002f11bf0af62c07d8bd5bdf4d8e73c643560e36f142a41d4ef5b44a425",
+    "/home/liulu/projects/VAR_COMM/outputs/CONTENT-FEEDBACK-PROBE-20261005/snapshot/quality_per_source.csv": "00cbf288cfb681741204ec8d4ee25054e76444cb939f644697dfb2cac3fd8dbc",
+    "/home/liulu/projects/VAR_COMM/outputs/CONTENT-FEEDBACK-PROBE-20261005/snapshot/quality_registration.json": "bb7f8d7d08616a1b634885ceb5663a4aba1d570460f222b5ac9237ea30a28e2a",
+    "/home/liulu/projects/VAR_COMM/outputs/CONTENT-FEEDBACK-PROBE-20261005/C/metric_availability.json": "a2b601ae7f462df0d4809f03464f406bd6cde410f59eb58e74b23a4307aad8b3"
+  }
+}

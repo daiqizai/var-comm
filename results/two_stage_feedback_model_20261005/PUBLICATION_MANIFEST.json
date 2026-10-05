@@ -1,0 +1,985 @@
+{
+  "status": "PREPARED_TEXT_RELEASE",
+  "version": "TWO_STAGE_FEEDBACK_TEXT_PUBLICATION_V1",
+  "files": {
+    "reports/two_stage_feedback_model_20261005.md": "466d33cb903659784cb3993e20be8974d8840ff9c1ee57db4870f43ec4ffb88f",
+    "results/two_stage_feedback_model_20261005/final/auxiliary_primary_metrics.csv": "91ac1cf5234c1385583d8a698fce4e3b71a0276f84d56cdb55fdcc4ead2d2e64",
+    "results/two_stage_feedback_model_20261005/final/auxiliary_primary_paired.csv": "376030d6997fb133f2b28079269a3d6b2c35f527047e8b169dc590e6ddce656a",
+    "results/two_stage_feedback_model_20261005/final/candidate_coverage.json": "c264a369fe27215da711d2c717b44d4c0217851111ecd21e5e419f675f924ffe",
+    "results/two_stage_feedback_model_20261005/final/display_points_selected_on_construction800.csv": "179b8f14ad6cd586da9e34046524dc7799a25642098fc8ebe67a561800a1b16c",
+    "results/two_stage_feedback_model_20261005/final/frozen_primary_policies.json": "d6b7d634c5944d888fc0175aa0baef995abba6ff2db231545596b209318e3d5f",
+    "results/two_stage_feedback_model_20261005/final/grid_summary.csv": "58d3e98dc7d208a1c62cfec096146856847bb988ccf56d6565f64a37e913e4dc",
+    "results/two_stage_feedback_model_20261005/final/historical_primary_summary.csv": "fdfd828ee13cbe017f4112c20943b2247ff832aecacdde3256916157e9f0dd6f",
+    "results/two_stage_feedback_model_20261005/final/matched_axis_effects.csv": "a977670fc83f63e516589e76a54b00f5391d04105c1b1e400e386bcb9239851f",
+    "results/two_stage_feedback_model_20261005/final/metric_availability.json": "0d0b64efb369f43badc07b0c8a172c5dc96272a14edb1eb52bf1d3f3144bccf5",
+    "results/two_stage_feedback_model_20261005/final/paired_differences.csv": "bebe07297d8b7d3df5ebfe9d95470a097e98ac81c9092c9511dfaea54899b9fc",
+    "results/two_stage_feedback_model_20261005/final/parent_metric_provenance.json": "7e2cc8e0e2ec8f5efd1bf81ea2a70a3b51e0973efe7a7288207abd034393ee5a",
+    "results/two_stage_feedback_model_20261005/final/primary_numerical_diagnostic.json": "20e1d37fb9345dfe3c29a4576052487376a14ca81852b2c20c7c6838ff789eac",
+    "results/two_stage_feedback_model_20261005/final/primary_reference_numerical_diagnostic.json": "46020bc1e8b9da1c93e69dc659cba7c3c2f3e3f41db339497dc4493234dad62c",
+    "results/two_stage_feedback_model_20261005/final/primary_summary.csv": "d66acf5499783bbee48f396a0b30d1d2f7a6be6af37fc573730961b8b357111a",
+    "results/two_stage_feedback_model_20261005/final/reference_changes.csv": "eadcd2d54d8f453c7de2185de338a3bcac047d43fef275bffa05b152750cb30f",
+    "results/two_stage_feedback_model_20261005/final/reference_dominance_checks.csv": "2937bcd780f3cb7f014d7ac2a5cee14e971c02323da06468b2d20aa3c55846a1",
+    "results/two_stage_feedback_model_20261005/final/selected_summary.csv": "2855d65592b7e4f0473047cf5cb6982cf76a2d1c7ee98cea7f815c25d333c6a5",
+    "results/two_stage_feedback_model_20261005/final/sender_cost.csv": "804f8c23679585ab67012d1bdc9f1738756925e204c4d345ab774533449eed90",
+    "results/two_stage_feedback_model_20261005/final/summary.json": "2d9f908f670b2579940bde17b9df34d5d88169e7e85ec40b20268b19f3f6badd",
+    "results/two_stage_feedback_model_20261005/evidence/report_completion.json": "423e4d8dc424a0e50ce27d3aa5cf1325f988aba6b57b74bbf7d9d0d0d01c9984",
+    "results/two_stage_feedback_model_20261005/evidence/parent/protocol.json": "3318b490d950d1668b0ec3054fc0840927b2b87ea12e6bad0127421bb28b3051",
+    "results/two_stage_feedback_model_20261005/evidence/parent/INPUT_MANIFEST.json": "b52b47aea7ab5fb1bfb24076b51bbdcd281c6aeb69113a80c5b03126741a2aa5",
+    "results/two_stage_feedback_model_20261005/evidence/parent/AUXILIARY_INPUT_MANIFEST.json": "f6f7f002f11bf0af62c07d8bd5bdf4d8e73c643560e36f142a41d4ef5b44a425",
+    "results/two_stage_feedback_model_20261005/evidence/parent/execution_registration.json": "5be6cfae5fb0b2dc70b9c7c70ec215a58ae6e3858b047cbead72af2d859704af",
+    "results/two_stage_feedback_model_20261005/evidence/parent/model_completion.json": "b46e45ed810b2813b212f2cd4b721ceb92b92c902eb2b57f64f7e65ee3849804",
+    "results/two_stage_feedback_model_20261005/evidence/parent/owner_config.json": "0c672e0d1dc860a2eeda40ecb74799f0a9670e7f6def3a54724df6d046f7f1c9",
+    "results/two_stage_feedback_model_20261005/evidence/parent/owner_identity.json": "11739cefead443413ba1536a64414fa9496e8aa4350965c652c5da7a4d3497ff",
+    "results/two_stage_feedback_model_20261005/evidence/parent/launch.json": "359d8ad5efdb77e0690c54636d73fcd70d9187ffd01ed3c1d9ba624c76c69188",
+    "results/two_stage_feedback_model_20261005/evidence/reference_closure_r1/protocol.json": "88ba4961280dc96456355d7742fec6878afd5042fcddd68422b151c048d827b9",
+    "results/two_stage_feedback_model_20261005/evidence/reference_closure_r1/execution_registration.json": "bfa2b7425578d4d42f33a2174ad4204bed0f2392def2c7629db5b2ee66c5ef45",
+    "results/two_stage_feedback_model_20261005/evidence/reference_closure_r1/model_completion.json": "af9fa19a65c9477b4a56d178fc3759501ab40331806945771c93704fc42ef720",
+    "results/two_stage_feedback_model_20261005/evidence/reference_closure_r1/owner_config.json": "3d89be73e2e3cff27f0f48ea855e383eeb168dd98a9a47251fb45b47307c4f84",
+    "results/two_stage_feedback_model_20261005/evidence/reference_closure_r1/owner_identity.json": "02eb15a01c0b3f97d49dc54f3bea72fc58dca5c962c5ffb646535dd748f3889c",
+    "results/two_stage_feedback_model_20261005/evidence/reference_closure_r1/launch.json": "1bfda5488d16d3576488f99d3aedfc946d31dd413a8b19c7c2efdf092d64547f",
+    "results/two_stage_feedback_model_20261005/historical/original_report/completion.json": "9bec9b7c5ea0f0e18a56ec8ddda0f6e4efb0db72343929c627a48ae16d1b9774",
+    "results/two_stage_feedback_model_20261005/historical/original_report/FINAL_REPORT.md": "696ba904491d8b60139c1e2c77937ec975f4a05997e295e098f522294347ba9a",
+    "results/two_stage_feedback_model_20261005/historical/original_report/summary.json": "5818445fcc41d3825aee708dd304fa8c83c4cbde5d53ad43fbdcc903a279df7f",
+    "results/two_stage_feedback_model_20261005/historical/original_report/primary_summary.csv": "fdfd828ee13cbe017f4112c20943b2247ff832aecacdde3256916157e9f0dd6f",
+    "results/two_stage_feedback_model_20261005/REFERENCE_CLOSURE.json": "018ca05b370f14fe588a5cdcf2b295682d5e0e0a01a1e3a56be02fd73b1e32b6",
+    "results/two_stage_feedback_model_20261005/code/auxiliary.py.txt": "9fc1593d2615391a70e95a5d99bbab5a5bca200ab792cd90cdb7d1b96cadf2e1",
+    "results/two_stage_feedback_model_20261005/code/model.py.txt": "b485b4a1086928fd9d55305ac2bb9706c740e07ec6d9d193df8b00fedd1ac9d8",
+    "results/two_stage_feedback_model_20261005/code/owner.py.txt": "8c00985abd4f8d74433733d53fd1791727e056644b5c587b9b1f4ffb9ec006a8",
+    "results/two_stage_feedback_model_20261005/code/publish.py.txt": "7dc43b429db4bd7d862ef977bbd38ddbb8978fb275fa685660c1a92a5b819964",
+    "results/two_stage_feedback_model_20261005/code/report.py.txt": "db942da5a026320e19d211b19100150da953e387d067ae691af504a230fe6362",
+    "results/two_stage_feedback_model_20261005/code/result_audit.py.txt": "f6740164a2befeeb600bbe4c2f3ee75d86117704eae44000b9696ee78fe77953",
+    "results/two_stage_feedback_model_20261005/code/search.py.txt": "77be0f177d45a9be126da64bad03ffa71f176daccf59831e2cb3c57711f407eb",
+    "results/two_stage_feedback_model_20261005/code/test_auxiliary.py.txt": "6f2a49b65b7126670f3901c6fb3760eb50cb2a6cf3c8cac89f6253ad64ca3047",
+    "results/two_stage_feedback_model_20261005/code/test_model.py.txt": "56a1aa64965299d73b597ed751e4f8a7e7f82d27530b413c8fda99405ceea2b0",
+    "results/two_stage_feedback_model_20261005/code/test_owner.py.txt": "d65a9ed0e4d56a890ef663d232c05b4c09126d52ddcceef12f1600f8b9b578bf",
+    "results/two_stage_feedback_model_20261005/code/test_publish.py.txt": "27926ccc1ed57313459fe749cd8c2f107ecfa91bf583e25459f88d4ace24d575",
+    "results/two_stage_feedback_model_20261005/code/test_report.py.txt": "302b2ee8429ef088685fe898bc988964d4ae3bf8fe63d6a7bc2d27dd7679546f",
+    "results/two_stage_feedback_model_20261005/code/test_result_audit.py.txt": "9ff48724ca0242dbdeacbff27f4c95f75477c147d4a06553ad43204c80b3f78e",
+    "results/two_stage_feedback_model_20261005/code/test_search.py.txt": "0f0f2a4cbae77604ebc3d2b7db6e09ec0e7d015fa2b3fbf946cefc73baa23872",
+    "results/two_stage_feedback_model_20261005/reference_closure_r1/code/reference_closure_r1.py.txt": "9e0316ce50ce5c59954bb1442c3aa373b6d29c869ddd44a0c46376619b0736e6",
+    "results/two_stage_feedback_model_20261005/reference_closure_r1/code/reference_report_r1.py.txt": "efe822aeb534e7551a34e5401d5db1c238e36c7fa3ac8e15bbd36ebb18f826a0",
+    "results/two_stage_feedback_model_20261005/reference_closure_r1/code/test_reference_closure_r1.py.txt": "090feeeb8eb8bf5ef2744cd16dd96177a7d568db8118b070d2bcdabc45f01539",
+    "results/two_stage_feedback_model_20261005/reference_closure_r1/code/test_reference_report_r1.py.txt": "19040f818f3e8c06afb4eef9e5ba6daddde18dd8fd1265b3711d8b7af22fb6a9",
+    "results/two_stage_feedback_model_20261005/search_snr4/primary_summary.csv": "8266b8ec34ca43c5bd09b589f871314896ffa4791bf5ba66307e108173ba3ed8",
+    "results/two_stage_feedback_model_20261005/search_snr4/coverage.json": "6b503884c49c77a8f09e5cb2e46a6d8e61efd84d1d9512527573d8d34811673b",
+    "results/two_stage_feedback_model_20261005/search_snr4/split.json": "48144637db16a6970835aa5e35bd3288192c84a86da79afd882e4bf7d1f30ba2",
+    "results/two_stage_feedback_model_20261005/search_snr4/primary_reference_numerical_diagnostic.json": "cdf1f2788a4c10d4f9dd540e135a43cc6f389064ead6109edbab0575ad6daeb9",
+    "results/two_stage_feedback_model_20261005/search_snr4/primary_numerical_diagnostic.json": "abe534e83da310d614d11f86072414c24870e40a44addc0df50b64a73b075e87",
+    "results/two_stage_feedback_model_20261005/search_snr4/completion.json": "68c8e12174436565958e211519f4dd1298a05854ad94432dfc5b3c5e6782f25f",
+    "results/two_stage_feedback_model_20261005/search_snr4/primary_policies.json": "cac2cedc6d793b466de44ad40001b75b9e461e5d64b640289cbf16d1fa77d3a8",
+    "results/two_stage_feedback_model_20261005/search_snr7/primary_summary.csv": "38df8b69ebd30373e3aff57ef8b6841685013d492c8a9d2d85427b9c03e55acd",
+    "results/two_stage_feedback_model_20261005/search_snr7/coverage.json": "a4bf45a8b2be82981c950d97298aa26e14107b82103cf3ae6d2d39d2f7798705",
+    "results/two_stage_feedback_model_20261005/search_snr7/split.json": "48144637db16a6970835aa5e35bd3288192c84a86da79afd882e4bf7d1f30ba2",
+    "results/two_stage_feedback_model_20261005/search_snr7/primary_reference_numerical_diagnostic.json": "d33078a1f7042cc631704babc551cbe9b9a173f8584ea41b74deb34a7dad82e7",
+    "results/two_stage_feedback_model_20261005/search_snr7/primary_numerical_diagnostic.json": "1c6c8e8ceb86f152725fb67c42af39e7433afbc57a574ba45dd4a6fb2f905250",
+    "results/two_stage_feedback_model_20261005/search_snr7/completion.json": "b0f7e453518b6ed1c663bda6b6690e1314248d9f462d108fb700f6b49975e614",
+    "results/two_stage_feedback_model_20261005/search_snr7/primary_policies.json": "621fd1be924d8a3ecfe3b586fd63f417c81978cf4a1512c26f469bacecae4c19",
+    "results/two_stage_feedback_model_20261005/search_snr10/primary_summary.csv": "daee9dd1910b52182d0f58bba6642f3ef09c56c1a37de3fb8c9436ce4323fff7",
+    "results/two_stage_feedback_model_20261005/search_snr10/coverage.json": "534f5ebbaa93d3638e9065c243dda8e6a7eeeafa8c935c1733df84ab971eb402",
+    "results/two_stage_feedback_model_20261005/search_snr10/split.json": "48144637db16a6970835aa5e35bd3288192c84a86da79afd882e4bf7d1f30ba2",
+    "results/two_stage_feedback_model_20261005/search_snr10/primary_reference_numerical_diagnostic.json": "ea5254a51aaf5489741a40d79251559165ff4c89811fb6faa2972a23c594cfb9",
+    "results/two_stage_feedback_model_20261005/search_snr10/primary_numerical_diagnostic.json": "cff745d8370035a20b49ba66208d78482636fdba5f9e3edbce3f50ab94adcdeb",
+    "results/two_stage_feedback_model_20261005/search_snr10/completion.json": "04371818ff5be5cc882a9a2ea7205292975970021430d4c1460bf20fcbd631d2",
+    "results/two_stage_feedback_model_20261005/search_snr10/primary_policies.json": "6651163c491e8d8b618b7a59de9c000f63e3d020e4036a26b8ded0f57a2bc1eb",
+    "results/two_stage_feedback_model_20261005/search_snr13/primary_summary.csv": "f15a8b51f6895d5ccce81900047bbeab4ef83e992922f7a7e9f67dcbcdfa0a8d",
+    "results/two_stage_feedback_model_20261005/search_snr13/coverage.json": "65a90fdab4b6aef99caaaef0d331c7d03c457729625e7c0cdad66d177ea4f8b3",
+    "results/two_stage_feedback_model_20261005/search_snr13/split.json": "48144637db16a6970835aa5e35bd3288192c84a86da79afd882e4bf7d1f30ba2",
+    "results/two_stage_feedback_model_20261005/search_snr13/primary_reference_numerical_diagnostic.json": "da8c338d16e70c730dae78d8a6c6180a9d1162df73a637cfe87616138b0fdb90",
+    "results/two_stage_feedback_model_20261005/search_snr13/primary_numerical_diagnostic.json": "36cb900521d2696a48169201907bbdb6ac18843c4ea4c13096821519dd6b89af",
+    "results/two_stage_feedback_model_20261005/search_snr13/completion.json": "97a82221fc84f37b01b71dce8aed4950886bff94551829f0e42f9ca26afb5f33",
+    "results/two_stage_feedback_model_20261005/search_snr13/primary_policies.json": "90893c888d46cc3f1668dd51ce2ee209e58057c5993d234ac6fb66c976314110"
+  },
+  "metadata": {
+    "reports/two_stage_feedback_model_20261005.md": {
+      "bytes": 8069,
+      "sha256": "466d33cb903659784cb3993e20be8974d8840ff9c1ee57db4870f43ec4ffb88f"
+    },
+    "results/two_stage_feedback_model_20261005/final/auxiliary_primary_metrics.csv": {
+      "bytes": 73877,
+      "sha256": "91ac1cf5234c1385583d8a698fce4e3b71a0276f84d56cdb55fdcc4ead2d2e64",
+      "schema": [
+        "average_snr_db",
+        "cell_id",
+        "method",
+        "policy_id",
+        "metric",
+        "sources",
+        "population",
+        "primary_policy_frozen",
+        "known_state_weighted_contribution",
+        "unscored_probability",
+        "total_mean",
+        "total_mean_status",
+        "known_contribution_source_ci_low",
+        "known_contribution_source_ci_high",
+        "interval_scope",
+        "conditional_on_scored_state_mean",
+        "used_for_policy_or_tree_selection",
+        "total_mean_lower",
+        "total_mean_upper",
+        "unknown_state_metric_range"
+      ],
+      "row_count": 192
+    },
+    "results/two_stage_feedback_model_20261005/final/auxiliary_primary_paired.csv": {
+      "bytes": 67454,
+      "sha256": "376030d6997fb133f2b28079269a3d6b2c35f527047e8b169dc590e6ddce656a",
+      "schema": [
+        "average_snr_db",
+        "method_a",
+        "method_b",
+        "metric",
+        "known_contribution_difference",
+        "known_contribution_source_ci_low",
+        "known_contribution_source_ci_high",
+        "total_difference",
+        "total_difference_status",
+        "unscored_probability_a",
+        "unscored_probability_b",
+        "used_for_policy_selection",
+        "sources",
+        "bootstrap_repeats",
+        "bootstrap_seed",
+        "total_difference_lower",
+        "total_difference_upper",
+        "total_difference_source_ci_low",
+        "total_difference_source_ci_high"
+      ],
+      "row_count": 288
+    },
+    "results/two_stage_feedback_model_20261005/final/candidate_coverage.json": {
+      "bytes": 167869,
+      "sha256": "c264a369fe27215da711d2c717b44d4c0217851111ecd21e5e419f675f924ffe"
+    },
+    "results/two_stage_feedback_model_20261005/final/display_points_selected_on_construction800.csv": {
+      "bytes": 6176,
+      "sha256": "179b8f14ad6cd586da9e34046524dc7799a25642098fc8ebe67a561800a1b16c",
+      "schema": [
+        "average_snr_db",
+        "header_mode",
+        "pilot_symbols",
+        "feedback_bits",
+        "feedback_symbols",
+        "second_header_symbols",
+        "first_m",
+        "cell_id",
+        "selection_on",
+        "FIXED",
+        "QCSI",
+        "TWO_STAGE",
+        "TWO_STAGE_C8"
+      ],
+      "row_count": 32
+    },
+    "results/two_stage_feedback_model_20261005/final/frozen_primary_policies.json": {
+      "bytes": 2417466,
+      "sha256": "d6b7d634c5944d888fc0175aa0baef995abba6ff2db231545596b209318e3d5f"
+    },
+    "results/two_stage_feedback_model_20261005/final/grid_summary.csv": {
+      "bytes": 3829402,
+      "sha256": "58d3e98dc7d208a1c62cfec096146856847bb988ccf56d6565f64a37e913e4dc",
+      "schema": [
+        "cell_id",
+        "average_snr_db",
+        "header_mode",
+        "pilot_symbols",
+        "feedback_bits",
+        "feedback_symbols",
+        "second_header_symbols",
+        "first_m",
+        "method",
+        "status",
+        "train_mean",
+        "review_mean",
+        "bad_probability_train",
+        "bad_probability_review",
+        "review_lower",
+        "review_upper",
+        "mean_used_symbols",
+        "mean_used_symbols_train",
+        "max_used_symbols",
+        "policy_id",
+        "selection_on",
+        "sender_distinct_Q_states",
+        "sender_cost_scope",
+        "dictionary_size",
+        "actual_channel_verified",
+        "new_visual_inference",
+        "reference_catalogue_scope",
+        "reason"
+      ],
+      "row_count": 10368
+    },
+    "results/two_stage_feedback_model_20261005/final/historical_primary_summary.csv": {
+      "bytes": 6553,
+      "sha256": "fdfd828ee13cbe017f4112c20943b2247ff832aecacdde3256916157e9f0dd6f",
+      "schema": [
+        "cell_id",
+        "average_snr_db",
+        "header_mode",
+        "pilot_symbols",
+        "feedback_bits",
+        "feedback_symbols",
+        "second_header_symbols",
+        "first_m",
+        "method",
+        "status",
+        "train_mean",
+        "review_mean",
+        "bad_probability_train",
+        "bad_probability_review",
+        "review_lower",
+        "review_upper",
+        "mean_used_symbols",
+        "mean_used_symbols_train",
+        "max_used_symbols",
+        "policy_id",
+        "selection_on",
+        "sender_distinct_Q_states",
+        "sender_cost_scope",
+        "dictionary_size",
+        "actual_channel_verified",
+        "new_visual_inference",
+        "primary_bits_and_split_selected_by"
+      ],
+      "row_count": 16
+    },
+    "results/two_stage_feedback_model_20261005/final/matched_axis_effects.csv": {
+      "bytes": 3298519,
+      "sha256": "a977670fc83f63e516589e76a54b00f5391d04105c1b1e400e386bcb9239851f",
+      "schema": [
+        "average_snr_db",
+        "header_mode",
+        "pilot_symbols",
+        "feedback_bits",
+        "feedback_symbols",
+        "second_header_symbols",
+        "method",
+        "changed_axis",
+        "before",
+        "after",
+        "after_cell_id",
+        "before_cell_id",
+        "after_first_m",
+        "before_first_m",
+        "interpretation",
+        "mean_difference",
+        "source_ci_low",
+        "source_ci_high",
+        "unknown_event_mean_lower",
+        "unknown_event_mean_upper",
+        "unknown_event_source_ci_low",
+        "unknown_event_source_ci_high",
+        "sources",
+        "bootstrap_repeats",
+        "bootstrap_seed",
+        "interval_scope"
+      ],
+      "row_count": 8616
+    },
+    "results/two_stage_feedback_model_20261005/final/metric_availability.json": {
+      "bytes": 2393,
+      "sha256": "0d0b64efb369f43badc07b0c8a172c5dc96272a14edb1eb52bf1d3f3144bccf5"
+    },
+    "results/two_stage_feedback_model_20261005/final/paired_differences.csv": {
+      "bytes": 1443054,
+      "sha256": "bebe07297d8b7d3df5ebfe9d95470a097e98ac81c9092c9511dfaea54899b9fc",
+      "schema": [
+        "average_snr_db",
+        "header_mode",
+        "pilot_symbols",
+        "feedback_bits",
+        "feedback_symbols",
+        "second_header_symbols",
+        "first_m",
+        "cell_id",
+        "method_a",
+        "method_b",
+        "selection_on",
+        "pilot_zero_diagnostic",
+        "mean_difference",
+        "source_ci_low",
+        "source_ci_high",
+        "unknown_event_mean_lower",
+        "unknown_event_mean_upper",
+        "unknown_event_source_ci_low",
+        "unknown_event_source_ci_high",
+        "sources",
+        "bootstrap_repeats",
+        "bootstrap_seed",
+        "interval_scope"
+      ],
+      "row_count": 4464
+    },
+    "results/two_stage_feedback_model_20261005/final/parent_metric_provenance.json": {
+      "bytes": 420313,
+      "sha256": "7e2cc8e0e2ec8f5efd1bf81ea2a70a3b51e0973efe7a7288207abd034393ee5a"
+    },
+    "results/two_stage_feedback_model_20261005/final/primary_numerical_diagnostic.json": {
+      "bytes": 4491,
+      "sha256": "20e1d37fb9345dfe3c29a4576052487376a14ca81852b2c20c7c6838ff789eac"
+    },
+    "results/two_stage_feedback_model_20261005/final/primary_reference_numerical_diagnostic.json": {
+      "bytes": 3249,
+      "sha256": "46020bc1e8b9da1c93e69dc659cba7c3c2f3e3f41db339497dc4493234dad62c"
+    },
+    "results/two_stage_feedback_model_20261005/final/primary_summary.csv": {
+      "bytes": 7056,
+      "sha256": "d66acf5499783bbee48f396a0b30d1d2f7a6be6af37fc573730961b8b357111a",
+      "schema": [
+        "cell_id",
+        "average_snr_db",
+        "header_mode",
+        "pilot_symbols",
+        "feedback_bits",
+        "feedback_symbols",
+        "second_header_symbols",
+        "first_m",
+        "method",
+        "status",
+        "train_mean",
+        "review_mean",
+        "bad_probability_train",
+        "bad_probability_review",
+        "review_lower",
+        "review_upper",
+        "mean_used_symbols",
+        "mean_used_symbols_train",
+        "max_used_symbols",
+        "policy_id",
+        "selection_on",
+        "sender_distinct_Q_states",
+        "sender_cost_scope",
+        "dictionary_size",
+        "actual_channel_verified",
+        "new_visual_inference",
+        "primary_bits_and_split_selected_by",
+        "reference_catalogue_scope"
+      ],
+      "row_count": 16
+    },
+    "results/two_stage_feedback_model_20261005/final/reference_changes.csv": {
+      "bytes": 1621078,
+      "sha256": "eadcd2d54d8f453c7de2185de338a3bcac047d43fef275bffa05b152750cb30f",
+      "schema": [
+        "cell_id",
+        "method",
+        "average_snr_db",
+        "header_mode",
+        "pilot_symbols",
+        "feedback_bits",
+        "feedback_symbols",
+        "second_header_symbols",
+        "first_m",
+        "old_policy_id",
+        "new_policy_id",
+        "old_train_mean",
+        "new_train_mean",
+        "train_difference",
+        "old_review_mean",
+        "new_review_mean",
+        "review_difference",
+        "review_used_for_selection",
+        "original_results_preserved"
+      ],
+      "row_count": 5184
+    },
+    "results/two_stage_feedback_model_20261005/final/reference_dominance_checks.csv": {
+      "bytes": 213102,
+      "sha256": "2937bcd780f3cb7f014d7ac2a5cee14e971c02323da06468b2d20aa3c55846a1",
+      "schema": [
+        "cell_id",
+        "average_snr_db",
+        "qcsi_train_mean",
+        "two_stage_train_mean",
+        "qcsi_minus_two_stage",
+        "tolerance",
+        "status",
+        "review_dominance_required"
+      ],
+      "row_count": 2160
+    },
+    "results/two_stage_feedback_model_20261005/final/selected_summary.csv": {
+      "bytes": 1460548,
+      "sha256": "2855d65592b7e4f0473047cf5cb6982cf76a2d1c7ee98cea7f815c25d333c6a5",
+      "schema": [
+        "cell_id",
+        "average_snr_db",
+        "header_mode",
+        "pilot_symbols",
+        "feedback_bits",
+        "feedback_symbols",
+        "second_header_symbols",
+        "first_m",
+        "method",
+        "status",
+        "train_mean",
+        "review_mean",
+        "bad_probability_train",
+        "bad_probability_review",
+        "review_lower",
+        "review_upper",
+        "mean_used_symbols",
+        "mean_used_symbols_train",
+        "max_used_symbols",
+        "policy_id",
+        "selection_on",
+        "sender_distinct_Q_states",
+        "sender_cost_scope",
+        "dictionary_size",
+        "actual_channel_verified",
+        "new_visual_inference",
+        "selected_on",
+        "selection_status",
+        "reason",
+        "reference_catalogue_scope"
+      ],
+      "row_count": 3456
+    },
+    "results/two_stage_feedback_model_20261005/final/sender_cost.csv": {
+      "bytes": 734795,
+      "sha256": "804f8c23679585ab67012d1bdc9f1738756925e204c4d345ab774533449eed90",
+      "schema": [
+        "average_snr_db",
+        "header_mode",
+        "pilot_symbols",
+        "feedback_bits",
+        "feedback_symbols",
+        "second_header_symbols",
+        "first_m",
+        "cell_id",
+        "method",
+        "status",
+        "policy_id",
+        "sender_distinct_Q_states",
+        "sender_cost_scope",
+        "dictionary_size",
+        "online_latency",
+        "table_lookup_latency_is_deployment_latency"
+      ],
+      "row_count": 3456
+    },
+    "results/two_stage_feedback_model_20261005/final/summary.json": {
+      "bytes": 2173188,
+      "sha256": "2d9f908f670b2579940bde17b9df34d5d88169e7e85ec40b20268b19f3f6badd"
+    },
+    "results/two_stage_feedback_model_20261005/evidence/report_completion.json": {
+      "bytes": 2177214,
+      "sha256": "423e4d8dc424a0e50ce27d3aa5cf1325f988aba6b57b74bbf7d9d0d0d01c9984"
+    },
+    "results/two_stage_feedback_model_20261005/evidence/parent/protocol.json": {
+      "bytes": 8032,
+      "sha256": "3318b490d950d1668b0ec3054fc0840927b2b87ea12e6bad0127421bb28b3051"
+    },
+    "results/two_stage_feedback_model_20261005/evidence/parent/INPUT_MANIFEST.json": {
+      "bytes": 1686,
+      "sha256": "b52b47aea7ab5fb1bfb24076b51bbdcd281c6aeb69113a80c5b03126741a2aa5"
+    },
+    "results/two_stage_feedback_model_20261005/evidence/parent/AUXILIARY_INPUT_MANIFEST.json": {
+      "bytes": 866,
+      "sha256": "f6f7f002f11bf0af62c07d8bd5bdf4d8e73c643560e36f142a41d4ef5b44a425"
+    },
+    "results/two_stage_feedback_model_20261005/evidence/parent/execution_registration.json": {
+      "bytes": 6318,
+      "sha256": "5be6cfae5fb0b2dc70b9c7c70ec215a58ae6e3858b047cbead72af2d859704af"
+    },
+    "results/two_stage_feedback_model_20261005/evidence/parent/model_completion.json": {
+      "bytes": 16890,
+      "sha256": "b46e45ed810b2813b212f2cd4b721ceb92b92c902eb2b57f64f7e65ee3849804"
+    },
+    "results/two_stage_feedback_model_20261005/evidence/parent/owner_config.json": {
+      "bytes": 10132,
+      "sha256": "0c672e0d1dc860a2eeda40ecb74799f0a9670e7f6def3a54724df6d046f7f1c9"
+    },
+    "results/two_stage_feedback_model_20261005/evidence/parent/owner_identity.json": {
+      "bytes": 530,
+      "sha256": "11739cefead443413ba1536a64414fa9496e8aa4350965c652c5da7a4d3497ff"
+    },
+    "results/two_stage_feedback_model_20261005/evidence/parent/launch.json": {
+      "bytes": 613,
+      "sha256": "359d8ad5efdb77e0690c54636d73fcd70d9187ffd01ed3c1d9ba624c76c69188"
+    },
+    "results/two_stage_feedback_model_20261005/evidence/reference_closure_r1/protocol.json": {
+      "bytes": 5381,
+      "sha256": "88ba4961280dc96456355d7742fec6878afd5042fcddd68422b151c048d827b9"
+    },
+    "results/two_stage_feedback_model_20261005/evidence/reference_closure_r1/execution_registration.json": {
+      "bytes": 5717,
+      "sha256": "bfa2b7425578d4d42f33a2174ad4204bed0f2392def2c7629db5b2ee66c5ef45"
+    },
+    "results/two_stage_feedback_model_20261005/evidence/reference_closure_r1/model_completion.json": {
+      "bytes": 21791,
+      "sha256": "af9fa19a65c9477b4a56d178fc3759501ab40331806945771c93704fc42ef720"
+    },
+    "results/two_stage_feedback_model_20261005/evidence/reference_closure_r1/owner_config.json": {
+      "bytes": 12860,
+      "sha256": "3d89be73e2e3cff27f0f48ea855e383eeb168dd98a9a47251fb45b47307c4f84"
+    },
+    "results/two_stage_feedback_model_20261005/evidence/reference_closure_r1/owner_identity.json": {
+      "bytes": 572,
+      "sha256": "02eb15a01c0b3f97d49dc54f3bea72fc58dca5c962c5ffb646535dd748f3889c"
+    },
+    "results/two_stage_feedback_model_20261005/evidence/reference_closure_r1/launch.json": {
+      "bytes": 682,
+      "sha256": "1bfda5488d16d3576488f99d3aedfc946d31dd413a8b19c7c2efdf092d64547f"
+    },
+    "results/two_stage_feedback_model_20261005/historical/original_report/completion.json": {
+      "bytes": 1034494,
+      "sha256": "9bec9b7c5ea0f0e18a56ec8ddda0f6e4efb0db72343929c627a48ae16d1b9774"
+    },
+    "results/two_stage_feedback_model_20261005/historical/original_report/FINAL_REPORT.md": {
+      "bytes": 9226,
+      "sha256": "696ba904491d8b60139c1e2c77937ec975f4a05997e295e098f522294347ba9a"
+    },
+    "results/two_stage_feedback_model_20261005/historical/original_report/summary.json": {
+      "bytes": 1033974,
+      "sha256": "5818445fcc41d3825aee708dd304fa8c83c4cbde5d53ad43fbdcc903a279df7f"
+    },
+    "results/two_stage_feedback_model_20261005/historical/original_report/primary_summary.csv": {
+      "bytes": 6553,
+      "sha256": "fdfd828ee13cbe017f4112c20943b2247ff832aecacdde3256916157e9f0dd6f",
+      "schema": [
+        "cell_id",
+        "average_snr_db",
+        "header_mode",
+        "pilot_symbols",
+        "feedback_bits",
+        "feedback_symbols",
+        "second_header_symbols",
+        "first_m",
+        "method",
+        "status",
+        "train_mean",
+        "review_mean",
+        "bad_probability_train",
+        "bad_probability_review",
+        "review_lower",
+        "review_upper",
+        "mean_used_symbols",
+        "mean_used_symbols_train",
+        "max_used_symbols",
+        "policy_id",
+        "selection_on",
+        "sender_distinct_Q_states",
+        "sender_cost_scope",
+        "dictionary_size",
+        "actual_channel_verified",
+        "new_visual_inference",
+        "primary_bits_and_split_selected_by"
+      ],
+      "row_count": 16
+    },
+    "results/two_stage_feedback_model_20261005/REFERENCE_CLOSURE.json": {
+      "bytes": 718,
+      "sha256": "018ca05b370f14fe588a5cdcf2b295682d5e0e0a01a1e3a56be02fd73b1e32b6"
+    },
+    "results/two_stage_feedback_model_20261005/code/auxiliary.py.txt": {
+      "bytes": 12646,
+      "sha256": "9fc1593d2615391a70e95a5d99bbab5a5bca200ab792cd90cdb7d1b96cadf2e1"
+    },
+    "results/two_stage_feedback_model_20261005/code/model.py.txt": {
+      "bytes": 23844,
+      "sha256": "b485b4a1086928fd9d55305ac2bb9706c740e07ec6d9d193df8b00fedd1ac9d8"
+    },
+    "results/two_stage_feedback_model_20261005/code/owner.py.txt": {
+      "bytes": 8539,
+      "sha256": "8c00985abd4f8d74433733d53fd1791727e056644b5c587b9b1f4ffb9ec006a8"
+    },
+    "results/two_stage_feedback_model_20261005/code/publish.py.txt": {
+      "bytes": 34751,
+      "sha256": "7dc43b429db4bd7d862ef977bbd38ddbb8978fb275fa685660c1a92a5b819964"
+    },
+    "results/two_stage_feedback_model_20261005/code/report.py.txt": {
+      "bytes": 38055,
+      "sha256": "db942da5a026320e19d211b19100150da953e387d067ae691af504a230fe6362"
+    },
+    "results/two_stage_feedback_model_20261005/code/result_audit.py.txt": {
+      "bytes": 14366,
+      "sha256": "f6740164a2befeeb600bbe4c2f3ee75d86117704eae44000b9696ee78fe77953"
+    },
+    "results/two_stage_feedback_model_20261005/code/search.py.txt": {
+      "bytes": 33893,
+      "sha256": "77be0f177d45a9be126da64bad03ffa71f176daccf59831e2cb3c57711f407eb"
+    },
+    "results/two_stage_feedback_model_20261005/code/test_auxiliary.py.txt": {
+      "bytes": 2921,
+      "sha256": "6f2a49b65b7126670f3901c6fb3760eb50cb2a6cf3c8cac89f6253ad64ca3047"
+    },
+    "results/two_stage_feedback_model_20261005/code/test_model.py.txt": {
+      "bytes": 10671,
+      "sha256": "56a1aa64965299d73b597ed751e4f8a7e7f82d27530b413c8fda99405ceea2b0"
+    },
+    "results/two_stage_feedback_model_20261005/code/test_owner.py.txt": {
+      "bytes": 1700,
+      "sha256": "d65a9ed0e4d56a890ef663d232c05b4c09126d52ddcceef12f1600f8b9b578bf"
+    },
+    "results/two_stage_feedback_model_20261005/code/test_publish.py.txt": {
+      "bytes": 21688,
+      "sha256": "27926ccc1ed57313459fe749cd8c2f107ecfa91bf583e25459f88d4ace24d575"
+    },
+    "results/two_stage_feedback_model_20261005/code/test_report.py.txt": {
+      "bytes": 6593,
+      "sha256": "302b2ee8429ef088685fe898bc988964d4ae3bf8fe63d6a7bc2d27dd7679546f"
+    },
+    "results/two_stage_feedback_model_20261005/code/test_result_audit.py.txt": {
+      "bytes": 3279,
+      "sha256": "9ff48724ca0242dbdeacbff27f4c95f75477c147d4a06553ad43204c80b3f78e"
+    },
+    "results/two_stage_feedback_model_20261005/code/test_search.py.txt": {
+      "bytes": 9969,
+      "sha256": "0f0f2a4cbae77604ebc3d2b7db6e09ec0e7d015fa2b3fbf946cefc73baa23872"
+    },
+    "results/two_stage_feedback_model_20261005/reference_closure_r1/code/reference_closure_r1.py.txt": {
+      "bytes": 23133,
+      "sha256": "9e0316ce50ce5c59954bb1442c3aa373b6d29c869ddd44a0c46376619b0736e6"
+    },
+    "results/two_stage_feedback_model_20261005/reference_closure_r1/code/reference_report_r1.py.txt": {
+      "bytes": 27345,
+      "sha256": "efe822aeb534e7551a34e5401d5db1c238e36c7fa3ac8e15bbd36ebb18f826a0"
+    },
+    "results/two_stage_feedback_model_20261005/reference_closure_r1/code/test_reference_closure_r1.py.txt": {
+      "bytes": 3819,
+      "sha256": "090feeeb8eb8bf5ef2744cd16dd96177a7d568db8118b070d2bcdabc45f01539"
+    },
+    "results/two_stage_feedback_model_20261005/reference_closure_r1/code/test_reference_report_r1.py.txt": {
+      "bytes": 4951,
+      "sha256": "19040f818f3e8c06afb4eef9e5ba6daddde18dd8fd1265b3711d8b7af22fb6a9"
+    },
+    "results/two_stage_feedback_model_20261005/search_snr4/primary_summary.csv": {
+      "bytes": 2098,
+      "sha256": "8266b8ec34ca43c5bd09b589f871314896ffa4791bf5ba66307e108173ba3ed8",
+      "schema": [
+        "cell_id",
+        "average_snr_db",
+        "header_mode",
+        "pilot_symbols",
+        "feedback_bits",
+        "feedback_symbols",
+        "second_header_symbols",
+        "first_m",
+        "method",
+        "status",
+        "train_mean",
+        "review_mean",
+        "bad_probability_train",
+        "bad_probability_review",
+        "review_lower",
+        "review_upper",
+        "mean_used_symbols",
+        "mean_used_symbols_train",
+        "max_used_symbols",
+        "policy_id",
+        "selection_on",
+        "sender_distinct_Q_states",
+        "sender_cost_scope",
+        "dictionary_size",
+        "actual_channel_verified",
+        "new_visual_inference",
+        "primary_bits_and_split_selected_by",
+        "reference_catalogue_scope"
+      ],
+      "row_count": 4
+    },
+    "results/two_stage_feedback_model_20261005/search_snr4/coverage.json": {
+      "bytes": 2286,
+      "sha256": "6b503884c49c77a8f09e5cb2e46a6d8e61efd84d1d9512527573d8d34811673b"
+    },
+    "results/two_stage_feedback_model_20261005/search_snr4/split.json": {
+      "bytes": 111204,
+      "sha256": "48144637db16a6970835aa5e35bd3288192c84a86da79afd882e4bf7d1f30ba2"
+    },
+    "results/two_stage_feedback_model_20261005/search_snr4/primary_reference_numerical_diagnostic.json": {
+      "bytes": 741,
+      "sha256": "cdf1f2788a4c10d4f9dd540e135a43cc6f389064ead6109edbab0575ad6daeb9"
+    },
+    "results/two_stage_feedback_model_20261005/search_snr4/primary_numerical_diagnostic.json": {
+      "bytes": 823,
+      "sha256": "abe534e83da310d614d11f86072414c24870e40a44addc0df50b64a73b075e87"
+    },
+    "results/two_stage_feedback_model_20261005/search_snr4/completion.json": {
+      "bytes": 543637,
+      "sha256": "68c8e12174436565958e211519f4dd1298a05854ad94432dfc5b3c5e6782f25f"
+    },
+    "results/two_stage_feedback_model_20261005/search_snr4/primary_policies.json": {
+      "bytes": 363093,
+      "sha256": "cac2cedc6d793b466de44ad40001b75b9e461e5d64b640289cbf16d1fa77d3a8"
+    },
+    "results/two_stage_feedback_model_20261005/search_snr7/primary_summary.csv": {
+      "bytes": 2124,
+      "sha256": "38df8b69ebd30373e3aff57ef8b6841685013d492c8a9d2d85427b9c03e55acd",
+      "schema": [
+        "cell_id",
+        "average_snr_db",
+        "header_mode",
+        "pilot_symbols",
+        "feedback_bits",
+        "feedback_symbols",
+        "second_header_symbols",
+        "first_m",
+        "method",
+        "status",
+        "train_mean",
+        "review_mean",
+        "bad_probability_train",
+        "bad_probability_review",
+        "review_lower",
+        "review_upper",
+        "mean_used_symbols",
+        "mean_used_symbols_train",
+        "max_used_symbols",
+        "policy_id",
+        "selection_on",
+        "sender_distinct_Q_states",
+        "sender_cost_scope",
+        "dictionary_size",
+        "actual_channel_verified",
+        "new_visual_inference",
+        "primary_bits_and_split_selected_by",
+        "reference_catalogue_scope"
+      ],
+      "row_count": 4
+    },
+    "results/two_stage_feedback_model_20261005/search_snr7/coverage.json": {
+      "bytes": 2286,
+      "sha256": "a4bf45a8b2be82981c950d97298aa26e14107b82103cf3ae6d2d39d2f7798705"
+    },
+    "results/two_stage_feedback_model_20261005/search_snr7/split.json": {
+      "bytes": 111204,
+      "sha256": "48144637db16a6970835aa5e35bd3288192c84a86da79afd882e4bf7d1f30ba2"
+    },
+    "results/two_stage_feedback_model_20261005/search_snr7/primary_reference_numerical_diagnostic.json": {
+      "bytes": 742,
+      "sha256": "d33078a1f7042cc631704babc551cbe9b9a173f8584ea41b74deb34a7dad82e7"
+    },
+    "results/two_stage_feedback_model_20261005/search_snr7/primary_numerical_diagnostic.json": {
+      "bytes": 825,
+      "sha256": "1c6c8e8ceb86f152725fb67c42af39e7433afbc57a574ba45dd4a6fb2f905250"
+    },
+    "results/two_stage_feedback_model_20261005/search_snr7/completion.json": {
+      "bytes": 543638,
+      "sha256": "b0f7e453518b6ed1c663bda6b6690e1314248d9f462d108fb700f6b49975e614"
+    },
+    "results/two_stage_feedback_model_20261005/search_snr7/primary_policies.json": {
+      "bytes": 363116,
+      "sha256": "621fd1be924d8a3ecfe3b586fd63f417c81978cf4a1512c26f469bacecae4c19"
+    },
+    "results/two_stage_feedback_model_20261005/search_snr10/primary_summary.csv": {
+      "bytes": 2129,
+      "sha256": "daee9dd1910b52182d0f58bba6642f3ef09c56c1a37de3fb8c9436ce4323fff7",
+      "schema": [
+        "cell_id",
+        "average_snr_db",
+        "header_mode",
+        "pilot_symbols",
+        "feedback_bits",
+        "feedback_symbols",
+        "second_header_symbols",
+        "first_m",
+        "method",
+        "status",
+        "train_mean",
+        "review_mean",
+        "bad_probability_train",
+        "bad_probability_review",
+        "review_lower",
+        "review_upper",
+        "mean_used_symbols",
+        "mean_used_symbols_train",
+        "max_used_symbols",
+        "policy_id",
+        "selection_on",
+        "sender_distinct_Q_states",
+        "sender_cost_scope",
+        "dictionary_size",
+        "actual_channel_verified",
+        "new_visual_inference",
+        "primary_bits_and_split_selected_by",
+        "reference_catalogue_scope"
+      ],
+      "row_count": 4
+    },
+    "results/two_stage_feedback_model_20261005/search_snr10/coverage.json": {
+      "bytes": 2286,
+      "sha256": "534f5ebbaa93d3638e9065c243dda8e6a7eeeafa8c935c1733df84ab971eb402"
+    },
+    "results/two_stage_feedback_model_20261005/search_snr10/split.json": {
+      "bytes": 111204,
+      "sha256": "48144637db16a6970835aa5e35bd3288192c84a86da79afd882e4bf7d1f30ba2"
+    },
+    "results/two_stage_feedback_model_20261005/search_snr10/primary_reference_numerical_diagnostic.json": {
+      "bytes": 742,
+      "sha256": "ea5254a51aaf5489741a40d79251559165ff4c89811fb6faa2972a23c594cfb9"
+    },
+    "results/two_stage_feedback_model_20261005/search_snr10/primary_numerical_diagnostic.json": {
+      "bytes": 823,
+      "sha256": "cff745d8370035a20b49ba66208d78482636fdba5f9e3edbce3f50ab94adcdeb"
+    },
+    "results/two_stage_feedback_model_20261005/search_snr10/completion.json": {
+      "bytes": 546251,
+      "sha256": "04371818ff5be5cc882a9a2ea7205292975970021430d4c1460bf20fcbd631d2"
+    },
+    "results/two_stage_feedback_model_20261005/search_snr10/primary_policies.json": {
+      "bytes": 363058,
+      "sha256": "6651163c491e8d8b618b7a59de9c000f63e3d020e4036a26b8ded0f57a2bc1eb"
+    },
+    "results/two_stage_feedback_model_20261005/search_snr13/primary_summary.csv": {
+      "bytes": 2100,
+      "sha256": "f15a8b51f6895d5ccce81900047bbeab4ef83e992922f7a7e9f67dcbcdfa0a8d",
+      "schema": [
+        "cell_id",
+        "average_snr_db",
+        "header_mode",
+        "pilot_symbols",
+        "feedback_bits",
+        "feedback_symbols",
+        "second_header_symbols",
+        "first_m",
+        "method",
+        "status",
+        "train_mean",
+        "review_mean",
+        "bad_probability_train",
+        "bad_probability_review",
+        "review_lower",
+        "review_upper",
+        "mean_used_symbols",
+        "mean_used_symbols_train",
+        "max_used_symbols",
+        "policy_id",
+        "selection_on",
+        "sender_distinct_Q_states",
+        "sender_cost_scope",
+        "dictionary_size",
+        "actual_channel_verified",
+        "new_visual_inference",
+        "primary_bits_and_split_selected_by",
+        "reference_catalogue_scope"
+      ],
+      "row_count": 4
+    },
+    "results/two_stage_feedback_model_20261005/search_snr13/coverage.json": {
+      "bytes": 2286,
+      "sha256": "65a90fdab4b6aef99caaaef0d331c7d03c457729625e7c0cdad66d177ea4f8b3"
+    },
+    "results/two_stage_feedback_model_20261005/search_snr13/split.json": {
+      "bytes": 111204,
+      "sha256": "48144637db16a6970835aa5e35bd3288192c84a86da79afd882e4bf7d1f30ba2"
+    },
+    "results/two_stage_feedback_model_20261005/search_snr13/primary_reference_numerical_diagnostic.json": {
+      "bytes": 739,
+      "sha256": "da8c338d16e70c730dae78d8a6c6180a9d1162df73a637cfe87616138b0fdb90"
+    },
+    "results/two_stage_feedback_model_20261005/search_snr13/primary_numerical_diagnostic.json": {
+      "bytes": 825,
+      "sha256": "36cb900521d2696a48169201907bbdb6ac18843c4ea4c13096821519dd6b89af"
+    },
+    "results/two_stage_feedback_model_20261005/search_snr13/completion.json": {
+      "bytes": 546250,
+      "sha256": "97a82221fc84f37b01b71dce8aed4950886bff94551829f0e42f9ca26afb5f33"
+    },
+    "results/two_stage_feedback_model_20261005/search_snr13/primary_policies.json": {
+      "bytes": 296300,
+      "sha256": "90893c888d46cc3f1668dd51ce2ee209e58057c5993d234ac6fb66c976314110"
+    }
+  },
+  "input_bindings": {
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/report/FINAL_REPORT.md": "466d33cb903659784cb3993e20be8974d8840ff9c1ee57db4870f43ec4ffb88f",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/report/auxiliary_primary_metrics.csv": "91ac1cf5234c1385583d8a698fce4e3b71a0276f84d56cdb55fdcc4ead2d2e64",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/report/auxiliary_primary_paired.csv": "376030d6997fb133f2b28079269a3d6b2c35f527047e8b169dc590e6ddce656a",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/report/candidate_coverage.json": "c264a369fe27215da711d2c717b44d4c0217851111ecd21e5e419f675f924ffe",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/report/display_points_selected_on_construction800.csv": "179b8f14ad6cd586da9e34046524dc7799a25642098fc8ebe67a561800a1b16c",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/report/frozen_primary_policies.json": "d6b7d634c5944d888fc0175aa0baef995abba6ff2db231545596b209318e3d5f",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/report/grid_summary.csv": "58d3e98dc7d208a1c62cfec096146856847bb988ccf56d6565f64a37e913e4dc",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/report/historical_primary_summary.csv": "fdfd828ee13cbe017f4112c20943b2247ff832aecacdde3256916157e9f0dd6f",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/report/matched_axis_effects.csv": "a977670fc83f63e516589e76a54b00f5391d04105c1b1e400e386bcb9239851f",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/report/metric_availability.json": "0d0b64efb369f43badc07b0c8a172c5dc96272a14edb1eb52bf1d3f3144bccf5",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/report/paired_differences.csv": "bebe07297d8b7d3df5ebfe9d95470a097e98ac81c9092c9511dfaea54899b9fc",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/report/parent_metric_provenance.json": "7e2cc8e0e2ec8f5efd1bf81ea2a70a3b51e0973efe7a7288207abd034393ee5a",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/report/primary_numerical_diagnostic.json": "20e1d37fb9345dfe3c29a4576052487376a14ca81852b2c20c7c6838ff789eac",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/report/primary_reference_numerical_diagnostic.json": "46020bc1e8b9da1c93e69dc659cba7c3c2f3e3f41db339497dc4493234dad62c",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/report/primary_summary.csv": "d66acf5499783bbee48f396a0b30d1d2f7a6be6af37fc573730961b8b357111a",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/report/reference_changes.csv": "eadcd2d54d8f453c7de2185de338a3bcac047d43fef275bffa05b152750cb30f",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/report/reference_dominance_checks.csv": "2937bcd780f3cb7f014d7ac2a5cee14e971c02323da06468b2d20aa3c55846a1",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/report/selected_summary.csv": "2855d65592b7e4f0473047cf5cb6982cf76a2d1c7ee98cea7f815c25d333c6a5",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/report/sender_cost.csv": "804f8c23679585ab67012d1bdc9f1738756925e204c4d345ab774533449eed90",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/report/summary.json": "2d9f908f670b2579940bde17b9df34d5d88169e7e85ec40b20268b19f3f6badd",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/report/completion.json": "423e4d8dc424a0e50ce27d3aa5cf1325f988aba6b57b74bbf7d9d0d0d01c9984",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/protocol.json": "3318b490d950d1668b0ec3054fc0840927b2b87ea12e6bad0127421bb28b3051",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/INPUT_MANIFEST.json": "b52b47aea7ab5fb1bfb24076b51bbdcd281c6aeb69113a80c5b03126741a2aa5",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/AUXILIARY_INPUT_MANIFEST.json": "f6f7f002f11bf0af62c07d8bd5bdf4d8e73c643560e36f142a41d4ef5b44a425",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/execution_registration.json": "5be6cfae5fb0b2dc70b9c7c70ec215a58ae6e3858b047cbead72af2d859704af",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/model_completion.json": "b46e45ed810b2813b212f2cd4b721ceb92b92c902eb2b57f64f7e65ee3849804",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/owner_config.json": "0c672e0d1dc860a2eeda40ecb74799f0a9670e7f6def3a54724df6d046f7f1c9",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/owner_identity.json": "11739cefead443413ba1536a64414fa9496e8aa4350965c652c5da7a4d3497ff",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/launch.json": "359d8ad5efdb77e0690c54636d73fcd70d9187ffd01ed3c1d9ba624c76c69188",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/protocol.json": "88ba4961280dc96456355d7742fec6878afd5042fcddd68422b151c048d827b9",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/execution_registration.json": "bfa2b7425578d4d42f33a2174ad4204bed0f2392def2c7629db5b2ee66c5ef45",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/model_completion.json": "af9fa19a65c9477b4a56d178fc3759501ab40331806945771c93704fc42ef720",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/owner_config.json": "3d89be73e2e3cff27f0f48ea855e383eeb168dd98a9a47251fb45b47307c4f84",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/owner_identity.json": "02eb15a01c0b3f97d49dc54f3bea72fc58dca5c962c5ffb646535dd748f3889c",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/launch.json": "1bfda5488d16d3576488f99d3aedfc946d31dd413a8b19c7c2efdf092d64547f",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/report/completion.json": "9bec9b7c5ea0f0e18a56ec8ddda0f6e4efb0db72343929c627a48ae16d1b9774",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/report/FINAL_REPORT.md": "696ba904491d8b60139c1e2c77937ec975f4a05997e295e098f522294347ba9a",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/report/summary.json": "5818445fcc41d3825aee708dd304fa8c83c4cbde5d53ad43fbdcc903a279df7f",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/report/primary_summary.csv": "fdfd828ee13cbe017f4112c20943b2247ff832aecacdde3256916157e9f0dd6f",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/code/auxiliary.py": "9fc1593d2615391a70e95a5d99bbab5a5bca200ab792cd90cdb7d1b96cadf2e1",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/code/model.py": "b485b4a1086928fd9d55305ac2bb9706c740e07ec6d9d193df8b00fedd1ac9d8",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/code/owner.py": "8c00985abd4f8d74433733d53fd1791727e056644b5c587b9b1f4ffb9ec006a8",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/code/publish.py": "7dc43b429db4bd7d862ef977bbd38ddbb8978fb275fa685660c1a92a5b819964",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/code/report.py": "db942da5a026320e19d211b19100150da953e387d067ae691af504a230fe6362",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/code/result_audit.py": "f6740164a2befeeb600bbe4c2f3ee75d86117704eae44000b9696ee78fe77953",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/code/search.py": "77be0f177d45a9be126da64bad03ffa71f176daccf59831e2cb3c57711f407eb",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/code/test_auxiliary.py": "6f2a49b65b7126670f3901c6fb3760eb50cb2a6cf3c8cac89f6253ad64ca3047",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/code/test_model.py": "56a1aa64965299d73b597ed751e4f8a7e7f82d27530b413c8fda99405ceea2b0",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/code/test_owner.py": "d65a9ed0e4d56a890ef663d232c05b4c09126d52ddcceef12f1600f8b9b578bf",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/code/test_publish.py": "27926ccc1ed57313459fe749cd8c2f107ecfa91bf583e25459f88d4ace24d575",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/code/test_report.py": "302b2ee8429ef088685fe898bc988964d4ae3bf8fe63d6a7bc2d27dd7679546f",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/code/test_result_audit.py": "9ff48724ca0242dbdeacbff27f4c95f75477c147d4a06553ad43204c80b3f78e",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/code/test_search.py": "0f0f2a4cbae77604ebc3d2b7db6e09ec0e7d015fa2b3fbf946cefc73baa23872",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/code/reference_closure_r1.py": "9e0316ce50ce5c59954bb1442c3aa373b6d29c869ddd44a0c46376619b0736e6",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/code/reference_report_r1.py": "efe822aeb534e7551a34e5401d5db1c238e36c7fa3ac8e15bbd36ebb18f826a0",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/code/test_reference_closure_r1.py": "090feeeb8eb8bf5ef2744cd16dd96177a7d568db8118b070d2bcdabc45f01539",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/code/test_reference_report_r1.py": "19040f818f3e8c06afb4eef9e5ba6daddde18dd8fd1265b3711d8b7af22fb6a9",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/model/search_snr4/primary_summary.csv": "8266b8ec34ca43c5bd09b589f871314896ffa4791bf5ba66307e108173ba3ed8",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/model/search_snr4/coverage.json": "6b503884c49c77a8f09e5cb2e46a6d8e61efd84d1d9512527573d8d34811673b",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/model/search_snr4/split.json": "48144637db16a6970835aa5e35bd3288192c84a86da79afd882e4bf7d1f30ba2",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/model/search_snr4/primary_reference_numerical_diagnostic.json": "cdf1f2788a4c10d4f9dd540e135a43cc6f389064ead6109edbab0575ad6daeb9",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/model/search_snr4/primary_numerical_diagnostic.json": "abe534e83da310d614d11f86072414c24870e40a44addc0df50b64a73b075e87",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/model/search_snr4/completion.json": "68c8e12174436565958e211519f4dd1298a05854ad94432dfc5b3c5e6782f25f",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/model/search_snr4/policies.json": "efabd9baa2949e0e65189f6bfba2ec18b2baa69fe5e9beed0286152a5a0bab39",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/model/search_snr7/primary_summary.csv": "38df8b69ebd30373e3aff57ef8b6841685013d492c8a9d2d85427b9c03e55acd",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/model/search_snr7/coverage.json": "a4bf45a8b2be82981c950d97298aa26e14107b82103cf3ae6d2d39d2f7798705",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/model/search_snr7/split.json": "48144637db16a6970835aa5e35bd3288192c84a86da79afd882e4bf7d1f30ba2",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/model/search_snr7/primary_reference_numerical_diagnostic.json": "d33078a1f7042cc631704babc551cbe9b9a173f8584ea41b74deb34a7dad82e7",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/model/search_snr7/primary_numerical_diagnostic.json": "1c6c8e8ceb86f152725fb67c42af39e7433afbc57a574ba45dd4a6fb2f905250",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/model/search_snr7/completion.json": "b0f7e453518b6ed1c663bda6b6690e1314248d9f462d108fb700f6b49975e614",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/model/search_snr7/policies.json": "09feb0a223c9676819070a24bb78f70801548ced94f52fa1424d99f54931b221",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/model/search_snr10/primary_summary.csv": "daee9dd1910b52182d0f58bba6642f3ef09c56c1a37de3fb8c9436ce4323fff7",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/model/search_snr10/coverage.json": "534f5ebbaa93d3638e9065c243dda8e6a7eeeafa8c935c1733df84ab971eb402",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/model/search_snr10/split.json": "48144637db16a6970835aa5e35bd3288192c84a86da79afd882e4bf7d1f30ba2",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/model/search_snr10/primary_reference_numerical_diagnostic.json": "ea5254a51aaf5489741a40d79251559165ff4c89811fb6faa2972a23c594cfb9",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/model/search_snr10/primary_numerical_diagnostic.json": "cff745d8370035a20b49ba66208d78482636fdba5f9e3edbce3f50ab94adcdeb",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/model/search_snr10/completion.json": "04371818ff5be5cc882a9a2ea7205292975970021430d4c1460bf20fcbd631d2",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/model/search_snr10/policies.json": "592c5422450ad2cd27e09620f7a317594bf2faac2f5a7f78845a6b900d4410d5",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/model/search_snr13/primary_summary.csv": "f15a8b51f6895d5ccce81900047bbeab4ef83e992922f7a7e9f67dcbcdfa0a8d",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/model/search_snr13/coverage.json": "65a90fdab4b6aef99caaaef0d331c7d03c457729625e7c0cdad66d177ea4f8b3",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/model/search_snr13/split.json": "48144637db16a6970835aa5e35bd3288192c84a86da79afd882e4bf7d1f30ba2",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/model/search_snr13/primary_reference_numerical_diagnostic.json": "da8c338d16e70c730dae78d8a6c6180a9d1162df73a637cfe87616138b0fdb90",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/model/search_snr13/primary_numerical_diagnostic.json": "36cb900521d2696a48169201907bbdb6ac18843c4ea4c13096821519dd6b89af",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/model/search_snr13/completion.json": "97a82221fc84f37b01b71dce8aed4950886bff94551829f0e42f9ca26afb5f33",
+    "/home/liulu/projects/VAR_COMM/outputs/TWO-STAGE-FEEDBACK-MODEL-20261005/reference_closure_r1/model/search_snr13/policies.json": "8e3682e6c5d35715257e0f915009f423fd340008bc7827f1607b3457cc86f7fe"
+  },
+  "publisher_source_sha256": "7dc43b429db4bd7d862ef977bbd38ddbb8978fb275fa685660c1a92a5b819964",
+  "exclusions": [
+    "NPZ",
+    "raw snapshots",
+    "per_source.csv",
+    "all-policy catalogue",
+    "integral caches",
+    "per-cell arrays",
+    "logs"
+  ],
+  "table_model_only": true,
+  "new_PHY_decodes": 0,
+  "new_visual_inference": 0
+}

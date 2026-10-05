@@ -1,0 +1,50 @@
+import copy
+import unittest
+import result_audit as a
+
+
+class IndependentAuditTests(unittest.TestCase):
+    def test_nested_candidate_monotonicity_and_fixed_feedback_invariance(self):
+        rows=[]
+        for pilot in (8,16):
+            for cost in (8,16):
+                for bits in (1,2,3):
+                    for method in ('FIXED','QCSI','TWO_STAGE'):
+                        rows.append(dict(cell_id=str((pilot,cost,bits)), average_snr_db=7,header_mode='measured_headers',
+                            pilot_symbols=pilot,feedback_symbols=cost,feedback_bits=bits,second_header_symbols=68,
+                            first_m=4,method=method,status='MODEL_ONLY',train_mean=.8-pilot*.001+(0 if method=='FIXED' else bits*.01-cost*.001)))
+        audit=a.Audit();a.audit_monotonicity(rows,audit);self.assertEqual(audit.failures,[])
+        broken=copy.deepcopy(rows); next(r for r in broken if r['method']=='QCSI' and r['pilot_symbols']==16 and r['feedback_symbols']==16 and r['feedback_bits']==1)['train_mean']=.99
+        audit=a.Audit();a.audit_monotonicity(broken,audit);self.assertTrue(audit.failures)
+
+    def test_full_paths_content_matching_and_uniform_inclusion(self):
+        stop=dict(action_id='STOP',symbols=0,stop=True)
+        second=dict(action_id='suffix',symbols=800,stop=False)
+        uniform=dict(kind='TWO_STAGE',pilot_symbols=16,feedback_symbols=16,feedback_bits=1,
+                     first=dict(symbols=100),second_header_symbols=0,thresholds_db=[7],same_h=True,
+                     feedback_content='SNR_bin_only_NO_ACK',second_actions=[stop,second])
+        content={k:v for k,v in uniform.items() if k!='second_actions'}
+        content.update(kind='TWO_STAGE_C8',first_stage_shared=True,tree_choice_before_unknown_bin=True,
+                       trees=[dict(public_header_id=0,second_actions=[stop,second])])
+        def check(u,c):
+            policies={a.digest(u):u,a.digest(c):c}
+            grid=[dict(cell_id='cell',method=p['kind'],status='MODEL_ONLY',policy_id=a.digest(p),
+                       max_used_symbols=1000,train_mean=.5) for p in (u,c)]
+            audit=a.Audit();a.audit_policies(grid,policies,audit);return audit
+        self.assertEqual(check(uniform,content).failures,[])
+        broken=copy.deepcopy(content);broken['trees'][0]['second_actions'][1]['symbols']=900
+        failures=check(uniform,broken).failures
+        self.assertTrue(any(x['check']=='all_actual_paths_fit' for x in failures))
+        self.assertTrue(any(x['check']=='uniform_tree_in_content_dictionary' for x in failures))
+
+    def test_bootstrap_is_review_only_and_fixed_5000(self):
+        p=dict(verification=dict(bootstrap_repeats=5000,bootstrap_seed=2026100504))
+        s=dict(bootstrap_repeats=5000,bootstrap_seed=2026100504,selection_on='construction800',
+               construction_sources=800,review_sources=200,source_population='internal_verification200',
+               interval_scope='descriptive_source_only_no_channel_MC')
+        audit=a.Audit();a.audit_bootstrap(p,s,audit);self.assertEqual(audit.failures,[])
+        s.update(bootstrap_repeats=10000,selection_on='internal_verification200')
+        audit=a.Audit();a.audit_bootstrap(p,s,audit);self.assertEqual(len(audit.failures),2)
+
+
+if __name__=='__main__':unittest.main()

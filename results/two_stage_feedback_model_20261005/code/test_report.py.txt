@@ -1,0 +1,119 @@
+import copy
+import hashlib
+import json
+from pathlib import Path
+import tempfile
+import unittest
+import numpy as np
+import report as r
+
+
+def row(method, m=4, train=.5, review=.4, **overrides):
+    result = dict(average_snr_db=4, header_mode='measured_headers', pilot_symbols=16, feedback_bits=1,
+                  feedback_symbols=16, second_header_symbols=68, first_m=m, cell_id='m' + str(m),
+                  method=method, status='MODEL_ONLY', train_mean=train, review_mean=review,
+                  max_used_symbols=700, policy_id=method + str(m), selection_on='construction800')
+    result.update(overrides)
+    return result
+
+
+class ReportTests(unittest.TestCase):
+    def test_split_uses_training_and_tie_smaller_m(self):
+        grid = [row(method, m, train=.5 if m < 6 else .4, review=.9 if m == 6 else .1)
+                for m in (4, 5, 6) for method in r.METHODS]
+        selected = [x for x in grid if x['first_m'] == 4]
+        self.assertEqual(len(r.validate_grids(grid, selected, require_full=False)), 1)
+        for bad_m in (5, 6):
+            with self.assertRaisesRegex(RuntimeError, 'construction800'):
+                r.validate_grids(grid, [x for x in grid if x['first_m'] == bad_m], require_full=False)
+
+    def test_missing_header_never_zero_filled(self):
+        missing = row('TWO_STAGE', second_header_symbols=16, status='MISSING_ASSET',
+                      train_mean='', review_mean='', max_used_symbols='')
+        self.assertIsNone(r.normalize_summary(missing)['train_mean'])
+        with self.assertRaisesRegex(RuntimeError, 'invented'):
+            r.normalize_summary(dict(missing, train_mean=0, review_mean=0))
+        with self.assertRaisesRegex(RuntimeError, '16-symbol'):
+            r.normalize_summary(row('TWO_STAGE', second_header_symbols=16))
+
+    def test_no_duplicate_or_missing_grid(self):
+        grid = [row(m) for m in r.METHODS]
+        with self.assertRaisesRegex(RuntimeError, 'Duplicate'):
+            r.validate_grids(grid + [grid[0]], grid, require_full=False)
+        with self.assertRaisesRegex(RuntimeError, 'Incomplete'):
+            r.validate_grids(grid, grid)
+
+    def test_source_pairing_and_summary_consistency(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / 'source.csv'
+            values = [dict(cell_id='m4', method='FIXED', source_id=s, population='internal_verification200',
+                           quality_point=v, bad_probability=0) for s, v in [('b', .2), ('a', .4)]]
+            r.save_csv(p, values)
+            got = r.load_source_scores(p, [row('FIXED', review=.3)], ['a', 'b'])
+            np.testing.assert_array_equal(got['m4', 'FIXED'][:, 0], [.4, .2])
+            with self.assertRaisesRegex(RuntimeError, 'means disagree'):
+                r.load_source_scores(p, [row('FIXED', review=.4)], ['a', 'b'])
+
+    def test_bootstrap_preserves_pairing_unknown_mass(self):
+        a = np.array([[.7, .1], [.3, .1]])
+        b = np.array([[.5, .05], [.1, .05]])
+        result = r.calculate_intervals([{}], [r.difference_vector(a, b)], r.bootstrap_weights(2, 100))[0]
+        self.assertAlmostEqual(result['source_ci_low'], .2)
+        self.assertAlmostEqual(result['source_ci_high'], .2)
+        self.assertAlmostEqual(result['unknown_event_mean_lower'], .05)
+        self.assertAlmostEqual(result['unknown_event_mean_upper'], .35)
+
+    def test_primary_uses_uniform_training_not_content_or_review(self):
+        grid = []
+        for bits in (1, 2):
+            for method in r.METHODS:
+                grid.append(row(method, feedback_bits=bits, cell_id='b'+str(bits),
+                                train=.6 if bits == 1 else .5, review=.1 if bits == 1 else .9))
+        r.validate_primary(grid, [x for x in grid if x['feedback_bits'] == 1])
+        with self.assertRaisesRegex(RuntimeError, 'construction800'):
+            r.validate_primary(grid, [x for x in grid if x['feedback_bits'] == 2])
+
+    def test_receipt_and_immutable_lf_outputs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / 'table.csv'
+            r.save_csv(p, [dict(a=1, b=2)])
+            self.assertNotIn(b'\r', p.read_bytes())
+            done = Path(tmp) / 'completion.json'
+            r.save_json(done, dict(status='COMPLETE', outputs={str(p): r.sha(p)}))
+            r.verify_receipt(done)
+            with self.assertRaisesRegex(RuntimeError, 'changed'):
+                r.save_csv(p, [dict(a=2, b=2)])
+            p.write_bytes(b'bad\n')
+            with self.assertRaisesRegex(RuntimeError, 'binding changed'):
+                r.verify_receipt(done)
+
+    def test_policy_matched_control_and_every_path(self):
+        first = dict(state_id='m4_K0', symbols=100)
+        action = dict(start_state='m4_K0', stop=False, symbols=200)
+        policy = dict(kind='TWO_STAGE', pilot_symbols=16, first=first, first_forward_symbols=168,
+                      feedback_bits=1, feedback_symbols=16, second_header_symbols=68, thresholds_db=[7],
+                      feedback_content='SNR_bin_only_NO_ACK', same_h=True, second_actions=[action, action])
+        content = dict(policy, kind='TWO_STAGE_C8', first_stage_shared=True, tree_choice_before_unknown_bin=True,
+                       trees=[dict(public_header_id=0, second_actions=[action, action])])
+        del content['second_actions']
+        def fixture(a, b):
+            digest = lambda p: hashlib.sha256(json.dumps(p, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+            rows = [row(p['kind'], max_used_symbols=468, policy_id=digest(p)) for p in (a, b)]
+            return rows, dict(public_header_bits=12, public_tree_ids_local_to_frozen_operating_cell=True,
+                              policies={digest(p): p for p in (a, b)})
+        r.validate_policies(*fixture(policy, content))
+        changed = copy.deepcopy(content); changed['thresholds_db'] = [10]
+        with self.assertRaisesRegex(RuntimeError, 'matched uniform'):
+            r.validate_policies(*fixture(policy, changed))
+        changed = copy.deepcopy(content); changed['trees'][0]['second_actions'][0]['symbols'] = 900
+        with self.assertRaisesRegex(RuntimeError, 'exceeds'):
+            r.validate_policies(*fixture(policy, changed))
+
+    def test_markdown_has_no_trailing_whitespace(self):
+        text = r.markdown_report(dict(full_grid_method_rows=10368, selected_method_rows=3456,
+                                     selected_missing_method_rows=576), [], [], 'fixture')
+        self.assertTrue(all(line == line.rstrip() for line in text.splitlines()))
+
+
+if __name__ == '__main__':
+    unittest.main()

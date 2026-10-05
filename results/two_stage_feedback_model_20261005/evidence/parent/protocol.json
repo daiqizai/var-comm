@@ -1,0 +1,151 @@
+{
+  "schema": "TWO_STAGE_FEEDBACK_MODEL_20261005_V1",
+  "status": "FROZEN_BEFORE_SELECTION",
+  "authorization": "User requested pilot accounting and table-model two-stage scan; prior A1/A2 queues remain unchanged.",
+  "parent_report_commit": "8559a053d30e49fc566d4911045738474315887a",
+  "parent_provenance_commit": "52dea3c20b2fed5eb066537c5d318274341b82ff",
+  "parent_protocol_sha256": "446a151d1c5c62f32c7a18c6c1f5baa8993406e5b198818194f05cef9f570777",
+  "N": 1024,
+  "average_snrs_db": [
+    4,
+    7,
+    10,
+    13
+  ],
+  "metric": "dinov2_vitl14_cosine",
+  "first_m": [
+    4,
+    5,
+    6
+  ],
+  "feedback_bits": [
+    1,
+    2,
+    3
+  ],
+  "feedback_symbols": [
+    8,
+    16,
+    32
+  ],
+  "second_header_symbols": [
+    0,
+    16,
+    68
+  ],
+  "pilot_symbols": [
+    0,
+    8,
+    16,
+    32
+  ],
+  "primary_pilot_symbols": 16,
+  "primary_feedback_symbols": 16,
+  "primary_second_header_symbols": 68,
+  "zero_pilot_diagnostic_only": true,
+  "pilot_scope": "Resource-only overhead under ideal RX and feedback channel estimates; no finite-pilot estimation-error simulation and no claim of nonideal receiver performance.",
+  "channel": {
+    "distribution": "Rayleigh_CN0_1",
+    "same_h_all_phases": true,
+    "mean_Es": 2,
+    "conditional_packet_independence_given_h": true,
+    "feedback_reliable": true,
+    "feedback_content": "Only the registered quantized SNR bin; no additional ACK/NACK or free source-adaptive configuration bits.",
+    "TX_observations": "Source-derived expected quality, mean SNR, frozen public policies, and paid quantized SNR feedback; no instantaneous h or noise realization.",
+    "CSI": "Ideal receiver estimate; integration coordinate is only used by the channel/feedback model, not exposed to the transmitter decision beyond its bin."
+  },
+  "header_modes": {
+    "measured_headers": {
+      "first_68": "Existing real header success/failure/undetected probability curve.",
+      "second_68": "Same existing curve, conditionally independent noise given common h.",
+      "second_16": "MISSING_HEADER_PHY; never rescale the 68-symbol header curve.",
+      "second_0": "No second header; exact configuration is inferred from the paid first policy-tree ID and public feedback bin."
+    },
+    "ideal_controls": {
+      "scope": "Paid, error-free controls including first header; overhead diagnostic only, not a physical result.",
+      "first_68": "Always correct, all 68 symbols charged.",
+      "second_0_16_68": "Always correct, all specified symbols charged."
+    }
+  },
+  "methods": {
+    "FIXED": "All frozen original 4041 resource-feasible profiles plus compatible measured supplemental layouts; no feedback.",
+    "QCSI": "Same strong profile catalog after paying pilots, feedback and first 68-symbol header; source-independent policy per quantized bin.",
+    "TWO_STAGE": "First complete m4/m5/m6 prefix; exactly matched existing PHY; one quantized-SNR feedback then suffix or STOP. All first-PHY candidates and registered quantizers searched on construction800.",
+    "TWO_STAGE_C8": "Matched to population TWO_STAGE first PHY and quantizer. Up to 8 public suffix-policy trees chosen from construction800 per-source optimal trees plus the uniform tree; source-informed tree choice occurs before CSI feedback."
+  },
+  "content_dictionary": {
+    "maximum_size": 8,
+    "include_uniform_tree": true,
+    "greedy": "Maximize construction800 mean of per-source maximum expected quality; stop when marginal gain is nonpositive.",
+    "initial_header": "12-bit paid first header identifies the selected whole public tree, including second-stage configuration for each feedback bin.",
+    "first_phase_duration": "Fixed/public within each cell; feedback timing does not depend on successful header decoding.",
+    "not_joint_first_stage_optimization": true,
+    "internal200": "May choose among already frozen 8 trees using its own source qualities at transmission, but never constructs the dictionary or selects global parameters."
+  },
+  "search": {
+    "qcsi_threshold_pool_db": [
+      -5,
+      0,
+      4,
+      7,
+      10,
+      13,
+      19
+    ],
+    "threshold_partitions_per_feedback_bits": {
+      "1": 7,
+      "2": 35,
+      "3": 1
+    },
+    "all_registered_threshold_partitions": true,
+    "candidate_PHY": "Exact payload bits, modulation, coded length, rate-matching layout and CRC compatibility only. Frozen original body catalog plus the 15 physically qualified supplemental configurations. No old R-action pruning.",
+    "terminal_states": "All available registered Q states reachable by an exactly matching suffix payload; no truncation to whole-scale states.",
+    "STOP": true,
+    "source_split": "Reuse parent C/split.json exactly: SHA256 compact JSON [C/SOURCE_SPLIT,2026100501,source_id]; 800 construction and 200 internal verification.",
+    "global_selection": "All policies, splits and other global choices use construction800 only; retain each requested grid cell. Never pick a headline from internal200.",
+    "tie_break": "Deterministic stable registered action order; exact implementation recorded in source snapshot.",
+    "main_point_selection": "At pilot16/feedback16/header68/measured_headers, choose feedback bit count and first split by construction800 for each SNR. Other grid cells remain visible."
+  },
+  "probability_model": {
+    "interpolation": "Linear in dB with constant endpoint tails, inherited working assumption.",
+    "quadrature_order": 32,
+    "quadrature_diagnostic_order": 16,
+    "integration": "Joint conditional products at same h, split at table knots and feedback thresholds; never multiply independently averaged packet probabilities.",
+    "undetected_state": "Absorbing unknown state U; point quality 0, bounds [-1,1]. Header wrong-accept and body undetected error never map to a clean cached Q.",
+    "gray_state": "Cached original gray quality when no correct trusted prefix is available and no U event.",
+    "second_failure": "Retain first trusted prefix after detected failure; suffix ignored unless first prefix is trusted.",
+    "signed_quality_increments": true,
+    "source_payload_applicability": "Inherited iid-scrambled-payload BLER model has not been validated as a physical result for this new two-stage protocol.",
+    "missing_quality": "Unavailable; no imputation."
+  },
+  "resource_accounting": {
+    "units": "Complex channel symbols, including reverse feedback as a symbol-equivalent cost.",
+    "fixed": "pilot+68+body<=1024 for every profile",
+    "qcsi": "pilot+feedback+68+body<=1024 for every quantized bin",
+    "two_stage": "pilot+68+body1+feedback+header2+body2<=1024 for every public tree branch; STOP has no second header/body.",
+    "all_methods_pay_matched_pilots": true,
+    "mean_power": "Inherited equal mean energy convention; 16QAM not advertised as per-frame equal-energy.",
+    "metadata": "Public codebooks and bin partitions frozen before internal verification; selected tree ID paid within first 12 bits, verified codebook size<=4096 per public operating setting."
+  },
+  "verification": {
+    "bootstrap_repeats": 5000,
+    "bootstrap_seed": 2026100504,
+    "bootstrap_unit": "One of the fixed internal200 sources; paired expected-model scores.",
+    "interval_scope": "Descriptive variation across sources, conditional on frozen probability/quality model. Does not include BLER estimation uncertainty and is not a measured-link confidence interval.",
+    "development_used": false,
+    "new_image_inference": 0,
+    "new_PHY_decodes": 0,
+    "new_GPU_jobs": 0,
+    "training_steps": 0,
+    "independent_metric": "Only reuse aligned cached metrics where available; unavailable metrics are explicitly marked, no new neural evaluation."
+  },
+  "stopping": {
+    "deliver_negative_or_uncertain": true,
+    "automatic_candidate_or_budget_expansion": false,
+    "automatic_real_link_followup": false,
+    "A1_A2_unchanged": true,
+    "old_content_feedback_results_unchanged": true,
+    "old_F1_UNCERTAIN_F2_not_authorized": true,
+    "stop_after_report_and_normal_push": true
+  }
+}

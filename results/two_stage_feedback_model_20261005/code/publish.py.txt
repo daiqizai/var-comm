@@ -1,0 +1,633 @@
+"""Prepare a text-only model release; publish only after both older owners exit.
+
+Preparation writes only OUT/.publishing. There is no shared lock with A1/A2:
+their immutable delivery receipts and exited process identities are a mandatory
+publication gate. This helper never runs science, repairs Git history, unstages
+other work, or modifies old queues. Call prepare, review, then explicitly publish.
+"""
+from __future__ import annotations
+
+import argparse
+import contextlib
+import csv
+import hashlib
+import io
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import time
+import traceback
+
+VERSION = 'TWO_STAGE_FEEDBACK_TEXT_PUBLICATION_V1'
+RESULT = 'results/two_stage_feedback_model_20261005'
+REPORT = 'reports/two_stage_feedback_model_20261005.md'
+OUT_NAME = 'TWO-STAGE-FEEDBACK-MODEL-20261005'
+MAX_FILE = 10_000_000
+CSV_PART = 4_500_000
+FINAL_FILES = {
+    'grid_summary.csv', 'selected_summary.csv', 'primary_summary.csv',
+    'paired_differences.csv', 'matched_axis_effects.csv',
+    'display_points_selected_on_construction800.csv', 'sender_cost.csv',
+    'summary.json', 'candidate_coverage.json', 'primary_numerical_diagnostic.json',
+    'auxiliary_primary_metrics.csv', 'auxiliary_primary_paired.csv',
+    'frozen_primary_policies.json', 'metric_availability.json',
+    'parent_metric_provenance.json', 'FINAL_REPORT.md',
+    'reference_changes.csv', 'reference_dominance_checks.csv', 'historical_primary_summary.csv',
+    'primary_reference_numerical_diagnostic.json',
+}
+RAW_KEYS = {'tokens', 'token_ids', 'source_tokens', 'received_values', 'payload',
+            'source_payload', 'raw_bits', 'images', 'source_rgb', 'state_dict',
+            'weights', 'payload_hex', 'tx_payload', 'received_payload'}
+
+
+class Waiting(RuntimeError):
+    """Expected gate; no scientific work or index repair is authorized."""
+
+
+def require(ok, message):
+    if not ok:
+        raise RuntimeError(message)
+
+
+def read(path):
+    return json.loads(Path(path).read_text(encoding='utf-8-sig'))
+
+
+def sha(path):
+    value = hashlib.sha256()
+    with Path(path).open('rb') as stream:
+        for block in iter(lambda: stream.read(1048576), b''):
+            value.update(block)
+    return value.hexdigest()
+
+
+def data_sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def dump(value):
+    return (json.dumps(value, indent=2, ensure_ascii=False, allow_nan=False) + '\n').encode('utf-8')
+
+
+def write(path, value, immutable=False):
+    path = Path(path)
+    data = dump(value)
+    if immutable and path.exists():
+        require(path.read_bytes() == data, 'Immutable evidence differs: ' + str(path))
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + '.tmp')
+    tmp.write_bytes(data)
+    tmp.replace(path)
+
+
+def within(path, base):
+    path = Path(path).resolve()
+    require(path.is_relative_to(Path(base).resolve()), 'Path escapes registered scope: ' + str(path))
+    return path
+
+
+def allowed(relative):
+    p = Path(relative)
+    value = p.as_posix()
+    require(not p.is_absolute() and '..' not in p.parts and '\\' not in value,
+            'Unsafe relative publication path')
+    require(value == REPORT or value.startswith(RESULT + '/'), 'Outside this release: ' + value)
+    require(p.suffix in {'.json', '.csv', '.md', '.txt'}, 'Only text snapshots may be published')
+    return value
+
+
+def verify(bindings):
+    require(isinstance(bindings, dict), 'Hash mapping required')
+    for path, digest in bindings.items():
+        require(re.fullmatch('[0-9a-f]{64}', digest or '') is not None, 'Invalid SHA256')
+        require(sha(path) == digest, 'Frozen file changed: ' + path)
+
+
+def reject_raw(value, path='root'):
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if key == 'weights':
+                # Verbatim metric provenance contains weight-file fingerprints and
+                # five registered MS-SSIM scale coefficients, not model tensors.
+                file_fingerprint = (isinstance(item, dict) and set(item) == {'path', 'sha256'}
+                                    and isinstance(item['path'], str)
+                                    and re.fullmatch('[0-9a-f]{64}', item['sha256'] or '') is not None)
+                metric_coefficients = (path.endswith('.preprocessing') and isinstance(item, list)
+                                       and len(item) == 5
+                                       and all(type(x) in (int, float) and 0 <= x <= 1 for x in item))
+                require(file_fingerprint or metric_coefficients, 'Model weight arrays forbidden: ' + path)
+                continue
+            require(key not in RAW_KEYS, 'Raw/model content forbidden: ' + path + '.' + key)
+            if key == 'payload_bits':
+                require(type(item) is int and item >= 0, 'payload_bits must be a scalar length')
+            else:
+                reject_raw(item, path + '.' + key)
+    elif isinstance(value, list):
+        for item in value:
+            reject_raw(item, path + '[]')
+
+
+def inspect_text(data, suffix):
+    require(b'\x00' not in data, 'Binary content disguised as text')
+    text = data.decode('utf-8-sig')
+    result = {'bytes': len(data), 'sha256': data_sha(data)}
+    if suffix == '.json':
+        reject_raw(json.loads(text))
+    if suffix == '.csv':
+        rows = list(csv.reader(io.StringIO(text, newline='')))
+        require(bool(rows), 'CSV requires a schema row')
+        header = rows[0]
+        require(len(header) == len(set(header)), 'Duplicate CSV columns')
+        require(not set(header) & RAW_KEYS, 'Raw source/model columns forbidden')
+        for row in rows[1:]:
+            require(len(row) == len(header), 'Ragged CSV row')
+            if 'payload_bits' in header:
+                item = row[header.index('payload_bits')]
+                require(re.fullmatch(r'\d+', item or '') is not None,
+                        'CSV payload_bits must be an integer length')
+        result.update(schema=header, row_count=len(rows)-1)
+    return result
+
+
+def csv_parts(data, limit=CSV_PART):
+    """Exact byte partitions at CSV-record boundaries; concatenation restores input.
+
+    Only part 1 contains the original header. This avoids adding or removing any
+    byte; the accompanying manifest carries the common schema for every part.
+    """
+    require(0 < limit < MAX_FILE, 'Invalid CSV chunk limit')
+    inspect_text(data, '.csv')
+    lines = data.splitlines(keepends=True)
+    reader = csv.reader(io.StringIO(data.decode('utf-8-sig'), newline=''))
+    chunks, chunk, previous = [], bytearray(), 0
+    for _ in reader:
+        record = b''.join(lines[previous:reader.line_num])
+        previous = reader.line_num
+        require(len(record) < limit, 'One CSV record exceeds publication chunk size')
+        if chunk and len(chunk) + len(record) >= limit:
+            chunks.append(bytes(chunk)); chunk.clear()
+        chunk.extend(record)
+    if chunk:
+        chunks.append(bytes(chunk))
+    require(b''.join(chunks) == data, 'CSV split was not byte-preserving')
+    return chunks
+
+
+def completed(path, status, verify_outputs=True):
+    obj = read(path)
+    require(obj.get('status') == status, 'Incomplete receipt: ' + str(path))
+    if verify_outputs:
+        verify(obj.get('outputs', {}))
+    return obj
+
+
+def prepare(root, out, runtime, final, execution=None):
+    root, out = Path(root).resolve(), Path(out).resolve()
+    runtime, final = within(runtime, out), within(final, out)
+    execution = within(execution or out, out)
+    require(execution in (out, out/'reference_closure_r1'), 'Unregistered execution directory')
+    revision = execution != out
+    require(out == root / 'outputs' / OUT_NAME, 'Unexpected experiment output directory')
+    inventory_path = out / 'publication_inventory.json'
+    if inventory_path.exists():
+        inventory = read(inventory_path)
+        verify_prepared(root, out, inventory)
+        require(inventory.get('execution_dir', str(out)) == str(execution), 'Prepared execution differs')
+        return inventory
+    require(not (execution / 'owner_failure.json').exists(), 'Model owner failed; preserve and diagnose')
+    model = completed(execution / 'model_completion.json', 'MODEL_AND_REPORT_COMPLETE', False)
+    require(model.get('new_PHY_decodes') == 0 and model.get('new_visual_jobs') == 0
+            and model.get('development_read') is False, 'Unexpected scientific scope')
+    verify(model['input_and_source_bindings'])
+    require(model['config_sha256'] == sha(execution/'owner_config.json'), 'Model owner config differs')
+    if revision:
+        for name in ('model_completion.json', 'execution_registration.json'):
+            parent = out/name
+            require(model['input_and_source_bindings'].get(str(parent)) == sha(parent),
+                    'Reference closure lacks exact parent binding: ' + name)
+        require(model['input_and_source_bindings'].get(str(execution/'execution_registration.json'))
+                == sha(execution/'execution_registration.json'), 'Reference closure registration not owner-bound')
+    for stage in model['stages']:
+        require(sha(stage['completion']) == stage['completion_sha256'], 'Owner stage receipt changed')
+    receipt = completed(final / 'completion.json', 'COMPLETE')
+    expected_scope = ('TWO_STAGE_FEEDBACK_REFERENCE_CLOSURE_REPORT_R1' if revision
+                      else 'TWO_STAGE_FEEDBACK_MODEL_REPORT')
+    require(receipt.get('scope') == expected_scope
+            and receipt.get('scientific_scope') == 'EXPECTED_TABLE_MODEL_ONLY'
+            and receipt.get('actual_physical_decodes') == 0
+            and receipt.get('new_visual_inference') == 0, 'Expected table-model report required')
+    require(any(Path(s['completion']).resolve() == (final / 'completion.json').resolve()
+                for s in model['stages']), 'Final report is not bound by model owner completion')
+    verify(receipt.get('source_bindings', {}))
+    staging = out / '.publishing' / 'tree'
+    files, inputs, metadata, splits = {}, {}, {}, []
+
+    def add_data(relative, data, source=None, part=False):
+        relative = allowed(relative)
+        require(relative not in files, 'Duplicate prepared destination')
+        require(len(data) < MAX_FILE, 'Oversize publication file: ' + relative)
+        details = ({'bytes': len(data), 'sha256': data_sha(data), 'csv_fragment': True}
+                   if part else inspect_text(data, Path(relative).suffix))
+        dest = within(staging / relative, staging)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        if dest.exists():
+            require(dest.read_bytes() == data, 'Prepared collision: ' + relative)
+        else:
+            dest.write_bytes(data)
+        files[relative] = sha(dest)
+        metadata[relative] = details
+        if source:
+            source = Path(source).resolve()
+            inputs[str(source)] = sha(source)
+
+    def add(source, relative):
+        source = Path(source)
+        data = source.read_bytes()
+        inspect_text(data, source.suffix)
+        if source.suffix == '.csv' and len(data) >= CSV_PART:
+            parts = csv_parts(data)
+            names = []
+            for index, part in enumerate(parts):
+                name = relative + '.part%03d.csv' % index
+                add_data(name, part, source, part=True); names.append(name)
+            joined = b''.join((staging / n).read_bytes() for n in names)
+            require(data_sha(joined) == sha(source), 'Published CSV reconstruction differs')
+            manifest = dict(original_name=relative, source_sha256=sha(source), original_bytes=len(data),
+                            schema=inspect_text(data, '.csv')['schema'],
+                            row_count=inspect_text(data, '.csv')['row_count'],
+                            reconstruction='Concatenate binary parts in this order; only part 0 has a header.',
+                            parts=[dict(path=n, sha256=files[n], bytes=(staging/n).stat().st_size) for n in names])
+            add_data(relative + '.parts.json', dump(manifest)); splits.append(manifest)
+        else:
+            add_data(relative, data, source)
+
+    require(set(Path(p).name for p in receipt['outputs']) <= FINAL_FILES, 'Unreviewed final output schema')
+    for path in sorted(receipt['outputs']):
+        path = within(path, final)
+        require(path.parent == final, 'Nested final artifact not registered for publication')
+        if path.name == 'FINAL_REPORT.md':
+            add(path, REPORT)
+        else:
+            add(path, RESULT + '/final/' + path.name)
+    require(REPORT in files, 'Final Markdown report missing')
+    add(final / 'completion.json', RESULT + '/evidence/report_completion.json')
+    evidence_names = ('protocol.json', 'INPUT_MANIFEST.json', 'AUXILIARY_INPUT_MANIFEST.json',
+                     'execution_registration.json', 'model_completion.json', 'owner_config.json',
+                     'owner_identity.json', 'qualification.json', 'launch.json')
+    for folder, prefix in ((out, 'parent/' if revision else ''),) + (((execution, 'reference_closure_r1/'),) if revision else ()):
+        for name in evidence_names:
+            if (folder/name).is_file():
+                add(folder/name, RESULT + '/evidence/' + prefix + name)
+    if revision:
+        parent_owner = completed(out/'model_completion.json', 'MODEL_AND_REPORT_COMPLETE', False)
+        require(parent_owner['config_sha256'] == sha(out/'owner_config.json'), 'Historical owner config changed')
+        parent_report_stages = [s for s in parent_owner['stages'] if s.get('stage') == 'report']
+        require(len(parent_report_stages) == 1, 'Historical report stage is ambiguous')
+        parent_report_completion = within(parent_report_stages[0]['completion'], out)
+        require(sha(parent_report_completion) == parent_report_stages[0]['completion_sha256'],
+                'Historical report receipt changed')
+        parent_report = completed(parent_report_completion, 'COMPLETE')
+        require(parent_report.get('scope') == 'TWO_STAGE_FEEDBACK_MODEL_REPORT', 'Historical report scope differs')
+        add(parent_report_completion, RESULT+'/historical/original_report/completion.json')
+        for name in ('FINAL_REPORT.md', 'summary.json', 'primary_summary.csv'):
+            source = parent_report_completion.parent/name
+            require(parent_report['outputs'].get(str(source)) == sha(source), 'Historical report output unbound')
+            add(source, RESULT+'/historical/original_report/'+name)
+        add_data(RESULT+'/REFERENCE_CLOSURE.json', dump(dict(
+            status='INDEPENDENT_REFERENCE_CLOSURE_R1', original_science_files_unchanged=True,
+            reason='Original two-stage search combined exact PHY layouts more broadly than the fixed/QCSI profile list. R1 completes both reference catalogs before comparison.',
+            result_scope='The main report and final tables use R1 references; the historical directory preserves the original finite-reference result.',
+            parent_model_completion_sha256=sha(out/'model_completion.json'),
+            parent_registration_sha256=sha(out/'execution_registration.json'),
+            revision_registration_sha256=sha(execution/'execution_registration.json'))))
+    for source in sorted(runtime.glob('*.py')):
+        # The archive is readable text, never a live repository Python module.
+        add(source, RESULT + '/code/' + source.name + '.txt')
+    if revision:
+        revision_runtime = within(execution/'code', execution)
+        revision_sources = sorted(revision_runtime.glob('*.py'))
+        require(bool(revision_sources), 'Independent reference-closure source archive is missing')
+        for source in revision_sources:
+            source = within(source, revision_runtime)
+            require(model['input_and_source_bindings'].get(str(source)) == sha(source),
+                    'Reference-closure source is not owner-bound: ' + source.name)
+            add(source, RESULT + '/reference_closure_r1/code/' + source.name + '.txt')
+    for snr in (4, 7, 10, 13):
+        matching = [s for s in model['stages'] if s.get('stage') == 'search_snr' + str(snr)]
+        require(len(matching) == 1, 'Exactly one completed SNR stage is required')
+        shard = within(Path(matching[0]['completion']).parent, execution)
+        done = completed(shard / 'completion.json', 'COMPLETE', False)
+        require(done.get('real_decodes') == 0 and done.get('development_read') is False,
+                'Unexpected search scope')
+        if revision:
+            require(done.get('reference_scope') == 'SYMMETRIC_EXACT_FORMATS_R1',
+                    'Reference closure search receipt has wrong scope')
+        require(any(Path(s['completion']).resolve() == (shard / 'completion.json').resolve()
+                    for s in model['stages']), 'Search receipt not bound by model owner')
+        required_shard = ['primary_summary.csv', 'coverage.json', 'split.json']
+        required_shard.append('primary_reference_numerical_diagnostic.json' if revision
+                              else 'primary_numerical_diagnostic.json')
+        if revision and (shard/'primary_numerical_diagnostic.json').exists():
+            required_shard.append('primary_numerical_diagnostic.json')
+        for name in required_shard:
+            src = shard / name
+            require(done['outputs'].get(str(src)) == sha(src), 'Search artifact is not receipt-bound: ' + name)
+            add(src, RESULT + '/search_snr%d/%s' % (snr, name))
+        add(shard / 'completion.json', RESULT + '/search_snr%d/completion.json' % snr)
+        catalogue = shard / 'policies.json'
+        require(done['outputs'].get(str(catalogue)) == sha(catalogue), 'Policy catalogue not receipt-bound')
+        ids = {r['policy_id'] for r in csv.DictReader(io.StringIO((shard/'primary_summary.csv').read_text()))}
+        policies = read(catalogue)
+        require(ids <= set(policies['policies']), 'Primary policy missing from frozen catalogue')
+        inputs[str(catalogue)] = sha(catalogue)
+        add_data(RESULT + '/search_snr%d/primary_policies.json' % snr,
+                 dump(dict(policies={k: policies['policies'][k] for k in sorted(ids)},
+                           public_header_bits=policies['public_header_bits'],
+                           source_catalogue_sha256=sha(catalogue),
+                           selection='Exact policy IDs from the completed primary_summary.csv; no reselection')))
+    provenance = dict(status='PREPARED_TEXT_RELEASE', version=VERSION, files=dict(files), metadata=dict(metadata),
+                      input_bindings=dict(inputs), publisher_source_sha256=sha(__file__),
+                      exclusions=['NPZ', 'raw snapshots', 'per_source.csv', 'all-policy catalogue',
+                                  'integral caches', 'per-cell arrays', 'logs'],
+                      table_model_only=True, new_PHY_decodes=0, new_visual_inference=0)
+    add_data(RESULT + '/PUBLICATION_MANIFEST.json', dump(provenance))
+    inventory = dict(status='PREPARED_FOR_REVIEW', version=VERSION, root=str(root), out=str(out),
+                     execution_dir=str(execution), reference_closure_r1=revision,
+                     staging_tree=str(staging), files=files, metadata=metadata, input_bindings=inputs,
+                     publisher_source_sha256=sha(__file__), CSV_splits=splits,
+                     preparation_touched_repository=False, old_queues_untouched=True)
+    write(inventory_path, inventory, immutable=True)
+    return inventory
+
+
+def verify_prepared(root, out, inventory):
+    require(inventory.get('status') == 'PREPARED_FOR_REVIEW' and inventory.get('version') == VERSION,
+            'Reviewable prepared inventory required')
+    require(inventory['root'] == str(Path(root).resolve()) and inventory['out'] == str(Path(out).resolve()),
+            'Prepared root/output differ')
+    require(inventory['publisher_source_sha256'] == sha(__file__), 'Publisher changed after preparation')
+    staging = Path(out) / '.publishing' / 'tree'
+    require(Path(inventory['staging_tree']).resolve() == staging.resolve(), 'Staging tree changed')
+    verify(inventory['input_bindings'])
+    for relative, digest in inventory['files'].items():
+        path = within(staging / allowed(relative), staging)
+        require(sha(path) == digest and path.stat().st_size < MAX_FILE, 'Prepared output changed')
+    return staging
+
+
+def identity(pid):
+    base = Path('/proc') / str(pid)
+    fields = (base / 'stat').read_text().rsplit(')', 1)[1].split()
+    uid = int(next(s for s in (base/'status').read_text().splitlines() if s.startswith('Uid:')).split()[1])
+    return dict(pid=int(pid), start_ticks=int(fields[19]), uid=uid, state=fields[0])
+
+
+def exited(expected):
+    for key in ('pid', 'start_ticks', 'uid'):
+        require(type(expected.get(key)) in (str, int), 'Missing bound process identity')
+    try:
+        actual = identity(int(expected['pid']))
+    except (FileNotFoundError, ProcessLookupError):
+        return True
+    if str(actual['start_ticks']) != str(expected['start_ticks']):
+        return True
+    require(int(actual['uid']) == int(expected['uid']), 'Process identity UID mismatch')
+    return actual['state'] == 'Z'
+
+
+class Commands:
+    def __init__(self, root, out):
+        self.root, self.out = Path(root), Path(out)
+        self.index = 0
+
+    def run(self, argv, codes=(0,)):
+        env = os.environ.copy()
+        env.update(CUDA_VISIBLE_DEVICES='', OMP_NUM_THREADS='2', MKL_NUM_THREADS='2',
+                   OPENBLAS_NUM_THREADS='2', NUMEXPR_NUM_THREADS='2', PYTHONDONTWRITEBYTECODE='1')
+        result = subprocess.run([str(x) for x in argv], cwd=self.root, env=env,
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        self.index += 1
+        log = self.out / 'publication_checks' / ('%03d_%d.log' % (self.index, time.time_ns()))
+        log.parent.mkdir(parents=True, exist_ok=True)
+        log.write_text(result.stdout, encoding='utf-8')
+        require(result.returncode in codes, 'Publication command failed; log: ' + str(log))
+        return result.stdout.strip(), result.returncode
+
+
+def command(cmd, argv):
+    return cmd.run(argv)[0]
+
+
+def remote_head(cmd):
+    value = command(cmd, ['git', 'ls-remote', 'origin', 'refs/heads/main']).split()
+    require(len(value) == 2 and value[1] == 'refs/heads/main' and re.fullmatch('[0-9a-f]{40}', value[0]),
+            'Remote main identity unavailable')
+    return value[0]
+
+
+def remote_contains(cmd, commit, remote):
+    require(re.fullmatch('[0-9a-f]{40}', commit or '') is not None, 'Invalid published commit')
+    for value in (commit, remote):
+        _, rc = cmd.run(['git', 'cat-file', '-e', value + '^{commit}'], codes=(0, 1, 128))
+        if rc:
+            command(cmd, ['git', 'fetch', 'origin', 'main'])
+    command(cmd, ['git', 'merge-base', '--is-ancestor', commit, remote])
+
+
+def old_delivery_gate(root, cmd):
+    root = Path(root)
+    a1 = root / 'outputs/M1-ACTION-SPACE-CLOSURE-20261005'
+    a2 = root / 'outputs/PARALLEL-V2-20261005'
+    needed = [a1/'publication_completion.json', a1/'recovery_r1/completion.json',
+              a2/'a2_publication_completion.json', a2/'completion.json']
+    if not all(p.exists() for p in needed):
+        raise Waiting('READY_WAIT_FOR_OLD_DELIVERY: A1/A2 completion receipts are not all present')
+    for path in (a1/'owner_failure.json', a1/'recovery_r1/failure.json', a2/'owner_failure.json'):
+        require(not path.exists(), 'Old owner has an unresolved failure: ' + str(path))
+    p1, r1, p2, r2 = [read(p) for p in needed]
+    require(p1.get('status') == 'PUSHED_AND_STOPPED' and p1.get('checks') == 'PASS', 'A1 publication invalid')
+    require(p1.get('commit') == p1.get('remote_commit'), 'A1 remote receipt identity differs')
+    require(r1.get('status') == 'RECOVERY_DELIVERED_AND_STOPPED'
+            and r1.get('publication_completion_sha256') == sha(needed[0]), 'A1 recovery receipt invalid')
+    require(p1['registration_sha256'] == sha(a1/'registration.json')
+            and r1['original_registration_sha256'] == sha(a1/'registration.json')
+            and r1['recovery_registration_sha256'] == sha(a1/'recovery_r1/execution_registration.json'),
+            'A1 registration bindings differ')
+    for field, name in (('score_completion_sha256', 'score_completion.json'),
+                        ('report_completion_sha256', 'report_completion.json'),
+                        ('publication_inventory_sha256', 'publication_inventory.json')):
+        require(p1[field] == sha(a1/name), 'A1 completion binding differs: ' + name)
+    verify({str(within(root/k, root)): h for k, h in read(a1/'publication_inventory.json')['files'].items()})
+    require(p2.get('status') == 'PUSHED' and p2.get('mode') == 'a2'
+            and p2.get('no_force_push') is True, 'A2 publication receipt invalid')
+    require(p2.get('commit') == p2.get('remote_commit'), 'A2 remote receipt identity differs')
+    require(r2.get('status') == 'A2_PUBLISHED_AND_STOPPED'
+            and r2.get('config_sha256') == sha(a2/'owner_config.json'), 'A2 owner receipt invalid')
+    require(set(p2.get('checks_passed', [])) >= {'manifest', 'repository', 'cpu'}, 'A2 checks absent')
+    require(bool(p2.get('outputs')) and p2.get('files') == p2['outputs'], 'A2 published inventory absent')
+    for path in p2['outputs']:
+        within(path, root)
+    verify(p2['outputs'])
+    a2_report = completed(a2/'A2/report_completion.json', 'COMPLETE')
+    require(a2_report['registration_sha256'] == sha(a2/'A2/registration.json'), 'A2 report registration differs')
+    people = []
+    for path in (a1/'recovery_r1/recovery_owner_identity.json', a1/'owner_identity.json', a2/'owner_identity.json'):
+        require(path.exists(), 'Predecessor owner identity missing: ' + str(path))
+        people.append(read(path))
+    require(people[0]['recovery_registration_sha256'] == r1['recovery_registration_sha256'],
+            'Recovery owner identity not registration-bound')
+    require(people[-1]['config_sha256'] == r2['config_sha256'], 'A2 owner identity not config-bound')
+    cohort = read(a1/'production/cohort.json')
+    require(cohort.get('status') == 'READY' and cohort.get('stage') == 'production'
+            and cohort.get('registration_sha256') == p1['registration_sha256']
+            and len(cohort.get('workers', [])) == 4, 'A1 registered cohort unavailable')
+    people += [cohort['owner']] + cohort['workers']
+    if not all(exited(p) for p in people):
+        raise Waiting('READY_WAIT_FOR_OLD_DELIVERY: a registered A1/A2 process is still alive')
+    remote = remote_head(cmd)
+    remote_contains(cmd, p1['commit'], remote)
+    remote_contains(cmd, p2['commit'], remote)
+    return dict(status='OLD_DELIVERIES_VERIFIED_AND_EXITED',
+                receipts={str(p): sha(p) for p in needed}, process_identities=people,
+                A1_commit=p1['commit'], A2_commit=p2['commit'], remote_at_gate=remote,
+                no_shared_lock_claim=True)
+
+
+@contextlib.contextmanager
+def own_lock(out):
+    # Only serializes this helper; the old-delivery gate supplies the A1/A2 rule.
+    import fcntl
+    with (Path(out)/'publication.lock').open('a+') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        yield
+
+
+def check_index(cmd, root, files):
+    staged = set(command(cmd, ['git', 'diff', '--cached', '--name-only']).splitlines())
+    require(staged and staged <= set(files) | {'release_manifest.json'}, 'Index includes unrelated changes')
+    for relative in staged:
+        path = Path(root) / relative
+        expected = command(cmd, ['git', 'hash-object', '--', str(path)])
+        actual = command(cmd, ['git', 'rev-parse', ':' + relative])
+        require(actual == expected, 'Index content differs from checked working file: ' + relative)
+    command(cmd, ['git', 'diff', '--cached', '--check'])
+    return command(cmd, ['git', 'write-tree'])
+
+
+def publish(root, out, cmd=None):
+    root, out = Path(root).resolve(), Path(out).resolve()
+    cmd = cmd or Commands(root, out)
+    inventory_path = out/'publication_inventory.json'
+    require(inventory_path.exists(), 'Run prepare and review its inventory before publish')
+    inventory = read(inventory_path)
+    staging = verify_prepared(root, out, inventory)
+    receipt = out/'publication_completion.json'
+    if receipt.exists():
+        result = read(receipt)
+        require(result.get('status') == 'PUBLISHED' and result['inventory_sha256'] == sha(inventory_path),
+                'Existing publication receipt differs')
+        verify(result['outputs'])
+        remote_contains(cmd, result['commit'], remote_head(cmd))
+        return result
+    require(not (out/'publication_state.json').exists(),
+            'A publication attempt already mutated this checkout; preserve it for explicit diagnosis')
+    # No repository writes or index mutation before this gate succeeds.
+    gate = old_delivery_gate(root, cmd)
+    write(out/'publication_old_delivery_gate.json', gate)
+    if command(cmd, ['git', 'diff', '--cached', '--name-only']):
+        raise Waiting('READY_WAIT_FOR_CLEAN_INDEX: unrelated staged changes are preserved')
+    if command(cmd, ['git', 'diff', '--name-only']):
+        raise Waiting('READY_WAIT_FOR_CLEAN_WORKTREE: tracked changes need review')
+    require(command(cmd, ['git', 'branch', '--show-current']) == 'main', 'Expected main branch')
+    base = command(cmd, ['git', 'rev-parse', 'HEAD'])
+    if base != remote_head(cmd):
+        raise Waiting('READY_WAIT_FOR_CURRENT_MAIN: local HEAD and remote main differ; no history repair')
+    paths = sorted(inventory['files'])
+    python = root/'outputs/UNIFIED-METRICS-20261002/environment/bin/python'
+    require(python.is_file(), 'Registered UNIFIED Python environment is missing')
+    # Verify all collisions before copying even one prepared artifact.
+    for relative in paths:
+        dest = within(root/allowed(relative), root)
+        require(not dest.exists() or sha(dest) == inventory['files'][relative], 'Repository destination collision')
+    write(out/'publication_state.json', dict(status='COPYING_PREPARED_RELEASE', base_head=base,
+          inventory_sha256=sha(inventory_path), explicit_paths=paths, time=time.time()), immutable=True)
+    for relative in paths:
+        dest = root/relative
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        if not dest.exists():
+            dest.write_bytes((staging/relative).read_bytes())
+    published = {str(root/p): h for p, h in inventory['files'].items()}
+    verify(published)
+    # Batch by argument length; every batch is a subset of the explicit inventory.
+    for start in range(0, len(paths), 80):
+        command(cmd, ['git', 'add', '--'] + paths[start:start+80])
+    command(cmd, [python, '-B', 'tools/update_repository_manifest.py'])
+    command(cmd, ['git', 'add', '--', 'release_manifest.json'])
+    tree = check_index(cmd, root, inventory['files'])
+    command(cmd, [python, '-B', 'tools/verify_repository.py'])
+    command(cmd, [python, '-B', 'tools/run_cpu_checks.py'])
+    verify(published)
+    require(check_index(cmd, root, inventory['files']) == tree, 'Index changed during required checks')
+    require(command(cmd, ['git', 'rev-parse', 'HEAD']) == base and remote_head(cmd) == base,
+            'Repository or remote changed during publication; no automatic recovery')
+    command(cmd, ['git', 'commit', '-m', 'Report charged two-stage feedback table-model comparison'])
+    commit = command(cmd, ['git', 'rev-parse', 'HEAD'])
+    require(command(cmd, ['git', 'rev-parse', 'HEAD^']) == base
+            and command(cmd, ['git', 'rev-parse', 'HEAD^{tree}']) == tree, 'Unexpected committed tree/history')
+    write(out/'publication_committed.json', dict(commit=commit, base_head=base, tree=tree,
+          inventory_sha256=sha(inventory_path), time=time.time()), immutable=True)
+    command(cmd, ['git', 'push', 'origin', 'HEAD:main'])
+    remote = remote_head(cmd)
+    remote_contains(cmd, commit, remote)
+    result = dict(status='PUBLISHED', version=VERSION, commit=commit, remote_commit=remote,
+                  remote_contains_commit=True, no_force_push=True, explicit_paths=paths,
+                  inventory_sha256=sha(inventory_path), old_delivery_gate_sha256=sha(out/'publication_old_delivery_gate.json'),
+                  checks_passed=['manifest', 'repository', 'cpu', 'cached_diff', 'index_tree', 'remote_ancestry'],
+                  release_manifest_sha256_at_commit=sha(root/'release_manifest.json'),
+                  outputs=published, time=time.time(), scientific_work_repeated=False)
+    write(receipt, result, immutable=True)
+    return result
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--root', required=True)
+    parser.add_argument('--out', required=True)
+    parser.add_argument('--runtime-dir')
+    parser.add_argument('--final-dir')
+    parser.add_argument('--execution-dir', help='OUT/reference_closure_r1 for the independently registered reference closure')
+    parser.add_argument('--stage', choices=('prepare', 'publish'), required=True)
+    args = parser.parse_args()
+    root, out = Path(args.root).resolve(), Path(args.out).resolve()
+    require(out == root/'outputs'/OUT_NAME, 'Wrong task output')
+    if hasattr(os, 'sched_getaffinity'):
+        require({16, 17} <= os.sched_getaffinity(0), 'Publication CPU affinity unavailable')
+        os.sched_setaffinity(0, {16, 17})
+        current = os.getpriority(os.PRIO_PROCESS, 0)
+        if current < 15:
+            os.nice(15-current)
+    try:
+        with own_lock(out):
+            execution = Path(args.execution_dir).resolve() if args.execution_dir else out
+            result = (prepare(root, out, args.runtime_dir or out/'code', args.final_dir or execution/'report', execution)
+                      if args.stage == 'prepare' else publish(root, out))
+        print(json.dumps({k: result[k] for k in ('status', 'commit', 'remote_commit') if k in result}))
+    except Waiting as error:
+        result = dict(status='READY_WAIT_FOR_OLD_DELIVERY' if 'OLD_DELIVERY' in str(error)
+                      else 'WAITING_FOR_PUBLICATION', reason=str(error), time=time.time(),
+                      old_queues_untouched=True, index_untouched=True)
+        write(out/'publication_wait.json', result)
+        print(json.dumps(result))
+    except BaseException:
+        # Each failure is immutable and leaves working files, staging and logs intact.
+        write(out/('publication_failure_%d.json' % time.time_ns()),
+              dict(status='FAILED_PRESERVED', stage=args.stage, traceback=traceback.format_exc(),
+                   automatic_retry=False, old_queues_untouched=True), immutable=True)
+        raise
+
+
+if __name__ == '__main__':
+    main()

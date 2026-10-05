@@ -1,0 +1,194 @@
+"""Reuse cached metrics for frozen primary policies; no model inference or selection."""
+from pathlib import Path
+import csv
+import json
+import numpy as np
+
+METRICS = ('psnr_db', 'lpips_alex', 'dino_cosine', 'clip_image_cosine', 'dists',
+           'dreamsim', 'dinov2_vitl14_cosine', 'ms_ssim', 'resnet50_top1_label',
+           'resnet50_top1_source_prediction', 'resnet50_source_top1_label', 'semantic_error')
+BOUNDS = {name: (-1., 1.) for name in ('dino_cosine', 'clip_image_cosine', 'dinov2_vitl14_cosine')}
+BOUNDS.update({name: (0., 1.) for name in METRICS if name.startswith('resnet50_') or name == 'semantic_error'})
+
+
+def require(value, message):
+    if not value:
+        raise RuntimeError(message)
+
+
+def read_cache(path, sources, states):
+    """Read exact VAR/gray calibration rows, never direct-decoder or class-conditioned Q."""
+    si, ti = {v: i for i, v in enumerate(sources)}, {v: i for i, v in enumerate(states)}
+    require(len(si) == len(sources) and len(ti) == len(states), 'Duplicate source/state alignment')
+    seen = set()
+    with Path(path).open(encoding='utf-8-sig', newline='') as stream:
+        reader = csv.DictReader(stream)
+        available = [name for name in METRICS if name in reader.fieldnames]
+        arrays = {name: np.full((len(states), len(sources)), np.nan) for name in available}
+        for row in reader:
+            if row['receiver'] not in ('VAR', 'gray') or row['state_id'] not in ti:
+                continue
+            source, state = row['source_id'], row['state_id']
+            require(source in si and (source, state) not in seen, 'Unknown/duplicate cached source-state')
+            seen.add((source, state))
+            expected = 'constant_RGB_0.5' if state == 'gray' else 'unconditional_class1000_greedy_argmax_no_CFG_no_sampling'
+            require(row['population'] == 'calibration' and row['label_conditioned'].lower() in ('false', '0')
+                    and row['generation'] == expected and (state == 'gray') == (row['receiver'] == 'gray'),
+                    'Cached metric generation/population differs')
+            for name in available:
+                raw = row[name]
+                if raw in ('', None):
+                    continue
+                value = float(raw.lower() == 'true') if raw.lower() in ('true', 'false') else float(raw)
+                if np.isfinite(value):
+                    arrays[name][ti[state], si[source]] = value
+    require(len(seen) == len(sources) * len(states), 'Cached source-state grid incomplete')
+    complete = {k: v for k, v in arrays.items() if np.isfinite(v).all()}
+    require('dinov2_vitl14_cosine' in complete, 'Primary metric missing from cached state table')
+    return complete, sorted(set(METRICS) - set(complete))
+
+
+def weights_for_policy(policy, tree_ids, state_count):
+    trees = policy['trees'] if policy['kind'] == 'TWO_STAGE_C8' else [policy]
+    ids = np.asarray(tree_ids)
+    require(ids.ndim == 1 and np.issubdtype(ids.dtype, np.integer) and np.all((ids >= 0) & (ids < len(trees))),
+            'Frozen source tree IDs invalid')
+    weights = np.zeros((len(trees), state_count))
+    bad = np.empty(len(trees))
+    for i, tree in enumerate(trees):
+        if policy['kind'] == 'TWO_STAGE_C8':
+            require(tree['public_header_id'] == i, 'Public tree ID mapping changed')
+        for key, value in tree['state_weights'].items():
+            index, value = int(key), float(value)
+            require(0 <= index < state_count and np.isfinite(value) and value >= 0, 'Invalid known-state probability')
+            weights[i, index] = value
+        bad[i] = float(tree['bad_probability'])
+        require(0 <= bad[i] <= 1 and abs(weights[i].sum() + bad[i] - 1) <= 1e-9,
+                'Known and unknown probability mass does not sum to one')
+    return weights[ids], bad[ids]
+
+
+def metric_summary(values, bad, name, bootstrap):
+    values, bad = np.asarray(values), np.asarray(bad)
+    known = float(values.mean())
+    mass = float(bad.mean())
+    full = bool(np.all(bad == 0))
+    ci = np.quantile(bootstrap @ values, [.025, .975])
+    result = dict(known_state_weighted_contribution=known, unscored_probability=mass,
+                  total_mean=known if full else None,
+                  total_mean_status='IDENTIFIED_UNDER_FROZEN_TABLE_MODEL' if full else 'NOT_IDENTIFIED_FOR_U_STATES',
+                  known_contribution_source_ci_low=float(ci[0]), known_contribution_source_ci_high=float(ci[1]),
+                  interval_scope='descriptive_source_only_known_state_contribution',
+                  conditional_on_scored_state_mean=float(np.mean(values / (1 - bad))) if np.all(bad < 1) else None,
+                  used_for_policy_or_tree_selection=name == 'dinov2_vitl14_cosine')
+    if name in BOUNDS:
+        lo, hi = BOUNDS[name]
+        result.update(total_mean_lower=float(np.mean(values + lo * bad)), total_mean_upper=float(np.mean(values + hi * bad)),
+                      unknown_state_metric_range=[lo, hi])
+    else:
+        result.update(total_mean_lower=known if full else None, total_mean_upper=known if full else None,
+                      unknown_state_metric_range='NOT_ASSUMED')
+    return result
+
+
+def build(model_dir, quality_csv, manifest, verified_bindings, bootstrap):
+    from report import sha, read_json, read_csv, METHODS, SNRS, require as check
+    manifest, quality_csv = Path(manifest).resolve(), Path(quality_csv).resolve()
+    registration = read_json(manifest)
+    entries = registration.get('assets', registration.get('entries', {}))
+    check(entries, 'Auxiliary manifest has no assets')
+    bindings = {str(manifest): sha(manifest)}
+    provenance = {}
+    backbone_versions = {}
+    for name, entry in entries.items():
+        path = Path(entry['path'])
+        if not path.is_absolute():
+            path = manifest.parent / path
+        check(path.is_file() and sha(path) == entry['sha256'], 'Auxiliary asset changed: ' + name)
+        bindings[str(path.resolve())] = entry['sha256']
+        if name != 'quality_csv' and path.suffix.lower() in ('.json', '.md'):
+            provenance[name] = dict(path=str(path), sha256=entry['sha256'], verbatim=path.read_text(encoding='utf-8-sig'))
+            if path.suffix.lower() == '.json':
+                metadata = read_json(path).get('score_identity', {}).get('model_metadata', {})
+                if metadata:
+                    backbone_versions.update({metric: info.get('model_id', 'NOT_AVAILABLE')
+                                              for metric, info in metadata.get('metrics', {}).items()})
+                    backbone_versions['existing_dino'] = metadata.get('existing_dino', 'NOT_AVAILABLE')
+                    backbone_versions['backbone_relationships'] = metadata.get('backbone_relationships', 'NOT_AVAILABLE')
+    check(str(quality_csv) in bindings, 'Quality CSV must be independently registered')
+    bundles = [Path(p) for p in verified_bindings if Path(p).name == 'quality_bundle.json']
+    check(bundles, 'Search receipt must bind the original quality bundle')
+    for bundle in bundles:
+        check(read_json(bundle)['table_sha256'] == sha(quality_csv), 'Auxiliary CSV differs from the original frozen Q table')
+    arrays = None
+    rows, paired, frozen = [], [], []
+    for snr in SNRS:
+        folder = Path(model_dir) / ('search_snr' + str(snr))
+        for name in ('search.json', 'primary_summary.csv', 'policies.json'):
+            check(str((folder / name).resolve()) in verified_bindings, 'Auxiliary input not receipt-bound: ' + name)
+        search = read_json(folder / 'search.json')
+        sources, states = search['source_ids'], search['state_ids']
+        if arrays is None:
+            reference_sources, reference_states = sources, states
+            arrays, missing = read_cache(quality_csv, sources, states)
+        check(sources == reference_sources and states == reference_states, 'Auxiliary state/source mapping differs between shards')
+        review_ids = search['split']['verification_source_ids']
+        source_lookup = {s: i for i, s in enumerate(sources)}
+        indices = np.array([source_lookup[s] for s in review_ids])
+        check(len(indices) == bootstrap.shape[1] == 200, 'Auxiliary paired review population differs')
+        primary = read_csv(folder / 'primary_summary.csv')
+        catalog = read_json(folder / 'policies.json')['policies']
+        check(len(primary) == 4 and {r['method'] for r in primary} == set(METHODS)
+              and len({r['cell_id'] for r in primary}) == 1, 'Frozen primary comparison incomplete')
+        vectors = {}
+        for row in primary:
+            method, pid, cid = row['method'], row['policy_id'], row['cell_id']
+            npz = folder / 'cells' / (cid + '.npz')
+            check(str(npz.resolve()) in verified_bindings, 'Frozen primary source choices not receipt-bound')
+            policy = catalog[pid]
+            with np.load(npz, allow_pickle=False) as z:
+                ids = z[method + '_tree_id'].copy()
+                state_weights, bad = weights_for_policy(policy, ids, len(states))
+                computed = np.einsum('st,ts->s', state_weights, arrays['dinov2_vitl14_cosine'])
+                check(np.allclose(computed, z[method + '_quality_point'], atol=1e-10, rtol=0)
+                      and np.allclose(bad, z[method + '_bad_probability'], atol=1e-10, rtol=0),
+                      'Replayed frozen primary metric or unknown mass differs')
+            frozen.append(dict(average_snr_db=snr, cell_id=cid, method=method, policy_id=pid, policy=policy,
+                               source_ids=sources, frozen_source_tree_ids=ids.tolist(), state_ids=states))
+            for metric, matrix in arrays.items():
+                values = np.einsum('st,ts->s', state_weights, matrix)[indices]
+                uncertainty = bad[indices]
+                vectors[(method, metric)] = values, uncertainty
+                rows.append(dict(average_snr_db=snr, cell_id=cid, method=method, policy_id=pid, metric=metric,
+                                 sources=200, population='internal_verification200', primary_policy_frozen=True,
+                                 **metric_summary(values, uncertainty, metric, bootstrap)))
+        from report import PAIRS
+        for a, b in PAIRS:
+            for metric in arrays:
+                av, au = vectors[a, metric]
+                bv, bu = vectors[b, metric]
+                delta = av - bv
+                ci = np.quantile(bootstrap @ delta, [.025, .975])
+                full = bool(np.all(au == 0) and np.all(bu == 0))
+                item = dict(average_snr_db=snr, method_a=a, method_b=b, metric=metric,
+                            known_contribution_difference=float(delta.mean()), known_contribution_source_ci_low=float(ci[0]),
+                            known_contribution_source_ci_high=float(ci[1]), total_difference=float(delta.mean()) if full else None,
+                            total_difference_status='IDENTIFIED_UNDER_FROZEN_TABLE_MODEL' if full else 'NOT_IDENTIFIED_FOR_U_STATES',
+                            unscored_probability_a=float(au.mean()), unscored_probability_b=float(bu.mean()),
+                            used_for_policy_selection=metric == 'dinov2_vitl14_cosine', sources=200,
+                            bootstrap_repeats=bootstrap.shape[0], bootstrap_seed=2026100504)
+                if metric in BOUNDS:
+                    lo, hi = BOUNDS[metric]
+                    lower, upper = delta + lo * au - hi * bu, delta + hi * au - lo * bu
+                    item.update(total_difference_lower=float(lower.mean()), total_difference_upper=float(upper.mean()),
+                                total_difference_source_ci_low=float(np.quantile(bootstrap @ lower, .025)),
+                                total_difference_source_ci_high=float(np.quantile(bootstrap @ upper, .975)))
+                paired.append(item)
+    availability = dict(status='CACHED_METRICS_REWEIGHTED_FOR_FROZEN_PRIMARY_POLICIES', available_metrics=sorted(arrays),
+                        missing_metrics=missing, ConvNeXt='NOT_AVAILABLE_IN_REGISTERED_CACHE',
+                        F_recovery_error='NOT_AVAILABLE_IN_REGISTERED_CACHE', classifier='ResNet-50',
+                        metric_versions='See verbatim bound parent registration/provenance; absent version metadata is NOT_AVAILABLE',
+                        backbone_versions_verbatim=backbone_versions,
+                        no_new_neural_evaluations=True, no_auxiliary_selection=True, input_bindings=bindings)
+    return dict(rows=rows, paired=paired, frozen_primary_policies=frozen, availability=availability,
+                provenance=provenance, input_bindings=bindings)

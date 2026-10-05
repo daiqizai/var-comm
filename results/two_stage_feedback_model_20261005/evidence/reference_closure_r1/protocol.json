@@ -1,0 +1,95 @@
+{
+  "schema": "TWO_STAGE_REFERENCE_CATALOGUE_CLOSURE_R1",
+  "status": "FROZEN_BEFORE_REFERENCE_RESELECTION",
+  "parent_protocol_sha256": "3318b490d950d1668b0ec3054fc0840927b2b87ea12e6bad0127421bb28b3051",
+  "parent_execution_registration_sha256": "5be6cfae5fb0b2dc70b9c7c70ec215a58ae6e3858b047cbead72af2d859704af",
+  "reason": "Structural review found asymmetric candidate coverage: TWO_STAGE recombines exact first/suffix PHY while the original FIXED/QCSI used the legacy4041 plus measured supplemental profiles. Reference closure is needed to avoid attributing extra candidate flexibility to feedback timing.",
+  "trigger": "Code and protocol audit before inspecting scientific outcome values; not a response to held-out scores.",
+  "preserved": [
+    "Original protocol, owner, four complete SNR shards and report",
+    "All original TWO_STAGE and TWO_STAGE_C8 policies, first choices, quantizers, dictionaries and source tree IDs",
+    "Original construction800/internal200 split",
+    "Original DINO-L selection objective and all cached auxiliary metrics",
+    "A1/A2 and old C/R/F1 queues and conclusions"
+  ],
+  "N": 1024,
+  "average_snrs_db": [
+    4,
+    7,
+    10,
+    13
+  ],
+  "pilot_symbols": [
+    0,
+    8,
+    16,
+    32
+  ],
+  "feedback_bits": [
+    1,
+    2,
+    3
+  ],
+  "feedback_symbols": [
+    8,
+    16,
+    32
+  ],
+  "second_header_symbols": [
+    0,
+    16,
+    68
+  ],
+  "header_modes": [
+    "measured_headers",
+    "ideal_controls"
+  ],
+  "first_m": [
+    4,
+    5,
+    6
+  ],
+  "reference_candidates": {
+    "base": "Every resource-feasible original4041 profile and 15 qualified supplemental exact PHY single profiles.",
+    "closure": "Every registered first m4/m5/m6 complete-prefix PHY times every exactly matched suffix PHY reaching a cached Q state, plus STOP. No new PHY layout, payload truncation, terminal Q state, interpolation rule or source sample.",
+    "formats_per_cell": "The original single-initial-header format (second_header0) and the current cell's second_header format where its physical table exists or the cell is explicitly ideal_controls. measured_headers/H16 admits only the valid H0 format; TWO_STAGE/C8 H16 remain missing.",
+    "selection": "FIXED selects one whole format/pair on construction800 with no feedback. QCSI receives one paid SNR-bin feedback before all data; each bin may choose one complete format/pair using construction800. Enumerate every original 7/35/1 threshold partition.",
+    "resource_FIXED": "pilot+68+body1+optional_header2+body2<=1024 for every selected profile; no feedback cost.",
+    "resource_QCSI": "pilot+feedback+68+body1+optional_header2+body2<=1024 in every bin. Only one feedback charge; moving it before the first packet does not create extra CSI or a second feedback round.",
+    "public_control": "Per operating cell, at most8 chosen public profiles are pre-agreed. The paid12-bit first header identifies the complete selected profile; no free content-adaptive side information.",
+    "unknown_states": "Same-h conditional C/R/U products, absorbing U with point0 and quality bounds[-1,1], unchanged from the original model."
+  },
+  "primary_comparison": "Retain original TWO_STAGE construction800-selected bit count and m at pilot16/feedback16/H2=68/measured_headers. Replace only the FIXED/QCSI reference columns with the symmetric closure; retain old columns as an explicitly different candidate-catalogue diagnostic.",
+  "verification": {
+    "construction_dominance": "Closure FIXED and QCSI cannot fall below their original references; closure QCSI can reproduce every corresponding TWO_STAGE policy and cannot fall below its construction800 mean. Numerical tolerance1e-9. Internal200 has no forced dominance requirement.",
+    "no_reselection_on_internal200": true,
+    "bootstrap": "Reuse paired source resampling5000/seed2026100504 on the same internal200; these remain conditional table-model intervals, not measured-channel confidence intervals.",
+    "auxiliary": "Reweight existing quality_per_source.csv with frozen selected policy state weights; do not impute unknown U quality.",
+    "quadrature": "32-point search, then16-vs32 only for selected primary policies without reselection."
+  },
+  "interpretation": "For a fixed shared fading coefficient, ideal CSI available before transmission, and no ACK information, delaying the same SNR bin until after the first packet does not itself add information. Any remaining C8 effect must be assessed against the closed references and attributed only to its registered source-content conditioning.",
+  "resources": {
+    "max_workers": 2,
+    "threads_per_worker": 2,
+    "affinities": [
+      [
+        16,
+        17
+      ],
+      [
+        22,
+        23
+      ]
+    ],
+    "nice": 15,
+    "max_rss_bytes_per_worker": 2147483648,
+    "per_snr_search_seconds": 7200,
+    "overall_deadline_unix": 1791212149.5152075,
+    "deadline_source": "Original launch1791195949.5152075 plus its registered16200seconds; no automatic wall-cap expansion.",
+    "new_PHY_decodes": 0,
+    "new_visual_jobs": 0,
+    "training_steps": 0,
+    "development_used": false
+  },
+  "stopping": "Deliver the complete bounded model comparison even if two-stage or C8 has no gain. Preserve any failure and partial result; no automatic retry or additional experiment. Normal publication waits for the original A1/A2 publishers and owners to finish."
+}

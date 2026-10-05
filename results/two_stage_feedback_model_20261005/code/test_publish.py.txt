@@ -1,0 +1,364 @@
+"""CPU-only publication safety checks; no network, real Git, or job launch."""
+import csv
+import io
+import json
+from pathlib import Path
+import tempfile
+import unittest
+import shutil
+from unittest.mock import patch
+
+import publish as p
+
+
+def put(path, value):
+    p.write(path, value)
+    return p.sha(path)
+
+
+class Fixture:
+    def __init__(self, base):
+        self.root = Path(base)/'repo'
+        self.out = self.root/'outputs'/p.OUT_NAME
+        self.final = self.out/'final'
+        self.runtime = self.out/'code'
+        self.runtime.mkdir(parents=True)
+        (self.runtime/'model.py').write_text('COUNT = 1\n')
+        put(self.out/'protocol.json', {'N': 1024})
+        put(self.out/'INPUT_MANIFEST.json', {'entries': {}})
+        config_sha=put(self.out/'owner_config.json', {'schema':'OWNER_CONFIG'})
+        self.final.mkdir()
+        (self.final/'FINAL_REPORT.md').write_text('# Expected table-model result\n', encoding='utf-8')
+        (self.final/'primary_summary.csv').write_text('method,score\nFIXED,0.5\n')
+        put(self.final/'summary.json', {'status': 'MODEL_REPORT_COMPLETE', 'actual_physical_decodes': 0})
+        outputs = {str(x): p.sha(x) for x in self.final.iterdir()}
+        put(self.final/'completion.json', dict(status='COMPLETE', scope='TWO_STAGE_FEEDBACK_MODEL_REPORT',
+            scientific_scope='EXPECTED_TABLE_MODEL_ONLY', actual_physical_decodes=0, new_visual_inference=0,
+            outputs=outputs, source_bindings={}))
+        stages = [dict(stage='report', completion=str(self.final/'completion.json'), completion_sha256=p.sha(self.final/'completion.json'))]
+        for snr in (4, 7, 10, 13):
+            folder = self.out/'model'/('search_snr'+str(snr));folder.mkdir(parents=True)
+            (folder/'primary_summary.csv').write_text('policy_id,payload_bits\np1,3060\n')
+            for name in ('coverage.json', 'split.json', 'primary_numerical_diagnostic.json'):
+                put(folder/name, {'status': 'COMPLETE'})
+            put(folder/'policies.json', {'policies': {'p1': {'kind': 'FIXED', 'payload_bits': 3060},
+                                                    'unused': {'kind': 'FIXED'}}, 'public_header_bits': 12})
+            outputs = {str(x): p.sha(x) for x in folder.iterdir()}
+            put(folder/'completion.json', dict(status='COMPLETE', real_decodes=0, development_read=False, outputs=outputs))
+            stages.append(dict(stage='search_snr'+str(snr), completion=str(folder/'completion.json'), completion_sha256=p.sha(folder/'completion.json')))
+        put(self.out/'model_completion.json', dict(status='MODEL_AND_REPORT_COMPLETE', new_PHY_decodes=0,
+            new_visual_jobs=0, development_read=False, config_sha256=config_sha, stages=stages, input_and_source_bindings={}))
+
+    def prepare(self):
+        return p.prepare(self.root, self.out, self.runtime, self.final)
+
+    def revision(self):
+        execution=self.out/'reference_closure_r1'
+        final=execution/'report'
+        shutil.copytree(self.final,final)
+        put(self.out/'execution_registration.json',{'status':'REGISTERED_ORIGINAL'})
+        config_sha=put(execution/'owner_config.json',{'schema':'REGISTERED_REFERENCE_CLOSURE'})
+        reg=put(execution/'execution_registration.json',{'status':'REGISTERED_R1'})
+        done=p.read(final/'completion.json')
+        done['scope']='TWO_STAGE_FEEDBACK_REFERENCE_CLOSURE_REPORT_R1'
+        done['outputs']={str(final/Path(k).name):v for k,v in done['outputs'].items()}
+        put(final/'completion.json',done)
+        stages=[dict(stage='report',completion=str(final/'completion.json'),completion_sha256=p.sha(final/'completion.json'))]
+        for snr in (4,7,10,13):
+            original=self.out/'model'/('search_snr'+str(snr))
+            shard=execution/'model'/original.name
+            shutil.copytree(original,shard)
+            done=p.read(shard/'completion.json')
+            done['reference_scope']='SYMMETRIC_EXACT_FORMATS_R1'
+            done['outputs']={str(shard/Path(k).name):v for k,v in done['outputs'].items()}
+            new=shard/'primary_reference_numerical_diagnostic.json'
+            done['outputs'][str(new)]=put(new,{'status':'FROZEN_R1_REFERENCE_ORDER16_VS32'})
+            put(shard/'completion.json',done)
+            stages.append(dict(stage=shard.name,completion=str(shard/'completion.json'),completion_sha256=p.sha(shard/'completion.json')))
+        bindings={str(self.out/name):p.sha(self.out/name) for name in ('model_completion.json','execution_registration.json')}
+        bindings[str(execution/'execution_registration.json')]=reg
+        (execution/'code').mkdir()
+        for name in ('reference_closure_r1.py','reference_report_r1.py','test_reference_closure_r1.py'):
+            source=execution/'code'/name
+            source.write_text('# Frozen independent R1 source\n')
+            bindings[str(source)]=p.sha(source)
+        put(execution/'model_completion.json',dict(status='MODEL_AND_REPORT_COMPLETE',new_PHY_decodes=0,new_visual_jobs=0,
+            development_read=False,config_sha256=config_sha,input_and_source_bindings=bindings,stages=stages))
+        return execution,final
+
+
+class FakeCommands:
+    def __init__(self, root):
+        self.calls=[];self.root=root;self.head='a'*40;self.remote=self.head
+        self.staged=set();self.changed=False;self.didcommit=False;self.tree='b'*40
+
+    def run(self, argv, codes=(0,)):
+        a=[str(v) for v in argv];self.calls.append(a)
+        if a[:2] == ['git', 'ls-remote']:return self.remote+'\trefs/heads/main',0
+        if a[:4] == ['git','diff','--cached','--name-only']:return '\n'.join(sorted(self.staged)),0
+        if a[:3] == ['git','diff','--name-only']:return 'unrelated.py' if self.changed else '',0
+        if a[:2] == ['git','branch']:return 'main',0
+        if a[:2] == ['git','rev-parse']:
+            ref=a[2]
+            if ref=='HEAD':return self.head,0
+            if ref=='HEAD^':return 'a'*40,0
+            if ref=='HEAD^{tree}':return self.tree,0
+            if ref.startswith(':'):return 'f'*40,0
+        if a[:2] == ['git','hash-object']:return 'f'*40,0
+        if a[:2] == ['git','write-tree']:return self.tree,0
+        if a[:2] == ['git','add']:self.staged.update(a[3:]);return '',0
+        if a[:2] == ['git','commit']:self.head='c'*40;self.didcommit=True;return '',0
+        if a[:2] == ['git','push']:self.remote=self.head;return '',0
+        if 'tools/update_repository_manifest.py' in a:
+            (self.root/'release_manifest.json').write_text('{}\n');return '',0
+        return '',0
+
+
+class PublicationTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
+        self.fx=Fixture(self.tmp.name)
+
+    def old_deliveries(self):
+        root=self.fx.root
+        a1=root/'outputs/M1-ACTION-SPACE-CLOSURE-20261005'
+        a2=root/'outputs/PARALLEL-V2-20261005'
+        registration=put(a1/'registration.json',{'status':'REGISTERED'})
+        recovery_registration=put(a1/'recovery_r1/execution_registration.json',{'status':'REGISTERED_RECOVERY'})
+        artifact=root/'results/A1/report.txt';artifact.parent.mkdir(parents=True);artifact.write_text('old immutable result')
+        inventory=put(a1/'publication_inventory.json',{'files':{'results/A1/report.txt':p.sha(artifact)}})
+        score=put(a1/'score_completion.json',{'status':'COMPLETE'})
+        report=put(a1/'report_completion.json',{'status':'COMPLETE'})
+        pub=put(a1/'publication_completion.json',dict(status='PUSHED_AND_STOPPED',checks='PASS',
+            commit='a'*40,remote_commit='a'*40,registration_sha256=registration,
+            score_completion_sha256=score,report_completion_sha256=report,publication_inventory_sha256=inventory))
+        put(a1/'recovery_r1/completion.json',dict(status='RECOVERY_DELIVERED_AND_STOPPED',
+            publication_completion_sha256=pub,original_registration_sha256=registration,
+            recovery_registration_sha256=recovery_registration))
+        owner=dict(pid=101,start_ticks=500,uid=1002)
+        put(a1/'owner_identity.json',dict(pid=100,start_ticks=499,uid=1002))
+        put(a1/'recovery_r1/recovery_owner_identity.json',dict(owner,recovery_registration_sha256=recovery_registration))
+        put(a1/'production/cohort.json',dict(status='READY',stage='production',registration_sha256=registration,
+            owner=owner,workers=[dict(pid=200+i,start_ticks=600+i,uid=1002) for i in range(4)]))
+        a2config=put(a2/'owner_config.json',{'status':'REGISTERED'})
+        a2registration=put(a2/'A2/registration.json',{'status':'REGISTERED'})
+        put(a2/'A2/report_completion.json',dict(status='COMPLETE',registration_sha256=a2registration,outputs={}))
+        files={str(artifact):p.sha(artifact)}
+        put(a2/'a2_publication_completion.json',dict(status='PUSHED',mode='a2',no_force_push=True,
+            commit='a'*40,remote_commit='a'*40,outputs=files,files=files,checks_passed=['manifest','repository','cpu']))
+        put(a2/'completion.json',dict(status='A2_PUBLISHED_AND_STOPPED',config_sha256=a2config))
+        put(a2/'owner_identity.json',dict(pid=300,start_ticks=700,uid=1002,config_sha256=a2config))
+        return a1,a2
+
+    def test_prepare_has_no_repository_destinations(self):
+        inv=self.fx.prepare()
+        self.assertFalse((self.fx.root/'reports').exists())
+        self.assertFalse((self.fx.root/'results').exists())
+        self.assertEqual(inv['status'],'PREPARED_FOR_REVIEW')
+        self.assertIn(p.RESULT+'/code/model.py.txt',inv['files'])
+        self.assertNotIn(p.RESULT+'/code/model.py',inv['files'])
+        policies=p.read(self.fx.out/'.publishing/tree'/p.RESULT/'search_snr4/primary_policies.json')
+        self.assertEqual(set(policies['policies']),{'p1'})
+
+    def test_prepare_repeat_does_not_reselect(self):
+        inv=self.fx.prepare()
+        self.assertEqual(inv,self.fx.prepare())
+
+    def test_reference_closure_uses_own_owner_and_preserves_parent_evidence(self):
+        execution,final=self.fx.revision()
+        original=p.sha(self.fx.out/'model_completion.json')
+        inv=p.prepare(self.fx.root,self.fx.out,self.fx.runtime,final,execution)
+        self.assertTrue(inv['reference_closure_r1'])
+        self.assertEqual(inv['execution_dir'],str(execution.resolve()))
+        for rel in ('evidence/parent/model_completion.json','evidence/reference_closure_r1/model_completion.json',
+                    'historical/original_report/FINAL_REPORT.md','REFERENCE_CLOSURE.json',
+                    'search_snr4/primary_reference_numerical_diagnostic.json',
+                    'reference_closure_r1/code/reference_closure_r1.py.txt',
+                    'reference_closure_r1/code/reference_report_r1.py.txt',
+                    'reference_closure_r1/code/test_reference_closure_r1.py.txt'):
+            self.assertIn(p.RESULT+'/'+rel,inv['files'])
+        self.assertEqual(p.sha(self.fx.out/'model_completion.json'),original)
+        self.assertFalse((self.fx.root/'results').exists())
+
+    def test_reference_closure_rejects_unbound_extra_code(self):
+        execution,final=self.fx.revision()
+        (execution/'code/unregistered.py').write_text('# unregistered\n')
+        with self.assertRaisesRegex(RuntimeError,'not owner-bound'):
+            p.prepare(self.fx.root,self.fx.out,self.fx.runtime,final,execution)
+
+    def test_reference_closure_rejects_missing_independent_code_archive(self):
+        execution,final=self.fx.revision()
+        # Remove bindings and the three known fixture files to model an omitted archive.
+        owner=p.read(execution/'model_completion.json')
+        for source in (execution/'code').glob('*.py'):
+            del owner['input_and_source_bindings'][str(source)]
+            source.unlink()
+        put(execution/'model_completion.json',owner)
+        with self.assertRaisesRegex(RuntimeError,'source archive is missing'):
+            p.prepare(self.fx.root,self.fx.out,self.fx.runtime,final,execution)
+
+    def test_reference_closure_requires_parent_registration_and_model_hashes(self):
+        execution,final=self.fx.revision()
+        owner=p.read(execution/'model_completion.json')
+        del owner['input_and_source_bindings'][str(self.fx.out/'model_completion.json')]
+        put(execution/'model_completion.json',owner)
+        with self.assertRaisesRegex(RuntimeError,'exact parent binding'):
+            p.prepare(self.fx.root,self.fx.out,self.fx.runtime,final,execution)
+
+    def test_reference_closure_cannot_borrow_original_report_scope(self):
+        execution,final=self.fx.revision()
+        done=p.read(final/'completion.json');done['scope']='TWO_STAGE_FEEDBACK_MODEL_REPORT'
+        put(final/'completion.json',done)
+        owner=p.read(execution/'model_completion.json')
+        owner['stages'][0]['completion_sha256']=p.sha(final/'completion.json')
+        put(execution/'model_completion.json',owner)
+        with self.assertRaisesRegex(RuntimeError,'table-model report'):
+            p.prepare(self.fx.root,self.fx.out,self.fx.runtime,final,execution)
+
+    def test_prepared_input_change_rejected(self):
+        self.fx.prepare()
+        (self.fx.runtime/'model.py').write_text('COUNT = 2\n')
+        with self.assertRaisesRegex(RuntimeError,'Frozen file changed'):self.fx.prepare()
+
+    def test_payload_bit_length_is_safe_but_array_is_raw(self):
+        p.reject_raw({'payload_bits':3060, 'groups':[{'source_bits':400}]})
+        p.inspect_text(b'payload_bits,symbols\n3060,1024\n','.csv')
+        for bad in ({'payload_bits':[0,1]}, {'images':[[0]]}, {'tokens':[3]}):
+            with self.assertRaises(RuntimeError):p.reject_raw(bad)
+        with self.assertRaises(RuntimeError):p.inspect_text(b'payload_bits,symbols\n"[0,1]",2\n','.csv')
+
+    def test_metric_provenance_fingerprints_and_msssim_are_not_tensors(self):
+        p.reject_raw({'assets':{'weights':{'path':'weights.pt','sha256':'a'*64}},
+                      'preprocessing':{'weights':[.0448,.2856,.3001,.2363,.1333]}})
+        for bad in ({'weights':[.1,.2]}, {'weights':{'tensor':[[1,2]]}},
+                    {'weights':{'path':'weights.pt','sha256':'not-a-digest'}}):
+            with self.assertRaisesRegex(RuntimeError,'arrays forbidden'):p.reject_raw(bad)
+
+    def test_csv_record_split_exact_including_multiline_utf8(self):
+        data='method,note\n甲,"first\nsecond"\n乙,ok\n丙,end\n'.encode()
+        parts=p.csv_parts(data,35)
+        self.assertGreater(len(parts),1)
+        self.assertEqual(b''.join(parts),data)
+        self.assertTrue(all(len(x)<35 for x in parts))
+        self.assertEqual(list(csv.reader(io.StringIO(b''.join(parts).decode())))[1],['甲','first\nsecond'])
+
+    def test_large_csv_is_published_as_exact_parts(self):
+        src=self.fx.final/'grid_summary.csv';src.write_text('method,payload_bits\n'+'FIXED,3060\n'*15)
+        done=p.read(self.fx.final/'completion.json');done['outputs'][str(src)]=p.sha(src)
+        put(self.fx.final/'completion.json',done)
+        owner=p.read(self.fx.out/'model_completion.json');owner['stages'][0]['completion_sha256']=p.sha(self.fx.final/'completion.json')
+        put(self.fx.out/'model_completion.json',owner)
+        # The add threshold is patched; the split function is passed its small limit explicitly.
+        old=p.csv_parts
+        with patch.object(p,'CSV_PART',55), patch.object(p,'csv_parts',side_effect=lambda b:old(b,55)):
+            inv=self.fx.prepare()
+        split=inv['CSV_splits'][0]
+        tree=self.fx.out/'.publishing/tree'
+        combined=b''.join((tree/x['path']).read_bytes() for x in split['parts'])
+        self.assertEqual(combined,src.read_bytes())
+
+    def test_path_scope_rejects_escape_and_live_code(self):
+        for name in ('../reports/x.md','results/other/x.json',p.RESULT+'/live.py',p.RESULT+'/../x.json'):
+            with self.assertRaises(RuntimeError):p.allowed(name)
+
+    def test_model_failure_prevents_prepare(self):
+        put(self.fx.out/'owner_failure.json',{'status':'FAILED'})
+        with self.assertRaisesRegex(RuntimeError,'failed'):self.fx.prepare()
+
+    def test_unknown_final_output_rejected(self):
+        bad=self.fx.final/'unexpected.json';put(bad,{})
+        done=p.read(self.fx.final/'completion.json');done['outputs'][str(bad)]=p.sha(bad)
+        put(self.fx.final/'completion.json',done)
+        owner=p.read(self.fx.out/'model_completion.json');owner['stages'][0]['completion_sha256']=p.sha(self.fx.final/'completion.json')
+        put(self.fx.out/'model_completion.json',owner)
+        with self.assertRaisesRegex(RuntimeError,'Unreviewed'):self.fx.prepare()
+
+    def test_missing_old_delivery_does_not_copy_or_touch_git(self):
+        self.fx.prepare();cmd=FakeCommands(self.fx.root)
+        with self.assertRaisesRegex(p.Waiting,'OLD_DELIVERY'):p.publish(self.fx.root,self.fx.out,cmd)
+        self.assertEqual(cmd.calls,[])
+        self.assertFalse((self.fx.root/'results').exists())
+
+    def test_bound_old_receipts_and_all_processes_gate_release(self):
+        self.old_deliveries();cmd=FakeCommands(self.fx.root)
+        with patch.object(p,'exited',return_value=True) as check:
+            value=p.old_delivery_gate(self.fx.root,cmd)
+        self.assertEqual(value['status'],'OLD_DELIVERIES_VERIFIED_AND_EXITED')
+        self.assertEqual(check.call_count,8)
+        self.assertTrue(value['no_shared_lock_claim'])
+        self.assertEqual(sum(a[:3]==['git','merge-base','--is-ancestor'] for a in cmd.calls),2)
+
+    def test_old_owner_live_waits_without_remote_or_index_commands(self):
+        self.old_deliveries();cmd=FakeCommands(self.fx.root)
+        with patch.object(p,'exited',return_value=False):
+            with self.assertRaisesRegex(p.Waiting,'still alive'):p.old_delivery_gate(self.fx.root,cmd)
+        self.assertEqual(cmd.calls,[])
+
+    def test_changed_old_delivery_is_failure_not_normal_wait(self):
+        a1,_=self.old_deliveries()
+        put(a1/'score_completion.json',{'status':'CHANGED'})
+        with self.assertRaisesRegex(RuntimeError,'binding differs'):
+            p.old_delivery_gate(self.fx.root,FakeCommands(self.fx.root))
+
+    def test_new_old_owner_failure_is_preserved(self):
+        _,a2=self.old_deliveries();put(a2/'owner_failure.json',{'error':'new error'})
+        with self.assertRaisesRegex(RuntimeError,'unresolved failure'):
+            p.old_delivery_gate(self.fx.root,FakeCommands(self.fx.root))
+        self.assertTrue((a2/'owner_failure.json').exists())
+
+    def test_alive_recycled_zombie_process_identity(self):
+        wanted=dict(pid=55,start_ticks=100,uid=1002)
+        with patch.object(p,'identity',return_value=dict(wanted,state='R')):
+            self.assertFalse(p.exited(wanted))
+        with patch.object(p,'identity',return_value=dict(wanted,state='Z')):
+            self.assertTrue(p.exited(wanted))
+        with patch.object(p,'identity',return_value=dict(pid=55,start_ticks=101,uid=1002,state='R')):
+            self.assertTrue(p.exited(wanted))
+        with patch.object(p,'identity',return_value=dict(pid=55,start_ticks=100,uid=1003,state='R')):
+            with self.assertRaisesRegex(RuntimeError,'UID'):p.exited(wanted)
+
+    def test_unrelated_staging_is_preserved_before_repository_copy(self):
+        self.fx.prepare();cmd=FakeCommands(self.fx.root);cmd.staged={'old_A2.json'}
+        with patch.object(p,'old_delivery_gate',return_value={'status':'VERIFIED'}):
+            with self.assertRaisesRegex(p.Waiting,'CLEAN_INDEX'):p.publish(self.fx.root,self.fx.out,cmd)
+        self.assertFalse((self.fx.root/'results').exists())
+        self.assertFalse(any(x[:2]==['git','add'] for x in cmd.calls))
+        self.assertEqual(cmd.staged,{'old_A2.json'})
+
+    def test_explicit_normal_publish_checks_and_remote_verification(self):
+        inv=self.fx.prepare();cmd=FakeCommands(self.fx.root)
+        env=self.fx.root/'outputs/UNIFIED-METRICS-20261002/environment/bin/python'
+        env.parent.mkdir(parents=True);env.write_text('mock python')
+        with patch.object(p,'old_delivery_gate',return_value={'status':'VERIFIED'}):
+            result=p.publish(self.fx.root,self.fx.out,cmd)
+        self.assertEqual(result['status'],'PUBLISHED')
+        self.assertEqual(result['commit'],result['remote_commit'])
+        commands=cmd.calls
+        self.assertIn(['git','push','origin','HEAD:main'],commands)
+        self.assertTrue(any('tools/verify_repository.py' in c for c in commands))
+        self.assertTrue(any('tools/run_cpu_checks.py' in c for c in commands))
+        self.assertIn(['git','diff','--cached','--check'],commands)
+        self.assertIn(['git','merge-base','--is-ancestor',result['commit'],result['remote_commit']],commands)
+        for c in commands:
+            self.assertFalse(any(x in c for x in ('--force','reset','clean','config')))
+            if c[:2]==['git','add']:
+                self.assertTrue(set(c[3:]) <= set(inv['files'])|{'release_manifest.json'})
+
+    def test_failed_mutating_attempt_cannot_be_blindly_restarted(self):
+        self.fx.prepare();put(self.fx.out/'publication_state.json',{'status':'COPYING'})
+        with self.assertRaisesRegex(RuntimeError,'already mutated'):
+            p.publish(self.fx.root,self.fx.out,FakeCommands(self.fx.root))
+
+    def test_remote_may_advance_only_when_it_contains_commit(self):
+        class AncestorCommands:
+            def __init__(self):self.calls=[]
+            def run(self,a,codes=(0,)):
+                self.calls.append(a)
+                if a[:3]==['git','merge-base','--is-ancestor']:
+                    raise RuntimeError('not an ancestor')
+                return '',0
+        with self.assertRaisesRegex(RuntimeError,'not an ancestor'):
+            p.remote_contains(AncestorCommands(),'a'*40,'b'*40)
+
+
+if __name__=='__main__':unittest.main()

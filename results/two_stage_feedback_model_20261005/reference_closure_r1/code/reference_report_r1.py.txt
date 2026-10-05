@@ -1,0 +1,365 @@
+"""Independent report for symmetric exact-layout reference closure.
+
+The registered original search/report modules and outputs remain unchanged.
+Only FIXED/QCSI references are replaced; no GPU or physical decoder is loaded.
+"""
+from __future__ import annotations
+import argparse
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import sys
+
+os.environ['CUDA_VISIBLE_DEVICES'] = ''
+for _key in ('OMP_NUM_THREADS', 'MKL_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'NUMEXPR_NUM_THREADS'):
+    os.environ[_key] = '2'
+import numpy as np
+
+VERSION = 'TWO_STAGE_SYMMETRIC_REFERENCE_CLOSURE_REPORT_R1'
+SCOPE = 'TWO_STAGE_FEEDBACK_REFERENCE_CLOSURE_REPORT_R1'
+REFERENCES = ('FIXED', 'QCSI')
+UNCHANGED = ('TWO_STAGE', 'TWO_STAGE_C8')
+TOLERANCE = 1e-9
+
+
+def require(ok, message):
+    if not ok:
+        raise RuntimeError(message)
+
+
+def load_runtime(path):
+    path = Path(path).resolve()
+    for name in ('report', 'auxiliary'):
+        source = path / (name + '.py')
+        spec = importlib.util.spec_from_file_location(name, source)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        spec.loader.exec_module(module)
+    return sys.modules['report'], sys.modules['auxiliary']
+
+
+def canonical_sha(value):
+    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()).hexdigest()
+
+
+def reference_paths(policy, row):
+    """Compute every publicly identified forward layout, with feedback charged once."""
+    require(policy['kind'] == row['method'] and row['method'] in REFERENCES, 'Wrong reference policy kind')
+    require(policy['reference_closure'] == 'SYMMETRIC_EXACT_FORMATS_R1', 'Incomplete reference catalogue')
+    require(policy['pilot_symbols'] == row['pilot_symbols'], 'Reference pilot budget changed')
+    branches = policy['branches']
+    count = 1 if row['method'] == 'FIXED' else 2 ** row['feedback_bits']
+    require(len(branches) == count, 'Reference public branch count differs from feedback bins')
+    require([b['public_header_id'] for b in branches] == list(range(count)), 'Reference branch IDs are not public first-header IDs')
+    base = row['pilot_symbols'] + 68
+    if row['method'] == 'QCSI':
+        require(policy['feedback_bits'] == row['feedback_bits']
+                and policy['feedback_symbols'] == row['feedback_symbols'], 'Reference feedback cost differs')
+        require(len(policy['thresholds_db']) == count - 1, 'Reference quantizer bin count differs')
+        base += row['feedback_symbols']
+    allowed_headers = {0, row['second_header_symbols']}
+    if row['header_mode'] == 'measured_headers' and row['second_header_symbols'] == 16:
+        allowed_headers = {0}
+    paths = []
+    for branch in branches:
+        if branch['format'] == 'CATALOG':
+            used = base + sum(g['symbols'] for g in branch['profile']['groups'])
+        else:
+            require(branch['format'] == 'PAIR', 'Unregistered reference layout family')
+            first, second = branch['first'], branch['second']
+            require(first['state_id'] in ('m4_K0', 'm5_K0', 'm6_K0')
+                    and second['start_state'] == first['state_id'], 'Reference pair prefix is not contiguous')
+            header = branch['second_header_symbols']
+            require(header in allowed_headers, 'Reference uses an unavailable or unmatched second header format')
+            extra = 0 if second['stop'] else header + second['symbols']
+            used = base + first['symbols'] + extra
+        require(0 <= used <= 1024, 'Reference public path exceeds N1024')
+        paths.append(used)
+    require(abs(max(paths) - row['max_used_symbols']) <= TOLERANCE, 'Reference summary resource maximum differs')
+    return paths
+
+
+def validate_policy_catalog(report, grid, policies):
+    require(policies.get('public_header_bits') == 12
+            and policies.get('public_tree_ids_local_to_frozen_operating_cell') is True,
+            'Reference first-header identification contract is missing')
+    for pid, policy in policies['policies'].items():
+        require(canonical_sha(policy) == pid, 'Reference policy hash differs')
+    original_style = [row for row in grid if row['method'] in UNCHANGED]
+    report.validate_policies(original_style, policies)
+    count = 0
+    for row in grid:
+        if row['method'] in REFERENCES and row['status'] == 'MODEL_ONLY':
+            reference_paths(policies['policies'][row['policy_id']], row)
+            count += 1
+    return dict(status='PASS', reference_method_rows=count, all_paths_at_most_1024=True,
+                first_header_symbols=68, public_header_bits=12, reference_feedback_paid_once=True)
+
+
+def merge_checks(original, revised):
+    """Validate reference monotonicity only on the construction population."""
+    old = {(r['cell_id'], r['method']): r for r in original}
+    new = {(r['cell_id'], r['method']): r for r in revised}
+    require(len(old) == len(original) and len(new) == len(revised) and set(old) == set(new),
+            'Reference closure changed the registered cell grid')
+    changes, dominance = [], []
+    for key, row in new.items():
+        prior = old[key]
+        require(all(row[k] == prior[k] for k in ('average_snr_db', 'header_mode', 'pilot_symbols', 'feedback_bits',
+                'feedback_symbols', 'second_header_symbols', 'first_m', 'status')), 'Reference closure changed grid or availability')
+        if row['method'] in UNCHANGED:
+            for field in ('policy_id', 'train_mean', 'review_mean', 'max_used_symbols',
+                          'bad_probability_train', 'bad_probability_review', 'mean_used_symbols', 'mean_used_symbols_train'):
+                require(row.get(field) == prior.get(field), 'Original two-stage result changed: ' + field)
+            continue
+        if row['status'] != 'MODEL_ONLY':
+            continue
+        gain = row['train_mean'] - prior['train_mean']
+        require(gain >= -TOLERANCE, 'Expanded reference is worse than its original construction-set optimum')
+        changes.append(dict(cell_id=row['cell_id'], method=row['method'], average_snr_db=row['average_snr_db'],
+                            header_mode=row['header_mode'], pilot_symbols=row['pilot_symbols'],
+                            feedback_bits=row['feedback_bits'], feedback_symbols=row['feedback_symbols'],
+                            second_header_symbols=row['second_header_symbols'], first_m=row['first_m'],
+                            old_policy_id=prior['policy_id'], new_policy_id=row['policy_id'],
+                            old_train_mean=prior['train_mean'], new_train_mean=row['train_mean'], train_difference=gain,
+                            old_review_mean=prior['review_mean'], new_review_mean=row['review_mean'],
+                            review_difference=row['review_mean'] - prior['review_mean'],
+                            review_used_for_selection=False, original_results_preserved=True))
+        if row['method'] == 'QCSI':
+            two = old[row['cell_id'], 'TWO_STAGE']
+            if two['status'] == 'MODEL_ONLY':
+                delta = row['train_mean'] - two['train_mean']
+                require(delta >= -TOLERANCE, 'Symmetric reference closure failed QCSI >= TWO_STAGE construction dominance')
+                dominance.append(dict(cell_id=row['cell_id'], average_snr_db=row['average_snr_db'],
+                                      qcsi_train_mean=row['train_mean'], two_stage_train_mean=two['train_mean'],
+                                      qcsi_minus_two_stage=delta, tolerance=TOLERANCE, status='PASS',
+                                      review_dominance_required=False))
+    return changes, dominance
+
+
+def verify_unchanged_arrays(report, old_folder, new_folder, old_search, new_search, bindings):
+    require(old_search['source_ids'] == new_search['source_ids'] and old_search['state_ids'] == new_search['state_ids'],
+            'Reference closure changed source/state alignment')
+    checked = 0
+    # Both receipts bind each archive; compare the unchanged methods numerically
+    # without rewriting containers or mistaking a recompressed NPZ for new science.
+    old_cells = {p.stem: p for p in (Path(old_folder) / 'cells').glob('*.npz')}
+    new_cells = {p.stem: p for p in (Path(new_folder) / 'cells').glob('*.npz')}
+    require(set(old_cells) == set(new_cells), 'Reference closure array cell inventory changed')
+    for cid in sorted(old_cells):
+        old_path, new_path = old_cells[cid], new_cells[cid]
+        require(str(old_path.resolve()) in bindings and str(new_path.resolve()) in bindings,
+                'Unchanged array comparison is not receipt-bound')
+        with np.load(old_path, allow_pickle=False) as a, np.load(new_path, allow_pickle=False) as b:
+            for method in UNCHANGED:
+                for suffix in ('quality_point', 'bad_probability', 'mean_used_symbols', 'tree_id'):
+                    name = method + '_' + suffix
+                    require((name in a) == (name in b), 'Unchanged method array availability differs')
+                    if name in a:
+                        require(np.array_equal(a[name], b[name]), 'Two-stage source array changed: ' + cid + '/' + name)
+                        checked += 1
+    return dict(status='PASS', array_pairs_checked=checked, cells=len(old_cells), exact_numerical_equality=True)
+
+
+def report_markdown(summary, primary, historical, paired, auxiliary, numerical):
+    lines = ['# N1024 两阶段反馈表模型：完整参考集合 R1', '',
+             '本轮修正 FIXED 和 QCSI 的候选范围。正式四方法表采用完整参考集合；原报告、原结果和原两阶段/C8策略全部保留。'
+             '本报告仍是冻结质量表与物理概率表推导的期望值，没有新信道译码、图像生成或模型训练。', '',
+             '## 为什么需要修正', '',
+             '原两阶段方法枚举全部现有首轮 PHY 与后缀组合，而原 FIXED/QCSI 仅使用原目录及补充布局。'
+             '两边候选范围不同，旧差值可能混入候选集合的影响。R1 为两个参考加入全部 m4/m5/m6 首轮与合法后缀组合，'
+             '保留原目录；使用同样的精确物理曲线、资源预算及允许的头部格式。', '',
+             'QCSI 在发送前获得付费的量化 SNR；两阶段只把同样的信息放到首轮后获得。'
+             '在同一 h、理想 CSI、没有 ACK 的登记假设下，两阶段本身不增加信息。'
+             '完整参考必须能够重现两阶段的公共动作树，因此检查每格构造集 QCSI 不低于 TWO_STAGE。'
+             '这不要求独立 200 源的复核均值逐格单调。', '',
+             'C8 使用源图信息在冻结公共树字典中选择；其差值需要与完整 QCSI 同预算比较，不能沿用旧参考下的收益结论。', '',
+             '## 登记主点', '',
+             'N1024、导频 16、反馈 16、第二头部 68 符号、measured_headers。'
+             '反馈 bit 数和首轮 m 仍由原 800 源 TWO_STAGE 均值选择；两阶段/C8的首轮、阈值、字典与逐源树 ID 不改。'
+             '下面是相同 200 源的复核均值。', '',
+             '|SNR|反馈 bit|首轮 m|方法|完整参考 DINOv2-L|原口径 DINOv2-L|',
+             '|---:|---:|---:|---|---:|---:|']
+    old = {(r['average_snr_db'], r['method']): r for r in historical}
+    for row in primary:
+        lines.append('|%d|%d|%d|%s|%.6f|%.6f|' % (row['average_snr_db'], row['feedback_bits'], row['first_m'],
+                      row['method'], row['review_mean'], old[row['average_snr_db'], row['method']]['review_mean']))
+    lines += ['', '主点配对差值；区间仅描述表模型中的源图变化：', '',
+              '|SNR|比较|差值|源级 95% 区间|未知事件贡献范围|', '|---:|---|---:|---|---|']
+    primary_ids = {r['cell_id'] for r in primary}
+    for row in paired:
+        if row['cell_id'] in primary_ids and (row['method_a'], row['method_b']) in (
+                ('QCSI', 'FIXED'), ('TWO_STAGE', 'QCSI'), ('TWO_STAGE_C8', 'TWO_STAGE'), ('TWO_STAGE_C8', 'QCSI')):
+            lines.append('|%d|%s − %s|%.6f|[%.6f, %.6f]|[%.6f, %.6f]|' % (row['average_snr_db'],
+                         row['method_a'], row['method_b'], row['mean_difference'], row['source_ci_low'], row['source_ci_high'],
+                         row['unknown_event_mean_lower'], row['unknown_event_mean_upper']))
+    lines += ['', '## 计费、头部与选择口径', '',
+              '- 四种方法均支付同一档导频费用；0 导频仅作诊断，8/16/32 仅改变预算，仍假设理想接收/反馈 CSI。没有有限导频估计误差结果。',
+              '- FIXED 不支付反馈，QCSI 与两阶段支付登记的同一档反馈符号数；QCSI 的反馈只计费一次。',
+              '- 所有首头部计费 68 符号。measured_headers 使用原 68 符号概率曲线；0 第二头由公共配置确定，16 第二头没有实测曲线。',
+              '- ideal_controls 中所有付费头部（包括首头）都假设可靠，仅作控制开销比较。',
+              '- 参考布局允许无第二头或当前格合法的第二头格式；每条路径都逐项核算，不能通过剪短码字或缩放 BLER 补出新物理曲线。',
+              '- 反馈只有 SNR bin，没有 ACK/NACK。第一轮拒收后，第二轮的实际发送仍付费；接收端只使用连续可信前缀。',
+              '- C8 整棵树的 ID 已在第一头部付费，先于未知反馈 bin 选定；800 源构造字典，200 源只在冻结字典内作允许的源端选择。', '',
+              '## 完整网格与覆盖审计', '',
+              f"完整网格 {summary['full_grid_method_rows']} 个方法行；按原 TWO_STAGE 构造集规则选 m 后 {summary['selected_method_rows']} 行。"
+              f"{summary['selected_missing_method_rows']} 行保持缺资产；参考扩展没有给缺失的 16 符号物理头部补造数值。", '',
+              'grid_summary.csv 与 selected_summary.csv 为最终完整参考口径。reference_changes.csv 给出每格两个参考的新旧差值；'
+              'reference_dominance_checks.csv 记录 QCSI 构造集覆盖检查。candidate_coverage.json 保留候选计数、逐路径预算与原两阶段数组一致性审计。', '',
+              'matched_axis_effects.csv 单独改变导频、反馈位数、反馈费用或第二头费用，其他控制相同；'
+              '每格仍允许在 800 源重新优化，所以不是单独的估计误差效应。完整网格全部保留，不以 200 源挑赢家。', '',
+              '## 区间、数值误差与实际复现缺口', '',
+              '200 源配对 bootstrap 共 5000 次，种子 2026100504。每源分数已对信道表积分；没有实际信道 Monte Carlo。'
+              '区间不覆盖 BLER 表有限样本、插值、尾部、理想 CSI 或选模误差，不作实际链路或多重比较显著性声明。', '',
+              '未评分的错误接受等事件使用登记的 DINO 点值 0，并单列 [-1,1] 贡献范围；不能当成已测恢复质量。'
+              '原两阶段/C8的数值积分复核见 primary_numerical_diagnostic.json；新 FIXED/QCSI 的同策略复核独立记录在 '
+              'primary_reference_numerical_diagnostic.json。两者都不重新选策略，也不验证 BLER 插值假设。', '',
+              '部分尺度的熵序位置缓存仍可能缺失。本轮仅闭合表模型中的候选范围，不声称补齐实际发射和接收资产。'
+              'C8 的源图相关质量评估需要发送端计算；sender_cost.csv 给出所需状态数量，在线时延没有测量。', '',
+              '## 冻结主点的缓存辅助指标', '',
+              '沿冻结策略和逐源树 ID 重加权原 PSNR、LPIPS、DINO、CLIP、DISTS、DreamSim、MS-SSIM 与 ResNet-50 指标。'
+              '除原主指标 DINOv2-L 外，这些辅助指标不选择策略或树；没有新增神经评测。', '',
+              'auxiliary_primary_metrics.csv 报已评分状态贡献及未评分概率。仅 U=0 时给完整均值；'
+              '分类指标未知范围 [0,1]，余弦 [-1,1]，其他指标不假设边界。辅助配对区间仍是表模型的源级差异。'
+              'ConvNeXt、F 恢复误差在登记缓存中缺失，不填值。', '']
+    if auxiliary:
+        for name, value in auxiliary['availability']['backbone_versions_verbatim'].items():
+            lines.append('- ' + name + ': ' + value)
+    lines += ['', '## 交付与停止边界', '',
+              '原搜索、原报告、原源码保持不变。正式四方法结论以此 R1 完整参考报告为准；原主点单独保留为 historical_primary_summary.csv。'
+              '这项候选闭包修正不改变旧 UEP/F1 停止边界或 A1/A2队列，也不启动真实 PHY、GPU、训练或新评测模型。', '']
+    return '\n'.join(lines)
+
+
+def build(args):
+    report, cached = load_runtime(args.runtime_dir)
+    original_root, revised_root, out = map(lambda p: Path(p).resolve(), (args.original_model, args.reference_dir, args.out))
+    protocol = Path(args.protocol).resolve()
+    require(report.read_json(protocol)['N'] == 1024, 'Unregistered resource budget')
+    bindings = {str(protocol): report.sha(protocol)}
+    for path in (Path(args.runtime_dir) / 'report.py', Path(args.runtime_dir) / 'auxiliary.py'):
+        bindings[str(path.resolve())] = report.sha(path)
+    grid, selected, primary, historical, changes, dominance, coverage, numerical, reference_numerical = [], [], [], [], [], [], [], [], []
+    scores = {}
+    review = None
+    for snr in report.SNRS:
+        old_folder, folder = original_root / ('search_snr' + str(snr)), revised_root / ('search_snr' + str(snr))
+        old_done, old_bind = report.verify_receipt(old_folder / 'completion.json')
+        done, new_bind = report.verify_receipt(folder / 'completion.json')
+        require(done.get('reference_scope') == 'SYMMETRIC_EXACT_FORMATS_R1', 'Revised reference scope is not registered')
+        bindings.update(old_bind); bindings.update(new_bind)
+        for receipt in (old_done, done):
+            require(receipt.get('real_decodes') == 0 and receipt.get('new_visual_inference') is False
+                    and receipt.get('development_read') is False and receipt.get('GPU_used') is False,
+                    'Reference reporting requires CPU-only table receipts')
+        for name in ('search.json', 'split.json', 'grid_summary.csv', 'selected_summary.csv', 'primary_summary.csv',
+                     'per_source.csv', 'policies.json', 'coverage.json'):
+            require(str((old_folder / name).resolve()) in old_bind and str((folder / name).resolve()) in new_bind,
+                    'Original or reference consumed file is not receipt-bound: ' + name)
+        old_grid = [report.normalize_summary(r) for r in report.read_csv(old_folder / 'grid_summary.csv')]
+        new_grid = [report.normalize_summary(r) for r in report.read_csv(folder / 'grid_summary.csv')]
+        new_selected = [report.normalize_summary(r) for r in report.read_csv(folder / 'selected_summary.csv')]
+        new_primary = [report.normalize_summary(r) for r in report.read_csv(folder / 'primary_summary.csv')]
+        old_primary = [report.normalize_summary(r) for r in report.read_csv(old_folder / 'primary_summary.csv')]
+        require(all(r['average_snr_db'] == snr for r in old_grid + new_grid + new_selected + new_primary), 'Foreign SNR in shard')
+        report.validate_grids(new_grid, new_selected, expected_snrs=(snr,))
+        report.validate_primary(new_grid, new_primary)
+        require({r['cell_id'] for r in old_primary} == {r['cell_id'] for r in new_primary}, 'Primary control point changed')
+        old_policies, policies = report.read_json(old_folder / 'policies.json'), report.read_json(folder / 'policies.json')
+        for row in new_grid:
+            if row['method'] in UNCHANGED and row['status'] == 'MODEL_ONLY':
+                require(policies['policies'][row['policy_id']] == old_policies['policies'][row['policy_id']],
+                        'Original two-stage policy changed')
+        audit = validate_policy_catalog(report, new_grid, policies)
+        delta, proof = merge_checks(old_grid, new_grid)
+        changes.extend(delta); dominance.extend(proof)
+        old_search, new_search = report.read_json(old_folder / 'search.json'), report.read_json(folder / 'search.json')
+        exact = verify_unchanged_arrays(report, old_folder, folder, old_search, new_search, bindings)
+        split = report.validate_split(report.read_json(folder / 'split.json'))
+        require(review is None or review == split, 'Reference shards changed paired sources')
+        review = split
+        current = report.load_source_scores(folder / 'per_source.csv', new_selected, review)
+        require(not set(scores) & set(current), 'Repeated reference cell IDs')
+        scores.update(current)
+        grid.extend(new_grid); selected.extend(new_selected); primary.extend(new_primary); historical.extend(old_primary)
+        coverage.append(dict(average_snr_db=snr, original=report.read_json(old_folder / 'coverage.json'),
+                             revised=report.read_json(folder / 'coverage.json'), policy_path_audit=audit, unchanged_arrays=exact))
+        diag = folder / 'primary_reference_numerical_diagnostic.json'
+        require(str(diag.resolve()) in new_bind, 'New reference numerical diagnostic is not receipt-bound')
+        diagnostic = report.read_json(diag)
+        require(diagnostic.get('status') == 'SAME_FROZEN_PRIMARY_REFERENCE_ORDER16_VS32'
+                and diagnostic.get('reselected') is False
+                and {r['method'] for r in diagnostic['rows']} == set(REFERENCES),
+                'Reference numerical diagnostic scope differs')
+        expected_ids = {r['method']: r['policy_id'] for r in new_primary}
+        require(all(r['policy_id'] == expected_ids[r['method']] and r.get('reselected') is False
+                    for r in diagnostic['rows']), 'Numerical diagnostic used another reference policy')
+        reference_numerical.append(dict(average_snr_db=snr, **diagnostic))
+        old_diag = old_folder / 'primary_numerical_diagnostic.json'
+        require(str(old_diag.resolve()) in old_bind, 'Original numerical diagnostic not bound')
+        original = report.read_json(old_diag)
+        numerical.append(dict(average_snr_db=snr,
+                              unchanged_two_stage_rows=[r for r in original['rows'] if r['method'] in UNCHANGED],
+                              original_receipt_path=str(old_diag), original_receipt_sha256=report.sha(old_diag),
+                              scope='Only unchanged TWO_STAGE/C8; original FIXED/QCSI diagnostics do not apply to new references'))
+    grouped = report.validate_grids(grid, selected)
+    weights = report.bootstrap_weights()
+    paired = report.paired_comparisons(grouped, scores, weights)
+    effects = report.matched_axis_effects(grouped, scores, weights)
+    overview = report.headlines(grouped)
+    auxiliary = cached.build(revised_root, args.quality_csv, args.auxiliary_manifest, bindings, weights)
+    bindings.update(auxiliary['input_bindings'])
+    source_bindings = {str(Path(__file__).resolve()): report.sha(__file__),
+                       **{str((Path(args.runtime_dir) / name).resolve()): report.sha(Path(args.runtime_dir) / name)
+                          for name in ('report.py', 'auxiliary.py')}}
+    summary = dict(status='SYMMETRIC_REFERENCE_CLOSURE_REPORT_COMPLETE', version=VERSION, N=1024,
+                   metric='dinov2_vitl14_cosine', full_grid_method_rows=len(grid), selected_method_rows=len(selected),
+                   selected_missing_method_rows=sum(r['status'] == 'MISSING_ASSET' for r in selected),
+                   reference_scope='ORIGINAL_CATALOG_PLUS_ALL_EXACT_FIRST_SUFFIX_COMBINATIONS',
+                   original_two_stage_policies_and_source_arrays_unchanged=True, original_results_preserved=True,
+                   construction_dominance=dict(status='PASS', checked_rows=len(dominance), tolerance=TOLERANCE),
+                   scientific_scope='EXPECTED_TABLE_MODEL_ONLY', actual_physical_decodes=0, new_visual_inference=0,
+                   cached_auxiliary_metrics='COMPLETE_FOR_PRIMARY_POLICIES', selection_on='construction800',
+                   review_sources=200, bootstrap_repeats=report.BOOTSTRAP_REPEATS, bootstrap_seed=report.BOOTSTRAP_SEED,
+                   old_queues_unchanged=True, automatic_expansion=False, input_bindings=bindings)
+    csv_outputs = dict(grid_summary=grid, selected_summary=selected, primary_summary=primary,
+                       historical_primary_summary=historical, reference_changes=changes,
+                       reference_dominance_checks=dominance, paired_differences=paired, matched_axis_effects=effects,
+                       display_points_selected_on_construction800=overview,
+                       auxiliary_primary_metrics=auxiliary['rows'], auxiliary_primary_paired=auxiliary['paired'])
+    sender_fields = (*report.AXES, 'first_m', 'cell_id', 'method', 'status', 'policy_id',
+                     'sender_distinct_Q_states', 'sender_cost_scope', 'dictionary_size')
+    csv_outputs['sender_cost'] = [dict({k:r.get(k) for k in sender_fields}, online_latency='NOT_MEASURED',
+                                     table_lookup_latency_is_deployment_latency=False) for r in selected]
+    names = []
+    for name, rows in csv_outputs.items():
+        filename = name + '.csv'; report.save_csv(out / filename, rows); names.append(filename)
+    json_outputs = dict(summary=summary, candidate_coverage=coverage, primary_numerical_diagnostic=numerical,
+                        primary_reference_numerical_diagnostic=reference_numerical,
+                        frozen_primary_policies=auxiliary['frozen_primary_policies'], metric_availability=auxiliary['availability'],
+                        parent_metric_provenance=auxiliary['provenance'])
+    for name, value in json_outputs.items():
+        filename = name + '.json'; report.save_json(out / filename, value); names.append(filename)
+    report.save_bytes(out / 'FINAL_REPORT.md', report_markdown(summary, primary, historical, paired, auxiliary, numerical).encode())
+    names.append('FINAL_REPORT.md')
+    report.save_json(out / 'completion.json', dict(status='COMPLETE', scope=SCOPE, version=VERSION,
+                     scientific_scope='EXPECTED_TABLE_MODEL_ONLY', actual_physical_decodes=0, new_visual_inference=0,
+                     original_results_preserved=True, cached_auxiliary_metrics='COMPLETE_FOR_PRIMARY_POLICIES',
+                     outputs={str(out / name):report.sha(out / name) for name in names},
+                     input_bindings=bindings, source_bindings=source_bindings))
+    return summary
+
+
+def main():
+    p = argparse.ArgumentParser(description=__doc__)
+    for key in ('original-model', 'reference-dir', 'runtime-dir', 'protocol', 'quality-csv', 'auxiliary-manifest', 'out'):
+        p.add_argument('--' + key, required=True)
+    args = p.parse_args()
+    result = build(args)
+    print(json.dumps({k:result[k] for k in ('status', 'full_grid_method_rows', 'selected_method_rows')}))
+
+
+if __name__ == '__main__':
+    main()

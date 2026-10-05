@@ -1,0 +1,432 @@
+"""Frozen-budget table-only two-stage search; no decoder or visual model calls."""
+import argparse
+import csv
+import hashlib
+import itertools
+import json
+import os
+from pathlib import Path
+import time
+import zipfile
+import numpy as np
+
+SNRS=(4,7,10,13)
+PILOTS=(0,8,16,32)
+FB_BITS=(1,2,3)
+FB_COSTS=(8,16,32)
+HEADERS=(0,16,68)
+SPLITS=(4,5,6)
+MODES=('measured_headers','ideal_controls')
+METHODS=('FIXED','QCSI','TWO_STAGE','TWO_STAGE_C8')
+CUTS=(-5,0,4,7,10,13,19)
+VERSION='TWO_STAGE_TABLE_SEARCH_20261005_V1'
+
+
+def require(ok,msg):
+    if not ok:raise RuntimeError(msg)
+def read(path):return json.loads(Path(path).read_text(encoding='utf-8'))
+def canonical(value):return json.dumps(value,sort_keys=True,separators=(',',':'),allow_nan=False)
+def digest(value):return hashlib.sha256(canonical(value).encode()).hexdigest()
+def sha(path):
+    h=hashlib.sha256()
+    with Path(path).open('rb') as f:
+        for block in iter(lambda:f.read(1024*1024),b''):h.update(block)
+    return h.hexdigest()
+def save(path,value):
+    path=Path(path);path.parent.mkdir(parents=True,exist_ok=True);tmp=path.with_name(path.name+'.tmp.'+str(os.getpid()))
+    tmp.write_text(json.dumps(value,ensure_ascii=False,indent=2,allow_nan=False)+'\n',encoding='utf-8');os.replace(tmp,path)
+def csv_write(path,rows):
+    path=Path(path);keys=list(dict.fromkeys(k for x in rows for k in x));path.parent.mkdir(parents=True,exist_ok=True)
+    with path.open('w',encoding='utf-8',newline='') as f:
+        w=csv.DictWriter(f,fieldnames=keys,lineterminator='\n');w.writeheader();w.writerows(rows)
+def source_split(ids,synthetic=False):
+    require(len(ids)==len(set(ids)) and (synthetic or len(ids)==1000),'Expected original1000 unique calibration sources')
+    def key(s):return hashlib.sha256(json.dumps(['C/SOURCE_SPLIT',2026100501,s],ensure_ascii=False,separators=(',',':')).encode()).hexdigest(),s
+    ordered=sorted(ids,key=key);count=800 if not synthetic else max(1,int(.8*len(ids)))
+    build=ordered[:count];review=ordered[count:];lookup={s:i for i,s in enumerate(ids)}
+    return dict(ordered_source_ids=ordered,construction_source_ids=build,verification_source_ids=review,
+        construction_indices=[lookup[s] for s in build],verification_indices=[lookup[s] for s in review],
+        source_split_namespace='C/SOURCE_SPLIT',source_split_seed=2026100501,selection_on='construction800',development_read=False)
+
+
+def partitions(bits):
+    require(bits in FB_BITS,'Only registered1/2/3bit feedback')
+    for cuts in itertools.combinations(range(1,8),2**bits-1):
+        ends=(0,)+cuts+(8,)
+        yield tuple((a,b) for a,b in zip(ends[:-1],ends[1:]))
+def threshold_values(partition):return [CUTS[b-1] for _,b in partition[:-1]]
+def partition_from_thresholds(thresholds):
+    edges=(0,)+tuple(CUTS.index(x)+1 for x in thresholds)+(8,)
+    return tuple(zip(edges[:-1],edges[1:]))
+INTERVALS=tuple((a,b) for a in range(8) for b in range(a+1,9))
+INTERVAL_INDEX={v:i for i,v in enumerate(INTERVALS)}
+
+
+def action_key(a):return (int(a.get('symbols',0)),str(a.get('action_id',a.get('stable_id',a.get('phy_key','')))))
+def profile_key(a):return (68+sum(g['symbols'] for g in a['groups']),int(a['G']),str(a['stable_id']))
+def coefficients(bundle):
+    c=np.asarray(bundle['coefficients'],dtype=np.float64)
+    require(c.ndim==3 and c.shape[1:]==(8,4) and np.isfinite(c).all() and c.min()>=-1e-12,'Finite8-bin C/R/U state coefficients required')
+    require(np.allclose(c.sum((1,2)),1,atol=1e-10,rtol=0),'Quality event probabilities must sum to1')
+    return c
+def interval_coefficients(bundle):
+    c=coefficients(bundle);prefix=np.concatenate((np.zeros((len(c),1,4)),c.cumsum(1)),axis=1)
+    return np.stack([prefix[:,b]-prefix[:,a] for a,b in INTERVALS],axis=1)
+def mean_interval_scores(bundle,Q,build):
+    q=np.asarray(Q)[:,build].mean(1);c=interval_coefficients(bundle)
+    return c[:,:,0]*q[bundle['gray_index']]+c[:,:,1]*q[np.asarray(bundle['prefix_indices'])][:,None]+c[:,:,2]*q[np.asarray(bundle['target_indices'])][:,None]
+def source_interval_scores(bundle,Q,part,indices=None):
+    """Only selected partition and source block are materialized: actions x sources."""
+    c=np.asarray(bundle['coefficients'])[:,part[0]:part[1]].sum(1);q=Q if indices is None else Q[:,indices]
+    return c[:,0,None]*q[bundle['gray_index']][None,:]+c[:,1,None]*q[np.asarray(bundle['prefix_indices'])]+c[:,2,None]*q[np.asarray(bundle['target_indices'])]
+def add_gray(bundle,model):
+    return dict(bundle,gray_index=model.gray_index)
+
+
+def tree_values(bundle,Q,partition,choices,base_symbols,candidate_symbols):
+    c=np.asarray(bundle['coefficients']);weights={};bad=0.;mean_symbols=float(base_symbols);maximum=float(base_symbols)
+    bin_mass=c[0].sum(-1)
+    for part,choice in zip(partition,choices):
+        row=c[choice,part[0]:part[1]].sum(0)
+        for index,amount in ((bundle['gray_index'],row[0]),(int(bundle['prefix_indices'][choice]),row[1]),(int(bundle['target_indices'][choice]),row[2])):
+            weights[index]=weights.get(index,0.)+float(amount)
+        bad+=float(row[3]);cost=float(candidate_symbols[choice]);mean_symbols+=float(bin_mass[part[0]:part[1]].sum())*cost
+        maximum=max(maximum,float(base_symbols)+cost)
+    score=sum(amount*Q[index] for index,amount in weights.items())
+    require(abs(sum(weights.values())+bad-1)<1e-9,'Tree final-state mass lost')
+    require(maximum<=1024+1e-9,'Tree resource path exceedsN1024')
+    return dict(scores=np.asarray(score),bad_probability=bad,mean_used_symbols=mean_symbols,max_used_symbols=maximum,
+        state_weights={str(k):v for k,v in sorted(weights.items())},U_point_quality=0.,U_quality_bounds=[-1,1],
+        choices=list(map(int,choices)),partition=[list(x) for x in partition],thresholds_db=threshold_values(partition),gray_index=bundle['gray_index'])
+
+
+def optimize_partition(bundle,Q,build,bits):
+    scores=mean_interval_scores(bundle,Q,build);best_action=np.argmax(scores,axis=0);best_values=scores[best_action,np.arange(len(INTERVALS))]
+    best=None
+    for part in partitions(bits):
+        columns=[INTERVAL_INDEX[p] for p in part];value=float(best_values[columns].sum());choice=tuple(int(best_action[j]) for j in columns)
+        candidate=dict(train_mean=value,partition=part,choices=choice)
+        if best is None or value>best['train_mean']+1e-14:best=candidate
+    return best
+
+
+def fixed_reference(model,build,pilot):
+    profiles=sorted([p for p in list(model.profiles)+list(model.extra_profiles) if pilot+68+sum(g['symbols'] for g in p['groups'])<=1024],key=profile_key)
+    require(profiles,'No exact fixed layout fits paid pilot budget')
+    bundle=add_gray(model.profile_coefficients(profiles),model);scores=mean_interval_scores(bundle,model.Q,build)[:,INTERVAL_INDEX[(0,8)]]
+    chosen=int(np.argmax(scores));tree=tree_values(bundle,model.Q,((0,8),),(chosen,),pilot,bundle['forward_symbols'])
+    return dict(tree,profiles=[profiles[chosen]],candidate_count=len(profiles),policy=dict(kind='FIXED',profile=profiles[chosen],pilot_symbols=pilot,
+        state_weights=tree['state_weights'],bad_probability=tree['bad_probability']),selection_on='construction800')
+
+
+def qcsi_reference(model,build,pilot,cost,bits):
+    profiles=sorted([p for p in list(model.profiles)+list(model.extra_profiles) if pilot+cost+68+sum(g['symbols'] for g in p['groups'])<=1024],key=profile_key)
+    require(profiles,'No exact QCSI layout fits pilot and feedback cost')
+    bundle=add_gray(model.profile_coefficients(profiles),model);best=optimize_partition(bundle,model.Q,build,bits)
+    tree=tree_values(bundle,model.Q,best['partition'],best['choices'],pilot+cost,bundle['forward_symbols'])
+    return dict(tree,profiles=[profiles[i] for i in best['choices']],candidate_count=len(profiles),policy=dict(kind='QCSI',feedback_bits=bits,
+        feedback_symbols=cost,pilot_symbols=pilot,thresholds_db=tree['thresholds_db'],profiles=[profiles[i] for i in best['choices']],
+        state_weights=tree['state_weights'],bad_probability=tree['bad_probability']),selection_on='construction800')
+
+
+def optimize_two_stage(model,build,pilot,cost,H2,split,progress=None):
+    """All registered threshold partitions share one candidate scan per first PHY."""
+    results={bits:None for bits in FB_BITS};firsts=sorted(model.first_actions(split),key=action_key)
+    for index,first in enumerate(firsts):
+        budget=1024-pilot-68-int(first['symbols'])-cost
+        if budget<0:continue
+        second=sorted(model.continuations(first,budget,H2),key=action_key)
+        require(second and any(a.get('stop') for a in second),'STOP must always be in continuation candidates')
+        bundle=add_gray(model.score_coefficients(first,second,H2=H2),model)
+        intervals=mean_interval_scores(bundle,model.Q,build);argmax=np.argmax(intervals,axis=0);values=intervals[argmax,np.arange(len(INTERVALS))]
+        for bits in FB_BITS:
+            best=results[bits]
+            for part in partitions(bits):
+                columns=[INTERVAL_INDEX[p] for p in part];score=float(values[columns].sum())
+                if best is None or score>best['train_mean']+1e-14:
+                    best=dict(first=first,partition=part,choices=tuple(int(argmax[j]) for j in columns),train_mean=score,first_index=index)
+            results[bits]=best
+        if progress is not None:progress(index+1,len(firsts))
+    require(all(x is not None for x in results.values()),'No feasible first stage within exact layout catalogue')
+    return results
+
+
+def content_dictionary(bundle,Q,build,partition,uniform_choices,base_symbols,candidate_symbols,maximum=8):
+    """A public tree is chosen BEFORE the unknown feedback bin; no per-bin ID."""
+    best_per_source=[]
+    for part in partition:
+        chosen=np.empty(len(build),dtype=np.int64)
+        for start in range(0,len(build),64):
+            chunk=build[start:start+64];chosen[start:start+len(chunk)]=np.argmax(source_interval_scores(bundle,Q,part,chunk),axis=0)
+        best_per_source.append(chosen)
+    candidate_choices={tuple(int(best_per_source[b][i]) for b in range(len(partition))) for i in range(len(build))}
+    uniform=tuple(map(int,uniform_choices));candidate_choices.discard(uniform);candidates=[uniform]+sorted(candidate_choices)
+    # At most801 candidate complete trees, each represented by a sparse set of Q-state coefficients.
+    trees=[tree_values(bundle,Q,partition,choice,base_symbols,candidate_symbols) for choice in candidates]
+    scores=np.stack([t['scores'] for t in trees],axis=1);selected=[0];current=scores[np.asarray(build),0].copy();steps=[]
+    while len(selected)<maximum and len(selected)<len(trees):
+        gains=np.maximum(scores[np.asarray(build)]-current[:,None],0).mean(0);gains[selected]=-np.inf
+        chosen=int(np.argmax(gains));gain=float(gains[chosen])
+        if gain<=1e-14:break
+        selected.append(chosen);current=np.maximum(current,scores[np.asarray(build),chosen]);steps.append(dict(tree_index=chosen,train_gain=gain))
+    # Public IDs0..7 map to frozen whole trees; the same first PHY and duration apply to every ID.
+    selected_scores=scores[:,selected];choice=np.argmax(selected_scores,axis=1);rows=np.arange(Q.shape[1]);value=selected_scores[rows,choice]
+    admitted=[trees[i] for i in selected];bad=np.asarray([t['bad_probability'] for t in admitted])[choice]
+    mean=np.asarray([t['mean_used_symbols'] for t in admitted])[choice];worst=max(t['max_used_symbols'] for t in admitted)
+    return dict(scores=value,bad_probability=bad,mean_used_symbols=mean,max_used_symbols=worst,tree_ids=choice,
+        trees=admitted,candidate_tree_count=len(trees),dictionary_size=len(selected),construction_steps=steps,
+        first_stage_shared=True,thresholds_shared=True,tree_choice_before_unknown_bin=True,initial_header_bits=12,
+        selection_on='construction800',candidate_tree_sources='construction800_only_plus_matched_uniform_tree',gray_index=bundle['gray_index'])
+
+
+def finalize_two_stage(model,chosen,build,pilot,cost,H2,bits):
+    first=chosen['first'];base=pilot+68+int(first['symbols'])+cost;second=sorted(model.continuations(first,1024-base,H2),key=action_key)
+    bundle=add_gray(model.score_coefficients(first,second,H2=H2),model);costs=bundle['second_symbols']
+    uniform=tree_values(bundle,model.Q,chosen['partition'],chosen['choices'],base,costs)
+    content=content_dictionary(bundle,model.Q,build,chosen['partition'],chosen['choices'],base,costs)
+    common=dict(first=first,first_forward_symbols=68+int(first['symbols']),pilot_symbols=pilot,feedback_symbols=cost,feedback_bits=bits,
+        second_header_symbols=H2,thresholds_db=uniform['thresholds_db'],feedback_content='SNR_bin_only_NO_ACK',same_h=True)
+    uniform['policy']=dict(common,kind='TWO_STAGE',second_actions=[second[i] for i in chosen['choices']],initial_header_id=0,
+        state_weights=uniform['state_weights'],bad_probability=uniform['bad_probability'])
+    content['policy']=dict(common,kind='TWO_STAGE_C8',first_stage_shared=True,tree_choice_before_unknown_bin=True,
+        trees=[dict(public_header_id=i,second_actions=[second[j] for j in tree['choices']],state_weights=tree['state_weights'],bad_probability=tree['bad_probability'],
+                    mean_used_symbols=tree['mean_used_symbols'],max_used_symbols=tree['max_used_symbols']) for i,tree in enumerate(content['trees'])])
+    return uniform,content
+
+
+def summary(method,result,split):
+    scores=np.asarray(result['scores'],dtype=float);bad=np.broadcast_to(result['bad_probability'],scores.shape);used=np.broadcast_to(result['mean_used_symbols'],scores.shape)
+    build=split['construction_indices'];review=split['verification_indices'];require(np.isfinite(scores).all(),'Nonfinite final source score')
+    states=set()
+    trees=result.get('trees',[result])
+    for tree in trees:states.update(int(k) for k,w in tree.get('state_weights',{}).items() if w>0)
+    states.discard(result['gray_index'])
+    return dict(method=method,status='MODEL_ONLY',train_mean=float(scores[build].mean()),review_mean=float(scores[review].mean()),
+        bad_probability_train=float(bad[build].mean()),bad_probability_review=float(bad[review].mean()),
+        review_lower=float((scores-bad)[review].mean()),review_upper=float((scores+bad)[review].mean()),
+        mean_used_symbols=float(used[review].mean()),mean_used_symbols_train=float(used[build].mean()),max_used_symbols=float(result['max_used_symbols']),
+        policy_id=digest(result['policy']),selection_on='construction800',sender_distinct_Q_states=len(states),
+        sender_cost_scope='frozen_correct_state_Q_requirements_not_measured_online_latency',dictionary_size=result.get('dictionary_size',1),
+        actual_channel_verified=False,new_visual_inference=False)
+
+
+def evaluate_context(model,split,pilot,cost,H2,first_m,fixed,qcsi,optimized,progress=None):
+    out={}
+    for bits in FB_BITS:
+        uniform,content=finalize_two_stage(model,optimized[bits],split['construction_indices'],pilot,cost,H2,bits)
+        out[bits]={'FIXED':fixed,'QCSI':qcsi[bits],'TWO_STAGE':uniform,'TWO_STAGE_C8':content}
+    return out
+
+
+def array_payload(methods):
+    arrays={}
+    for name,result in methods.items():
+        scores=np.asarray(result['scores'],dtype=np.float64);arrays[name+'_quality_point']=scores
+        arrays[name+'_bad_probability']=np.array(np.broadcast_to(result['bad_probability'],scores.shape),dtype=np.float64)
+        arrays[name+'_mean_used_symbols']=np.array(np.broadcast_to(result['mean_used_symbols'],scores.shape),dtype=np.float64)
+        arrays[name+'_tree_id']=np.asarray(result.get('tree_ids',np.zeros(len(scores),dtype=np.int16)),dtype=np.int16)
+    return arrays
+
+
+def validate_protocol(protocol):
+    require(protocol['schema']=='TWO_STAGE_FEEDBACK_MODEL_20261005_V1' and protocol['N']==1024,'Wrong registered protocol')
+    for key,want in (('average_snrs_db',SNRS),('pilot_symbols',PILOTS),('first_m',SPLITS),('feedback_bits',FB_BITS),('feedback_symbols',FB_COSTS),('second_header_symbols',HEADERS)):
+        require(protocol[key]==list(want),'Protocol grid differs: '+key)
+    require(set(protocol['header_modes'])==set(MODES) and protocol['primary_pilot_symbols']==16 and protocol['primary_feedback_symbols']==16
+            and protocol['primary_second_header_symbols']==68,'Header/primary protocol differs')
+    require(protocol['content_dictionary']['maximum_size']==8 and protocol['content_dictionary']['include_uniform_tree'] is True
+            and protocol['content_dictionary']['not_joint_first_stage_optimization'] is True,'Content dictionary contract differs')
+    require(protocol['probability_model']['quadrature_order']==32 and protocol['verification']['new_PHY_decodes']==0
+            and protocol['verification']['new_GPU_jobs']==0 and protocol['verification']['development_used'] is False,'Table-only scientific scope differs')
+
+
+class CachedModel:
+    """Reuse exact integrals across pilots and costs; never interpolate code lengths."""
+    def __init__(self,model,cache,binding):
+        self.model=model;self.cache=Path(cache);self.binding=binding;self.profile_cache={}
+    def __getattr__(self,name):return getattr(self.model,name)
+    def score_coefficients(self,first,actions,elementary_bins=None,H2=68):
+        self.model.header(H2)
+        effective=0 if self.model.header_mode=='ideal_controls' else H2
+        key=digest([self.binding,self.model.header_mode,self.model.average_snr,first['action_id'],effective])
+        path=self.cache/(key+'.npz');meta=self.cache/(key+'.json')
+        if path.exists() or meta.exists():
+            require(path.exists() and meta.exists(),'Incomplete integral-cache evidence; do not reuse')
+            receipt=read(meta);require(receipt['binding']==self.binding and receipt['sha256']==sha(path),'Integral cache changed')
+        else:
+            maximum=1024-68-int(first['symbols'])-min(FB_COSTS)
+            require(maximum>=0,'First action has no registered resource-feasible context')
+            all_actions=sorted(self.model.continuations(first,maximum,effective),key=action_key)
+            bundle=self.model.score_coefficients(first,all_actions,H2=effective)
+            payload={k:np.asarray(bundle[k]) for k in ('coefficients','prefix_indices','target_indices','body_symbols')}
+            payload['action_ids']=np.asarray([x['action_id'] for x in all_actions])
+            path.parent.mkdir(parents=True,exist_ok=True);temporary=path.with_name(path.stem+'.tmp.'+str(os.getpid())+'.npz')
+            np.savez(temporary,**payload);os.replace(temporary,path)
+            save(meta,dict(binding=self.binding,sha256=sha(path),first_action_id=first['action_id'],effective_header=effective))
+        with np.load(path,allow_pickle=False) as z:
+            lookup={str(v):i for i,v in enumerate(z['action_ids'])};indices=[lookup[x['action_id']] for x in actions]
+            result={k:z[k][indices] for k in ('coefficients','prefix_indices','target_indices','body_symbols')}
+        result.update(second_symbols=np.asarray([0 if x['stop'] else H2+x['symbols'] for x in actions]),
+                      first_forward_symbols=68+first['symbols'],action_ids=[x['action_id'] for x in actions])
+        return result
+    def profile_coefficients(self,profiles):
+        key=tuple(p['stable_id'] for p in profiles)
+        if key not in self.profile_cache:self.profile_cache[key]=self.model.profile_coefficients(profiles)
+        return self.profile_cache[key]
+
+
+def evaluate_frozen_policy(model,policy,tree_ids=None):
+    """Numerical diagnostic only: same policy and source choices, no reselection."""
+    kind=policy['kind'];pilot=policy['pilot_symbols']
+    if kind=='FIXED':
+        bundle=add_gray(model.profile_coefficients([policy['profile']]),model)
+        return tree_values(bundle,model.Q,((0,8),),(0,),pilot,bundle['forward_symbols'])['scores']
+    part=partition_from_thresholds(policy['thresholds_db'])
+    if kind=='QCSI':
+        bundle=add_gray(model.profile_coefficients(policy['profiles']),model)
+        return tree_values(bundle,model.Q,part,tuple(range(len(part))),pilot+policy['feedback_symbols'],bundle['forward_symbols'])['scores']
+    first=policy['first'];base=pilot+68+first['symbols']+policy['feedback_symbols'];H2=policy['second_header_symbols']
+    def score(actions):
+        bundle=add_gray(model.score_coefficients(first,actions,H2=H2),model)
+        return tree_values(bundle,model.Q,part,tuple(range(len(part))),base,bundle['second_symbols'])['scores']
+    if kind=='TWO_STAGE':return score(policy['second_actions'])
+    require(kind=='TWO_STAGE_C8' and tree_ids is not None,'Frozen public tree IDs required for diagnostic')
+    scores=np.stack([score(tree['second_actions']) for tree in policy['trees']],axis=1)
+    require(np.asarray(tree_ids).shape==(model.Q.shape[1],) and np.all((tree_ids>=0)&(tree_ids<scores.shape[1])),'Diagnostic tree selection changed')
+    return scores[np.arange(model.Q.shape[1]),tree_ids]
+
+
+def main():
+    ap=argparse.ArgumentParser();ap.add_argument('--snapshot',required=True);ap.add_argument('--protocol',required=True);ap.add_argument('--out',required=True)
+    ap.add_argument('--snr',type=int,choices=SNRS,required=True);ap.add_argument('--extra-qualified');ap.add_argument('--extra-bler');ap.add_argument('--benchmark',action='store_true')
+    a=ap.parse_args();require(os.environ.get('CUDA_VISIBLE_DEVICES')=='','Explicit CPU-only environment required')
+    for k in ('OMP_NUM_THREADS','MKL_NUM_THREADS','OPENBLAS_NUM_THREADS'):require(0<int(os.environ.get(k,'999'))<=2,'Explicit CPU thread cap required: '+k)
+    from model import Model
+    manifest=read(a.snapshot);protocol=read(a.protocol);validate_protocol(protocol);bindings={str(Path(x).resolve()):sha(x) for x in (a.snapshot,a.protocol)}
+    def asset(name):
+        row=manifest['assets'][name];require(sha(row['path'])==row['sha256'],'Input snapshot changed: '+name);bindings[str(Path(row['path']).resolve())]=row['sha256'];return read(row['path'])
+    profiles=asset('profiles');quality=asset('quality_bundle');bler=asset('bler')
+    extras=[];extra_rows=[]
+    if a.extra_qualified:
+        qualified=read(a.extra_qualified);require(qualified.get('complete') is True,'Supplemental layout qualification incomplete');extras=qualified['configs'];bindings[str(Path(a.extra_qualified).resolve())]=sha(a.extra_qualified)
+    if a.extra_bler:extra_rows=read(a.extra_bler)['rows'];bindings[str(Path(a.extra_bler).resolve())]=sha(a.extra_bler)
+    require(bool(extras)==bool(extra_rows),'Supplemental exact layouts and completed curves must be paired')
+    sources=quality['source_ids'];split=source_split(sources);original_split=asset('source_split')
+    for key in ('ordered_source_ids','construction_source_ids','verification_source_ids'):
+        require(original_split[key]==split[key],'Original C source split differs: '+key)
+    out=Path(a.out).resolve();out.mkdir(parents=True,exist_ok=True)
+    binding=digest(dict(inputs=bindings,source_sha256=sha(__file__),model_sha256=sha(Path(__file__).with_name('model.py')),snr=a.snr,version=VERSION))
+    if (out/'completion.json').exists():
+        done=read(out/'completion.json');require(done['binding']==binding,'Completed search registration differs')
+        for path,h in done['outputs'].items():require(sha(path)==h,'Completed search output changed')
+        print(done['status']);return
+    started=time.monotonic();grid=[];records=[];policies={};build=split['construction_indices'];deadline=started+7200
+    def cell_key(mode,pilot,cost,H2,first_m,bits):
+        return dict(average_snr_db=a.snr,header_mode=mode,pilot_symbols=pilot,feedback_bits=bits,feedback_symbols=cost,second_header_symbols=H2,first_m=first_m)
+    def reuse_cell(key):
+        cid=digest(key)[:20];path=out/'cells'/(cid+'.json')
+        if not path.exists():return False
+        record=read(path);require(record['binding']==binding and all(record[k]==v for k,v in key.items()),'Sealed cell input registration differs')
+        require(record['array_sha256']==sha(record['array_path']),'Sealed source arrays changed')
+        require(all(digest(policy)==pid for pid,policy in record['policies'].items()),'Sealed policy identity changed')
+        records.append(record);grid.extend(record['summary']);policies.update(record['policies']);return True
+    def store_cell(key,methods,rows,status):
+        cid=digest(key)[:20];path=out/'cells'/(cid+'.npz');path.parent.mkdir(parents=True,exist_ok=True)
+        temp=path.with_name(path.stem+'.tmp.'+str(os.getpid())+'.npz');np.savez(temp,**array_payload(methods));os.replace(temp,path)
+        local_policies={digest(r['policy']):r['policy'] for r in methods.values()}
+        record=dict(cell_id=cid,**key,status=status,summary=rows,array_path=str(path),array_sha256=sha(path),binding=binding,policies=local_policies)
+        save(out/'cells'/(cid+'.json'),record);records.append(record);grid.extend(rows);policies.update(local_policies)
+    def progress(message):
+        require(not (out/'STOP').exists(),'Table search stopped; sealed cells retained')
+        require(time.monotonic()<deadline,'Registered two-hour search cap reached; no candidate truncation')
+        save(out/'status.json',dict(status='RUNNING',binding=binding,elapsed_seconds=time.monotonic()-started,stage=message,completed_cells=len(records)))
+    if a.benchmark:
+        model=Model(profiles,quality,bler,extra_groups=extras,extra_rows=extra_rows,average_snr=a.snr,pilot=8,header_mode='measured_headers')
+        first=sorted(model.first_actions(4),key=action_key)[:2];timing=[]
+        for f in first:
+            now=time.monotonic();second=sorted(model.continuations(f,1024-8-68-f['symbols']-8,68),key=action_key)
+            bundle=add_gray(model.score_coefficients(f,second,H2=68),model)
+            tested={bits:optimize_partition(bundle,model.Q,build[:32],bits) for bits in FB_BITS};uniform_seconds=time.monotonic()-now
+            now=time.monotonic();selected=tested[3]
+            content=content_dictionary(bundle,model.Q,build[:32],selected['partition'],selected['choices'],8+68+f['symbols']+8,bundle['second_symbols'])
+            timing.append(dict(first_action_id=f['action_id'],second_actions=len(second),all_bits_uniform_seconds=uniform_seconds,
+                content32_seconds=time.monotonic()-now,content_candidate_trees=content['candidate_tree_count']))
+        save(out/'benchmark.json',dict(status='BENCHMARK_ONLY_NOT_SELECTION',binding=binding,source_count=32,first_actions=timing,
+            complete_first_action_counts={str(m):len(model.first_actions(m)) for m in SPLITS},
+            extrapolation_caveat='Two largest-budget m4 action probes; candidate-tree counts and reused integrals vary across full grid. No benchmark selection may be reused.',
+            real_decodes=0,new_visual_inference=False));return
+    coverages=[]
+    for mode in MODES:
+        raw_model=Model(profiles,quality,bler,extra_groups=extras,extra_rows=extra_rows,average_snr=a.snr,pilot=0,header_mode=mode)
+        model=CachedModel(raw_model,out/'integral_cache',binding);coverages.append(dict(header_mode=mode,**model.coverage))
+        for pilot in PILOTS:
+            progress(dict(mode=mode,pilot=pilot))
+            require(model.source_ids==sources,'Model calibration source order changed');fixed=fixed_reference(model,build,pilot)
+            for cost in FB_COSTS:
+                qcsi={bits:qcsi_reference(model,build,pilot,cost,bits) for bits in FB_BITS}
+                for H2 in HEADERS:
+                    for first_m in SPLITS:
+                        if mode=='measured_headers' and H2==16:
+                            for bits in FB_BITS:
+                                key=cell_key(mode,pilot,cost,H2,first_m,bits)
+                                if reuse_cell(key):continue
+                                cid=digest(key)[:20]
+                                methods={'FIXED':fixed,'QCSI':qcsi[bits]};rows=[dict(cell_id=cid,**key,**summary(name,r,split)) for name,r in methods.items()]
+                                rows += [dict(cell_id=cid,**key,method=method,status='MISSING_ASSET',reason='No measured16-symbol second-header PHY; no curve scaling',selection_on='construction800') for method in ('TWO_STAGE','TWO_STAGE_C8')]
+                                store_cell(key,methods,rows,'PARTIAL_MISSING_HEADER_PHY')
+                            continue
+                        keys=[cell_key(mode,pilot,cost,H2,first_m,bits) for bits in FB_BITS]
+                        if all((out/'cells'/(digest(k)[:20]+'.json')).exists() for k in keys):
+                            for key in keys:reuse_cell(key)
+                            continue
+                        progress(dict(mode=mode,pilot=pilot,cost=cost,H2=H2,first_m=first_m))
+                        optimized=optimize_two_stage(model,build,pilot,cost,H2,first_m,lambda i,n:progress(dict(mode=mode,pilot=pilot,cost=cost,H2=H2,first_m=first_m,first_actions_done=i,first_actions_total=n)))
+                        result=evaluate_context(model,split,pilot,cost,H2,first_m,fixed,qcsi,optimized)
+                        for bits,methods in result.items():
+                            key=cell_key(mode,pilot,cost,H2,first_m,bits)
+                            if reuse_cell(key):continue
+                            cid=digest(key)[:20];rows=[dict(cell_id=cid,**key,**summary(name,r,split)) for name,r in methods.items()]
+                            store_cell(key,methods,rows,'MODEL_ONLY')
+    selected=[];per_source=[]
+    base=lambda r:tuple(r[k] for k in ('average_snr_db','header_mode','pilot_symbols','feedback_bits','feedback_symbols','second_header_symbols'))
+    contexts={base(r) for r in grid}
+    for context in sorted(contexts):
+        ready=[r for r in grid if base(r)==context and r['method']=='TWO_STAGE' and r['status']=='MODEL_ONLY']
+        chosen=min(ready,key=lambda r:(-r['train_mean'],r['first_m'])) if ready else next(r for r in grid if base(r)==context and r['first_m']==4)
+        rows=[r for r in grid if r['cell_id']==chosen['cell_id']]
+        selected.extend(dict(r,selected_on='construction800',selection_status='SELECTED_COMMON_M_BY_TWO_STAGE_TRAIN' if ready else 'MISSING_HEADER_PHY_NO_M_SELECTION') for r in rows)
+        with np.load(out/'cells'/(chosen['cell_id']+'.npz'),allow_pickle=False) as z:
+            for r in rows:
+                if r['status']!='MODEL_ONLY':continue
+                for index in split['verification_indices']:
+                    per_source.append(dict(cell_id=r['cell_id'],method=r['method'],source_id=sources[index],population='internal_verification200',
+                        quality_point=float(z[r['method']+'_quality_point'][index]),bad_probability=float(z[r['method']+'_bad_probability'][index]),selection_on='construction800'))
+    for name,rows in [('grid_summary.csv',grid),('selected_summary.csv',selected),('per_source.csv',per_source)]:csv_write(out/name,rows)
+    primary_candidates=[r for r in grid if r['header_mode']=='measured_headers' and r['pilot_symbols']==16 and r['feedback_symbols']==16
+        and r['second_header_symbols']==68 and r['method']=='TWO_STAGE' and r['status']=='MODEL_ONLY']
+    primary=min(primary_candidates,key=lambda r:(-r['train_mean'],r['feedback_bits'],r['first_m']))
+    csv_write(out/'primary_summary.csv',[dict(r,selection_on='construction800',primary_bits_and_split_selected_by='TWO_STAGE_training_mean') for r in grid if r['cell_id']==primary['cell_id']])
+    diagnostic_model=Model(profiles,quality,bler,extra_groups=extras,extra_rows=extra_rows,average_snr=a.snr,pilot=16,header_mode='measured_headers',order=16)
+    numerical=[]
+    with np.load(out/'cells'/(primary['cell_id']+'.npz'),allow_pickle=False) as z:
+        for row in [r for r in grid if r['cell_id']==primary['cell_id']]:
+            method=row['method'];frozen=z[method+'_quality_point'];coarse=evaluate_frozen_policy(diagnostic_model,policies[row['policy_id']],z[method+'_tree_id'])
+            difference=coarse-frozen
+            numerical.append(dict(method=method,policy_id=row['policy_id'],max_abs_source_difference=float(np.max(abs(difference))),
+                train_mean_difference=float(difference[build].mean()),review_mean_difference=float(difference[split['verification_indices']].mean()),reselected=False))
+    save(out/'primary_numerical_diagnostic.json',dict(status='SAME_FROZEN_PRIMARY_POLICY_ORDER16_VS32',rows=numerical,
+        scope='Numerical integration only; not physical interpolation or BLER uncertainty'))
+    save(out/'split.json',split);save(out/'policies.json',dict(policies=policies,public_header_bits=12,public_tree_ids_local_to_frozen_operating_cell=True))
+    save(out/'coverage.json',dict(coverage=coverages,supplemental_layouts=len(extras),supplemental_curve_rows=len(extra_rows),model_only=True))
+    save(out/'search.json',dict(schema=VERSION,binding=binding,average_snr_db=a.snr,cells=records,source_ids=sources,state_ids=model.state_ids,split=split,
+        source_arrays='Per-cell NPZ retains all1000 exact source scores, bad bounds, resource expectation and selected tree ID',
+        source_weights='Sparse state_weights in each frozen complete tree; no fabricated scores',selection_on='construction800',
+        runtime_seconds=time.monotonic()-started,model_only=True,real_decodes=0,new_visual_inference=False,development_read=False))
+    outputs={str(p):sha(p) for p in out.rglob('*') if p.is_file() and p.name not in ('status.json','completion.json') and 'integral_cache' not in p.parts}
+    save(out/'completion.json',dict(status='COMPLETE',binding=binding,outputs=outputs,input_bindings=bindings,
+        source_bindings={str(Path(__file__).resolve()):sha(__file__),str(Path(__file__).with_name('model.py').resolve()):sha(Path(__file__).with_name('model.py'))},
+        runtime_seconds=time.monotonic()-started,selection_on='construction800',real_decodes=0,new_visual_inference=False,development_read=False,GPU_used=False))
+    print('COMPLETE')
+
+
+if __name__=='__main__':main()

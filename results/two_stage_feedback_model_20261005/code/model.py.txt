@@ -1,0 +1,389 @@
+"""Finite CPU table model. No PHY calls, rendering, training, or development data.
+
+All coefficients integrate packet events conditional on the SAME Rayleigh h.
+Headers of 16 symbols have no physical table; they exist only in the explicitly
+ideal-control diagnostic. Pilot symbols are a resource debit with perfect CSI.
+"""
+from __future__ import annotations
+import hashlib
+from collections import OrderedDict
+import itertools
+import json
+import math
+import re
+import numpy as np
+
+VERSION = 'TWO_STAGE_FEEDBACK_TABLE_MODEL_V1'
+METRIC = 'dinov2_vitl14_cosine'
+THRESHOLDS = (-5., 0., 4., 7., 10., 13., 19.)
+SIZES = (1, 2, 3, 4, 5, 6, 8, 10, 13, 16)
+HEADER_KEY = 'uep-v1-profile12-crc16-tail6-conv-ratematch136-qpsk-Es2'
+HEADER_MODES = ('measured_headers', 'ideal_controls')
+
+
+class MissingHeaderPHY(ValueError):
+    pass
+
+
+def require(ok, message):
+    if not ok:
+        raise ValueError(message)
+
+
+def identity(value):
+    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()).hexdigest()
+
+
+def state_tokens(state):
+    if state == 'gray':
+        return 0
+    match = re.fullmatch(r'm(\d+)_K(\d+)', state)
+    require(match is not None, 'Unregistered source-state syntax')
+    m, k = map(int, match.groups())
+    require(0 <= m <= len(SIZES) and 0 <= k < (SIZES[m] ** 2 if m < len(SIZES) else 1), 'Invalid partial source state')
+    return sum(s * s for s in SIZES[:m]) + k
+
+
+def threshold_sets(bits):
+    require(bits in (1, 2, 3), 'Only registered 1/2/3-bit feedback')
+    return list(itertools.combinations(THRESHOLDS, (1 << bits) - 1))
+
+
+def bin_groups(thresholds):
+    """Indices into the common eight elementary bins for a coarser quantizer."""
+    thresholds = tuple(thresholds)
+    require(tuple(sorted(set(thresholds))) == thresholds and set(thresholds) <= set(THRESHOLDS), 'Unknown feedback thresholds')
+    boundaries = [0] + [THRESHOLDS.index(t) + 1 for t in thresholds] + [8]
+    return [list(range(a, b)) for a, b in zip(boundaries[:-1], boundaries[1:])]
+
+
+def packet_outcomes(header, body):
+    """Correct, reject, undetected; CRC acceptance is C+U, not C."""
+    h, b = np.asarray(header), np.asarray(body)
+    return np.stack((h[..., 0] * b[..., 0], h[..., 1] + h[..., 0] * b[..., 1],
+                     h[..., 2] + h[..., 0] * b[..., 2]), axis=-1)
+
+
+def two_stage_weights(first, second=None):
+    """Gray/prefix/target/bad at one h; no sender access to first CRC outcome."""
+    a = np.asarray(first)
+    if second is None:
+        return np.stack((a[..., 1], a[..., 0], np.zeros_like(a[..., 0]), a[..., 2]), axis=-1)
+    b = np.asarray(second)
+    return np.stack((a[..., 1], a[..., 0] * b[..., 1], a[..., 0] * b[..., 0],
+                     a[..., 2] + a[..., 0] * b[..., 2]), axis=-1)
+
+
+def _quality(bundle, synthetic):
+    require(bundle.get('population') == 'calibration' and bundle.get('development_read') is False, 'Only calibration quality is admissible')
+    require(bundle.get('synthetic') is False or synthetic, 'Synthetic quality cannot select real policies')
+    ids = list(bundle['source_ids'])
+    require(len(ids) == len(set(ids)) > 0 and (synthetic or len(ids) == 1000), 'Complete original source population required')
+    index = {s: i for i, s in enumerate(ids)}
+    values = {}
+    for row in bundle['rows']:
+        if row['receiver'] not in ('VAR', 'gray'):
+            continue
+        require(row['source_id'] in index and row.get('population', 'calibration') == 'calibration'
+                and row.get('label_conditioned', False) is False, 'Quality population or condition changed')
+        state = row['state_id']
+        require((state == 'gray') == (row['receiver'] == 'gray'), 'State/receiver mismatch')
+        state_tokens(state)
+        arr = values.setdefault(state, np.full(len(ids), np.nan))
+        i = index[row['source_id']]
+        require(np.isnan(arr[i]), 'Duplicate quality state/source')
+        value = float(row[METRIC])
+        require(math.isfinite(value) and -1 <= value <= 1, 'Quality must be a finite cosine')
+        arr[i] = value
+    require('gray' in values and all(np.isfinite(a).all() for a in values.values()), 'Missing quality cells')
+    states = sorted(values, key=lambda s: (state_tokens(s), s))
+    return ids, states, np.stack([values[s] for s in states])
+
+
+def _group(source_bits, modulation, transmitted_bits, layout, phy_key, extra=False):
+    q = {'QPSK': 2, '16QAM': 4}.get(modulation)
+    require(q is not None and transmitted_bits % q == 0 and source_bits > 0 and source_bits % 12 == 0, 'Nonintegral or unsupported body shape')
+    require(layout['k'] == source_bits + 16 and layout['n'] == transmitted_bits, 'CRC/layout length mismatch')
+    require(layout['power_protocol'] == 'fixed_constellation_average_Es2', 'Power protocol changed')
+    return dict(phy_key=phy_key, source_bits=source_bits, information_bits=source_bits + 16,
+                crc_bits=16, tail_bits=0, modulation=modulation, transmitted_bits=transmitted_bits,
+                symbols=transmitted_bits // q, layout=layout, new_configuration=bool(extra))
+
+
+def _groups(rows, extra_groups):
+    groups = {}
+    for row in rows:
+        if row.get('kind') != 'body':
+            continue
+        c = row['physical_configuration']
+        group = _group(c['source_bits'], c['modulation'], c['transmitted_bits'], c['layout'], row['phy_key'])
+        require(group['phy_key'] not in groups or groups[group['phy_key']] == group, 'One PHY key has inconsistent layouts')
+        groups[group['phy_key']] = group
+    for g in extra_groups:
+        group = _group(g['source_bits'], g['modulation'], g['transmitted_bits'], g['layout'], g['phy_key'], True)
+        require(g['symbols'] == group['symbols'] and g['information_bits'] == group['information_bits'], 'Extra physical resource fields differ')
+        require(group['phy_key'] not in groups, 'Extra curve replaces an original configuration')
+        groups[group['phy_key']] = group
+    return groups
+
+
+def _curves(bundle, extra_rows, synthetic):
+    require(bundle.get('synthetic') is False or synthetic, 'Synthetic physical curves prohibited')
+    require(bundle.get('conditional_group_independence') is True, 'Conditional given-h noise independence must be registered')
+    curves, keys = {}, set()
+    for row in list(bundle['rows']) + list(extra_rows):
+        key, snr = str(row['phy_key']), float(row['snr_db'])
+        require((key, snr) not in keys and math.isfinite(snr), 'Duplicate or invalid PHY point')
+        keys.add((key, snr))
+        require(row.get('source_id', '*') == '*' and row.get('applicability') in
+                ('source_independent_verified', 'iid_scrambled_payload_approximation'), 'Unsupported probability applicability')
+        n = row['n_blocks'];counts = [row[k] for k in ('n_correct', 'n_reject', 'n_undetected')]
+        require(type(n) is int and n > 0 and all(type(c) is int and c >= 0 for c in counts) and sum(counts) == n, 'C/R/U counts do not partition actual trials')
+        probabilities = np.asarray(counts, dtype=np.float64) / n
+        require(all(abs(row[k] - p) < 1e-12 for k, p in zip(('p_correct', 'p_reject', 'p_undetected'), probabilities)), 'Curve probabilities differ from counts')
+        curves.setdefault(key, []).append((snr, probabilities))
+    return {key: (np.asarray([s for s, _ in sorted(entries)]), np.stack([p for _, p in sorted(entries)])) for key, entries in curves.items()}
+
+
+def quadrature(curves, average_snr, order=32):
+    require(order in (16, 32), 'Only frozen 16/32 numerical comparison')
+    knots = sorted(set(THRESHOLDS) | {float(s) for xs, _ in curves.values() for s in xs})
+    x, w = np.polynomial.legendre.leggauss(order)
+    loc, weights = [], []
+    for low, high in [(-math.inf, knots[0]), *zip(knots[:-1], knots[1:]), (knots[-1], math.inf)]:
+        a = 0. if low == -math.inf else 10. ** ((low - average_snr) / 10.)
+        b = math.inf if high == math.inf else 10. ** ((high - average_snr) / 10.)
+        sa, sb = math.exp(-a), 0. if b == math.inf else math.exp(-b)
+        mass = sa - sb
+        if mass <= 0:
+            continue
+        if low == -math.inf or high == math.inf:
+            # All curves and all quantizer bins are constant inside these tails.
+            point = a + 1 if high == math.inf else max(b * .5, 1e-300)
+            loc.append(average_snr + 10 * math.log10(point));weights.append(mass)
+        else:
+            survival = sb + (x + 1) * .5 * mass
+            loc.extend((average_snr + 10 * np.log10(-np.log(survival))).tolist())
+            weights.extend((w * .5 * mass).tolist())
+    loc, weights = np.asarray(loc), np.asarray(weights)
+    require(abs(weights.sum() - 1) < 1e-12 and np.isfinite(loc).all(), 'Rayleigh quadrature lost probability')
+    bins = np.searchsorted(THRESHOLDS, loc, side='right')
+    return loc, weights, weights[:, None] * (bins[:, None] == np.arange(8))
+
+
+class Model:
+    def __init__(self, profiles, quality, bler, extra_groups=(), extra_rows=(), average_snr=7,
+                 pilot=8, header_mode='measured_headers', order=32, synthetic=False):
+        require(header_mode in HEADER_MODES and pilot in (0, 8, 16, 32), 'Unregistered header mode or pilot cost')
+        require(average_snr in (4, 7, 10, 13) or synthetic, 'Unregistered mean SNR')
+        self.pilot, self.header_mode, self.average_snr = pilot, header_mode, average_snr
+        self.source_ids, self.state_ids, self.Q = _quality(quality, synthetic)
+        self.state_index = {s: i for i, s in enumerate(self.state_ids)}
+        self.gray_index = self.state_index['gray']
+        self.groups = _groups(bler['rows'], extra_groups)
+        self.curves = _curves(bler, extra_rows, synthetic)
+        require(HEADER_KEY in self.curves, 'Original 68-symbol header curve is missing')
+        require(set(self.groups) <= set(self.curves), 'A physical configuration has no exact probability table')
+        self.locations, self.weights, self.bin_weights = quadrature(self.curves, average_snr, order)
+        self.bin_masses = self.bin_weights.sum(axis=0)
+        self.elementary_bins = np.searchsorted(THRESHOLDS, self.locations, side='right')
+        self.probabilities = {key: np.stack([np.interp(self.locations, xs, p[:, i]) for i in range(3)], axis=-1)
+                              for key, (xs, p) in self.curves.items()}
+        self._by_bits = {}
+        for g in self.groups.values():
+            self._by_bits.setdefault(g['source_bits'], []).append(g)
+        for values in self._by_bits.values():
+            values.sort(key=lambda g: (g['symbols'], g['modulation'], g['phy_key']))
+        self.profiles = list(profiles)
+        require(synthetic or len(self.profiles) == 4041, 'Full original 4041-profile baseline required')
+        require(len({p['stable_id'] for p in self.profiles}) == len(self.profiles), 'Duplicate baseline profiles')
+        for profile in self.profiles:
+            self._validate_profile(profile)
+        self.extra_profiles = []
+        for group in extra_groups:
+            for state in self.state_ids:
+                if state != 'gray' and 12 * state_tokens(state) == group['source_bits']:
+                    self.extra_profiles.append(dict(stable_id='extra-' + identity([group['phy_key'], state]),
+                        G=1, N=1024, groups=[self.groups[group['phy_key']]], header_phy_key=HEADER_KEY,
+                        header_symbols=68, prefix_state_id=None, full_state_id=state,
+                        used_body_symbols=group['symbols'], order='entropy', encoder_qualified=True))
+        self._first, self._continuations = {}, {}
+        self._body_matrices = {}
+        self._coefficient_cache = OrderedDict()
+        self._coefficient_cache_bytes = 0
+        self.coefficient_cache_limit_bytes = 128 * 1024 * 1024
+        missing = []
+        for m in (4, 5, 6):
+            first_state = f'm{m}_K0'
+            require(first_state in self.state_index, 'Missing registered first-stage quality')
+            self._first[m] = self._actions('gray', first_state)
+            targets = [s for s in self.state_ids if state_tokens(s) > state_tokens(first_state)]
+            actions = []
+            for target in targets:
+                available = self._actions(first_state, target)
+                actions.extend(available)
+                if not available:
+                    missing.append(dict(start_state=first_state, target_state=target,
+                        payload_bits=12 * (state_tokens(target) - state_tokens(first_state)),
+                        status='NO_LAYOUT_WITHIN_N1024' if self._by_bits.get(12 * (state_tokens(target) - state_tokens(first_state))) else 'MISSING_EXACT_BODY_TABLE'))
+            self._continuations[first_state] = actions
+        self._continuation_positions = {state: {'STOP': 0, **{a['action_id']: i + 1 for i, a in enumerate(actions)}}
+                                        for state, actions in self._continuations.items()}
+        self.coverage = dict(version=VERSION, original_profiles=len(self.profiles), extra_single_profiles=len(self.extra_profiles),
+            physical_body_configurations=len(self.groups), physical_curves=len(self.curves), quality_states=len(self.state_ids),
+            first_actions={str(k): len(v) for k, v in self._first.items()},
+            continuation_actions={k: len(v) for k, v in self._continuations.items()}, missing_body_tables=missing,
+            no_new_PHY=True, no_new_GPU=True, development_read=False, pilot_convention='charged-only perfect-RX and feedback CSI',
+            partial_states_are_model_only=True, header16='MISSING_HEADER_PHY in measured_headers; error-free paid control in ideal_controls',
+            interpolation='linear dB; constant endpoint tails; numerical integration is not physical validation',
+            U_point=0, U_bounds=[-1, 1], received_CRC_acceptance='C+U', same_h_all_packets=True,
+            sender_observes_first_CRC=False, content_ID='first paid 12-bit header precommits the entire public second-action tree',
+            source_independence='existing iid scrambled payload working assumption', global_optimality_claim=False)
+
+    def _validate_profile(self, p):
+        require(p['N'] == 1024 and p['G'] in (1, 2) and len(p['groups']) == p['G'] and p['header_symbols'] == 68, 'Unsupported profile accounting')
+        require(p['header_phy_key'] == HEADER_KEY and p['full_state_id'] in self.state_index, 'Profile header/quality missing')
+        if p['G'] == 2:
+            require(p['prefix_state_id'] in self.state_index, 'Profile intermediate quality missing')
+        for g in p['groups']:
+            require(g['phy_key'] in self.groups, 'Profile body has no exact physical table')
+            frozen = self.groups[g['phy_key']]
+            require(all(g[k] == frozen[k] for k in ('source_bits', 'modulation', 'symbols', 'layout')), 'Profile layout differs from its curve')
+        require(sum(g['source_bits'] for g in p['groups']) == 12 * state_tokens(p['full_state_id']), 'Profile source truncation differs from cached Q')
+        if p['G'] == 2:
+            require(p['groups'][0]['source_bits'] == 12 * state_tokens(p['prefix_state_id']), 'Profile group boundary differs from cached prefix Q')
+
+    def _actions(self, start_state, target_state):
+        bits = 12 * (state_tokens(target_state) - state_tokens(start_state))
+        return [dict(action_id=identity([start_state, target_state, g['phy_key']]), start_state=start_state,
+                state_id=target_state, target_index=self.state_index[target_state], group=g, symbols=g['symbols'],
+                payload_bits=bits, start_token=state_tokens(start_state), stop_token=state_tokens(target_state),
+                requires_entropy_order=not target_state.endswith('_K0'), stop=False)
+                for g in self._by_bits.get(bits, []) if g['symbols'] <= 956]
+
+    def header(self, symbols):
+        require(symbols in (0, 16, 68), 'Unregistered header length')
+        if self.header_mode == 'measured_headers' and symbols == 16:
+            raise MissingHeaderPHY('MISSING_HEADER_PHY: a 16-symbol control has no measured exact-layout curve')
+        if symbols == 0 or self.header_mode == 'ideal_controls':
+            result = np.zeros((len(self.locations), 3));result[:, 0] = 1
+            return result
+        return self.probabilities[HEADER_KEY]
+
+    def first_actions(self, split):
+        require(split in self._first, 'Only m4/m5/m6 first packet')
+        return self._first[split]
+
+    def continuations(self, first, budget, H2):
+        require(H2 in (0, 16, 68), 'Unregistered second header')
+        require(budget >= 0, 'First packet plus pilot/feedback already exceeds budget')
+        self.header(H2)  # Reject the measured-16 cell, even if STOP is its only action.
+        state = first['state_id']
+        require(state in self._continuations and first['start_state'] == 'gray', 'First action is not a registered complete prefix')
+        stop = dict(action_id='STOP', start_state=state, state_id=state, target_index=self.state_index[state],
+                    group=None, symbols=0, payload_bits=0, stop=True, requires_entropy_order=False)
+        return [stop] + [a for a in self._continuations[state] if H2 + a['symbols'] <= budget]
+
+    def _check_bins(self, bins):
+        if bins is not None:
+            require(np.array_equal(np.asarray(bins), self.elementary_bins), 'Use the frozen common eight-bin partition')
+
+    def _integrate(self, node_coeff):
+        result = np.einsum('ajc,jb->abc', node_coeff, self.bin_weights, optimize=True)
+        require(np.allclose(result.sum(axis=-1), self.bin_masses[None, :], atol=1e-11, rtol=0), 'Integrated state probability lost')
+        return result
+
+    def score_coefficients(self, first, second_actions, elementary_bins=None, H2=68):
+        self._check_bins(elementary_bins)
+        require(second_actions, 'At least STOP is required')
+        full = self.prepare_coefficients(first, H2)
+        positions = self._continuation_positions[first['state_id']]
+        indices, targets, durations, bodies = [], [], [], []
+        for a in second_actions:
+            require(a['start_state'] == first['state_id'], 'Continuation skips a source prefix')
+            require(a['action_id'] in positions, 'Unregistered second action')
+            indices.append(positions[a['action_id']])
+            targets.append(a['target_index']);bodies.append(a['symbols'])
+            durations.append(0 if a['stop'] else H2 + a['symbols'])
+        return dict(coefficients=full[np.asarray(indices)], prefix_indices=np.full(len(indices), self.state_index[first['state_id']], dtype=int),
+            target_indices=np.asarray(targets, dtype=int), second_symbols=np.asarray(durations, dtype=int),
+            body_symbols=np.asarray(bodies, dtype=int), first_forward_symbols=68 + first['symbols'],
+            action_ids=[a['action_id'] for a in second_actions], labels=['gray', 'prefix', 'target', 'bad'],
+            no_ACK_conditioning=True, fixed_first_duration=True)
+
+    def prepare_coefficients(self, first, H2=68):
+        """All suffixes at once using three matrix products; LRU capped at 128 MiB.
+
+        Cache key excludes pilot/feedback because they only filter exact resource
+        lengths. Ideal control headers share the same probability cache key.
+        Row order is STOP followed by self._continuations[first['state_id']].
+        """
+        h1, h2 = self.header(68), self.header(H2)
+        key = first['action_id'], 0 if self.header_mode == 'ideal_controls' else H2
+        if key in self._coefficient_cache:
+            self._coefficient_cache.move_to_end(key)
+            return self._coefficient_cache[key]
+        state = first['state_id']
+        if state not in self._body_matrices:
+            actions = self._continuations[state]
+            self._body_matrices[state] = np.stack([self.probabilities[a['group']['phy_key']] for a in actions]) if actions else np.empty((0, len(self.locations), 3))
+        body = self._body_matrices[state]
+        packet = packet_outcomes(h1, self.probabilities[first['group']['phy_key']])
+        fc, fr, fu = packet.T
+        w = self.bin_weights
+        gray, prefix, bad = fr @ w, fc @ w, fu @ w
+        weighted = (fc * h2[:, 0])[:, None] * w
+        result = np.empty((len(body) + 1, 8, 4), dtype=np.float64)
+        result[0] = np.stack((gray, prefix, np.zeros(8), bad), axis=-1)
+        result[1:, :, 0] = gray
+        result[1:, :, 1] = body[:, :, 1] @ weighted + (fc * h2[:, 1]) @ w
+        result[1:, :, 2] = body[:, :, 0] @ weighted
+        result[1:, :, 3] = bad + (fc * h2[:, 2]) @ w + body[:, :, 2] @ weighted
+        require(np.allclose(result.sum(axis=-1), self.bin_masses[None, :], atol=1e-11, rtol=0), 'Integrated state probability lost')
+        result.flags.writeable = False
+        if result.nbytes <= self.coefficient_cache_limit_bytes:
+            while self._coefficient_cache and self._coefficient_cache_bytes + result.nbytes > self.coefficient_cache_limit_bytes:
+                _, removed = self._coefficient_cache.popitem(last=False)
+                self._coefficient_cache_bytes -= removed.nbytes
+            self._coefficient_cache[key] = result
+            self._coefficient_cache_bytes += result.nbytes
+        return result
+
+    def profile_coefficients(self, profiles):
+        require(profiles, 'Nonempty exact baseline profiles required')
+        header = self.header(68)
+        rows, prefixes, targets, costs = [], [], [], []
+        for profile in profiles:
+            self._validate_profile(profile)
+            first = packet_outcomes(header, self.probabilities[profile['groups'][0]['phy_key']])
+            if profile['G'] == 1:
+                # One packet directly reconstructs its target state.
+                rows.append(np.stack((first[:, 1], np.zeros(len(first)), first[:, 0], first[:, 2]), axis=-1))
+                prefixes.append(self.gray_index)
+            else:
+                second = self.probabilities[profile['groups'][1]['phy_key']]
+                rows.append(two_stage_weights(first, second))
+                prefixes.append(self.state_index[profile['prefix_state_id']])
+            targets.append(self.state_index[profile['full_state_id']])
+            costs.append(68 + sum(g['symbols'] for g in profile['groups']))
+        return dict(coefficients=self._integrate(np.stack(rows)), prefix_indices=np.asarray(prefixes, dtype=int),
+            target_indices=np.asarray(targets, dtype=int), forward_symbols=np.asarray(costs, dtype=int),
+            profile_ids=[p['stable_id'] for p in profiles], labels=['gray', 'prefix', 'target', 'bad'])
+
+    def quality_scores(self, coefficients, prefix_indices, target_indices, source_indices=None):
+        """Unnormalised bin utility. Signed quality increments are never clipped."""
+        q = self.Q if source_indices is None else self.Q[:, source_indices]
+        c = np.asarray(coefficients)
+        return (c[:, :, 0, None] * q[self.gray_index][None, None, :] +
+                c[:, :, 1, None] * q[np.asarray(prefix_indices)][:, None, :] +
+                c[:, :, 2, None] * q[np.asarray(target_indices)][:, None, :])
+
+    def resource(self, first, second, feedback_symbols, H2):
+        require(feedback_symbols in (8, 16, 32), 'Unregistered feedback cost')
+        second_cost = 0 if second['stop'] else H2 + second['symbols']
+        used = self.pilot + 68 + first['symbols'] + feedback_symbols + second_cost
+        require(used <= 1024, 'Pilot/header/body/feedback exceeds N1024')
+        return dict(pilot_symbols=self.pilot, first_header_symbols=68, first_body_symbols=first['symbols'],
+                    feedback_symbols=feedback_symbols, second_header_symbols=0 if second['stop'] else H2,
+                    second_body_symbols=second['symbols'], used_symbols=used, idle_symbols=1024-used,
+                    second_sent_even_if_first_CRC_rejected=not second['stop'])

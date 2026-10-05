@@ -1,0 +1,57 @@
+from pathlib import Path
+import tempfile
+import unittest
+import numpy as np
+import auxiliary as a
+import report as r
+
+
+class AuxiliaryTests(unittest.TestCase):
+    def test_unknown_psnr_not_imputed(self):
+        got = a.metric_summary(np.array([10., 12.]), np.array([.1, .2]), 'psnr_db', r.bootstrap_weights(2, 50))
+        self.assertIsNone(got['total_mean'])
+        self.assertIsNone(got['total_mean_lower'])
+        self.assertEqual(got['known_state_weighted_contribution'], 11)
+
+    def test_zero_unknown_is_identified(self):
+        got = a.metric_summary(np.array([10., 12.]), np.zeros(2), 'psnr_db', r.bootstrap_weights(2, 50))
+        self.assertEqual(got['total_mean'], 11)
+
+    def test_classifier_and_cosine_bounds_differ(self):
+        weights = r.bootstrap_weights(2, 50)
+        classifier = a.metric_summary(np.array([.4, .4]), np.array([.1, .1]), 'resnet50_top1_label', weights)
+        cosine = a.metric_summary(np.array([.4, .4]), np.array([.1, .1]), 'clip_image_cosine', weights)
+        self.assertAlmostEqual(classifier['total_mean_lower'], .4)
+        self.assertAlmostEqual(classifier['total_mean_upper'], .5)
+        self.assertAlmostEqual(cosine['total_mean_lower'], .3)
+        self.assertAlmostEqual(cosine['total_mean_upper'], .5)
+
+    def test_content_uses_frozen_ids_not_auxiliary_argmax(self):
+        p = dict(kind='TWO_STAGE_C8', trees=[dict(public_header_id=0, state_weights={'0':1}, bad_probability=0),
+                                            dict(public_header_id=1, state_weights={'1':1}, bad_probability=0)])
+        weights, bad = a.weights_for_policy(p, np.array([1,0]), 2)
+        np.testing.assert_array_equal(weights, [[0,1],[1,0]])
+        with self.assertRaisesRegex(RuntimeError, 'IDs invalid'):
+            a.weights_for_policy(p, np.array([2,0]), 2)
+        p['trees'][0]['bad_probability'] = .1
+        with self.assertRaisesRegex(RuntimeError, 'mass'):
+            a.weights_for_policy(p, np.array([1,0]), 2)
+
+    def test_cache_scope_and_missing_metric(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / 'q.csv'
+            rows = [dict(source_id='s', state_id='gray', receiver='gray', population='calibration',
+                         label_conditioned='false', generation='constant_RGB_0.5', dinov2_vitl14_cosine=.1, psnr_db=12)]
+            r.save_csv(p, rows)
+            arrays, missing = a.read_cache(p, ['s'], ['gray'])
+            self.assertEqual(arrays['psnr_db'][0,0], 12)
+            self.assertIn('clip_image_cosine', missing)
+            with self.assertRaisesRegex(RuntimeError, 'incomplete'):
+                a.read_cache(p, ['s', 'other'], ['gray'])
+            p.unlink(); rows[0]['label_conditioned'] = 'true'; r.save_csv(p, rows)
+            with self.assertRaisesRegex(RuntimeError, 'generation/population'):
+                a.read_cache(p, ['s'], ['gray'])
+
+
+if __name__ == '__main__':
+    unittest.main()

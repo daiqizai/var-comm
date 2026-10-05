@@ -1,0 +1,128 @@
+"""Pure array fixtures: no real coding, neural models, GPU or development data."""
+import copy
+import contextlib
+import inspect
+import io
+import json
+import os
+from pathlib import Path
+import sys
+import tempfile
+import unittest
+from unittest.mock import patch
+import numpy as np
+import search as s
+import model as m
+from test_model import fixture
+
+
+def content_fixture():
+    Q=np.array([[.1]*10,[.4]*10,[.9]*4+[.1]*4+[.8,.2],[.1]*4+[.9]*4+[.2,.8]],dtype=float)
+    c=np.zeros((3,8,4));c[0,:,1]=1/8;c[1:,:,2]=1/8
+    bundle=dict(coefficients=c,gray_index=0,prefix_indices=np.ones(3,dtype=int),target_indices=np.array([1,2,3]))
+    return Q,bundle
+
+
+class SearchTests(unittest.TestCase):
+    def test_threshold_grid_is_complete_and_ties_are_deterministic(self):
+        self.assertEqual([len(list(s.partitions(b))) for b in (1,2,3)],[7,35,1])
+        for bits in (1,2,3):
+            for partition in s.partitions(bits):self.assertEqual([i for a,b in partition for i in range(a,b)],list(range(8)))
+        Q,bundle=content_fixture();Q[:]=0
+        best=s.optimize_partition(bundle,Q,list(range(8)),2)
+        self.assertEqual(best['choices'],(0,0,0,0));self.assertEqual(s.threshold_values(best['partition']),[-5,0,4])
+    def test_split_matches_original_hash_without_quality_input(self):
+        ids=[str(i) for i in range(1000)];split=s.source_split(ids)
+        self.assertEqual(len(split['construction_indices']),800);self.assertEqual(len(split['verification_indices']),200)
+        self.assertFalse(set(split['construction_source_ids'])&set(split['verification_source_ids']))
+        self.assertEqual(s.source_split(list(reversed(ids)))['construction_source_ids'],split['construction_source_ids'])
+    def test_C8_dictionary_uses_training_only_and_review_only_selects_frozen_tree(self):
+        Q,bundle=content_fixture();part=((0,4),(4,8));build=list(range(8))
+        a=s.content_dictionary(bundle,Q,build,part,(1,1),300,[0,100,100]);changed=Q.copy();changed[:,8:]=np.array([[.1],[.4],[.1],[.99]])
+        b=s.content_dictionary(bundle,changed,build,part,(1,1),300,[0,100,100])
+        self.assertEqual([t['choices'] for t in a['trees']],[t['choices'] for t in b['trees']])
+        self.assertTrue(a['tree_choice_before_unknown_bin']);self.assertEqual(a['initial_header_bits'],12)
+        self.assertLessEqual(a['dictionary_size'],8);self.assertEqual(a['trees'][0]['choices'],[1,1])
+        np.testing.assert_allclose(a['scores'][:8],.9);self.assertFalse(np.array_equal(a['tree_ids'][8:],b['tree_ids'][8:]))
+        self.assertNotIn('feedback_bin',inspect.signature(s.content_dictionary).parameters)
+    def test_C8_evaluates_whole_tree_before_bin_not_binwise_runtime_oracle(self):
+        Q,bundle=content_fixture();result=s.content_dictionary(bundle,Q,list(range(8)),((0,4),(4,8)),(1,1),300,[0,100,100],maximum=1)
+        self.assertEqual(result['dictionary_size'],1);np.testing.assert_allclose(result['scores'],Q[2]);self.assertTrue((result['tree_ids']==0).all())
+    def test_greedy_stops_when_no_positive_construction_gain(self):
+        Q,bundle=content_fixture();Q[2]=.95;Q[3]=.2
+        result=s.content_dictionary(bundle,Q,list(range(8)),((0,4),(4,8)),(1,1),300,[0,100,100])
+        self.assertEqual(result['dictionary_size'],1)
+    def test_signed_quality_keeps_stop_and_first_fixed(self):
+        model=m.Model(*fixture(),synthetic=True,header_mode='ideal_controls',pilot=16)
+        chosen=s.optimize_two_stage(model,[0],16,16,68,4)
+        uniform,content=s.finalize_two_stage(model,chosen[2],[0],16,16,68,2)
+        self.assertEqual(uniform['policy']['first'],content['policy']['first'])
+        self.assertEqual(uniform['thresholds_db'],content['policy']['thresholds_db'])
+        self.assertTrue(all(a['stop'] for a in uniform['policy']['second_actions']))
+        self.assertEqual(uniform['mean_used_symbols'],16+68+200+16)
+    def test_bad_probability_retains_minus1_plus1_bounds_and_no_resource_discount(self):
+        Q,bundle=content_fixture();bundle['coefficients']*=.8;bundle['coefficients'][:,:,3]=.2/8
+        value=s.tree_values(bundle,Q,((0,4),(4,8)),(1,2),300,[0,100,200])
+        self.assertAlmostEqual(value['bad_probability'],.2);self.assertAlmostEqual(value['mean_used_symbols'],450)
+        self.assertEqual(value['max_used_symbols'],500);self.assertEqual(value['U_quality_bounds'],[-1,1])
+    def test_exact_integral_cache_is_equal_and_ideal_headers_share_coefficients(self):
+        model=m.Model(*fixture(),synthetic=True,header_mode='ideal_controls');first=model.first_actions(4)[0]
+        actions=sorted(model.continuations(first,500,68),key=s.action_key)
+        with tempfile.TemporaryDirectory() as directory:
+            cache=s.CachedModel(model,directory,'binding')
+            expected=model.score_coefficients(first,actions,H2=68);actual=cache.score_coefficients(first,actions,H2=68)
+            np.testing.assert_allclose(actual['coefficients'],expected['coefficients']);np.testing.assert_array_equal(actual['second_symbols'],expected['second_symbols'])
+            with patch.object(model,'score_coefficients',side_effect=AssertionError('Should reuse exact integral')):
+                again=cache.score_coefficients(first,actions,H2=16)
+                np.testing.assert_allclose(again['coefficients'],expected['coefficients'])
+                self.assertEqual(len(list(Path(directory).glob('*.npz'))),1)
+    def test_resource_bound_refuses_impossible_tree(self):
+        Q,bundle=content_fixture()
+        with self.assertRaisesRegex(RuntimeError,'exceeds'):s.tree_values(bundle,Q,((0,8),),(1,),1000,[0,100,100])
+    def test_frozen_primary_numerical_diagnostic_never_reselects_content(self):
+        model=m.Model(*fixture(),synthetic=True,header_mode='ideal_controls',pilot=16)
+        optimized=s.optimize_two_stage(model,[0],16,16,0,4)
+        uniform,content=s.finalize_two_stage(model,optimized[1],[0],16,16,0,1)
+        np.testing.assert_allclose(s.evaluate_frozen_policy(model,uniform['policy']),uniform['scores'])
+        np.testing.assert_allclose(s.evaluate_frozen_policy(model,content['policy'],content['tree_ids']),content['scores'])
+        with self.assertRaisesRegex(RuntimeError,'tree IDs'):s.evaluate_frozen_policy(model,content['policy'])
+    def test_fixed_and_qcsi_pay_same_pilot_without_rescaling_a_layout(self):
+        model=m.Model(*fixture(),synthetic=True,header_mode='measured_headers')
+        fixed=s.fixed_reference(model,[0],32);q=s.qcsi_reference(model,[0],32,16,2)
+        self.assertGreaterEqual(fixed['max_used_symbols'],32+68)
+        self.assertGreaterEqual(q['max_used_symbols'],32+16+68)
+        np.testing.assert_allclose(s.evaluate_frozen_policy(model,fixed['policy']),fixed['scores'])
+        np.testing.assert_allclose(s.evaluate_frozen_policy(model,q['policy']),q['scores'])
+    def test_csv_is_lf_only(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'one.csv';s.csv_write(path,[dict(a=1,b=2)]);self.assertNotIn(b'\r',path.read_bytes())
+    def test_micro_end_to_end_missing_H16_only_affects_two_stage_and_resume_is_read_only(self):
+        profiles,quality,bler=fixture();quality['source_ids']=[str(i) for i in range(1000)]
+        original_rows=quality['rows'];quality['rows']=[]
+        for source in quality['source_ids']:
+            quality['rows'] += [dict(row,source_id=source) for row in original_rows if row['source_id']=='a']
+        real_model=m.Model
+        protocol=json.loads((Path(__file__).resolve().parents[1]/'protocol.json').read_text())
+        protocol.update(average_snrs_db=[7],pilot_symbols=[16],first_m=[4],feedback_bits=[1],feedback_symbols=[16],second_header_symbols=[16,68])
+        protocol['header_modes']={'measured_headers':protocol['header_modes']['measured_headers']}
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);assets={}
+            for name,value in [('profiles',profiles),('quality_bundle',quality),('bler',bler),('source_split',s.source_split(quality['source_ids']))]:
+                path=root/(name+'.json');path.write_text(json.dumps(value),encoding='utf-8');assets[name]=dict(path=str(path),sha256=s.sha(path))
+            snapshot=root/'snapshot.json';snapshot.write_text(json.dumps(dict(assets=assets)),encoding='utf-8')
+            p=root/'protocol.json';p.write_text(json.dumps(protocol),encoding='utf-8');out=root/'result'
+            argv=['search.py','--snapshot',str(snapshot),'--protocol',str(p),'--out',str(out),'--snr','7']
+            with patch.object(s,'SNRS',(7,)),patch.object(s,'PILOTS',(16,)),patch.object(s,'FB_BITS',(1,)),patch.object(s,'FB_COSTS',(16,)),patch.object(s,'SPLITS',(4,)),patch.object(s,'HEADERS',(16,68)),patch.object(s,'MODES',('measured_headers',)), \
+                 patch.object(m,'Model',side_effect=lambda *a,**kw:real_model(*a,synthetic=True,**kw)),patch.object(sys,'argv',argv), \
+                 patch.dict(os.environ,dict(CUDA_VISIBLE_DEVICES='',OMP_NUM_THREADS='2',MKL_NUM_THREADS='2',OPENBLAS_NUM_THREADS='2')),contextlib.redirect_stdout(io.StringIO()):
+                s.main();before=(out/'completion.json').read_bytes();s.main();self.assertEqual((out/'completion.json').read_bytes(),before)
+            with (out/'grid_summary.csv').open(newline='',encoding='utf-8') as stream:rows=list(s.csv.DictReader(stream))
+            short=[r for r in rows if r['second_header_symbols']=='16']
+            self.assertEqual({r['method'] for r in short if r['status']=='MODEL_ONLY'},{'FIXED','QCSI'})
+            self.assertEqual({r['method'] for r in short if r['status']=='MISSING_ASSET'},{'TWO_STAGE','TWO_STAGE_C8'})
+            with (out/'primary_summary.csv').open(newline='',encoding='utf-8') as stream:primary=list(s.csv.DictReader(stream))
+            self.assertEqual(len(primary),4);self.assertTrue(all(r['second_header_symbols']=='68' for r in primary))
+            self.assertEqual(s.read(out/'completion.json')['status'],'COMPLETE')
+
+
+if __name__=='__main__':unittest.main()

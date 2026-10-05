@@ -1,0 +1,249 @@
+"""Independent, read-only audit of completed table-search result artifacts.
+
+This checks recorded decisions and numerical invariants. It cannot prove the
+absence of unrecorded historical data access. No PHY, model, or search is run.
+"""
+import argparse
+import csv
+import hashlib
+import itertools
+import json
+import math
+from pathlib import Path
+
+METHODS = ('FIXED', 'QCSI', 'TWO_STAGE', 'TWO_STAGE_C8')
+AXES = ('average_snr_db', 'header_mode', 'pilot_symbols', 'feedback_bits',
+        'feedback_symbols', 'second_header_symbols', 'first_m')
+TOL = 1e-9
+
+
+def sha(path):
+    h = hashlib.sha256()
+    with Path(path).open('rb') as f:
+        for b in iter(lambda: f.read(1024 * 1024), b''):
+            h.update(b)
+    return h.hexdigest()
+
+
+def read(path):
+    return json.loads(Path(path).read_text(encoding='utf-8'))
+
+
+def digest(value):
+    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()).hexdigest()
+
+
+class Audit:
+    def __init__(self):
+        self.checks = 0
+        self.failures = []
+
+    def check(self, value, name, **context):
+        self.checks += 1
+        if not value:
+            self.failures.append(dict(check=name, **context))
+
+
+def rows(path):
+    with Path(path).open(encoding='utf-8', newline='') as f:
+        result = list(csv.DictReader(f))
+    for row in result:
+        for key in AXES:
+            if key != 'header_mode' and key in row:
+                row[key] = int(row[key])
+        for key in ('train_mean', 'review_mean', 'max_used_symbols'):
+            if row.get(key) not in (None, ''):
+                row[key] = float(row[key])
+    return result
+
+
+def audit_monotonicity(grid, audit):
+    ready = [r for r in grid if r['status'] == 'MODEL_ONLY']
+    def ordered_check(method, axis, direction, exclude=()):
+        buckets = {}
+        keys = [k for k in AXES if k != axis and k not in exclude]
+        for row in ready:
+            if row['method'] == method:
+                buckets.setdefault(tuple(row[k] for k in keys), []).append(row)
+        for group in buckets.values():
+            group.sort(key=lambda r: r[axis])
+            for lo, hi in zip(group, group[1:]):
+                delta = hi['train_mean'] - lo['train_mean']
+                good = delta <= TOL if direction == 'nonincrease' else delta >= -TOL
+                audit.check(good, 'construction_monotonicity', method=method, axis=axis,
+                            direction=direction, low=lo['cell_id'], high=hi['cell_id'], difference=delta)
+    for method in ('FIXED', 'QCSI'):
+        ordered_check(method, 'pilot_symbols', 'nonincrease')
+    ordered_check('QCSI', 'feedback_symbols', 'nonincrease')
+    for method in ('QCSI', 'TWO_STAGE'):
+        ordered_check(method, 'feedback_bits', 'nondecrease')
+    fixed = {}
+    for row in ready:
+        if row['method'] == 'FIXED':
+            key = (row['average_snr_db'], row['header_mode'], row['pilot_symbols'])
+            if key in fixed:
+                audit.check(abs(row['train_mean'] - fixed[key]['train_mean']) <= TOL,
+                            'fixed_independent_of_feedback_and_split', cell_id=row['cell_id'])
+            else:
+                fixed[key] = row
+
+
+def policy_paths(policy):
+    """Count each actual public branch independently of recorded summary costs."""
+    kind = policy['kind']; pilot = int(policy['pilot_symbols'])
+    body = lambda p: sum(int(g['symbols']) for g in p['groups'])
+    if kind == 'FIXED':
+        return [pilot + 68 + body(policy['profile'])]
+    if kind == 'QCSI':
+        return [pilot + int(policy['feedback_symbols']) + 68 + body(p) for p in policy['profiles']]
+    base = pilot + 68 + int(policy['first']['symbols']) + int(policy['feedback_symbols'])
+    trees = [policy] if kind == 'TWO_STAGE' else policy['trees']
+    return [base + (0 if a['stop'] else int(policy['second_header_symbols']) + int(a['symbols']))
+            for t in trees for a in t['second_actions']]
+
+
+def audit_policies(grid, policies, audit):
+    lookup = {(r['cell_id'], r['method']): r for r in grid}
+    for row in grid:
+        if row['status'] != 'MODEL_ONLY':
+            continue
+        pid = row['policy_id']; p = policies.get(pid)
+        audit.check(p is not None, 'policy_present', policy_id=pid)
+        if p is None:
+            continue
+        audit.check(digest(p) == pid and p['kind'] == row['method'], 'policy_identity', policy_id=pid)
+        costs = policy_paths(p)
+        audit.check(bool(costs) and min(costs) >= 0 and max(costs) <= 1024,
+                    'all_actual_paths_fit', policy_id=pid, max_used=max(costs, default=None))
+        audit.check(abs(max(costs) - row['max_used_symbols']) <= TOL,
+                    'recorded_maximum_equals_paths', policy_id=pid)
+        if p['kind'] not in ('TWO_STAGE', 'TWO_STAGE_C8'):
+            continue
+        audit.check(p.get('same_h') is True and p.get('feedback_content') == 'SNR_bin_only_NO_ACK',
+                    'registered_feedback_contract', policy_id=pid)
+        if p['kind'] != 'TWO_STAGE_C8':
+            continue
+        urow = lookup[(row['cell_id'], 'TWO_STAGE')]; uniform = policies[urow['policy_id']]
+        shared = ('first', 'pilot_symbols', 'feedback_symbols', 'feedback_bits', 'second_header_symbols', 'thresholds_db')
+        audit.check(all(p[k] == uniform[k] for k in shared), 'content_matches_uniform_first_and_quantizer', policy_id=pid)
+        trees = p['trees']
+        audit.check(1 <= len(trees) <= 8 and [t['public_header_id'] for t in trees] == list(range(len(trees))),
+                    'paid_public_tree_ids_fit', policy_id=pid)
+        audit.check(any(t['second_actions'] == uniform['second_actions'] for t in trees),
+                    'uniform_tree_in_content_dictionary', policy_id=pid)
+        audit.check(row['train_mean'] >= urow['train_mean'] - TOL,
+                    'content_not_below_matched_uniform', policy_id=pid)
+        audit.check(p.get('first_stage_shared') is True and p.get('tree_choice_before_unknown_bin') is True,
+                    'content_choice_before_unknown_bin', policy_id=pid)
+
+
+def audit_selection(grid, selected, primary, split, protocol, audit):
+    ids = split['ordered_source_ids']
+    source_key = lambda s: (hashlib.sha256(json.dumps(['C/SOURCE_SPLIT', 2026100501, s],
+                            ensure_ascii=False, separators=(',', ':')).encode()).hexdigest(), s)
+    ordered = sorted(ids, key=source_key)
+    audit.check(len(ids) == len(set(ids)) == 1000 and ordered == ids,
+                'original_1000_deterministic_split')
+    audit.check(split['construction_source_ids'] == ordered[:800] and
+                split['verification_source_ids'] == ordered[800:], '800_200_disjoint_split')
+    audit.check(split.get('development_read') is False, 'no_development_registration')
+    for row in grid + selected + primary:
+        audit.check(row.get('selection_on') == 'construction800', 'selection_population', cell_id=row['cell_id'])
+    base = lambda r: tuple(r[k] for k in AXES[:-1])
+    contexts = {base(r) for r in grid}
+    for key in contexts:
+        allrows = [r for r in grid if base(r) == key]
+        candidates = [r for r in allrows if r['method'] == 'TWO_STAGE' and r['status'] == 'MODEL_ONLY']
+        target = min(candidates, key=lambda r: (-r['train_mean'], r['first_m'])) if candidates else min(allrows, key=lambda r: r['first_m'])
+        got = [r for r in selected if base(r) == key]
+        audit.check(len(got) == 4 and {r['method'] for r in got} == set(METHODS) and
+                    all(r['cell_id'] == target['cell_id'] for r in got), 'split_selected_by_training_only', context=list(key))
+    candidates = [r for r in grid if r['method'] == 'TWO_STAGE' and r['status'] == 'MODEL_ONLY' and
+                  r['header_mode'] == 'measured_headers' and r['pilot_symbols'] == protocol['primary_pilot_symbols'] and
+                  r['feedback_symbols'] == protocol['primary_feedback_symbols'] and
+                  r['second_header_symbols'] == protocol['primary_second_header_symbols']]
+    for snr in {r['average_snr_db'] for r in grid}:
+        eligible = [r for r in candidates if r['average_snr_db'] == snr]
+        winner = min(eligible, key=lambda r: (-r['train_mean'], r['feedback_bits'], r['first_m']))
+        got = [r for r in primary if r['average_snr_db'] == snr]
+        audit.check(len(got) == 4 and {r['method'] for r in got} == set(METHODS) and
+                    all(r['cell_id'] == winner['cell_id'] for r in got), 'primary_bits_and_split_selected_by_training_only', snr=snr)
+
+
+def audit_bootstrap(protocol, summary, audit):
+    v = protocol['verification']
+    audit.check(v['bootstrap_repeats'] == summary.get('bootstrap_repeats') == 5000 and
+                v['bootstrap_seed'] == summary.get('bootstrap_seed') == 2026100504,
+                'registered_5000_paired_source_bootstrap')
+    audit.check(summary.get('selection_on') == 'construction800' and summary.get('construction_sources') == 800 and
+                summary.get('review_sources') == 200 and summary.get('source_population') == 'internal_verification200',
+                'review_is_not_selection_population')
+    audit.check(summary.get('interval_scope') == 'descriptive_source_only_no_channel_MC', 'interval_scope')
+
+
+def run(model_dir, protocol_path, report_dir):
+    audit = Audit(); bound = {}; protocol = read(protocol_path)
+    bound[str(Path(protocol_path).resolve())] = sha(protocol_path)
+    def verified(directory, names):
+        directory = Path(directory); completion_path = directory / 'completion.json'; complete = read(completion_path)
+        if complete.get('status') != 'COMPLETE':
+            raise RuntimeError('Incomplete input: ' + str(directory))
+        bound[str(completion_path.resolve())] = sha(completion_path)
+        for name in names:
+            path = (directory / name).resolve(); expected = complete['outputs'].get(str(path))
+            if expected is None or sha(path) != expected:
+                raise RuntimeError('Missing or changed completion-bound artifact: ' + str(path))
+            bound[str(path)] = expected
+        return complete
+    for snr in protocol['average_snrs_db']:
+        directory = Path(model_dir) / ('search_snr' + str(snr))
+        complete = verified(directory, ('grid_summary.csv', 'selected_summary.csv', 'primary_summary.csv',
+                                        'policies.json', 'split.json', 'per_source.csv'))
+        audit.check(complete.get('selection_on') == 'construction800' and complete.get('development_read') is False and
+                    complete.get('real_decodes') == 0 and complete.get('GPU_used') is False, 'completed_search_scope', snr=snr)
+        grid = rows(directory / 'grid_summary.csv'); selected = rows(directory / 'selected_summary.csv'); primary = rows(directory / 'primary_summary.csv')
+        policies = read(directory / 'policies.json')['policies']; split = read(directory / 'split.json')
+        expected = set(itertools.product(protocol['header_modes'], protocol['pilot_symbols'], protocol['feedback_bits'],
+                                        protocol['feedback_symbols'], protocol['second_header_symbols'], protocol['first_m'], METHODS))
+        actual = [(r['header_mode'], r['pilot_symbols'], r['feedback_bits'], r['feedback_symbols'], r['second_header_symbols'], r['first_m'], r['method']) for r in grid]
+        audit.check(len(actual) == len(set(actual)) == len(expected) and set(actual) == expected, 'full_grid_coverage', snr=snr)
+        for row in grid:
+            missing = row['header_mode'] == 'measured_headers' and row['second_header_symbols'] == 16 and row['method'] in ('TWO_STAGE', 'TWO_STAGE_C8')
+            audit.check(row['status'] == ('MISSING_ASSET' if missing else 'MODEL_ONLY'), 'H16_missing_scope', cell_id=row['cell_id'], method=row['method'])
+            if not missing:
+                audit.check(math.isfinite(row['train_mean']), 'finite_training_score', cell_id=row['cell_id'])
+        audit_monotonicity(grid, audit); audit_policies(grid, policies, audit); audit_selection(grid, selected, primary, split, protocol, audit)
+        ids = set(split['verification_source_ids']); groups = {}
+        with (directory / 'per_source.csv').open(encoding='utf-8', newline='') as f:
+            for row in csv.DictReader(f):
+                key = (row['cell_id'], row['method']); groups.setdefault(key, []).append(row['source_id'])
+                audit.check(row.get('population') == 'internal_verification200' and row.get('selection_on') == 'construction800', 'paired_input_population', cell_id=row['cell_id'])
+        ready = {(r['cell_id'], r['method']) for r in selected if r['status'] == 'MODEL_ONLY'}
+        audit.check(set(groups) == ready, 'paired_input_cells', snr=snr)
+        audit.check(all(len(v) == 200 and set(v) == ids for v in groups.values()), 'exact_same_200_paired_sources', snr=snr)
+    verified(report_dir, ('summary.json',))
+    audit_bootstrap(protocol, read(Path(report_dir) / 'summary.json'), audit)
+    return dict(status='PASS' if not audit.failures else 'FAIL', schema='TWO_STAGE_RESULT_AUDIT_V1', checks=audit.checks,
+                failures=audit.failures, input_bindings=bound, tolerance=TOL, actual_PHY_decodes=0,
+                U_bounds_used_for_rejection=False, selection_audit_scope='Recorded choices recomputed using construction means only; historical unrecorded data access cannot be excluded from artifacts alone.',
+                source_binding={str(Path(__file__).resolve()): sha(__file__)})
+
+
+def main():
+    ap = argparse.ArgumentParser(); ap.add_argument('--model-dir', required=True); ap.add_argument('--protocol', required=True)
+    ap.add_argument('--report-dir', required=True); ap.add_argument('--out', required=True); a = ap.parse_args()
+    try:
+        result = run(a.model_dir, a.protocol, a.report_dir)
+    except Exception as exc:
+        result = dict(status='FAIL', schema='TWO_STAGE_RESULT_AUDIT_V1', error=repr(exc), actual_PHY_decodes=0)
+    path = Path(a.out)
+    if path.exists():
+        raise RuntimeError('Refusing to overwrite prior audit evidence: ' + str(path))
+    path.parent.mkdir(parents=True, exist_ok=True); path.write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    print(result['status'])
+    if result['status'] != 'PASS':
+        raise SystemExit(1)
+
+
+if __name__ == '__main__':
+    main()

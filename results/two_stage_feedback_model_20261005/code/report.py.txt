@@ -1,0 +1,577 @@
+"""Audited, source-paired reporting for the independent two-stage table model.
+
+No physical decode, visual model, training, development data or publication.
+"""
+from __future__ import annotations
+import argparse
+import csv
+import hashlib
+import itertools
+import json
+import os
+from pathlib import Path
+
+os.environ['CUDA_VISIBLE_DEVICES'] = ''
+for _name in ('OMP_NUM_THREADS', 'MKL_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'NUMEXPR_NUM_THREADS'):
+    os.environ[_name] = '2'
+import numpy as np
+
+VERSION = 'TWO_STAGE_FEEDBACK_MODEL_REPORT_V1'
+METHODS = ('FIXED', 'QCSI', 'TWO_STAGE', 'TWO_STAGE_C8')
+SNRS = (4, 7, 10, 13)
+MODES = ('measured_headers', 'ideal_controls')
+PILOTS = (0, 8, 16, 32)
+BITS = (1, 2, 3)
+FB = (8, 16, 32)
+HEADERS = (0, 16, 68)
+SPLITS = (4, 5, 6)
+AXES = ('average_snr_db', 'header_mode', 'pilot_symbols', 'feedback_bits', 'feedback_symbols', 'second_header_symbols')
+NUMERIC = ('average_snr_db', 'pilot_symbols', 'feedback_bits', 'feedback_symbols', 'second_header_symbols', 'first_m')
+PAIRS = (('QCSI', 'FIXED'), ('TWO_STAGE', 'FIXED'), ('TWO_STAGE', 'QCSI'),
+         ('TWO_STAGE_C8', 'TWO_STAGE'), ('TWO_STAGE_C8', 'FIXED'), ('TWO_STAGE_C8', 'QCSI'))
+BOOTSTRAP_REPEATS = 5000
+BOOTSTRAP_SEED = 2026100504
+
+
+def require(value, message):
+    if not value:
+        raise RuntimeError(message)
+
+
+def sha(path):
+    digest = hashlib.sha256()
+    with Path(path).open('rb') as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b''):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def read_json(path):
+    return json.loads(Path(path).read_text(encoding='utf-8-sig'))
+
+
+def read_csv(path):
+    with Path(path).open(encoding='utf-8-sig', newline='') as stream:
+        reader = csv.DictReader(stream)
+        require(reader.fieldnames and len(reader.fieldnames) == len(set(reader.fieldnames)), 'Unique CSV columns required')
+        rows = list(reader)
+    require(all(None not in row and all(value is not None for value in row.values()) for row in rows),
+            'CSV row width differs from its header: ' + str(path))
+    return rows
+
+
+def save_bytes(path, data):
+    path = Path(path)
+    require(b'\r' not in data, 'Report outputs must use LF newlines')
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        require(path.read_bytes() == data, 'Completed report output changed: ' + str(path))
+    else:
+        path.write_bytes(data)
+
+
+def save_json(path, value):
+    save_bytes(path, (json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + '\n').encode())
+
+
+def save_csv(path, rows):
+    import io
+    fields = list(dict.fromkeys(key for row in rows for key in row))
+    require(fields, 'Empty CSV schema is not a report')
+    stream = io.StringIO(newline='')
+    writer = csv.DictWriter(stream, fields, lineterminator='\n')
+    writer.writeheader()
+    for row in rows:
+        writer.writerow({key: json.dumps(value, ensure_ascii=False, separators=(',', ':'))
+                         if isinstance(value, (dict, list, tuple)) else value for key, value in row.items()})
+    save_bytes(path, stream.getvalue().encode())
+
+
+def number(value, label, optional=False):
+    if value is None or value == '':
+        require(optional, 'Missing numeric result: ' + label)
+        return None
+    result = float(value)
+    require(np.isfinite(result), 'Non-finite result: ' + label)
+    return result
+
+
+def normalize_summary(row):
+    row = dict(row)
+    for key in NUMERIC:
+        value = number(row.get(key), key)
+        require(value.is_integer(), 'Integer resource/axis required: ' + key)
+        row[key] = int(value)
+    require(row.get('cell_id') and row.get('method') in METHODS, 'Unknown method or missing cell ID')
+    require(row.get('status') in ('MODEL_ONLY', 'MISSING_ASSET'), 'Unknown result status')
+    for key in ('train_mean', 'review_mean', 'max_used_symbols'):
+        row[key] = number(row.get(key), key, optional=row['status'] == 'MISSING_ASSET')
+    if row['status'] == 'MODEL_ONLY':
+        require(-1 <= row['train_mean'] <= 1 and -1 <= row['review_mean'] <= 1, 'DINO-L model score is out of bounds')
+        require(row['pilot_symbols'] <= row['max_used_symbols'] <= 1024, 'A registered path exceeds N1024')
+        require(row.get('policy_id'), 'A scored policy must be frozen and identifiable')
+    else:
+        require(row['train_mean'] is None and row['review_mean'] is None,
+                'Missing assets must not acquire invented scores')
+    if row['header_mode'] == 'measured_headers' and row['second_header_symbols'] == 16 and row['method'].startswith('TWO_STAGE'):
+        require(row['status'] == 'MISSING_ASSET', 'A measured 16-symbol header has no registered physical curve')
+    return row
+
+
+def base_key(row):
+    return tuple(row[key] for key in AXES)
+
+
+def validate_grids(grid, selected, expected_snrs=SNRS, require_full=True):
+    full = {}
+    cells = {}
+    for row in grid:
+        key = (*base_key(row), row['first_m'], row['method'])
+        require(key not in full, 'Duplicate full-grid result')
+        full[key] = row
+        cell = cells.setdefault(row['cell_id'], {})
+        require(row['method'] not in cell, 'Duplicate method in one cell')
+        require(not cell or all(base_key(value) == base_key(row) and value['first_m'] == row['first_m'] for value in cell.values()),
+                'One cell ID describes different resource configurations')
+        cell[row['method']] = row
+    require(all(set(cell) == set(METHODS) for cell in cells.values()), 'Full grid must preserve all four method statuses')
+    if require_full:
+        expected = set(itertools.product(expected_snrs, MODES, PILOTS, BITS, FB, HEADERS, SPLITS, METHODS))
+        require(set(full) == expected, 'Incomplete or expanded registered full grid')
+    chosen = {}
+    for row in selected:
+        key = (*base_key(row), row['method'])
+        require(key not in chosen, 'Duplicate selected result')
+        require(row.get('selection_on', 'construction800') == 'construction800', 'Internal review must not select policies')
+        match = full.get((*base_key(row), row['first_m'], row['method']))
+        require(match is not None and row['cell_id'] == match['cell_id'] and row['status'] == match['status']
+                and row.get('policy_id') == match.get('policy_id'), 'Selected policy differs from frozen full-grid cell')
+        for name in ('train_mean', 'review_mean', 'max_used_symbols'):
+            require(row[name] == match[name], 'Selected scores differ from their frozen full-grid row')
+        chosen[key] = row
+    grouped = {}
+    for row in selected:
+        grouped.setdefault(base_key(row), {})[row['method']] = row
+    if require_full:
+        require(set(grouped) == set(itertools.product(expected_snrs, MODES, PILOTS, BITS, FB, HEADERS)),
+                'Selected grid omitted registered controls')
+    for key, methods in grouped.items():
+        require(set(methods) == set(METHODS), 'Selected cell must retain four methods including unavailable ones')
+        require(len({row['cell_id'] for row in methods.values()}) == 1, 'Methods must share the selected split/cell')
+        possibilities = [row for row in grid if base_key(row) == key and row['method'] == 'TWO_STAGE' and row['status'] == 'MODEL_ONLY']
+        if possibilities:
+            winner = min(possibilities, key=lambda row: (-row['train_mean'], row['first_m']))
+            require(methods['TWO_STAGE']['first_m'] == winner['first_m'], 'Split was not selected by construction800 TWO_STAGE mean')
+            content = methods['TWO_STAGE_C8']
+            if content['status'] == 'MODEL_ONLY':
+                require(content['train_mean'] + 1e-10 >= winner['train_mean'], 'C8 must contain the matched uniform policy')
+    return grouped
+
+
+def validate_split(split):
+    ids = split['ordered_source_ids']
+    require(len(ids) == len(set(ids)) == 1000, 'Exact frozen 1000-source split required')
+    digest = lambda source: hashlib.sha256(json.dumps(['C/SOURCE_SPLIT', 2026100501, source],
+                        ensure_ascii=False, separators=(',', ':')).encode()).hexdigest()
+    require(ids == sorted(ids, key=lambda source: (digest(source), source)), 'Source-only split hash order changed')
+    require(split['construction_source_ids'] == ids[:800] and split['verification_source_ids'] == ids[800:],
+            'Construction/review split differs from original registered 800/200')
+    return ids[800:]
+
+
+def validate_policies(grid, policies):
+    """Verify the matched content control and every public branch's resources."""
+    require(policies.get('public_header_bits') == 12
+            and policies.get('public_tree_ids_local_to_frozen_operating_cell') is True,
+            'Public first-header tree identification is not registered')
+    catalog = policies['policies']
+    for policy_id, policy in catalog.items():
+        actual = hashlib.sha256(json.dumps(policy, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()).hexdigest()
+        require(actual == policy_id, 'Frozen policy ID differs from its contents')
+    cells = {}
+    ready_count = 0
+    for row in grid:
+        if row['status'] != 'MODEL_ONLY':
+            continue
+        require(row['policy_id'] in catalog, 'Scored policy was not exported')
+        policy = catalog[row['policy_id']]
+        require(policy['kind'] == row['method'] and policy['pilot_symbols'] == row['pilot_symbols'], 'Policy accounting context differs')
+        cells.setdefault(row['cell_id'], {})[row['method']] = policy
+        if row['method'] == 'FIXED':
+            paths = [row['pilot_symbols'] + 68 + sum(group['symbols'] for group in policy['profile']['groups'])]
+        elif row['method'] == 'QCSI':
+            require(policy['feedback_bits'] == row['feedback_bits']
+                    and policy['feedback_symbols'] == row['feedback_symbols'], 'QCSI feedback differs')
+            require(len(policy['profiles']) == 2 ** row['feedback_bits'], 'QCSI bin count differs')
+            paths = [row['pilot_symbols'] + row['feedback_symbols'] + 68
+                     + sum(group['symbols'] for group in profile['groups']) for profile in policy['profiles']]
+        else:
+            for key in ('feedback_bits', 'feedback_symbols', 'second_header_symbols'):
+                require(policy[key] == row[key], 'Two-stage resource axis differs from its policy')
+            require(policy['feedback_content'] == 'SNR_bin_only_NO_ACK' and policy['same_h'] is True,
+                    'An unregistered ACK or channel observation was introduced')
+            require(policy['first_forward_symbols'] == 68 + policy['first']['symbols'], 'First header was not charged')
+            require(policy['first']['state_id'] == 'm%d_K0' % row['first_m'], 'First source truncation differs')
+            trees = policy.get('trees') if row['method'] == 'TWO_STAGE_C8' else [dict(second_actions=policy['second_actions'])]
+            if row['method'] == 'TWO_STAGE_C8':
+                require(policy['first_stage_shared'] is True and policy['tree_choice_before_unknown_bin'] is True,
+                        'C8 must precommit its public tree before unknown feedback')
+                require(1 <= len(trees) <= 8 and [tree['public_header_id'] for tree in trees] == list(range(len(trees))),
+                        'C8 tree dictionary does not fit the registered first header')
+            paths = []
+            for tree in trees:
+                require(len(tree['second_actions']) == 2 ** row['feedback_bits'], 'Second-stage bin count differs')
+                for action in tree['second_actions']:
+                    require(action['start_state'] == policy['first']['state_id'], 'Second stage skips the first prefix')
+                    extra = 0 if action['stop'] else row['second_header_symbols'] + action['symbols']
+                    paths.append(row['pilot_symbols'] + policy['first_forward_symbols'] + row['feedback_symbols'] + extra)
+        require(paths and all(0 <= value <= 1024 for value in paths), 'A public path exceeds N1024')
+        require(abs(max(paths) - row['max_used_symbols']) <= 1e-9, 'Summary resource maximum differs from public paths')
+        ready_count += 1
+    for methods in cells.values():
+        if 'TWO_STAGE' in methods and 'TWO_STAGE_C8' in methods:
+            uniform, content = methods['TWO_STAGE'], methods['TWO_STAGE_C8']
+            for key in ('first', 'first_forward_symbols', 'thresholds_db', 'feedback_bits', 'feedback_symbols',
+                        'second_header_symbols', 'pilot_symbols', 'feedback_content', 'same_h'):
+                require(uniform[key] == content[key], 'Content comparison changed matched uniform controls: ' + key)
+            require(any(tree['second_actions'] == uniform['second_actions'] for tree in content['trees']),
+                    'C8 dictionary omitted the matched uniform tree')
+    return dict(scored_rows_checked=ready_count, policy_count=len(catalog), all_public_paths_within_1024=True,
+                content_first_PHY_and_thresholds_matched=True, content_ID_prepaid_in_first_header=True, ACK_bits_sent=0)
+
+
+def load_source_scores(path, selected, source_ids):
+    by_source = {source: index for index, source in enumerate(source_ids)}
+    ready = {(row['cell_id'], row['method']): row for row in selected if row['status'] == 'MODEL_ONLY'}
+    scores = {key: np.full((len(source_ids), 2), np.nan) for key in ready}
+    with Path(path).open(encoding='utf-8-sig', newline='') as stream:
+        for row in csv.DictReader(stream):
+            require(row['population'] == 'internal_verification200', 'Only the internal 200 sources belong in this review table')
+            key = (row['cell_id'], row['method'])
+            require(key in scores and row['source_id'] in by_source, 'Unexpected scored policy or source')
+            at = by_source[row['source_id']]
+            require(np.isnan(scores[key][at, 0]), 'Duplicate per-source score')
+            quality = number(row['quality_point'], 'quality_point')
+            bad = number(row['bad_probability'], 'bad_probability')
+            require(-1 <= quality <= 1 and 0 <= bad <= 1, 'Per-source quality or unknown-state probability is invalid')
+            scores[key][at] = quality, bad
+    for key, values in scores.items():
+        require(np.isfinite(values).all(), 'Missing matched internal-review source scores')
+        require(abs(float(values[:, 0].mean()) - ready[key]['review_mean']) <= 1e-9,
+                'Summary and per-source review means disagree')
+        if ready[key].get('bad_probability_review') not in (None, ''):
+            require(abs(float(values[:, 1].mean()) - float(ready[key]['bad_probability_review'])) <= 1e-9,
+                    'Summary and source unknown-state probability disagree')
+    return scores
+
+
+def bootstrap_weights(count=200, repeats=BOOTSTRAP_REPEATS, seed=BOOTSTRAP_SEED):
+    indices = np.random.default_rng(seed).integers(0, count, size=(repeats, count))
+    bins = indices + count * np.arange(repeats)[:, None]
+    return np.bincount(bins.ravel(), minlength=repeats * count).reshape(repeats, count).astype(float) / count
+
+
+def calculate_intervals(rows, vectors, weights):
+    require(len(rows) == len(vectors), 'Interval metadata differs from paired vectors')
+    result = []
+    for start in range(0, len(rows), 64):
+        block = vectors[start:start + 64]
+        point = np.stack([value[0] for value in block], axis=1)
+        lower = np.stack([value[1] for value in block], axis=1)
+        upper = np.stack([value[2] for value in block], axis=1)
+        bootstrap = weights @ point
+        source_ci = np.quantile(bootstrap, [.025, .975], axis=0)
+        low_ci = np.quantile(weights @ lower, .025, axis=0)
+        high_ci = np.quantile(weights @ upper, .975, axis=0)
+        for j, row in enumerate(rows[start:start + 64]):
+            result.append(dict(row, mean_difference=float(point[:, j].mean()),
+                               source_ci_low=float(source_ci[0, j]), source_ci_high=float(source_ci[1, j]),
+                               unknown_event_mean_lower=float(lower[:, j].mean()), unknown_event_mean_upper=float(upper[:, j].mean()),
+                               unknown_event_source_ci_low=float(low_ci[j]), unknown_event_source_ci_high=float(high_ci[j]),
+                               sources=weights.shape[1], bootstrap_repeats=weights.shape[0], bootstrap_seed=BOOTSTRAP_SEED,
+                               interval_scope='descriptive_source_only_on_expected_table_model_quality_no_channel_MC'))
+    return result
+
+
+def difference_vector(a, b):
+    point = a[:, 0] - b[:, 0]
+    uncertainty = a[:, 1] + b[:, 1]
+    return point, point - uncertainty, point + uncertainty
+
+
+def paired_comparisons(grouped, scores, weights):
+    rows, vectors = [], []
+    for key, methods in sorted(grouped.items()):
+        for a, b in PAIRS:
+            ra, rb = methods[a], methods[b]
+            if ra['status'] != 'MODEL_ONLY' or rb['status'] != 'MODEL_ONLY':
+                continue
+            rows.append(dict(zip(AXES, key), first_m=ra['first_m'], cell_id=ra['cell_id'],
+                             method_a=a, method_b=b, selection_on='construction800',
+                             pilot_zero_diagnostic=key[2] == 0))
+            vectors.append(difference_vector(scores[(ra['cell_id'], a)], scores[(rb['cell_id'], b)]))
+    return calculate_intervals(rows, vectors, weights)
+
+
+def matched_axis_effects(grouped, scores, weights):
+    rows, vectors = [], []
+    effects = [('pilot_symbols', 0, value) for value in (8, 16, 32)]
+    effects += [('feedback_bits', 1, value) for value in (2, 3)]
+    effects += [('feedback_symbols', 8, value) for value in (16, 32)]
+    effects += [('second_header_symbols', 68, value) for value in (0, 16)]
+    for key, methods in sorted(grouped.items()):
+        for axis, before, after in effects:
+            index = AXES.index(axis)
+            if key[index] != after:
+                continue
+            baseline_key = (*key[:index], before, *key[index + 1:])
+            if baseline_key not in grouped:
+                continue
+            for method in METHODS:
+                a, b = methods[method], grouped[baseline_key][method]
+                if a['status'] != 'MODEL_ONLY' or b['status'] != 'MODEL_ONLY':
+                    continue
+                rows.append(dict(zip(AXES, key), method=method, changed_axis=axis, before=before, after=after,
+                                 after_cell_id=a['cell_id'], before_cell_id=b['cell_id'],
+                                 after_first_m=a['first_m'], before_first_m=b['first_m'],
+                                 interpretation='matched_controls_except_named_axis_with_construction800_reoptimization'))
+                vectors.append(difference_vector(scores[(a['cell_id'], method)], scores[(b['cell_id'], method)]))
+    return calculate_intervals(rows, vectors, weights)
+
+
+def headlines(grouped):
+    chosen = []
+    for snr, mode, pilot in itertools.product(SNRS, MODES, PILOTS):
+        candidates = [methods for key, methods in grouped.items() if key[:3] == (snr, mode, pilot)
+                      and all(row['status'] == 'MODEL_ONLY' for row in methods.values())]
+        if not candidates:
+            continue
+        winner = min(candidates, key=lambda methods: (-methods['TWO_STAGE_C8']['train_mean'],
+                     base_key(methods['TWO_STAGE_C8']), methods['TWO_STAGE_C8']['first_m']))
+        row = winner['TWO_STAGE_C8']
+        chosen.append(dict({key: row[key] for key in (*AXES, 'first_m', 'cell_id')},
+                           selection_on='construction800_C8_mean_across_control_cells_for_display_only',
+                           **{method: winner[method]['review_mean'] for method in METHODS}))
+    return chosen
+
+
+def verify_receipt(path):
+    path = Path(path).resolve()
+    done = read_json(path)
+    require(done.get('status') == 'COMPLETE' and done.get('outputs'), 'Search shard is incomplete')
+    bindings = {str(path): sha(path)}
+    for kind in ('outputs', 'input_bindings', 'source_bindings'):
+        for name, digest in done.get(kind, {}).items():
+            candidate = Path(name)
+            if not candidate.is_absolute():
+                candidate = path.parent / candidate
+            require(candidate.is_file() and sha(candidate) == digest, 'Search shard binding changed: ' + str(candidate))
+            bindings[str(candidate.resolve())] = digest
+    return done, bindings
+
+
+def markdown_report(summary, selected_headlines, paired, input_root):
+    lines = ['# N1024 两阶段反馈：资源计费的表模型扫描', '',
+             '本报告只比较冻结质量表与物理概率表推导的期望 DINOv2 ViT-L/14 余弦相似度。'
+             '没有新信道译码、图像生成、训练或独立视觉指标评测。', '',
+             '## 1. 导频核查与本轮口径', '',
+             '旧 QCSI 直接使用真实瞬时信道，预算只扣反馈、68 符号头部与正文，没有导频。'
+             '本轮四种方法都扣除同样的 8/16/32 导频符号，仍假设接收端及反馈 SNR 精确；'
+             '因此结果仅反映资源代价，不包含有限导频估计误差。0 导频仅作诊断。', '',
+             '- `measured_headers`：68 符号头部复用原物理概率曲线；第二头部为 0 时由公共协议唯一确定动作；16 符号头部缺少对应曲线。',
+             '- `ideal_controls`：包括第一轮 68 符号头部在内，所有已计费头部均假设可靠；这是控制开销敏感性比较。',
+             '- 反馈只包含登记的 SNR bin，没有免费的 ACK/NACK；第一轮失败后的接收结果仍按连续可信前缀规则计分。',
+             '- C8 的树 ID 在第一轮头部付费。第二动作由树 ID 和公共 SNR bin 确定；不能依赖接收端不可见的发送端选择。', '',
+             '## 2. 四方法比较', '',
+             '先在 800 张构造图上按 TWO_STAGE 选择首轮 m，再固定相同首轮 PHY 与阈值比较 C8。'
+             'C8 字典也仅用这 800 张图构造。200 张内部复核图不选择任何配置。'
+             '下表为每种模式、SNR 和导频费用下，在构造集 C8 均值最高的控制点，展示其复核均值；完整网格全部保留。']
+    for mode in MODES:
+        lines += ['', '### ' + mode, '',
+                  '|SNR|导频|反馈 bit/符号|第二头|首轮 m|FIXED|QCSI|两阶段|两阶段+C8|',
+                  '|---:|---:|---:|---:|---:|---:|---:|---:|---:|']
+        for row in selected_headlines:
+            if row['header_mode'] != mode or row['pilot_symbols'] == 0:
+                continue
+            lines.append('|%d|%d|%d/%d|%d|%d|%.6f|%.6f|%.6f|%.6f|' %
+                         tuple(row[key] for key in ('average_snr_db', 'pilot_symbols', 'feedback_bits', 'feedback_symbols',
+                              'second_header_symbols', 'first_m', *METHODS)))
+    lines += ['', '## 3. 导频、反馈位数、反馈费用与第二头部费用', '',
+              '`matched_axis_effects.csv` 给出只改变一个登记轴、其他控制相同的逐源配对差值。'
+              '每个资源点可在构造集重新选策略和 m，因此它衡量受限预算下的策略变化，不是单独的信道估计误差。', '',
+              '导频费用分别对比 0；反馈位数分别对比 1 bit；反馈费用分别对比 8 符号；'
+              '第二头部费用分别对比 68 符号。实测头部模式中的 16 符号缺失项不填零，也不参与比较。'
+              '同样反馈符号数下改变信息位数仍沿用可靠反馈假设，不表示已有反馈码实现。', '',
+              '## 4. 配对区间与未知事件', '',
+              '`paired_differences.csv` 保留四方法的六组配对比较。区间以同一 200 张源图重采样，'
+              '5000 次、种子 2026100504；每张图使用积分后的模型期望分数，没有信道 Monte Carlo 样本。'
+              '这些是描述性源级区间，不包含 BLER 表有限样本、插值、端点尾部、理想 CSI 或模型选择误差；'
+              '也不作多重比较显著性或实际链路增益声明。', '',
+              '错误接受等未评分事件继续使用独立的 [-1,1] 质量范围，表中另报保守贡献范围。'
+              '点估计采用原登记的未知状态质量 0，不能将其解释为实际恢复质量。', '',
+              '## 5. 覆盖、资源与发送端代价', '',
+              f"完整网格含 {summary['full_grid_method_rows']} 个方法行；按构造集选 m 后含 {summary['selected_method_rows']} 行。"
+              f"其中 {summary['selected_missing_method_rows']} 行缺少登记资产。所有有值策略的路径上界均不超过 N1024。", '',
+              '原 R 的 66 动作曾按 68 符号头部预算剪枝；本轮候选覆盖需按新预算及精确 PHY/Q 对应关系核验。'
+              '未测码长不能由相邻码长 BLER 冒充；未缓存质量状态不外推。完整覆盖依据绑定的搜索输出与候选清单。', '',
+              '表模型可以使用已缓存质量值，但这不提供实际收发所需的全部资产。'
+              'FIXED/QCSI 若选择部分尺度，校准源的熵序位置缓存缺口仍会阻止直接实链复现；本轮没有补齐该缓存。', '',
+              'C8 需要发送端计算源图相关的候选恢复质量；缓存查表耗时不能作为部署时延。'
+              '具体候选状态与神经推断需求见原 sender_cost.csv；本轮没有测量在线发送时延。', '',
+              '## 6. 交付范围', '',
+              '输出完整网格、构造集选策后的四方法表、配对区间、资源轴差值与全部输入 SHA。'
+              '该扫描不改变旧 QCSI 报告、旧 UEP/F1 停止边界或 A1/A2 队列；不自动启动真实链路、GPU、训练或新增指标。', '',
+              '输入目录：`' + str(input_root) + '`。']
+    return '\n'.join(lines) + '\n'
+
+
+def validate_primary(grid, primary):
+    require(len(primary) == 4 and {r['method'] for r in primary} == set(METHODS)
+            and len({r['cell_id'] for r in primary}) == 1, 'Primary comparison must contain four matched policies')
+    candidates = [r for r in grid if r['header_mode'] == 'measured_headers' and r['pilot_symbols'] == 16
+                  and r['feedback_symbols'] == 16 and r['second_header_symbols'] == 68
+                  and r['method'] == 'TWO_STAGE' and r['status'] == 'MODEL_ONLY']
+    winner = min(candidates, key=lambda r: (-r['train_mean'], r['feedback_bits'], r['first_m']))
+    require(primary[0]['cell_id'] == winner['cell_id'], 'Primary bits/split were not chosen by construction800 TWO_STAGE')
+    for row in primary:
+        original = next(r for r in grid if r['cell_id'] == row['cell_id'] and r['method'] == row['method'])
+        require(all(row[k] == original[k] for k in ('policy_id', 'train_mean', 'review_mean', 'max_used_symbols')),
+                'Primary row differs from frozen full-grid policy')
+
+
+def build(input_dir, protocol, out, quality_csv=None, auxiliary_manifest=None):
+    input_dir, protocol, out = Path(input_dir).resolve(), Path(protocol).resolve(), Path(out).resolve()
+    configuration = read_json(protocol)
+    require(configuration.get('N') == 1024, 'Only the registered N1024 model scan is reportable')
+    bindings = {str(protocol): sha(protocol)}
+    grid, selected, scores, primary_rows, coverage, numerical = [], [], {}, [], [], []
+    review_ids = None
+    stage_summaries = []
+    for snr in SNRS:
+        folder = input_dir / ('search_snr' + str(snr))
+        done, verified = verify_receipt(folder / 'completion.json')
+        bindings.update(verified)
+        require(done.get('selection_on', 'construction800') == 'construction800', 'Shard selection used review data')
+        require(done.get('real_decodes') == 0 and done.get('new_visual_inference') is False
+                and done.get('development_read') is False and done.get('GPU_used') is False,
+                'Search receipt does not confirm the CPU table-only scope')
+        for name in ('split.json', 'grid_summary.csv', 'selected_summary.csv', 'per_source.csv', 'policies.json',
+                     'primary_summary.csv', 'coverage.json', 'primary_numerical_diagnostic.json'):
+            require(str((folder / name).resolve()) in verified, 'An input consumed by the report is not receipt-bound: ' + name)
+        split = validate_split(read_json(folder / 'split.json'))
+        require(review_ids is None or review_ids == split, 'Shards use different paired review sources')
+        review_ids = split
+        shard_grid = [normalize_summary(row) for row in read_csv(folder / 'grid_summary.csv')]
+        shard_selected = [normalize_summary(row) for row in read_csv(folder / 'selected_summary.csv')]
+        require(all(row['average_snr_db'] == snr for row in shard_grid + shard_selected), 'SNR shard contains foreign conditions')
+        validate_grids(shard_grid, shard_selected, expected_snrs=(snr,))
+        policy_check = validate_policies(shard_grid, read_json(folder / 'policies.json'))
+        primary = [normalize_summary(r) for r in read_csv(folder / 'primary_summary.csv')]
+        validate_primary(shard_grid, primary)
+        primary_rows.extend(primary)
+        coverage.append(dict(average_snr_db=snr, **read_json(folder / 'coverage.json')))
+        numerical.append(dict(average_snr_db=snr, **read_json(folder / 'primary_numerical_diagnostic.json')))
+        shard_scores = load_source_scores(folder / 'per_source.csv', shard_selected, review_ids)
+        require(not set(scores) & set(shard_scores), 'Cell IDs must be globally unique across SNRs')
+        grid.extend(shard_grid)
+        selected.extend(shard_selected)
+        scores.update(shard_scores)
+        stage_summaries.append(dict(average_snr_db=snr, completion_sha256=sha(folder / 'completion.json'),
+                                    full_grid_method_rows=len(shard_grid), selected_method_rows=len(shard_selected),
+                                    policy_check=policy_check))
+    grouped = validate_grids(grid, selected)
+    weights = bootstrap_weights()
+    paired = paired_comparisons(grouped, scores, weights)
+    effects = matched_axis_effects(grouped, scores, weights)
+    overview = headlines(grouped)
+    auxiliary = None
+    require(bool(quality_csv) == bool(auxiliary_manifest), 'Auxiliary CSV and registered manifest must be supplied together')
+    if quality_csv:
+        import auxiliary as cached
+        auxiliary = cached.build(input_dir, quality_csv, auxiliary_manifest, bindings, weights)
+        bindings.update(auxiliary['input_bindings'])
+    summary = dict(status='MODEL_REPORT_COMPLETE', version=VERSION, N=1024,
+                   metric='dinov2_vitl14_cosine', full_grid_method_rows=len(grid), selected_method_rows=len(selected),
+                   selected_missing_method_rows=sum(row['status'] == 'MISSING_ASSET' for row in selected),
+                   source_population='internal_verification200', construction_sources=800, review_sources=200,
+                   pilot_estimation_error_modeled=False, CSI_assumption='perfect_RX_and_feedback_CSI_resource_charge_only',
+                   actual_physical_decodes=0, new_visual_inference=0, new_metric_evaluations=0,
+                   bootstrap_repeats=BOOTSTRAP_REPEATS, bootstrap_seed=BOOTSTRAP_SEED,
+                   interval_scope='descriptive_source_only_no_channel_MC', selection_on='construction800',
+                   source_id_sha256=hashlib.sha256(json.dumps(review_ids, ensure_ascii=False, separators=(',', ':')).encode()).hexdigest(),
+                   old_reports_and_A1_A2_unchanged=True, automatic_expansion=False, stages=stage_summaries,
+                   cached_auxiliary_metrics='COMPLETE_FOR_PRIMARY_POLICIES' if auxiliary else 'NOT_REQUESTED_IN_THIS_INVOCATION',
+                   input_bindings=bindings, report_source_sha256=sha(__file__))
+    # All validation and computations finish before any final named output.
+    save_csv(out / 'grid_summary.csv', grid)
+    save_csv(out / 'selected_summary.csv', selected)
+    save_csv(out / 'primary_summary.csv', primary_rows)
+    save_json(out / 'candidate_coverage.json', coverage)
+    save_json(out / 'primary_numerical_diagnostic.json', numerical)
+    save_csv(out / 'paired_differences.csv', paired)
+    save_csv(out / 'matched_axis_effects.csv', effects)
+    save_csv(out / 'display_points_selected_on_construction800.csv', overview)
+    sender_fields = (*AXES, 'first_m', 'cell_id', 'method', 'status', 'policy_id',
+                     'sender_distinct_Q_states', 'sender_cost_scope', 'dictionary_size')
+    save_csv(out / 'sender_cost.csv', [dict({key: row.get(key) for key in sender_fields},
+             online_latency='NOT_MEASURED', table_lookup_latency_is_deployment_latency=False) for row in selected])
+    save_json(out / 'summary.json', summary)
+    report_text = markdown_report(summary, overview, paired, input_dir).replace('原 sender_cost.csv', 'sender_cost.csv')
+    main_lines = ['## 登记主点：导频 16、反馈 16、第二头部 68 符号', '',
+                  '使用 measured_headers；反馈 bit 数和首轮 m 按构造集 TWO_STAGE 均值选择。', '',
+                  '|SNR|反馈 bit|首轮 m|方法|内部复核 DINOv2-L|', '|---:|---:|---:|---|---:|']
+    for r in primary_rows:
+        main_lines.append('|%d|%d|%d|%s|%.6f|' % tuple(r[k] for k in ('average_snr_db', 'feedback_bits', 'first_m', 'method', 'review_mean')))
+    main_lines += ['', '主点配对差值（同一 200 源的描述性 95% 区间）：', '',
+                   '|SNR|比较|DINOv2-L 差值|源级区间|未知事件贡献范围|', '|---:|---|---:|---|---|']
+    primary_ids = {r['cell_id'] for r in primary_rows}
+    for r in paired:
+        if r['cell_id'] not in primary_ids or (r['method_a'], r['method_b']) not in (
+                ('QCSI', 'FIXED'), ('TWO_STAGE', 'QCSI'), ('TWO_STAGE_C8', 'TWO_STAGE')):
+            continue
+        main_lines.append('|%d|%s − %s|%.6f|[%.6f, %.6f]|[%.6f, %.6f]|' % (
+            r['average_snr_db'], r['method_a'], r['method_b'], r['mean_difference'],
+            r['source_ci_low'], r['source_ci_high'], r['unknown_event_mean_lower'], r['unknown_event_mean_upper']))
+    main_lines += ['', '全部主点同一策略另用 16 阶积分复核 32 阶积分；结果见 primary_numerical_diagnostic.json。该检查不验证 BLER 插值假设。', '']
+    report_text = report_text.replace('## 2. 四方法比较', '\n'.join(main_lines) + '\n## 2. 四方法比较')
+    names = ['grid_summary.csv', 'selected_summary.csv', 'paired_differences.csv', 'matched_axis_effects.csv',
+             'display_points_selected_on_construction800.csv', 'sender_cost.csv', 'summary.json', 'FINAL_REPORT.md',
+             'primary_summary.csv', 'candidate_coverage.json', 'primary_numerical_diagnostic.json']
+    if auxiliary:
+        for filename, key in (('auxiliary_primary_metrics.csv', 'rows'), ('auxiliary_primary_paired.csv', 'paired')):
+            save_csv(out / filename, auxiliary[key]); names.append(filename)
+        for filename, key in (('frozen_primary_policies.json', 'frozen_primary_policies'),
+                              ('metric_availability.json', 'availability'), ('parent_metric_provenance.json', 'provenance')):
+            save_json(out / filename, auxiliary[key]); names.append(filename)
+        report_text += ('\n## 缓存辅助指标\n\n'
+                        '主点策略、公共树字典及每源树 ID 冻结后，复用原质量表的 PSNR、LPIPS、CLIP、DISTS、DreamSim、'
+                        'MS-SSIM、原 DINO 与 ResNet-50 分类口径；这些辅助指标未参与选择。DINOv2-L 仍是已参与选策的指标。'
+                        '具体骨干版本按 parent_metric_provenance.json 中原登记的 model_metadata 原样引用。'
+                        'ConvNeXt 和 F 恢复误差在此缓存缺失，不新增推断或填值。\n\n'
+                        'auxiliary_primary_metrics.csv 的 known-state contribution 只含已有质量表状态；'
+                        '有未评分概率时不能把它当完整指标。仅 U=0 时给 total_mean；分类指标未知状态范围为 [0,1]，'
+                        '余弦为 [-1,1]，其余指标不假设边界。配对区间同样只描述冻结表模型的源级差异，不能作为真实图像改善证据。\n')
+        report_text += '\n原登记的评测模型名称（逐字引用；这不是本轮新加载的模型）：\n\n'
+        for name, value in auxiliary['availability']['backbone_versions_verbatim'].items():
+            report_text += '- ' + name + ': ' + value + '\n'
+    save_bytes(out / 'FINAL_REPORT.md', report_text.encode())
+    source_bindings = {str(Path(__file__).resolve()): sha(__file__)}
+    if auxiliary:
+        source_bindings[str(Path(__file__).with_name('auxiliary.py').resolve())] = sha(Path(__file__).with_name('auxiliary.py'))
+    save_json(out / 'completion.json', dict(status='COMPLETE', scope='TWO_STAGE_FEEDBACK_MODEL_REPORT', version=VERSION,
+              scientific_scope='EXPECTED_TABLE_MODEL_ONLY', actual_physical_decodes=0, new_visual_inference=0,
+              outputs={str(out / name): sha(out / name) for name in names}, input_bindings=bindings,
+              cached_auxiliary_metrics=summary['cached_auxiliary_metrics'], source_bindings=source_bindings))
+    return summary
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--input-dir', required=True)
+    parser.add_argument('--protocol', required=True)
+    parser.add_argument('--out', required=True)
+    parser.add_argument('--quality-csv')
+    parser.add_argument('--auxiliary-manifest')
+    args = parser.parse_args()
+    result = build(args.input_dir, args.protocol, args.out, args.quality_csv, args.auxiliary_manifest)
+    print(json.dumps({key: result[key] for key in ('status', 'full_grid_method_rows', 'selected_method_rows')}))

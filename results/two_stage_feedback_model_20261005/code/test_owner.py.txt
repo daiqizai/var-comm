@@ -1,0 +1,40 @@
+import json
+from pathlib import Path
+import tempfile
+import unittest
+from unittest.mock import Mock, patch
+
+import owner
+
+
+class SchedulerBoundaryTests(unittest.TestCase):
+    def test_reused_pid_is_never_signaled(self):
+        process = Mock(pid=101)
+        process.poll.return_value = None
+        job = dict(process=process, launch=dict(pid=101, start_ticks=22, uid=1002))
+        with patch.object(owner, "identity", return_value=dict(pid=101, start_ticks=23, uid=1002)), \
+                patch.object(owner.os, "killpg", create=True) as signal_group:
+            with self.assertRaisesRegex(RuntimeError, "identity changed"):
+                owner.stop_owned(job)
+            signal_group.assert_not_called()
+
+    def test_completion_cannot_hide_changed_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "score.json"
+            target.write_text("1")
+            receipt = Path(directory) / "completion.json"
+            receipt.write_text(json.dumps(dict(status="COMPLETE", outputs={str(target): owner.sha(target)})))
+            target.write_text("2")
+            with self.assertRaisesRegex(RuntimeError, "changed"):
+                owner.verify_receipt(receipt, ["COMPLETE"])
+
+    def test_partial_state_not_accepted_as_success(self):
+        with tempfile.TemporaryDirectory() as directory:
+            receipt = Path(directory) / "completion.json"
+            receipt.write_text(json.dumps(dict(status="BUDGET_TRUNCATED", outputs={})))
+            with self.assertRaisesRegex(RuntimeError, "Unexpected completion"):
+                owner.verify_receipt(receipt, ["COMPLETE"])
+
+
+if __name__ == "__main__":
+    unittest.main()
