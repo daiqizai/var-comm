@@ -1,0 +1,15 @@
+Traceback (most recent call last):
+  File "/home/liulu/projects/VAR_COMM/outputs/PARALLEL-V2-20261005/code/publish_results.py", line 95, in <module>
+    publish(Path(a.root).resolve(),Path(a.out).resolve(),a.mode,a.python)
+  File "/home/liulu/projects/VAR_COMM/outputs/PARALLEL-V2-20261005/code/publish_results.py", line 76, in publish
+    checks[name]=run(root,args)
+                 ^^^^^^^^^^^^^^
+  File "/home/liulu/projects/VAR_COMM/outputs/PARALLEL-V2-20261005/code/publish_results.py", line 16, in run
+    def run(root,args):return subprocess.check_output(args,cwd=root,text=True,stderr=subprocess.STDOUT)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/subprocess.py", line 466, in check_output
+    return run(*popenargs, stdout=PIPE, timeout=timeout, check=True,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['/home/liulu/projects/VAR_COMM/outputs/UNIFIED-METRICS-20261002/environment/bin/python', 'tools/verify_repository.py']' returned non-zero exit status 1.

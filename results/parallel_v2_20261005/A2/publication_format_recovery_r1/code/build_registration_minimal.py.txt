@@ -1,0 +1,22 @@
+"""Seal the diagnosed format-only recovery; the prepared helper revalidates it."""
+import hashlib,json,os,pathlib,subprocess,time
+root=pathlib.Path('/home/liulu/projects/VAR_COMM')
+out=root/'outputs/PARALLEL-V2-20261005'
+r=out/'publication_format_recovery_r1'
+def read(p):return json.loads(p.read_text())
+def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
+diagnostic=read(r/'diagnostic_capture.json')
+assert diagnostic['head']==diagnostic['remote']=='98d2197b4cd31984750df8413a6fe70f0df599c6'
+assert diagnostic['verifier_exit']==1 and not diagnostic['owner']['exists'] and not diagnostic['publisher']['exists']
+assert 'excluded tracked file: results/parallel_v2_20261005/A2/metrics_per_frame.csv.gz' in (r/'verify_failure.log').read_text()
+assert read(r/'qualification.json')['status']=='PASS_16_TESTS'
+sources={str(p):sha(p) for p in r.glob('*.py')}
+assert sources[str(r/'recover_publication.py')]=='acd894352acf33390a3c610af93f7097584ef702fd562f77c63a938475658857'
+assert sources[str(r/'test_recover_publication.py')]=='242f90e9fb7059000fe732b252105cef653c42050a0b10951adaf852512745bc'
+inputs=[out/p for p in ['owner_failure.json','owner_config.json','owner_identity.json','active_child.json','a2_publication_inventory.json','A2/registration.json','A2/a1_release_gate.json','code/publish_results.py','code/parallel_owner.py','logs/publish.log']]
+inputs += [out/'A2'/(s+'_completion.json') for s in ['preflight','calibrate','receive_development','render_development','score','report']]
+inputs += [r/p for p in ['diagnostic_capture.json','verify_failure.log','qualification.json']]
+value=dict(schema='A2_PUBLICATION_FORMAT_RECOVERY_R1',status='A2_PUBLICATION_FORMAT_RECOVERY_REGISTERED',time=time.time(),root=str(root),out=str(out),expected_base_commit=diagnostic['head'],source_bindings=sources,input_bindings={str(p):sha(p) for p in inputs},original_index_tree=diagnostic['original_index_tree'],original_staged_blobs=diagnostic['original_staged_blobs'],owner_identity=diagnostic['owner']['registered'],publisher_identity=diagnostic['publisher']['registered'],original_gzip=diagnostic['original_gzip'],reason='Repository verifier rejects tracked gzip CSV. Publish byte-identical decoded CSV, preserve original gzip and all scientific sources/receipts.',permitted_index_removal='results/parallel_v2_20261005/A2/metrics_per_frame.csv.gz',failure_archive_rule='Only after a verified normal push; preserve original bytes and bind the archive receipt.',scientific_work_repeated=False,new_GPU_jobs=0,new_PHY_decodes=0)
+path=r/'execution_registration.json'
+with path.open('x',encoding='utf-8') as stream:json.dump(value,stream,indent=2);stream.write('\n')
+print(json.dumps({'status':value['status'],'sha256':sha(path)}))

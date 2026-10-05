@@ -1,0 +1,95 @@
+"""Publish only an explicit completed inventory; preserve unrelated working files."""
+import argparse
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import subprocess
+import time
+
+
+def read(p):return json.loads(Path(p).read_text())
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def write(p,value):
+    p=Path(p);p.parent.mkdir(parents=True,exist_ok=True)
+    p.write_text(json.dumps(value,indent=2,ensure_ascii=False)+'\n')
+def run(root,args):return subprocess.check_output(args,cwd=root,text=True,stderr=subprocess.STDOUT)
+def copy_once(src,dst):
+    src=Path(src);dst=Path(dst);dst.parent.mkdir(parents=True,exist_ok=True)
+    if dst.exists() and sha(src)!=sha(dst):raise RuntimeError('Publication collision: '+str(dst))
+    if not dst.exists():shutil.copyfile(src,dst)
+def verify(files):
+    for p,h in files.items():
+        if sha(p)!=h:raise RuntimeError('Publication input changed: '+p)
+
+
+def publish(root,out,mode,python):
+    receipt=out/(mode+'_publication_completion.json')
+    if receipt.exists():raise RuntimeError('Publication already has a receipt; no automatic repeat')
+    if mode=='registration':
+        inventory=read(out/'registration_publication_inventory.json')
+        files=inventory['files']
+    else:
+        reg=out/'A2/registration.json';r=read(reg)
+        for group in ('source_bindings','input_bindings'):verify(r[group])
+        delivery=read(out/'A2/report_completion.json')
+        if delivery.get('status')!='COMPLETE' or delivery.get('registration_sha256')!=sha(reg):raise RuntimeError('A2 report is not complete')
+        files=dict(delivery['outputs']);verify(files)
+        evidence=root/'results/parallel_v2_20261005/A2/execution_evidence'
+        wanted=[out/'owner_config.json',out/'owner_identity.json',out/'launch.json',out/'A2/a1_release_gate.json',reg]
+        for name in ('preflight','calibrate','receive_development','render_development','score','report'):
+            path=out/'A2'/(name+'_completion.json');done=read(path)
+            if done.get('status')!='COMPLETE' or done.get('stage')!=name or done.get('registration_sha256')!=sha(reg):raise RuntimeError('Incomplete A2 stage: '+name)
+            verify(done['outputs']);wanted.append(path)
+        wanted += [out/'A2/assets/a2_development_tokens.json',out/'A2/frozen_workpoints.json']
+        for p in wanted:
+            rel=p.relative_to(out);dest=evidence/rel;copy_once(p,dest);files[str(dest)]=sha(dest)
+        # Final A1 recovery receipts could not be included in its own publication commit.
+        a1=root/'outputs/M1-ACTION-SPACE-CLOSURE-20261005'
+        gate=read(out/'A2/a1_release_gate.json')
+        for field in ('publication','recovery_completion'):
+            if sha(gate[field+'_path'])!=gate[field+'_sha256']:raise RuntimeError('A1 final receipt differs from release gate')
+        for rel in ('publication_completion.json','recovery_r1/completion.json','recovery_r1/recovery_owner_identity.json','recovery_r1/launch.json'):
+            p=a1/rel;dest=evidence/'A1_final_runtime'/rel;copy_once(p,dest);files[str(dest)]=sha(dest)
+        for p in (a1/'recovery_r1/barriers').rglob('PARENT_REAPED.json'):
+            dest=evidence/'A1_final_runtime'/p.relative_to(a1);copy_once(p,dest);files[str(dest)]=sha(dest)
+        write(out/'a2_publication_inventory.json',dict(files=files,report_completion_sha256=sha(out/'A2/report_completion.json')))
+    verify(files)
+    paths=[]
+    for p in files:
+        path=Path(p).resolve();rel=path.relative_to(root)
+        if not (rel.as_posix().startswith('results/parallel_v2_20261005/') or rel.as_posix().startswith('reports/')):raise RuntimeError('Publication path outside scope')
+        if path.stat().st_size>=10_000_000:raise RuntimeError('Oversize publication: '+p)
+        paths.append(rel.as_posix())
+    if run(root,['git','diff','--cached','--name-only']).strip():raise RuntimeError('Unrelated staged changes; preserve index')
+    if run(root,['git','diff','--name-only']).strip():raise RuntimeError('Tracked worktree changes need review before publication')
+    head=run(root,['git','rev-parse','HEAD']).strip()
+    remote=run(root,['git','ls-remote','origin','refs/heads/main']).split()[0]
+    if head!=remote:raise RuntimeError('Branch is not at verified remote main; no blind history repair')
+    if run(root,['git','branch','--show-current']).strip()!='main':raise RuntimeError('Unexpected publication branch')
+    checks={}
+    # Stage the allowlist before updating the repository inventory, which enumerates tracked files.
+    run(root,['git','add','--']+paths)
+    checks['manifest']=run(root,[python,'tools/update_repository_manifest.py'])
+    run(root,['git','add','--','release_manifest.json'])
+    for name,args in [('repository',[python,'tools/verify_repository.py']),('cpu',[python,'tools/run_cpu_checks.py'])]:
+        checks[name]=run(root,args)
+        log=out/'publication_checks'/(mode+'_'+name+'.log');log.parent.mkdir(exist_ok=True);log.write_text(checks[name])
+    staged=set(run(root,['git','diff','--cached','--name-only']).splitlines())
+    if not staged or not staged.issubset(set(paths)|{'release_manifest.json'}):raise RuntimeError('Publication index escaped explicit inventory')
+    verify(files)
+    if run(root,['git','ls-remote','origin','refs/heads/main']).split()[0]!=head:raise RuntimeError('Remote advanced during publication; retain local result')
+    message='Register parallel A2 and report bounded fading screen' if mode=='registration' else 'Report fixed-payload coding and receiver 2x2 evaluation'
+    run(root,['git','commit','-m',message]);commit=run(root,['git','rev-parse','HEAD']).strip()
+    run(root,['git','push','origin','HEAD:main'])
+    remote=run(root,['git','ls-remote','origin','refs/heads/main']).split()[0]
+    if remote!=commit:raise RuntimeError('Push verification differs')
+    value=dict(status='PUSHED',mode=mode,commit=commit,remote_commit=remote,time=time.time(),files=files,
+               no_force_push=True,checks_passed=list(checks),outputs=files)
+    write(receipt,value);print(json.dumps({'status':'PUSHED','mode':mode,'commit':commit,'files':len(files)}))
+
+
+if __name__=='__main__':
+    ap=argparse.ArgumentParser();ap.add_argument('--root',required=True);ap.add_argument('--out',required=True)
+    ap.add_argument('--mode',choices=['registration','a2'],required=True);ap.add_argument('--python',required=True);a=ap.parse_args()
+    publish(Path(a.root).resolve(),Path(a.out).resolve(),a.mode,a.python)

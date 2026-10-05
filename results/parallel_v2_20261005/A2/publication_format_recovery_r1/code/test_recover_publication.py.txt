@@ -1,0 +1,201 @@
+"""Pure temporary-file/mock Git recovery tests. No network or actual Git."""
+import gzip
+from pathlib import Path
+import tempfile
+import unittest
+from unittest.mock import patch
+import recover_publication as m
+
+
+def put(path, value):
+    m.write(path, value);return m.sha(path)
+
+
+class FakeGit:
+    def __init__(self, root, blobs, tree):
+        self.root=root;self.index=dict(blobs);self.tree=tree;self.base=m.BASE
+        self.head=self.base;self.remote=self.base;self.calls=[];self.fail=None
+
+    def run(self, argv):
+        a=[str(v) for v in argv];self.calls.append(a)
+        if self.fail and self.fail in a:raise RuntimeError('forced command failure')
+        if a[:3]==['git','branch','--show-current']:return 'main'
+        if a[:2]==['git','ls-remote']:return self.remote+'\trefs/heads/main'
+        if a[:2]==['git','rev-parse']:
+            ref=a[2]
+            if ref=='HEAD':return self.head
+            if ref=='HEAD^':return self.base
+            if ref=='HEAD^{tree}':return self.tree
+            if ref.startswith(':'):return self.index[ref[1:]]
+        if a[:4]==['git','diff','--cached','--name-only']:return '\n'.join(sorted(self.index))
+        if a[:3]==['git','diff','--name-only']:return ''
+        if a[:2]==['git','write-tree']:return self.tree
+        if a[:2]==['git','hash-object']:return 'b'*40
+        if a[:2]==['git','restore']:
+            assert a==['git','restore','--staged','--source='+m.BASE,'--',m.GZIP]
+            del self.index[m.GZIP];self.tree='c'*40;return ''
+        if a[:2]==['git','add']:
+            for p in a[3:]:self.index[p]='b'*40
+            return ''
+        if a[:2]==['git','commit']:self.head='d'*40;return ''
+        if a[:2]==['git','push']:self.remote=self.head;return ''
+        if 'tools/update_repository_manifest.py' in a:
+            (self.root/'release_manifest.json').write_text('{}\n');return ''
+        return ''
+
+
+class Fixture:
+    def __init__(self, base):
+        self.root=Path(base)/'repo';self.out=self.root/'outputs/PARALLEL-V2-20261005'
+        self.rec=self.out/'publication_format_recovery_r1';self.rec.mkdir(parents=True)
+        self.raw='method,payload_bits,note\nA2,3060,"first\nsecond"\nA2,3060,正常\n'.encode()
+        gz=self.root/m.GZIP;gz.parent.mkdir(parents=True);gz.write_bytes(gzip.compress(self.raw))
+        report=self.root/'reports/a2_coding_failure_20261005.md';report.parent.mkdir();report.write_text('# Original A2 report\n')
+        self.files={str(gz):m.sha(gz),str(report):m.sha(report)}
+        self.inputs={}
+        reg=self.out/'A2/registration.json';self.inputs[str(reg)]=put(reg,{'status':'REGISTERED'})
+        for stage in ('preflight','calibrate','receive_development','render_development','score','report'):
+            path=self.out/'A2'/(stage+'_completion.json')
+            self.inputs[str(path)]=put(path,dict(status='COMPLETE',stage=stage,registration_sha256=m.sha(reg),outputs=self.files if stage=='report' else {}))
+        path=self.out/'a2_publication_inventory.json'
+        self.inputs[str(path)]=put(path,dict(files=self.files,report_completion_sha256=m.sha(self.out/'A2/report_completion.json')))
+        config=self.out/'owner_config.json';config_hash=put(config,{'source_bindings':{}});self.inputs[str(config)]=config_hash
+        self.owner=dict(pid=10,start_ticks=20,uid=1002,config_sha256=config_hash)
+        self.publisher=dict(pid=11,start_ticks=21,uid=1002)
+        for name, value in (('owner_identity.json',self.owner),('active_child.json',self.publisher),('owner_failure.json',{'error':'publish suffix .gz failed'})):
+            path=self.out/name;self.inputs[str(path)]=put(path,value)
+        for name in ('code/publish_results.py','code/parallel_owner.py','logs/publish.log'):
+            path=self.out/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text('# original immutable\n');self.inputs[str(path)]=m.sha(path)
+        (self.root/'release_manifest.json').write_text('{}\n')
+        python=self.root/'outputs/UNIFIED-METRICS-20261002/environment/bin/python';python.parent.mkdir(parents=True);python.write_text('mock')
+        self.blobs={Path(p).relative_to(self.root).as_posix():'b'*40 for p in self.files};self.blobs['release_manifest.json']='b'*40
+        self.registration=dict(status='A2_PUBLICATION_FORMAT_RECOVERY_REGISTERED',schema=m.SCHEMA,
+            root=str(self.root),out=str(self.out),expected_base_commit=m.BASE,
+            source_bindings={str(Path(m.__file__).resolve()):m.sha(m.__file__)},input_bindings=self.inputs,
+            original_index_tree='a'*40,original_staged_blobs=self.blobs,
+            owner_identity=self.owner,publisher_identity=self.publisher,original_gzip=dict(path=str(gz),sha256=m.sha(gz)))
+        put(self.rec/'execution_registration.json',self.registration)
+        self.git=FakeGit(self.root,self.blobs,'a'*40)
+
+
+class Tests(unittest.TestCase):
+    def setUp(self):
+        self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
+        self.f=Fixture(self.tmp.name)
+        self.dead=patch.object(m,'exited',return_value=True);self.dead.start();self.addCleanup(self.dead.stop)
+
+    def prepare(self):return m.prepare(self.f.root,self.f.out,self.f.rec,self.f.git)
+    def publish(self):return m.publish(self.f.root,self.f.out,self.f.rec,self.f.git)
+
+    def test_prepare_is_exact_and_readonly_to_repo_index(self):
+        plan=self.prepare();parts=plan['format_receipt']['parts']
+        self.assertEqual(len(parts),1)
+        result=(self.f.rec/'prepared'/parts[0]['path']).read_bytes()
+        self.assertEqual(result,self.f.raw)
+        self.assertEqual(plan['format_receipt']['row_count'],2)
+        self.assertEqual(self.f.git.index,self.f.blobs)
+        self.assertTrue((self.f.out/'owner_failure.json').exists())
+        self.assertFalse((self.f.root/m.CSV).exists())
+        self.assertEqual(m.sha(self.f.root/m.GZIP),self.f.registration['original_gzip']['sha256'])
+
+    def test_multiline_csv_parts_are_byte_exact(self):
+        raw,parts,schema,rows=m.decode_csv(self.f.root/m.GZIP,45)
+        self.assertGreater(len(parts),1);self.assertEqual(b''.join(parts),raw)
+        self.assertEqual(rows,2);self.assertEqual(schema,['method','payload_bits','note'])
+
+    def test_only_owned_gzip_unstaged_all_other_blobs_preserved(self):
+        self.prepare();original=dict(self.f.git.index);done=self.publish()
+        self.assertEqual(done['status'],'PUBLICATION_FORMAT_RECOVERY_COMPLETE')
+        for name,blob in original.items():
+            if name!=m.GZIP:self.assertEqual(self.f.git.index[name],blob)
+        self.assertNotIn(m.GZIP,self.f.git.index)
+        restore=[c for c in self.f.git.calls if c[:2]==['git','restore']]
+        self.assertEqual(restore,[['git','restore','--staged','--source='+m.BASE,'--',m.GZIP]])
+        self.assertTrue((self.f.root/m.GZIP).exists())
+        self.assertEqual((self.f.root/m.CSV).read_bytes(),self.f.raw)
+        self.assertFalse((self.f.out/'owner_failure.json').exists())
+        self.assertTrue((self.f.rec/'archived_original/owner_failure.json').exists())
+        self.assertEqual(m.sha(self.f.rec/'archived_original/owner_failure.json'),self.f.inputs[str(self.f.out/'owner_failure.json')])
+        pub=m.read(self.f.out/'a2_publication_completion.json')
+        self.assertEqual(pub['files'],pub['outputs']);self.assertEqual(pub['checks_passed'],['manifest','repository','cpu'])
+        self.assertNotIn(str(self.f.root/m.GZIP),pub['files'])
+        self.assertEqual(m.read(self.f.out/'completion.json')['status'],'A2_PUBLISHED_AND_STOPPED')
+
+    def test_standard_checks_and_normal_push_are_mandatory(self):
+        self.prepare();self.publish();calls=self.f.git.calls
+        for script in ('tools/update_repository_manifest.py','tools/verify_repository.py','tools/run_cpu_checks.py'):
+            self.assertTrue(any(script in x for x in calls))
+        self.assertIn(['git','diff','--cached','--check'],calls)
+        self.assertIn(['git','push','origin','HEAD:main'],calls)
+        self.assertFalse(any('--force' in x or 'reset' in x or 'clean' in x for x in calls))
+
+    def test_final_index_rejects_missing_original_entry(self):
+        plan=self.prepare();self.publish()
+        del self.f.git.index['reports/a2_coding_failure_20261005.md']
+        with self.assertRaisesRegex(RuntimeError,'complete recovery inventory'):
+            m.verify_final_index(self.f.root,self.f.git,plan['files'],self.f.blobs)
+
+    def test_final_index_rejects_changed_original_blob(self):
+        plan=self.prepare();self.publish()
+        self.f.git.index['reports/a2_coding_failure_20261005.md']='f'*40
+        with self.assertRaisesRegex(RuntimeError,'original A2 staged blob changed'):
+            m.verify_final_index(self.f.root,self.f.git,plan['files'],self.f.blobs)
+
+    def test_actual_bound_inventory_scope_is_accepted(self):
+        reference=Path(__file__).parent/'reference/a2_publication_inventory.json'
+        if not reference.exists():self.skipTest('Local read-only incident snapshot absent')
+        original=m.read(reference)['files']
+        # On Windows, map the remote prefix to this temporary root without reading artifacts.
+        mapped={str(self.f.root/Path(k.removeprefix('/home/liulu/projects/VAR_COMM/'))):v for k,v in original.items()}
+        result=m.relative_files(self.f.root,mapped)
+        self.assertIn('reports/a2_coding_failure_20261005.md',result)
+        self.assertIn(m.GZIP,result)
+        self.assertEqual(len(result),len(original))
+
+    def test_failed_check_preserves_failure_gzip_and_other_scientific_receipts(self):
+        self.prepare();self.f.git.fail='tools/verify_repository.py'
+        with self.assertRaisesRegex(RuntimeError,'forced'):self.publish()
+        self.assertTrue((self.f.out/'owner_failure.json').exists())
+        self.assertFalse((self.f.rec/'archived_original/owner_failure.json').exists())
+        self.assertFalse((self.f.out/'a2_publication_completion.json').exists())
+        m.verify(self.f.inputs)
+
+    def test_push_failure_never_archives_original_failure(self):
+        self.prepare();self.f.git.fail='push'
+        with self.assertRaisesRegex(RuntimeError,'forced'):self.publish()
+        self.assertTrue((self.f.out/'owner_failure.json').exists())
+        self.assertFalse((self.f.rec/'failure_archive_receipt.json').exists())
+
+    def test_changed_original_index_rejects_before_any_mutation(self):
+        self.f.git.index['other.txt']='b'*40
+        with self.assertRaisesRegex(RuntimeError,'index changed'):self.prepare()
+        self.assertFalse(any(x[:2]==['git','restore'] for x in self.f.git.calls))
+
+    def test_live_predecessor_rejects(self):
+        with patch.object(m,'exited',return_value=False):
+            with self.assertRaisesRegex(RuntimeError,'still alive'):self.prepare()
+
+    def test_changed_scientific_artifact_rejects(self):
+        (self.f.root/m.GZIP).write_bytes(b'changed')
+        with self.assertRaises(RuntimeError):self.prepare()
+
+    def test_remote_baseline_change_rejects(self):
+        self.f.git.remote='f'*40
+        with self.assertRaisesRegex(RuntimeError,'Remote baseline'):self.prepare()
+
+    def test_no_blind_retry_after_partial_mutation(self):
+        self.prepare();m.write(self.f.rec/'mutation_started.json',{'old':True})
+        with self.assertRaisesRegex(RuntimeError,'no blind retry'):self.publish()
+
+    def test_finalize_requires_verified_push_receipt(self):
+        self.prepare()
+        with self.assertRaises(FileNotFoundError):m.finalize(self.f.root,self.f.out,self.f.rec,self.f.git)
+        self.assertTrue((self.f.out/'owner_failure.json').exists())
+
+    def test_finalize_is_idempotent_after_success(self):
+        self.prepare();first=self.publish()
+        second=m.finalize(self.f.root,self.f.out,self.f.rec,self.f.git)
+        self.assertEqual(first,second)
+
+
+if __name__=='__main__':unittest.main()

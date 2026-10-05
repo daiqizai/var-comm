@@ -1,0 +1,375 @@
+"""Registered A2 publication-only recovery: gzip CSV becomes exact text parts.
+
+No scientific program is invoked. Original data, code, receipts and failed logs
+remain intact. Only the registered gzip index entry is removed. The old failure
+is archived from its root location only after a normal push is verified.
+"""
+import argparse
+import csv
+import gzip
+import hashlib
+import io
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import time
+import traceback
+
+SCHEMA = 'A2_PUBLICATION_FORMAT_RECOVERY_R1'
+BASE = '98d2197b4cd31984750df8413a6fe70f0df599c6'
+RESULT = 'results/parallel_v2_20261005/A2'
+GZIP = RESULT + '/metrics_per_frame.csv.gz'
+CSV = RESULT + '/metrics_per_frame.csv'
+EVIDENCE = RESULT + '/publication_format_recovery_r1'
+MAX_FILE = 10_000_000
+CHUNK = 4_500_000
+
+
+def require(ok, message):
+    if not ok:
+        raise RuntimeError(message)
+
+
+def read(p):
+    return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+
+
+def sha(p):
+    h = hashlib.sha256()
+    with Path(p).open('rb') as f:
+        for b in iter(lambda: f.read(1048576), b''):
+            h.update(b)
+    return h.hexdigest()
+
+
+def digest(b):
+    return hashlib.sha256(b).hexdigest()
+
+
+def dump(v):
+    return (json.dumps(v, indent=2, ensure_ascii=False, allow_nan=False)+'\n').encode()
+
+
+def write(p, v):
+    p = Path(p);b = dump(v);p.parent.mkdir(parents=True, exist_ok=True)
+    if p.exists():
+        require(p.read_bytes() == b, 'Immutable evidence changed: '+str(p));return
+    q = p.with_name(p.name+'.tmp');q.write_bytes(b);q.replace(p)
+
+
+def verify(bindings):
+    for p, h in bindings.items():
+        require(sha(p) == h, 'Bound file changed: '+p)
+
+
+def within(p, root):
+    p = Path(p).resolve()
+    require(p.is_relative_to(Path(root).resolve()), 'Path escapes scope')
+    return p
+
+
+def identity(pid):
+    p = Path('/proc')/str(pid);f = (p/'stat').read_text().rsplit(')', 1)[1].split()
+    uid = int(next(x for x in (p/'status').read_text().splitlines() if x.startswith('Uid:')).split()[1])
+    return dict(pid=int(pid), start_ticks=int(f[19]), uid=uid, state=f[0])
+
+
+def exited(wanted):
+    try:
+        found = identity(wanted['pid'])
+    except (FileNotFoundError, ProcessLookupError):
+        return True
+    if str(found['start_ticks']) != str(wanted['start_ticks']):
+        return True
+    require(int(found['uid']) == int(wanted['uid']), 'Predecessor UID differs')
+    return found['state'] == 'Z'
+
+
+class Commands:
+    def __init__(self, root, recovery):
+        self.root, self.recovery = root, recovery
+
+    def run(self, argv):
+        env = dict(os.environ, CUDA_VISIBLE_DEVICES='', OMP_NUM_THREADS='2', MKL_NUM_THREADS='2',
+                   OPENBLAS_NUM_THREADS='2', NUMEXPR_NUM_THREADS='2', PYTHONDONTWRITEBYTECODE='1')
+        r = subprocess.run([str(x) for x in argv], cwd=self.root, env=env,
+                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        p = self.recovery/'checks'/('%d.log' % time.time_ns());p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(r.stdout, encoding='utf-8')
+        require(r.returncode == 0, 'Command failed; retained '+str(p))
+        return r.stdout.strip()
+
+
+def call(cmd, *args):
+    return cmd.run(list(args))
+
+
+def relative_files(root, files):
+    result = {}
+    for p, h in files.items():
+        relative = within(p, root).relative_to(root).as_posix()
+        require(relative.startswith('results/parallel_v2_20261005/')
+                or relative == 'reports/a2_coding_failure_20261005.md', 'Old inventory escapes A2 scope: '+relative)
+        require(relative not in result, 'Duplicate old inventory path')
+        result[relative] = h
+    return result
+
+
+def registration(root, out, recovery, after_archive=False):
+    path = recovery/'execution_registration.json';r = read(path)
+    require(r.get('status') == 'A2_PUBLICATION_FORMAT_RECOVERY_REGISTERED' and r.get('schema') == SCHEMA,
+            'Explicit format recovery registration required')
+    require(Path(r['root']).resolve() == root and Path(r['out']).resolve() == out
+            and recovery == out/'publication_format_recovery_r1', 'Recovery path registration differs')
+    require(r['expected_base_commit'] == BASE, 'Unexpected pre-failure baseline')
+    require(r['source_bindings'].get(str(Path(__file__).resolve())) == sha(__file__), 'Recovery source is unbound')
+    verify(r['source_bindings'])
+    failure = str(out/'owner_failure.json')
+    bindings = dict(r['input_bindings'])
+    if after_archive and not Path(failure).exists():
+        expected = bindings.pop(failure)
+        require(sha(recovery/'archived_original/owner_failure.json') == expected, 'Archived failure changed')
+    verify(bindings)
+    required = [out/'owner_failure.json', out/'owner_config.json', out/'owner_identity.json',
+                out/'active_child.json', out/'a2_publication_inventory.json', out/'A2/registration.json',
+                out/'code/publish_results.py', out/'code/parallel_owner.py', out/'logs/publish.log']
+    required += [out/'A2'/(stage+'_completion.json') for stage in
+                 ('preflight', 'calibrate', 'receive_development', 'render_development', 'score', 'report')]
+    require(all(str(p) in r['input_bindings'] for p in required), 'Recovery lacks required original bindings')
+    for key, path in (('owner_identity', out/'owner_identity.json'), ('publisher_identity', out/'active_child.json')):
+        original = read(path)
+        require(all(str(r[key][k]) == str(original[k]) for k in ('pid', 'start_ticks', 'uid')),
+                'Bound predecessor process differs')
+        require(exited(r[key]), 'Predecessor process is still alive; do not recover publication')
+    require(read(out/'owner_identity.json')['config_sha256'] == sha(out/'owner_config.json'), 'Old owner config differs')
+    gz = r['original_gzip']
+    require(Path(gz['path']).resolve() == root/GZIP and sha(root/GZIP) == gz['sha256'], 'Wrong original gzip')
+    inventory = read(out/'a2_publication_inventory.json')
+    require(inventory['report_completion_sha256'] == sha(out/'A2/report_completion.json'), 'Old publication/report binding differs')
+    files = relative_files(root, inventory['files']);verify(inventory['files'])
+    require(files.get(GZIP) == gz['sha256'], 'Gzip is not task-owned in original inventory')
+    for stage in ('preflight', 'calibrate', 'receive_development', 'render_development', 'score', 'report'):
+        done = read(out/'A2'/(stage+'_completion.json'))
+        require(done.get('status') == 'COMPLETE' and done.get('stage') == stage
+                and done['registration_sha256'] == sha(out/'A2/registration.json'), 'Scientific stage incomplete')
+    verify(read(out/'A2/report_completion.json')['outputs'])
+    return r, files
+
+
+def decode_csv(path, limit=CHUNK):
+    raw = gzip.decompress(Path(path).read_bytes())
+    require(b'\0' not in raw and raw, 'Decoded CSV is empty or binary')
+    reader = csv.reader(io.StringIO(raw.decode('utf-8-sig'), newline=''))
+    lines = raw.splitlines(keepends=True);previous = 0;parts = [];buffer = bytearray();rows = 0;schema = None
+    for row in reader:
+        if schema is None:
+            schema = row;require(len(row) == len(set(row)), 'Duplicate CSV columns')
+        else:
+            rows += 1;require(len(row) == len(schema), 'Ragged decoded CSV')
+        record = b''.join(lines[previous:reader.line_num]);previous = reader.line_num
+        require(len(record) < limit < MAX_FILE, 'CSV record is too large')
+        if buffer and len(buffer)+len(record) >= limit:
+            parts.append(bytes(buffer));buffer.clear()
+        buffer.extend(record)
+    if buffer:
+        parts.append(bytes(buffer))
+    require(b''.join(parts) == raw, 'CSV split changed decoded bytes')
+    return raw, parts, schema, rows
+
+
+def index_snapshot(cmd):
+    result = {}
+    for path in call(cmd, 'git', 'diff', '--cached', '--name-only').splitlines():
+        result[path] = call(cmd, 'git', 'rev-parse', ':'+path)
+    return result
+
+
+def validate_initial_index(root, cmd, r, old_files):
+    require(call(cmd, 'git', 'branch', '--show-current') == 'main', 'Wrong branch')
+    require(call(cmd, 'git', 'rev-parse', 'HEAD') == BASE, 'Local baseline differs')
+    require(call(cmd, 'git', 'ls-remote', 'origin', 'refs/heads/main').split()[0] == BASE, 'Remote baseline differs')
+    require(not call(cmd, 'git', 'diff', '--name-only'), 'Unstaged tracked changes require review')
+    current = index_snapshot(cmd)
+    require(current == r['original_staged_blobs'] and call(cmd, 'git', 'write-tree') == r['original_index_tree'],
+            'Original failed index changed')
+    require(set(current) == set(old_files)|{'release_manifest.json'}, 'Failed index differs from complete task inventory')
+    require(not call(cmd, 'git', 'ls-tree', BASE, '--', GZIP), 'Gzip unexpectedly existed in baseline')
+    for path, blob in current.items():
+        require(blob == call(cmd, 'git', 'hash-object', '--', str(root/path)), 'Index/worktree content differs: '+path)
+
+
+def prepare(root, out, recovery, cmd):
+    r, old_files = registration(root, out, recovery)
+    validate_initial_index(root, cmd, r, old_files)
+    raw, parts, schema, rows = decode_csv(root/GZIP)
+    files = dict(old_files);del files[GZIP]
+    generated = {};staging = recovery/'prepared'
+
+    def add(relative, data):
+        require(relative.startswith(RESULT+'/') and len(data) < MAX_FILE, 'Bad recovery publication destination')
+        path = within(staging/relative, staging);path.parent.mkdir(parents=True, exist_ok=True)
+        require(not path.exists() or path.read_bytes() == data, 'Prepared recovery collision')
+        if not path.exists():path.write_bytes(data)
+        generated[relative] = sha(path);files[relative] = sha(path)
+
+    names = []
+    for i, part in enumerate(parts):
+        name = CSV if len(parts) == 1 else CSV+'.part%03d.csv' % i
+        add(name, part);names.append(name)
+    format_receipt = dict(status='EXACT_GZIP_CSV_EXPANSION', original_gzip_path=GZIP,
+        original_gzip_sha256=sha(root/GZIP), decoded_sha256=digest(raw), decoded_bytes=len(raw),
+        schema=schema, row_count=rows, scientific_values_changed=False,
+        reconstruction='Concatenate binary parts in listed order; only first part has original header.',
+        parts=[dict(path=p, sha256=generated[p]) for p in names])
+    add(EVIDENCE+'/CSV_FORMAT.json', dump(format_receipt))
+    failure = (out/'owner_failure.json').read_bytes()
+    copy = recovery/'owner_failure.original.json'
+    require(not copy.exists() or copy.read_bytes() == failure, 'Original failure copy differs')
+    if not copy.exists():copy.write_bytes(failure)
+    for source in [recovery/'execution_registration.json', copy, out/'owner_config.json', out/'owner_identity.json',
+                   out/'active_child.json', out/'logs/publish.log', out/'code/publish_results.py', out/'code/parallel_owner.py']:
+        name = source.name + ('.txt' if source.suffix in ('.py', '.log') else '')
+        add(EVIDENCE+'/'+name, source.read_bytes())
+    for source in sorted(recovery.glob('*.py')):
+        require(r['source_bindings'].get(str(source.resolve())) == sha(source), 'Unbound recovery source')
+        add(EVIDENCE+'/code/'+source.name+'.txt', source.read_bytes())
+    add(EVIDENCE+'/README.txt', ('Publication-only recovery. The original gzip and scientific receipts remain intact.\n'
+        'CSV_FORMAT.json gives byte-exact reconstruction of the decompressed original.\n'
+        'The old failure is copied before index changes and moved from its root location only after verified normal push.\n').encode())
+    plan = dict(status='FORMAT_RECOVERY_PREPARED', schema=SCHEMA, registration_sha256=sha(recovery/'execution_registration.json'),
+                old_files=old_files, files=files, generated=generated, format_receipt=format_receipt,
+                failure_sha256=sha(copy), only_removed_index_path=GZIP, science_repeated=False)
+    write(recovery/'prepared_inventory.json', plan)
+    return plan
+
+
+def verify_final_index(root, cmd, files, original_blobs):
+    index = index_snapshot(cmd)
+    require(set(index) == set(files)|{'release_manifest.json'} and GZIP not in index,
+            'Final index differs from complete recovery inventory')
+    for path, blob in original_blobs.items():
+        if path not in (GZIP, 'release_manifest.json'):
+            require(index.get(path) == blob, 'An original A2 staged blob changed: '+path)
+    for path, blob in index.items():
+        require(blob == call(cmd, 'git', 'hash-object', '--', str(root/path)), 'Final index blob differs')
+    verify({str(root/p): h for p, h in files.items()})
+    call(cmd, 'git', 'diff', '--cached', '--check')
+    return call(cmd, 'git', 'write-tree')
+
+
+def finalize(root, out, recovery, cmd):
+    r, _ = registration(root, out, recovery, after_archive=True)
+    publication = read(out/'a2_publication_completion.json')
+    require(publication.get('status') == 'PUSHED' and publication.get('mode') == 'a2'
+            and publication['recovery_registration_sha256'] == sha(recovery/'execution_registration.json'), 'Recovery publication receipt absent')
+    verify(publication['outputs'])
+    remote = call(cmd, 'git', 'ls-remote', 'origin', 'refs/heads/main').split()[0]
+    require(remote == publication['commit'] == publication['remote_commit'], 'Verified recovery commit is not current remote')
+    source = out/'owner_failure.json';dest = recovery/'archived_original/owner_failure.json'
+    original_hash = r['input_bindings'][str(source)]
+    require(sha(recovery/'owner_failure.original.json') == original_hash, 'Pre-mutation failure copy changed')
+    if source.exists():
+        require(sha(source) == original_hash and not dest.exists(), 'Root failure/archive collision')
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        source.rename(dest)  # one exact registered file; never delete any evidence
+    require(sha(dest) == original_hash and not source.exists(), 'Failure archival was not exact')
+    archive = dict(status='RESOLVED_PUBLICATION_FAILURE_ARCHIVED', original_path=str(source),
+        original_sha256=original_hash, archived_path=str(dest), archived_sha256=sha(dest),
+        prior_copy_path=str(recovery/'owner_failure.original.json'), recovery_commit=publication['commit'],
+        registration_sha256=sha(recovery/'execution_registration.json'),
+        publication_completion_sha256=sha(out/'a2_publication_completion.json'), all_original_diagnostic_bindings=r['input_bindings'])
+    write(recovery/'failure_archive_receipt.json', archive)
+    common = dict(config_sha256=sha(out/'owner_config.json'), A1_untouched=True,
+        F2_state='READ_FROZEN_F1_GATE', old_queues_started=False, scientific_stages_repeated=False,
+        recovery_registration_sha256=sha(recovery/'execution_registration.json'),
+        failure_archive_receipt_sha256=sha(recovery/'failure_archive_receipt.json'),
+        publication_completion_sha256=sha(out/'a2_publication_completion.json'))
+    write(out/'completion.json', dict(status='A2_PUBLISHED_AND_STOPPED', **common))
+    write(recovery/'completion.json', dict(status='PUBLICATION_FORMAT_RECOVERY_COMPLETE',
+        commit=publication['commit'], owner_completion_sha256=sha(out/'completion.json'), **common))
+    return read(recovery/'completion.json')
+
+
+def publish(root, out, recovery, cmd):
+    r, old_files = registration(root, out, recovery)
+    plan = read(recovery/'prepared_inventory.json')
+    require(plan['registration_sha256'] == sha(recovery/'execution_registration.json') and plan['old_files'] == old_files,
+            'Prepared recovery differs from registration')
+    require(not (recovery/'mutation_started.json').exists(), 'Earlier mutation needs explicit diagnosis; no blind retry')
+    require(not (out/'a2_publication_completion.json').exists() and not (out/'completion.json').exists(), 'Already published')
+    validate_initial_index(root, cmd, r, old_files)
+    staging = recovery/'prepared'
+    verify({str(staging/p): h for p, h in plan['generated'].items()})
+    raw, _, _, _ = decode_csv(root/GZIP)
+    combined = b''.join((staging/p['path']).read_bytes() for p in plan['format_receipt']['parts'])
+    require(combined == raw and digest(raw) == plan['format_receipt']['decoded_sha256'], 'Expansion bytes differ')
+    for relative, h in plan['generated'].items():
+        dest = within(root/relative, root)
+        require(not dest.exists() or sha(dest) == h, 'New CSV/evidence destination collision')
+    write(recovery/'mutation_started.json', dict(registration_sha256=sha(recovery/'execution_registration.json'),
+          original_index_tree=r['original_index_tree'], time=time.time()))
+    # Only this exact registered index entry is removed. Its worktree file survives.
+    call(cmd, 'git', 'restore', '--staged', '--source='+BASE, '--', GZIP)
+    expected_remaining = dict(r['original_staged_blobs']);del expected_remaining[GZIP]
+    require(index_snapshot(cmd) == expected_remaining, 'Removing gzip changed another staged entry')
+    require(sha(root/GZIP) == r['original_gzip']['sha256'], 'Original gzip changed during unstage')
+    for relative in plan['generated']:
+        dest = root/relative;dest.parent.mkdir(parents=True, exist_ok=True)
+        if not dest.exists():dest.write_bytes((staging/relative).read_bytes())
+    new_paths = sorted(plan['generated'])
+    for start in range(0, len(new_paths), 80):
+        call(cmd, 'git', 'add', '--', *new_paths[start:start+80])
+    python = root/'outputs/UNIFIED-METRICS-20261002/environment/bin/python'
+    require(python.is_file(), 'UNIFIED check environment unavailable')
+    call(cmd, python, '-B', 'tools/update_repository_manifest.py')
+    call(cmd, 'git', 'add', '--', 'release_manifest.json')
+    tree = verify_final_index(root, cmd, plan['files'], r['original_staged_blobs'])
+    call(cmd, python, '-B', 'tools/verify_repository.py')
+    call(cmd, python, '-B', 'tools/run_cpu_checks.py')
+    registration(root, out, recovery)
+    require(verify_final_index(root, cmd, plan['files'], r['original_staged_blobs']) == tree, 'Index changed during required checks')
+    require(call(cmd, 'git', 'rev-parse', 'HEAD') == BASE
+            and call(cmd, 'git', 'ls-remote', 'origin', 'refs/heads/main').split()[0] == BASE, 'Baseline changed before commit')
+    call(cmd, 'git', 'commit', '-m', 'Report fixed-payload A2 evaluation with readable per-frame metrics')
+    commit = call(cmd, 'git', 'rev-parse', 'HEAD')
+    require(call(cmd, 'git', 'rev-parse', 'HEAD^') == BASE
+            and call(cmd, 'git', 'rev-parse', 'HEAD^{tree}') == tree, 'Commit history/tree differs')
+    write(recovery/'committed.json', dict(commit=commit, tree=tree, registration_sha256=sha(recovery/'execution_registration.json')))
+    call(cmd, 'git', 'push', 'origin', 'HEAD:main')
+    remote = call(cmd, 'git', 'ls-remote', 'origin', 'refs/heads/main').split()[0]
+    require(commit == remote and re.fullmatch('[0-9a-f]{40}', commit), 'Normal push not verified')
+    files = {str(root/p): h for p, h in plan['files'].items()}
+    write(out/'a2_publication_completion.json', dict(status='PUSHED', mode='a2', commit=commit, remote_commit=remote,
+          files=files, outputs=files, no_force_push=True, checks_passed=['manifest', 'repository', 'cpu'],
+          recovery_registration_sha256=sha(recovery/'execution_registration.json'),
+          recovery_prepared_inventory_sha256=sha(recovery/'prepared_inventory.json'),
+          original_scientific_report_sha256=sha(out/'A2/report_completion.json'),
+          gzip_original_preserved=True, scientific_stages_repeated=False))
+    return finalize(root, out, recovery, cmd)
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument('--root', required=True);ap.add_argument('--out', required=True)
+    ap.add_argument('--recovery');ap.add_argument('--stage', choices=['prepare', 'publish', 'finalize'], required=True)
+    a = ap.parse_args();root = Path(a.root).resolve();out = within(a.out, root)
+    recovery = Path(a.recovery).resolve() if a.recovery else out/'publication_format_recovery_r1'
+    if hasattr(os, 'sched_setaffinity'):
+        require({24,25} <= os.sched_getaffinity(0), 'Registered recovery CPUs unavailable')
+        os.sched_setaffinity(0, {24,25})
+        if os.getpriority(os.PRIO_PROCESS, 0) < 10:os.nice(10-os.getpriority(os.PRIO_PROCESS, 0))
+    import fcntl
+    with (recovery/'recovery.lock').open('a+') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        try:
+            result = {'prepare':prepare, 'publish':publish, 'finalize':finalize}[a.stage](root,out,recovery,Commands(root,recovery))
+            print(json.dumps({'status':result['status']}))
+        except BaseException:
+            write(recovery/('failure_%d.json' % time.time_ns()), dict(status='FAILED_PRESERVED', stage=a.stage,
+                  traceback=traceback.format_exc(), automatic_retry=False))
+            raise
+
+
+if __name__ == '__main__':main()
