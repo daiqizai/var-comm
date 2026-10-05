@@ -1,0 +1,189 @@
+"""CPU-only audit of paid M1 resource bounds against frozen grids and saved rows.
+
+Run with --root pointing to the actual VAR_COMM checkout. No models, datasets,
+channel simulations, experiment writes, or imports of the production PHY occur.
+--strict exits 2 if any resource-legal finite-grid action is absent. This is an
+audit gate, not an experiment launcher. K is the registered quartile/max grid.
+"""
+import argparse
+import ast
+import csv
+from dataclasses import dataclass
+from fractions import Fraction
+import hashlib
+import json
+from pathlib import Path
+import types
+
+SIZES = (1, 2, 3, 4, 5, 6, 8, 10, 13, 16)
+ORDERS = ('raster', 'random', 'entropy', 'oracle')
+WIDTH = {'QPSK': 2, '16QAM': 4}
+
+
+def sha(p):
+    return hashlib.sha256(p.read_bytes()).hexdigest()
+
+
+def minimum_uses(info, width):
+    return (10 * info + 9 * width - 1) // (9 * width)
+
+
+def allocation(N, phy, m, K, order):
+    prefix = 12 * sum(x*x for x in SIZES[:m]) + 22
+    mask = SIZES[m]**2 if K and order == 'oracle' else 0
+    partial = 12*K + mask + 22 if K else 0
+    uses = [minimum_uses(prefix, WIDTH[phy]), minimum_uses(partial, WIDTH[phy])]
+    # Independent rational-rate check, including the first integer below each bound.
+    for bits, n in zip((prefix, partial), uses):
+        if bits:
+            assert Fraction(bits, n*WIDTH[phy]) <= Fraction(9, 10)
+            assert n == 1 or Fraction(bits, (n-1)*WIDTH[phy]) > Fraction(9, 10)
+    return dict(N=N, phy=phy, m=m, K=K, order=order,
+                body_uses=N-68, prefix_information_bits=prefix,
+                partial_information_bits=partial, paid_mask_bits=mask,
+                min_prefix_uses=uses[0], min_partial_uses=uses[1],
+                resource_legal=sum(uses) <= N-68)
+
+
+def full_grid(N, phy):
+    rows = []
+    for m in range(4, 11):
+        whole = allocation(N, phy, m, 0, 'whole')
+        if whole['resource_legal']:
+            rows.append(whole)
+        if m == 10:
+            continue
+        L = SIZES[m]**2
+        for order in ORDERS:
+            valid = [K for K in range(1, L) if allocation(N, phy, m, K, order)['resource_legal']]
+            maximum = max(valid, default=0)
+            if maximum and maximum < L-1:
+                assert not allocation(N, phy, m, maximum+1, order)['resource_legal']
+            for K in sorted({L//4, L//2, 3*L//4, maximum}):
+                if 0 < K <= maximum:
+                    rows.append(allocation(N, phy, m, K, order))
+    return rows
+
+
+def frozen_grid_module(path):
+    """Extract only CPU accounting definitions; skip imports and channel/model code."""
+    constants = {'PROTOCOL', 'SIZES', 'HEADER_USES', 'ORDERS', 'PHY_FAMILIES'}
+    definitions = {'_int', 'raw_bits', 'next_length', '_allocation', 'Action',
+                   'max_legal_q', 'action_grid', 'legacy_action_grid'}
+    tree = ast.parse(path.read_text())
+    nodes = []
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and len(node.targets) == 1:
+            if isinstance(node.targets[0], ast.Name) and node.targets[0].id in constants:
+                nodes.append(node)
+        elif isinstance(node, (ast.FunctionDef, ast.ClassDef)) and node.name in definitions:
+            nodes.append(node)
+    module = types.ModuleType('accounting_only')
+    module.__dict__.update(dataclass=dataclass, np=types.SimpleNamespace(integer=int, bool_=bool))
+    exec(compile(ast.Module(body=nodes, type_ignores=[]), str(path), 'exec'), module.__dict__)
+    return module
+
+
+def action_key(a):
+    return (int(a['m']), int(a.get('K', a.get('q'))), a['order'])
+
+
+def csv_rows(path):
+    with path.open(newline='') as f:
+        return list(csv.DictReader(f))
+
+
+def write_csv(path, rows):
+    with path.open('w', newline='', encoding='utf-8') as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0]))
+        w.writeheader()
+        w.writerows(rows)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--root', type=Path, required=True)
+    parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--strict', action='store_true')
+    args = parser.parse_args()
+    root, out = args.root.resolve(), args.output.resolve()
+    low = root/'experiments/scale-causal-partial-residual-20261002/partial_phy.py'
+    wide = root/'experiments/m1-n2048-full-grid-20261004/m1_phy.py'
+    extension = root/'outputs/M1-N2048-M9-EXTENSION-20261004/code/m9_phy.py'
+    low_summary = root/'results/scale_causal_partial_residual_20261002/m1_screen_summary.csv'
+    wide_summary = root/'outputs/M1-N2048-FULL-GRID-20261004-FAST-R1/calibration_summary.csv'
+    ext_summary = root/'outputs/M1-N2048-M9-EXTENSION-20261004/calibration_summary.csv'
+    modules = {k: frozen_grid_module(p) for k, p in [('low', low), ('wide', wide), ('extension', extension)]}
+    saved = {k: csv_rows(p) for k, p in [('low', low_summary), ('wide', wide_summary), ('extension', ext_summary)]}
+    input_paths = [low, wide, extension, low_summary, wide_summary, ext_summary]
+    inventories, gaps, summary, coverage = [], [], [], []
+    for N in (512, 1024, 2048, 3060, 4084):
+        for phy in WIDTH:
+            physical = full_grid(N, phy)
+            model = modules['low' if N < 2048 else 'wide'] if N <= 2048 else None
+            original = {action_key(a.to_dict()) for a in model.action_grid(N, phy)} if model else set()
+            extra = {action_key(a.to_dict()) for a in modules['extension'].action_grid(N, phy)} if N == 2048 and phy == '16QAM' else set()
+            registered = original | extra
+            # Parity: each production action has identical paid lengths and eligibility.
+            by_key = {action_key(r): r for r in physical}
+            for key in registered:
+                m, K, order = key
+                source = modules['extension'] if key in extra else model
+                r = source._allocation(N, phy, m, K, order)
+                ours = by_key[key]
+                assert r['eligible'] and r['prefix_information_bits'] == ours['prefix_information_bits']
+                assert r['partial_information_bits'] == ours['partial_information_bits']
+                assert r['N_header'] == 68 and r['N_body'] == N-68
+            current_gaps = []
+            for r in physical:
+                k = action_key(r)
+                state = 'NOT_RUN_M1_AT_THIS_N' if model is None else 'REGISTERED' if k in registered else 'ABSENT_FROM_REGISTERED_GRID'
+                if r['K'] <= 127:
+                    wire = 'fields_fit_existing_3plus7plus2_bits; receiver_domain_still_required'
+                elif r['m'] == 9 and N == 2048 and phy == '16QAM':
+                    wire = 'registered_m9_high_K_bank_mode6'
+                else:
+                    wire = 'K_above_127_requires_new_registered_wire_mapping'
+                row = dict(**r, registered_or_resource_only=state, header_field_status=wire)
+                inventories.append(row)
+                if model and k not in registered:
+                    gaps.append(row); current_gaps.append(row)
+            whole_max = max(r['m'] for r in physical if r['K'] == 0)
+            ordinary_max = max(((r['m'],r['K']) for r in physical if r['order']=='entropy'), default=None)
+            oracle_max = max(((r['m'],r['K']) for r in physical if r['order']=='oracle'), default=None)
+            summary.append(dict(N=N,phy=phy,original_actions=len(original) if model else None,
+                supplementary_actions=len(extra) if model else None,resource_grid_actions=len(physical),
+                missing_actions=len(current_gaps) if model else None,max_whole_m=whole_max,
+                max_partial_ordinary=ordinary_max,max_partial_oracle=oracle_max,
+                evaluation_scope='M1_REGISTERED' if model else 'RESOURCE_ONLY_NO_M1_EXPERIMENT'))
+            if model:
+                phase = 'low' if N < 2048 else 'wide'
+                for snr in (1, 4, 7, 13, 19):
+                    chosen = 'extension' if extra and snr in (7,13,19) else phase
+                    expected = registered if chosen == 'extension' else original
+                    selected = [r for r in saved[chosen] if int(r.get('N',N))==N and r.get('phy',r.get('phy_family'))==phy and float(r.get('snr',r.get('snr_db')))==snr]
+                    actual = {action_key(r) for r in selected}
+                    assert actual == expected, (N,phy,snr,chosen,len(actual),len(expected))
+                    assert len(selected) == len(actual), 'Duplicate saved actions'
+                    samples = sorted({int(r['rows']) for r in selected})
+                    assert samples == ([200] if chosen == 'low' else [3000])
+                    coverage.append(dict(N=N,phy=phy,snr_db=snr,phase=chosen,
+                        action_count=len(actual),observations_per_action=samples,
+                        matches_production_grid=True,missing_resource_grid_count=len(physical)-len(actual)))
+    out.mkdir(parents=True,exist_ok=True)
+    write_csv(out/'M1_RESOURCE_ACTIONS.csv', inventories)
+    write_csv(out/'M1_MISSING_ACTIONS.csv', gaps)
+    data=dict(status='AUDIT_COMPLETE_WITH_REGISTERED_GRID_GAPS',model_inference=False,
+        new_experiments_started=False,scope='Original finite quarter/max K grid; all ten VAR scales; paid raw packet accounting',
+        input_sha256={str(p.relative_to(root)):sha(p) for p in input_paths},
+        resource_boundaries=summary,saved_coverage=coverage,
+        gap_count_across_current_M1_cells=len(gaps),
+        caution='Resource legality does not prove quality gain or current wire/receiver compatibility. N3060/4084 entries are hypothetical M1 resource bounds only.')
+    (out/'M1_AUDIT.json').write_text(json.dumps(data,indent=2)+'\n')
+    print(json.dumps(dict(status=data['status'],boundaries=summary,unique_missing_actions=len(gaps))))
+    if args.strict and gaps:
+        raise SystemExit(2)
+
+
+if __name__ == '__main__':
+    main()
