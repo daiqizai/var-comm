@@ -1,0 +1,107 @@
+"""CPU-only A2 pairing, interaction, failure-subset and image-provenance checks."""
+import copy
+from pathlib import Path
+import tempfile
+import unittest
+import numpy as np
+import a2_score_report as a
+import a2_common as u
+
+
+def fixture(snrs=(13,7)):
+    rows=[]; effect={"C-KEEP":0,"C-DROP":1,"L-KEEP":2,"L-DROP":4}
+    for index in range(100):
+        for snr in snrs:
+            for seed in a.SEEDS:
+                for method in a.METHODS:
+                    codec,rule=method.split("-")
+                    row=dict(N=1024,phy_family="16QAM",source_index=index,source_id=f"source{index}",preprocessing_id="p",class_index=0,
+                        snr_db=snr,noise_seed=seed,method=method,codec=codec,rule=rule,reference_sha256=f"source{index}",
+                        image_sha256="gray" if rule=="DROP" else method,gray=rule=="DROP",header_ok=True,body_crc_accept=False,
+                        shared_decoded_event_sha256=f"{index}-{snr}-{seed}-{codec}",shared_observation_sha256=f"obs-{index}-{snr}-{seed}-{codec}",
+                        undetected=False,E=2048.,replay_row_id=f"{index}-{snr}-{seed}-{method}")
+                    row.update({metric:index/1000+effect[method]/100 for metric in a.METRICS if metric!="E"})
+                    rows.append(row)
+    return rows
+
+
+class A2ScoreTests(unittest.TestCase):
+    def test_four_arm_effects_and_interaction_are_source_paired(self):
+        summary,effects,failures=a.analyze(fixture(),[13,7])
+        expected={"code_L_minus_C_under_DROP":.03,"rule_DROP_minus_KEEP_under_L":.02,
+                  "interaction_L_DROP_minus_L_KEEP_minus_C_DROP_plus_C_KEEP":.01}
+        rows={r["contrast"]:r for r in effects if r["snr_db"]==13 and r["metric"]=="psnr_db"}
+        for key,value in expected.items():
+            self.assertAlmostEqual(rows[key]["mean"],value)
+            self.assertAlmostEqual(rows[key]["ci_low"],value)
+            self.assertEqual(rows[key]["bootstrap_replicates"],10000)
+            self.assertEqual(rows[key]["sources"],100)
+        self.assertEqual(len(summary),2*4*(len(a.METRICS)+4))
+        self.assertEqual(len(failures),2*2*len(a.METRICS))
+
+    def test_missing_duplicate_or_unfrozen_workpoint_is_rejected(self):
+        rows=fixture()
+        with self.assertRaises(RuntimeError):a.validate_pairing(rows[:-1],[13,7])
+        with self.assertRaises(RuntimeError):a.validate_pairing(rows+[rows[0]],[13,7])
+        with self.assertRaises(RuntimeError):a.analyze(rows,[13,13])
+
+    def test_same_receiver_pair_cannot_use_different_waveforms(self):
+        rows=fixture();rows[1]["shared_observation_sha256"]="different"
+        with self.assertRaises(RuntimeError):a.validate_pairing(rows,[13,7])
+
+    def test_header_rejection_cannot_keep_candidate(self):
+        rows=fixture()
+        rows[0]["header_ok"]=rows[1]["header_ok"]=False
+        rows[0]["body_crc_accept"]=rows[1]["body_crc_accept"]=None
+        rows[0]["image_sha256"]=rows[1]["image_sha256"]="same"
+        with self.assertRaises(RuntimeError):a.validate_pairing(rows,[13,7])
+
+    def test_crc_acceptance_produces_identical_receivers(self):
+        rows=fixture();rows[0]["body_crc_accept"]=rows[1]["body_crc_accept"]=True
+        with self.assertRaises(RuntimeError):a.validate_pairing(rows,[13,7])
+
+    def test_source_targets_must_match(self):
+        rows=fixture();rows[1]["reference_sha256"]="wrong"
+        with self.assertRaises(RuntimeError):a.validate_pairing(rows,[13,7])
+
+    def test_empty_failure_subset_has_no_invented_zero_effect(self):
+        rows=fixture()
+        for row in rows:row["body_crc_accept"]=True;row["image_sha256"]="same"
+        indexed=a.validate_pairing(rows,[13,7]);draws=np.zeros((10000,100),dtype=int)
+        value=a.failure_subset(indexed,13,"L","psnr_db",draws)
+        self.assertEqual(value["status"],"NOT_ESTIMABLE_NO_BODY_REJECTIONS")
+        self.assertIsNone(value["mean"]);self.assertIsNone(value["ci_low"])
+
+    def test_sparse_failures_do_not_silently_drop_empty_resamples(self):
+        rows=fixture()
+        for row in rows:
+            if row["source_index"]!=0:row["body_crc_accept"]=True;row["image_sha256"]="same"
+        indexed=a.validate_pairing(rows,[13,7]);draws=np.ones((10000,100),dtype=int)
+        value=a.failure_subset(indexed,13,"L","psnr_db",draws)
+        self.assertEqual(value["status"],"UNCERTAIN_SPARSE_FAILURES")
+        self.assertEqual(value["eligible_sources"],1);self.assertEqual(value["zero_denominator_replicates"],10000)
+
+    def test_rgb_hashes_and_slot_provenance(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rows=[r for r in fixture() if r["source_index"]==0];images=np.zeros((2,3,256,256),np.float32);images[1]+=.5
+            target=np.zeros((3,256,256),np.float32);slots=[1 if r["rule"]=="DROP" else 0 for r in rows]
+            for r,slot in zip(rows,slots):r["reference_sha256"]=u.rgb_sha(target);r["image_sha256"]=u.rgb_sha(images[slot])
+            path=Path(tmp)/"rgb.npz";np.savez(path,images=images,source_rgb=target,row_ids=[r["replay_row_id"] for r in rows],image_slots=np.asarray(slots,dtype=np.int64))
+            cp=dict(rows=rows,rgb=dict(path=str(path),sha256=u.sha(path)))
+            self.assertEqual(len(a.source_images(cp,0,[13,7])[0]),24)
+            cp["rows"][0]["image_sha256"]="wrong"
+            with self.assertRaises(RuntimeError):a.source_images(cp,0,[13,7])
+
+    def test_source_cluster_bootstrap_is_not_frame_bootstrap(self):
+        values=np.arange(100,dtype=float);draws=np.tile(np.arange(100),(10000,1))
+        value=a.interval(values,draws)
+        self.assertEqual(value["mean"],49.5);self.assertEqual(value["ci_low"],49.5)
+        with self.assertRaises(RuntimeError):a.interval(np.arange(300),draws)
+
+    def test_csv_published_with_lf(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/"values.csv";a.write_csv(path,[dict(x=1,y="test"),dict(x=2,y="two")])
+            self.assertNotIn(b"\r\n",path.read_bytes())
+
+
+if __name__=="__main__":unittest.main()

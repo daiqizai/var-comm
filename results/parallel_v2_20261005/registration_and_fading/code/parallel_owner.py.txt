@@ -1,0 +1,144 @@
+"""Independent A2 queue: wait for immutable A1 delivery; never signal A1."""
+import argparse
+import fcntl
+import hashlib
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import time
+import traceback
+
+STOP=False
+
+def read(p):return json.loads(Path(p).read_text())
+def sha(p):
+    h=hashlib.sha256()
+    with Path(p).open('rb') as f:
+        for data in iter(lambda:f.read(1048576),b''):h.update(data)
+    return h.hexdigest()
+def write(p,value):
+    p=Path(p);p.parent.mkdir(parents=True,exist_ok=True);q=p.with_suffix(p.suffix+'.tmp')
+    q.write_text(json.dumps(value,indent=2)+'\n');os.replace(q,p)
+def verify(bindings):
+    for p,h in bindings.items():
+        if sha(p)!=h:raise RuntimeError('Frozen dependency changed: '+p)
+def identity(pid):
+    p=Path('/proc')/str(pid);f=(p/'stat').read_text().rsplit(')',1)[1].split()
+    uid=int(next(x for x in (p/'status').read_text().splitlines() if x.startswith('Uid:')).split()[1])
+    return dict(pid=pid,start_ticks=int(f[19]),uid=uid,argv=[x.decode() for x in (p/'cmdline').read_bytes().split(b'\0') if x],state=f[0])
+def exited(wanted):
+    try:a=identity(wanted['pid'])
+    except (FileNotFoundError,ProcessLookupError):return True
+    if str(a['start_ticks'])!=str(wanted['start_ticks']):return True
+    if a['uid']!=wanted['uid']:raise RuntimeError('Predecessor process UID changed')
+    return a['state']=='Z'
+def gpu_idle():
+    return not subprocess.check_output(['nvidia-smi','--query-compute-apps=pid','--format=csv,noheader,nounits'],text=True).strip()
+def check_stop(out):
+    if STOP or (out/'STOP').exists():raise RuntimeError('New queue stop requested; original A1 remains untouched')
+def validate_a1_delivery(root,a1,expected_owner,expected_registration):
+    if (a1/'owner_failure.json').exists():raise RuntimeError('A1 has a new failure; no continuation authorized without diagnosis')
+    pub=a1/'publication_completion.json';done=a1/'recovery_r1/completion.json'
+    if not pub.exists() or not done.exists():return None
+    p=read(pub);r=read(done)
+    if p.get('status')!='PUSHED_AND_STOPPED' or p.get('registration_sha256')!=expected_registration:raise RuntimeError('A1 publication identity mismatch')
+    if r.get('status')!='RECOVERY_DELIVERED_AND_STOPPED' or r.get('publication_completion_sha256')!=sha(pub):raise RuntimeError('A1 recovery delivery mismatch')
+    for field,name in [('score_completion_sha256','score_completion.json'),('report_completion_sha256','report_completion.json'),('publication_inventory_sha256','publication_inventory.json')]:
+        if p[field]!=sha(a1/name):raise RuntimeError('A1 completed output changed: '+name)
+    inventory=read(a1/'publication_inventory.json')['files'];verify({str(root/k):v for k,v in inventory.items()})
+    cohort=read(a1/'production/cohort.json');children=cohort.get('workers')
+    if (cohort.get('status')!='READY' or cohort.get('stage')!='production'
+            or cohort.get('registration_sha256')!=expected_registration
+            or not isinstance(children,list) or len(children)!=4):raise RuntimeError('Complete registered four-worker A1 cohort required')
+    try:
+        child_keys={(int(c['pid']),str(c['start_ticks']),int(c['uid'])) for c in children}
+        child_pids={int(c['pid']) for c in children}
+        if (len(child_keys)!=4 or len(child_pids)!=4 or int(expected_owner['pid']) in child_pids
+                or any(int(c['uid'])!=int(expected_owner['uid']) for c in children)):raise ValueError('Duplicate or foreign identity')
+    except (KeyError,TypeError,ValueError) as e:raise RuntimeError('A1 child process identities are invalid') from e
+    for field in ('pid','start_ticks','uid'):
+        if str(cohort['owner'][field])!=str(expected_owner[field]):raise RuntimeError('A1 predecessor identity changed')
+    if not all(exited(x) for x in [expected_owner]+children):return None
+    if not gpu_idle():return None
+    remote=subprocess.check_output(['git','ls-remote','origin','refs/heads/main'],cwd=root,text=True).split()[0]
+    if remote!=p['commit']:
+        if subprocess.run(['git','cat-file','-e',remote+'^{commit}'],cwd=root,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode:
+            subprocess.run(['git','fetch','origin','main'],cwd=root,check=True)
+        subprocess.run(['git','merge-base','--is-ancestor',p['commit'],remote],cwd=root,check=True)
+    return dict(status='VERIFIED_A1_PUBLISHED_AND_EXITED',publication_path=str(pub),publication_sha256=sha(pub),commit=p['commit'],
+        recovery_completion_path=str(done),recovery_completion_sha256=sha(done),owner_identity=expected_owner,child_identities=children,
+        remote_at_release=remote,original_scientific_registration_sha256=expected_registration,time=time.time())
+
+def main():
+    ap=argparse.ArgumentParser();ap.add_argument('--config',required=True);a=ap.parse_args()
+    cfgpath=Path(a.config).resolve();cfg=read(cfgpath);root=Path(cfg['root']);out=Path(cfg['out']);a1=Path(cfg['a1_out'])
+    if cfg.get('status')!='REGISTERED_A2_AFTER_A1' or root not in out.parents or out.name!='PARALLEL-V2-20261005':raise RuntimeError('Independent queue registration required')
+    verify(cfg['source_bindings']);verify(cfg['input_bindings'])
+    if (out/'owner_failure.json').exists() or (out/'completion.json').exists():raise RuntimeError('Queue already failed or completed; no blind restart')
+    with (out/'owner.lock').open('a+') as lock:
+        fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        me=identity(os.getpid());write(out/'owner_identity.json',dict(me,config_sha256=sha(cfgpath)))
+        def stop(*_):
+            global STOP
+            STOP=True
+        signal.signal(signal.SIGTERM,stop);signal.signal(signal.SIGINT,stop)
+        child=None;child_info=None
+        try:
+            while True:
+                check_stop(out);verify(cfg['source_bindings'])
+                gate=validate_a1_delivery(root,a1,cfg['a1_owner_identity'],cfg['a1_registration_sha256'])
+                if gate:break
+                write(out/'owner_status.json',dict(status='WAITING_FOR_A1_DELIVERY_AND_GPU_RELEASE',time=time.time(),pid=os.getpid(),A1_untouched=True))
+                time.sleep(30)
+            gatepath=out/'A2/a1_release_gate.json';write(gatepath,gate)
+            for stage in cfg['stages']:
+                check_stop(out);verify(cfg['source_bindings']);verify(cfg['input_bindings'])
+                if stage['gpu'] and not gpu_idle():raise RuntimeError('GPU became occupied before new stage')
+                env=dict(os.environ,CUDA_VISIBLE_DEVICES='0' if stage['gpu'] else '',PYTHONDONTWRITEBYTECODE='1',
+                    OMP_NUM_THREADS='6' if stage['gpu'] else '2',MKL_NUM_THREADS='6' if stage['gpu'] else '2',OPENBLAS_NUM_THREADS='6' if stage['gpu'] else '2',NUMEXPR_NUM_THREADS='2',
+                    CUBLAS_WORKSPACE_CONFIG=':4096:8',PYTHONPATH='code:experiments/var-latent-enhancement-20260917/mechanisms/src:src')
+                def limits():
+                    if not stage['gpu']:os.sched_setaffinity(0,{24,25,26,27});os.nice(10)
+                log=out/'logs'/(stage['name']+'.log');log.parent.mkdir(exist_ok=True)
+                with log.open('ab') as f:
+                    child=subprocess.Popen(stage['command'],cwd=root,env=env,stdin=subprocess.DEVNULL,stdout=f,stderr=subprocess.STDOUT,start_new_session=True,preexec_fn=limits)
+                child_info=identity(child.pid);write(out/'active_child.json',dict(child_info,stage=stage['name'],log=str(log),gpu=stage['gpu']))
+                started=time.time();write(out/'owner_status.json',dict(status='RUNNING',stage=stage['name'],time=started,pid=os.getpid(),child_pid=child.pid))
+                while child.poll() is None:
+                    check_stop(out)
+                    if time.time()-started>stage['wall_seconds_max']:raise RuntimeError('Stage exceeded registered wall limit: '+stage['name'])
+                    time.sleep(5)
+                if child.returncode:raise RuntimeError('New stage failed: '+stage['name']+'; preserve '+str(log))
+                if not Path(stage['receipt']).is_file():raise RuntimeError('Stage returned without completion receipt')
+                receipt=read(stage['receipt'])
+                if receipt.get('status') not in stage['expected_status']:raise RuntimeError('Stage completion status mismatch: '+stage['name'])
+                if receipt.get('outputs'):verify(receipt['outputs'])
+                if receipt.get('archive') and receipt.get('sha256'):
+                    verify({receipt['archive']:receipt['sha256']})
+                write(out/'stage_receipts'/(stage['name']+'.json'),dict(status='COMPLETE',receipt=stage['receipt'],sha256=sha(stage['receipt']),seconds=time.time()-started,child=child_info))
+                child=None;child_info=None
+            verify(cfg['source_bindings']);verify(cfg['input_bindings'])
+            write(out/'completion.json',dict(status='A2_PUBLISHED_AND_STOPPED',time=time.time(),config_sha256=sha(cfgpath),A1_untouched=True,F2_state='READ_FROZEN_F1_GATE',old_queues_started=False))
+            write(out/'owner_status.json',dict(status='COMPLETE',time=time.time(),pid=os.getpid()))
+        except BaseException as e:
+            # Only this owner's live direct child is stopped. No predecessor PID is signaled.
+            original_traceback=traceback.format_exc();cleanup_error=None
+            try:
+                if child is not None and child.poll() is None:
+                    if child_info is None:raise RuntimeError('New child identity was not captured; no unverified PID will be signaled')
+                    try:now=identity(child.pid)
+                    except (FileNotFoundError,ProcessLookupError):
+                        if child.poll() is None:raise RuntimeError('New child identity disappeared while still reported live')
+                    else:
+                        if not all(str(now[k])==str(child_info[k]) for k in ('pid','start_ticks','uid')):
+                            raise RuntimeError('New child identity changed; no unverified PID will be signaled')
+                        child.terminate();child.wait(timeout=45)
+            except BaseException as cleanup:
+                cleanup_error=repr(cleanup)
+            write(out/'owner_failure.json',dict(status='FAILED_REQUIRES_REVIEW',error=repr(e),traceback=original_traceback,time=time.time(),automatic_retry=False,
+                A1_untouched=True,child=child_info,child_pid=None if child is None else child.pid,cleanup_error=cleanup_error))
+            raise
+
+if __name__=='__main__':main()

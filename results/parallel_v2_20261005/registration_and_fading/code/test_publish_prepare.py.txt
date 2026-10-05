@@ -1,0 +1,71 @@
+import hashlib
+import json
+from pathlib import Path
+import tempfile
+import unittest
+
+import publish_prepare as p
+
+
+class PublicationTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp=tempfile.TemporaryDirectory();self.root=Path(self.tmp.name)
+    def tearDown(self):self.tmp.cleanup()
+
+    def test_csv_multiline_unicode_CRLF_and_original_header_preserved(self):
+        source=self.root/'x.csv'
+        data=b'\xef\xbb\xbfname,value\r\n'+('中文,"first\r\nsecond"\r\n').encode('utf-8')+b'plain,third\r\n'
+        source.write_bytes(data)
+        parts=p.split_exact(source,self.root/'parts',max_chunk=35)
+        self.assertEqual(b''.join(x.read_bytes() for x in parts),data)
+        self.assertTrue(all(x.stat().st_size<35 for x in parts))
+        multiline=('中文,"first\r\nsecond"\r\n').encode('utf-8')
+        self.assertTrue(any(multiline in x.read_bytes() for x in parts))
+        self.assertEqual(sum(b'name,value' in x.read_bytes() for x in parts),1)
+
+    def test_text_json_chunks_reconstruct_original(self):
+        source=self.root/'large.json';source.write_bytes(b'{\n  "a": 1,\n  "b": 2\n}\n')
+        parts=p.split_exact(source,self.root/'parts',max_chunk=15)
+        self.assertEqual(hashlib.sha256(b''.join(x.read_bytes() for x in parts)).hexdigest(),p.sha(source))
+        self.assertTrue(all(x.suffix=='.txt' for x in parts))
+
+    def test_refuse_oversize_record_and_collision(self):
+        source=self.root/'x.csv';source.write_bytes(b'name,value\n'+b'a,'+b'b'*50+b'\n')
+        with self.assertRaisesRegex(RuntimeError,'One record'):p.split_exact(source,self.root/'parts',max_chunk=30)
+        path=self.root/'published.json';p.seal_json(path,{'v':1});p.seal_json(path,{'v':1})
+        with self.assertRaisesRegex(RuntimeError,'collision'):p.seal_json(path,{'v':2})
+
+    def test_relative_and_absolute_receipts_verified(self):
+        source=self.root/'result.json';source.write_bytes(b'{}\n')
+        receipt=self.root/'completion.json'
+        for relative in (True,False):
+            receipt.write_text(json.dumps({'outputs':{'result.json' if relative else str(source):p.sha(source)}}))
+            self.assertEqual(p.verify_outputs(receipt,relative),[source])
+        source.write_bytes(b'{"changed":true}\n')
+        with self.assertRaisesRegex(RuntimeError,'changed'):p.verify_outputs(receipt)
+
+    def test_path_escape_and_receipt_convention_fail(self):
+        out=self.root/'out';out.mkdir();src=self.root/'secret.json';src.write_bytes(b'{}')
+        done=out/'completion.json';done.write_text(json.dumps({'outputs':{'../secret.json':p.sha(src)}}))
+        with self.assertRaisesRegex(RuntimeError,'escapes'):p.verify_outputs(done,True)
+        done.write_text(json.dumps({'outputs':{str(src):p.sha(src)}}))
+        with self.assertRaisesRegex(RuntimeError,'convention'):p.verify_outputs(done,True)
+        with self.assertRaisesRegex(RuntimeError,'escapes'):p.contained(self.root/'elsewhere',out)
+
+    def test_copy_is_exact_and_source_manifest_is_useful(self):
+        source=self.root/'code.py';source.write_bytes(b'# source\r\nprint(1)\r\n')
+        base=self.root/'published';base.mkdir()
+        conversion=p.copy_artifact(source,base/'code.py.txt',base)
+        self.assertEqual(conversion['source_sha256'],p.sha(base/'code.py.txt'))
+        self.assertEqual(conversion['files'][0]['path'],'code.py.txt')
+        self.assertTrue(conversion['byte_reconstruction_verified'])
+
+    def test_limitations_do_not_claim_no_gain_or_grant_scope(self):
+        review=p.strict_review()
+        self.assertIn('UNCERTAIN',review['conclusion'])
+        self.assertFalse(review['automatic_scope_extension'])
+        self.assertFalse(review['frozen_implementation_changed'])
+        self.assertTrue(any('directly' in item for item in review['minimal_future_options']))
+
+
+if __name__=='__main__':unittest.main()

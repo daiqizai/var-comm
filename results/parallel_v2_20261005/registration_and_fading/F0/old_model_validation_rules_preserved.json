@@ -1,0 +1,42 @@
+{
+  "version": "UEP-EXPECTED-QUALITY-VALIDATION-V1",
+  "registered_before_development": true,
+  "N": 1024,
+  "snrs": [
+    4,
+    7,
+    10,
+    13
+  ],
+  "source_count": 100,
+  "noise_seeds": [
+    2001,
+    2002,
+    2003
+  ],
+  "methods": [
+    "B3",
+    "strong_baseline",
+    "validation_candidate"
+  ],
+  "metric": "dinov2_vitl14_cosine",
+  "bootstrap_replicates": 10000,
+  "bootstrap_seed": 20261002,
+  "source_bootstrap_interval_mass": 0.975,
+  "physical_probability_joint_alpha": 0.025,
+  "state_frequency_equivalence_margin": 0.125,
+  "quality_practical_tie_margin": 0.002,
+  "model_error_to_resolved_gain_max_ratio": 0.5,
+  "clean_actual_quality_tolerance": 1e-05,
+  "probability_intervals": "Bonferroni Wilson over all distinct selected physical/SNR/stratum keys; approximate simultaneous coverage",
+  "uncertainty_envelope": "Source bootstrap 97.5% plus physical probability box. This is a conservative diagnostic envelope, not an exact finite-sample joint confidence interval.",
+  "state_extreme_safeguard": "Enlarge source-bootstrap margins with Wilson using effective independent n=100 sources, each source contributing its mean of three indicators. Zero events never prove zero true probability.",
+  "state_test": "Every gray/prefix/full/corrupted-or-unmodelled frequency discrepancy envelope lies strictly inside +/-0.125. Excluding the entire equivalence band is FAIL; otherwise unresolved is UNCERTAIN.",
+  "ranking_test": "All distinct-wire pairs have the same resolved sign in actual and predicted intervals, or both intervals lie wholly within +/-0.002. At least one distinct-wire pair must have a resolved sign. Identical-wire pairs are structural identities, not independent validation.",
+  "error_vs_gain_test": "For each resolved distinct-wire contrast, upper absolute actual-minus-predicted error envelope is strictly below 0.5 times the smaller conservative positive magnitude lower bound of actual/predicted gain. Practical ties do not support a gain claim.",
+  "quality_population": "Same 100 development sources, noiseless frozen selected-state Q; calibration means cannot replace paired-source Q. Development Q is diagnostic only and never selects or refines policies.",
+  "all_four_snr_points_required": true,
+  "uncertain_action": "Deliver and stop; do not extend N2048, add sources, change the metric, or reselect policies.",
+  "exploratory_reused_development": true,
+  "independent_ConvNeXt_used_in_model_validation": false
+}

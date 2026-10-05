@@ -1,0 +1,99 @@
+"""Matched paid payload and actual two-codec receive; rules share one decode."""
+import copy
+from pathlib import Path
+import sys
+import numpy as np
+import a2_common as u
+
+
+class MatchedLink:
+    def __init__(self,m1_phy,ldpc_backend):
+        self.p=m1_phy;self.backend=ldpc_backend
+        self.action=self.p.Action(1024,'16QAM',8,0,'whole')
+        self.header_payload=self.p.header_bits(self.action)
+        self.header=self.p.packet(self.header_payload,68,'QPSK')
+        self.layout=ldpc_backend.plan(3076,3824,4)
+        u.require(self.layout['k']==3076 and self.layout['n']==3824 and self.layout['code_blocks']==1,
+                  'LDPC cannot send the identical source payload in the fixed body symbols')
+        u.require(self.layout['repetition_bits']==0 and self.layout['modulation_padding_bits']==0,
+                  'Unsupported LDPC repetition or padding cannot borrow extra symbols')
+        self.ledger=dict(N=1024,N_header=68,N_body=956,source_bits=3060,CRC=16,coded_bits=3824,
+            convolutional_information_bits=3082,ldpc_information_bits=3076,
+            convolutional_tail_bits=6,ldpc_tail_bits=0,ldpc_layout=self.layout,
+            power='fixed16QAM_constellation_average_Es2_record_actual_frame_E',
+            common_public_mask=u.CONTRACT['mask_namespace'],same_header_bits=self.header_payload.tolist())
+
+    @staticmethod
+    def payload(tokens):
+        tokens=np.asarray(tokens);u.require(tokens.shape==(680,) and np.issubdtype(tokens.dtype,np.integer)
+            and np.all((0<=tokens)&(tokens<4096)),'Original full token vector required')
+        return ((tokens[:255,None]>>np.arange(11,-1,-1))&1).astype(np.uint8).ravel()
+
+    def body_wave(self,payload,codec,counter,role):
+        p=np.asarray(payload,dtype=np.uint8);u.require(p.shape==(3060,) and np.isin(p,(0,1)).all(),'Fixed raw m8 payload required')
+        info=self.p.append_crc(p)
+        if codec=='C':
+            mother=self.p.convolutional_encode(np.concatenate((info,np.zeros(6,dtype=np.uint8))))
+            bits=mother[self.p.rate_match_indices(len(mother),3824)]
+        elif codec=='L':bits=self.backend.encode(info[None],3824,4).detach().cpu().numpy()[0].astype(np.uint8)
+        else:raise ValueError('Registered codec required')
+        u.require(bits.shape==(3824,) and np.isin(bits,(0,1)).all(),'Codec changed fixed physical length')
+        return self.p.modulate(bits^u.mask(3824,counter,role),'16QAM')
+
+    def body_decode(self,received,snr,codec,counter,role):
+        y=np.asarray(received,dtype=np.float64);u.require(y.shape==(956,2),'Exact paid body required')
+        soft=self.p.soft_half_llr(y,snr,'16QAM')*(1.-2.*u.mask(3824,counter,role))
+        if codec=='C':
+            evidence=np.bincount(self.p.rate_match_indices(6164,3824),weights=soft,minlength=6164)
+            bits,_=self.p.decode_map(evidence);info=bits[:-6]
+        elif codec=='L':
+            info=self.backend.decode((-2*soft)[None].astype(np.float32),3076,3824,4).detach().cpu().numpy()[0].astype(np.uint8)
+        else:raise ValueError('Registered codec required')
+        u.require(info.shape==(3076,) and np.isin(info,(0,1)).all(),'Decoded information shape changed')
+        return dict(payload=info[:3060].copy(),crc_accept=bool(self.p.crc_accepts(info)),decoded_sha256=u.array_sha(info))
+
+    def encode(self,payload,codec,counter,role):
+        wave=np.concatenate((self.header,self.body_wave(payload,codec,counter,role)))
+        u.require(wave.shape==(1024,2),'Physical N changed')
+        return wave,dict(self.ledger,codec=codec,E=float(np.square(wave).sum()),waveform_sha256=u.array_sha(wave))
+
+    def decode(self,received,snr,codec,counter,role):
+        y=np.asarray(received,dtype=np.float64);u.require(y.shape==(1024,2),'Complete paid frame required')
+        bits,crc,_=self.p.decode_packet(y[:68],12,snr,'QPSK')
+        legal=bool(np.array_equal(bits,self.header_payload));header_ok=bool(crc and legal)
+        body=self.body_decode(y[68:],snr,codec,counter,role) if header_ok else None
+        return dict(codec=codec,header_ok=header_ok,header_crc_accept=bool(crc),header_fields_legal=legal,
+            body=body,observation_sha256=u.array_sha(y),counter=int(counter),role=role)
+
+    def realize(self,payload,codec,snr,counter,role,noise):
+        wave,ledger=self.encode(payload,codec,counter,role)
+        noise=np.asarray(noise);u.require(noise.shape==(1024,2),'Common full-frame noise required')
+        event=self.decode(wave+noise*10.**(-snr/20),snr,codec,counter,role)
+        # Truth is observed only after actual receive returns, for diagnostics.
+        truth=dict(header_correct=event['header_ok'],body_correct=False,undetected=False)
+        if event['body'] is not None:
+            correct=bool(np.array_equal(event['body']['payload'],payload));accepted=event['body']['crc_accept']
+            truth.update(body_correct=correct,undetected=bool(accepted and not correct))
+        return event,dict(ledger,noise_sha256=u.array_sha(noise)),truth
+
+
+def receiver_state(event,rule):
+    """No source truth: KEEP exposes parsed hard bits, DROP requires actual CRC."""
+    u.require(rule in ('KEEP','DROP'),'Registered rule required')
+    if not event['header_ok']:return dict(kind='gray',prefix=[],reason='header_rejected')
+    body=event['body'];u.require(body is not None,'Accepted header requires a real decoded body')
+    if rule=='DROP' and not body['crc_accept']:return dict(kind='gray',prefix=[],reason='body_CRC_rejected')
+    bits=np.asarray(body['payload'],dtype=np.uint8);u.require(bits.shape==(3060,) and np.isin(bits,(0,1)).all(),'Parseable received hard prefix required')
+    tokens=(bits.reshape(-1,12).astype(np.int64)*(1<<np.arange(11,-1,-1))).sum(1)
+    sizes=(1,2,3,4,5,6,8,10);prefix=np.split(tokens,np.cumsum([s*s for s in sizes])[:-1])
+    return dict(kind='tokens',prefix=[p.tolist() for p in prefix],m=8,K=0,
+        raw_candidate_used_after_crc_failure=not body['crc_accept'],reason='actual_received_hard_prefix')
+
+
+def load_link(reg):
+    root=Path(reg['root']);sys.path.insert(0,str(root/'src'));sys.path.insert(0,str(reg['uep_code']))
+    phy=u.load('_a2_frozen_m1_phy',Path(reg['m1_code'])/'m9_phy.py')
+    backend_module=u.load('_a2_pinned_ldpc',Path(reg['uep_code'])/'ldpc_backend.py')
+    backend=backend_module.SionnaBackend('cpu',reg['ldpc_qualification'])
+    u.require(backend.qualified,'Qualified pinned LDPC implementation required')
+    return MatchedLink(phy,backend)

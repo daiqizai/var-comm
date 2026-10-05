@@ -1,0 +1,127 @@
+"""CPU checks of diagnosis, probability semantics, and evidence admission."""
+import copy
+import json
+import math
+from pathlib import Path
+import tempfile
+import unittest
+import f0_audit as f
+
+
+RULES = dict(quality_practical_tie_margin=.002, model_error_to_resolved_gain_max_ratio=.5)
+
+
+def contrast(actual=(.03, .02, .04), pred=(.03, .02, .04), error=(-.005, .005)):
+    am, al, ah = actual; pm, pl, ph = pred
+    same = (al > 0 and pl > 0) or (ah < 0 and ph < 0)
+    reverse = (al > 0 and ph < 0) or (ah < 0 and pl > 0)
+    tie = max(map(abs, (al, ah, pl, ph))) < .002
+    gain = min(map(abs, (al, ah, pl, ph))) if same else 0
+    upper = max(map(abs, error)); good = same and upper < .5 * gain
+    return dict(status="PASS" if good or tie else "FAIL" if reverse else "UNCERTAIN",
+        independent_validation_evidence=True, actual_delta=dict(mean=am, ci_low=al, ci_high=ah),
+        matched_source_predicted_delta=dict(mean=pm, ci_low=pl, ci_high=ph, envelope_low=pl, envelope_high=ph),
+        actual_minus_predicted_delta=dict(mean=am-pm, envelope_low=error[0], envelope_high=error[1], absolute_error_upper=upper),
+        resolved_matching_direction=same, practical_equivalence=tie,
+        conservative_gain_lower_bound=gain, error_less_than_half_gain=good)
+
+
+def physical(key="body", snr=1, counts=(0, 256, 0)):
+    n = sum(counts)
+    row = dict(phy_key=key, snr_db=snr, source_id="*", kind="body", n_blocks=n,
+               physical_configuration=dict(phy_key=key, kind="body", layout=dict(decoder_config=dict(num_iter=20))))
+    for name, count in zip(("correct", "reject", "undetected"), counts):
+        row["n_"+name] = count
+        row["p_"+name] = count/n
+        row["p_"+name+"_ci"] = list(f.wilson(count, n))
+    return row
+
+
+class F0Tests(unittest.TestCase):
+    def test_original_state_boundary_is_strict(self):
+        self.assertEqual(f.state_classification(dict(envelope_low=-.125, envelope_high=.01), .125)[0], "UNCERTAIN")
+        self.assertEqual(f.state_classification(dict(envelope_low=.126, envelope_high=.2), .125)[0], "FAIL")
+        self.assertEqual(f.state_classification(dict(envelope_low=-.01, envelope_high=.124), .125)[0], "PASS")
+
+    def test_waveform_identity_is_not_independent_evidence(self):
+        value = dict(status="STRUCTURAL_IDENTITY", independent_validation_evidence=False)
+        result = f.contrast_classification(value, RULES, True)
+        self.assertEqual(result["category"], "STRUCTURAL_IDENTICAL_WAVEFORM")
+        self.assertNotIn("actual_delta", result)
+
+    def test_resolved_reversal_is_mismatch_not_finite_data(self):
+        value = contrast(actual=(-.03, -.04, -.02))
+        self.assertEqual(f.contrast_classification(value, RULES)["category"], "CONFIRMED_RANKING_MISMATCH")
+
+    def test_small_gain_is_not_excused_as_pass(self):
+        value = contrast(actual=(.001, -.001, .003), pred=(.001, -.001, .003))
+        result = f.contrast_classification(value, RULES)
+        self.assertEqual(result["category"], "NEAR_ZERO_GAIN_RELATIVE_CRITERION_UNRESOLVED")
+        self.assertEqual(result["recomputed_status"], "UNCERTAIN")
+
+    def test_wide_interval_is_not_necessarily_near_zero(self):
+        value = contrast(actual=(.04, -.01, .08), pred=(.04, -.01, .08))
+        result = f.contrast_classification(value, RULES)
+        self.assertEqual(result["category"], "FINITE_DATA_UNRESOLVED")
+        self.assertFalse(result["near_zero_gain_diagnostic"])
+
+    def test_original_relative_error_rule_reproduced(self):
+        self.assertEqual(f.contrast_classification(contrast(), RULES)["recomputed_status"], "PASS")
+        value = contrast(error=(-.01, .01))
+        self.assertEqual(f.contrast_classification(value, RULES)["recomputed_status"], "UNCERTAIN")
+
+    def test_modified_saved_rule_result_is_rejected(self):
+        value = contrast(); value["error_less_than_half_gain"] = False
+        with self.assertRaises(ValueError):
+            f.contrast_classification(value, RULES)
+
+    def test_acceptance_includes_undetected_errors(self):
+        raw = physical(counts=(200, 50, 6))
+        result = f.probability_row(raw)
+        self.assertEqual(result["n_accept"], 206)
+        self.assertGreater(result["p_accept"], result["p_correct"])
+        self.assertEqual(raw["n_undetected"], 6)
+
+    def test_extreme_roundoff_is_preserved_and_explicit(self):
+        raw = physical(); raw["p_reject_ci"][1] = math.nextafter(1., 0.)
+        original = copy.deepcopy(raw)
+        result = f.probability_row(raw)
+        self.assertEqual(raw, original)
+        self.assertEqual(result["roundoff_endpoint_diagnostics"], ["reject"])
+        self.assertLess(result["p_reject_ci_raw"][1], 1.)
+        self.assertEqual(result["p_reject_ci_mathematical"][1], 1.)
+
+    def test_corrupt_counts_and_intervals_rejected(self):
+        raw = physical(); raw["n_reject"] = 255
+        with self.assertRaises(ValueError): f.probability_row(raw)
+        raw = physical(); raw["p_reject_ci"][1] = .99
+        with self.assertRaises(ValueError): f.probability_row(raw)
+
+    def test_six_points_do_not_establish_interior(self):
+        rows = [physical(key, snr) for key in ("header", "body") for snr in (1,4,7,10,13,19)]
+        profiles = [dict(N=1024, encoder_qualified=True, G=1, stable_id="p", wire_key="w", header_phy_key="header", groups=[dict(phy_key="body")])]
+        bundle = dict(status="REFINEMENT_COMPLETE", synthetic=False, conditional_group_independence=True, rows=rows)
+        summary, _, _, coverage, gaps = f.audit_coverage(bundle, profiles)
+        self.assertEqual(len(gaps), 10)
+        self.assertTrue(all(g["interpolation_status"] == "UNVERIFIED_INTERIOR" for g in gaps))
+        self.assertTrue(all(g["shape_unrestricted_correct_probability_envelope"] == [0.,1.] for g in gaps))
+        self.assertFalse(summary["interpolation_and_extrapolation_validated"])
+        total = f.rayleigh_mass(None, 1, 7) + sum(f.rayleigh_mass(a,b,7) for a,b in zip((1,4,7,10,13),(4,7,10,13,19))) + f.rayleigh_mass(19,None,7)
+        self.assertAlmostEqual(total, 1.)
+        bundle["rows"].pop()
+        with self.assertRaises(ValueError): f.audit_coverage(bundle, profiles)
+
+    def test_snapshot_identity_and_relocation(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary); entries = {}
+            for name in f.REQUIRED:
+                path = root/name; path.parent.mkdir(parents=True,exist_ok=True); path.write_text("{}",encoding="utf-8")
+                entries[name] = dict(path="/remote/snapshot/"+name, sha256=f.sha(path), git_commit=f.BASELINE_COMMIT, bytes=2)
+            manifest=root/"snapshot_manifest.json"; manifest.write_text(json.dumps(dict(entries=entries)), encoding="utf-8")
+            _, assets, inventory = f.load_snapshot(manifest, root)
+            self.assertEqual(len(assets), len(f.REQUIRED))
+            (root/f.REQUIRED[0]).write_text("[]",encoding="utf-8")
+            with self.assertRaises(ValueError): f.load_snapshot(manifest, root)
+
+
+if __name__ == "__main__": unittest.main()

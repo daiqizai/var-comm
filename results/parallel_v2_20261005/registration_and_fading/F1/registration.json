@@ -1,0 +1,98 @@
+{
+  "status": "REGISTERED_BEFORE_NEW_F1_COMPUTATION",
+  "f1_registration": {
+    "schema": "F1_RAYLEIGH_CPU_SCREEN_V1",
+    "reference_commit": "040e94d266126f8cbf384ec23a7d848c074b5d49",
+    "N": 1024,
+    "expected_candidate_count": 4041,
+    "average_snrs_db": [
+      4,
+      7,
+      10,
+      13
+    ],
+    "metric": "dinov2_vitl14_cosine",
+    "outage_thresholds": [
+      0.3,
+      0.5,
+      0.7
+    ],
+    "gate": {
+      "minimum_point_gain": 0.02,
+      "delta_low_strictly_positive": true,
+      "maximum_delta_envelope_width": 0.01,
+      "minimum_passing_snrs": 2
+    },
+    "channel": {
+      "distribution": "Rayleigh_block_CN0_1",
+      "shared_h_for_header_and_all_groups": true,
+      "transmitter_CSI": "average_SNR_only",
+      "receiver_CSI": "perfect_h_and_N0",
+      "average_Es": 2
+    },
+    "resources": {
+      "max_cpu_workers": 2,
+      "threads_per_worker": 2,
+      "affinity_cpus": [
+        24,
+        25,
+        26,
+        27
+      ],
+      "nice": 10,
+      "visual_GPU": false,
+      "max_wall_seconds": 21600,
+      "max_additional_codeblocks": 1000000,
+      "max_physical_points": 128,
+      "per_point_error_stop": 100,
+      "per_point_max_blocks": 20000,
+      "header_reserved_blocks": 100000,
+      "single_reserved_blocks": 450000,
+      "grouped_reserved_blocks": 450000
+    },
+    "coverage_mode": "strict_unknown_intervals_no_monotonicity_certificate",
+    "point_probability_model": "linear_in_snr_db_with_constant_endpoint_tails",
+    "undetected_point_quality": 0.0,
+    "undetected_quality_range": [
+      -1.0,
+      1.0
+    ],
+    "numerical_step_db": 0.25,
+    "requested_refinement_snrs_db": [
+      -10.0,
+      -5.0,
+      0.0,
+      2.5,
+      5.5,
+      8.5,
+      11.5,
+      16.0,
+      25.0
+    ],
+    "refinement_header_priority_db": [
+      0.0,
+      2.5,
+      5.5,
+      11.5,
+      25.0
+    ],
+    "refinement_order": "candidate_rank_then_snr_then_alternating_family",
+    "point_tie_rule": "quality_descending_then_single_group_then_stable_id_ascending",
+    "missing_interval_feasibility_check_before_physical_calls": true,
+    "development_read": false,
+    "selection_independent_metric_read": false,
+    "synthetic": false
+  },
+  "resource_registration_sha256": "9380f4631fb84168b6355d3c530de11de3f8678644690c2584c91293656701d8",
+  "snapshot_manifest_sha256": "faaf4a052fa355cbaad0fa2d25e576fa5fa240ea1fd23439f92032cff358cf29",
+  "input_bindings": {
+    "/home/liulu/projects/VAR_COMM/outputs/PARALLEL-V2-20261005/snapshot/candidate_profiles_N1024.json": "304255f523da99baf1e58cea6b1fd4d2732f1c650dc068a2b7c3e13bd00c1b84",
+    "/home/liulu/projects/VAR_COMM/outputs/PARALLEL-V2-20261005/snapshot/quality_bundle.json": "58604ab3d1b60d890cb3a0cc91c2eafad03e9b1a228f694a6f753915d22e52c5",
+    "/home/liulu/projects/VAR_COMM/outputs/PARALLEL-V2-20261005/snapshot/bler.json": "e7e316ba722e2315261b4ba3c75aa0b4d33973fab09ad50978fe4b46909d4f52"
+  },
+  "source_bindings": {
+    "/home/liulu/projects/VAR_COMM/outputs/PARALLEL-V2-20261005/code/f1_screen.py": "6843b9b64f64ef5aa39e251201fc48f64eb83f68f2da5e26d78a0b823f6b93ca",
+    "/home/liulu/projects/VAR_COMM/outputs/PARALLEL-V2-20261005/code/test_f1_screen.py": "ab7709c1263c3bb88bf746261e5222619cce40eb9c92203e7dd948fd92612611"
+  },
+  "F0_admission_required": "No confirmed unresolved model-mismatch key; read separate frozen F0 disposition before invoking."
+}

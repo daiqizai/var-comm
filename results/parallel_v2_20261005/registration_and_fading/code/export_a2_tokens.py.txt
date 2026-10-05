@@ -1,0 +1,124 @@
+"""CPU copy of registered tokens; no encoder/VAR/image-quality model is loaded."""
+import argparse
+import csv
+import hashlib
+import json
+import os
+from pathlib import Path
+import numpy as np
+
+def sha(p):
+    h=hashlib.sha256()
+    with Path(p).open('rb') as f:
+        for b in iter(lambda:f.read(1048576),b''):h.update(b)
+    return h.hexdigest()
+
+
+def require(value,message):
+    if not value:raise RuntimeError(message)
+
+
+def development_freeze(registration,gate_path,policy_path,root,out):
+    """Validate calibration provenance before opening any development archive."""
+    import a2_common as u
+    from a2_run import gate
+    reg=u.registered(registration);binding=sha(registration)
+    require(Path(reg['root']).resolve()==root and Path(reg['development_tokens']).resolve()==out/'a2_development_tokens.npz',
+            'A2 development export destination differs from registration')
+    require(Path(reg['a1_release_gate']).resolve()==Path(gate_path).resolve(),'Release gate path differs from registration')
+    gate(reg)  # Recheck publication, remote ancestry and all former live processes.
+    policy_path=Path(policy_path).resolve();policy=u.read(policy_path)
+    table=policy_path.parent/'calibration_counts.csv';completion=policy_path.parent/'calibrate_completion.json'
+    done=u.read(completion)
+    require(done.get('status')=='COMPLETE' and done.get('stage')=='calibrate' and done.get('registration_sha256')==binding
+            and done.get('development_read') is False and done.get('training_updates')==0,'Frozen A2 calibration completion required')
+    u.verify(done['outputs'])
+    require(done['outputs'].get(str(policy_path))==sha(policy_path) and done['outputs'].get(str(table))==sha(table),
+            'Frozen policy and calibration table must be bound by completion')
+    require(policy.get('status')=='FROZEN_BEFORE_DEVELOPMENT' and policy.get('registration_sha256')==binding
+            and policy.get('calibration_table_sha256')==sha(table)
+            and policy.get('source_population_sha256')==sha(reg['calibration_payloads'])
+            and policy.get('payload')==dict(N=1024,phy='16QAM',m=8,K=0,order='whole')
+            and policy.get('no_per_arm_optimization') is True and policy.get('selection_uses_image_metrics') is False,
+            'A2 frozen payload, population or selection provenance mismatch')
+    with table.open(newline='') as f:
+        points=[dict(codec=r['codec'],snr_db=int(r['snr_db']),n_blocks=int(r['n_blocks']),n_reject=int(r['n_reject'])) for r in csv.DictReader(f)]
+    selected=u.transition(points)
+    require(all(policy.get(k)==v for k,v in selected.items()),'Frozen transition differs from registered calibration-only rule')
+    total=sum(p['n_blocks'] for p in points)
+    require(0<total<=u.CONTRACT['calibration_total_cap'] and total==policy.get('calibration_total_blocks')==done.get('physical_blocks'),
+            'Frozen A2 block count differs')
+    return {str(Path(p).resolve()):sha(p) for p in [registration,gate_path,policy_path,completion,table,reg['calibration_payloads']]}
+
+
+def development_arrays(manifest,source_ids,preprocessing_ids,visual_identity):
+    """Require the original UEP export to prove each token's source and preprocessing."""
+    import a2_common as u
+    manifest=Path(manifest);m=u.read(manifest);registration=manifest.parent/'registration.json';txreg=u.read(registration)
+    identities=[dict(source_index=i,source_id=s,preprocessing_id=p) for i,(s,p) in enumerate(zip(source_ids,preprocessing_ids))]
+    require(len(source_ids)==len(preprocessing_ids)==len(set(source_ids))==100,'Exact distinct100 development population required')
+    require(m.get('status')=='UEP_TX_TOKENS_COMPLETE' and m.get('schema')=='uep_tx_tokens_v1'
+            and m.get('population')=='development' and m.get('source_count')==100 and m.get('source_ids')==source_ids
+            and m.get('source_identity')==identities and m.get('visual_identity')==visual_identity
+            and m.get('training_updates')==0 and m.get('quality_selection_updates')==0
+            and m.get('labels_given_to_receiver') is False and m.get('source_images_exported') is False,
+            'Development source, preprocessing or visual identity mismatch')
+    require(m.get('registration_sha256')==sha(registration) and
+            {k:v for k,v in m.items() if k not in ('status','sources','registration_sha256','outputs')}==txreg,
+            'Original UEP TX registration mismatch')
+    require(isinstance(m.get('sources'),list) and len(m['sources'])==100,'Complete UEP source manifest required')
+    binding=u.identity(txreg);arrays=[];bindings={str(manifest):sha(manifest),str(registration):sha(registration)}
+    for index,(item,expected) in enumerate(zip(m['sources'],identities)):
+        require(all(item.get(k)==v for k,v in expected.items()),'UEP source order or preprocessing identity mismatch')
+        archive=manifest.parent/'tokens'/('%04d.npz'%index);cp_path=manifest.parent/'source_checkpoints'/('%04d.json'%index)
+        require(Path(item['archive']).resolve()==archive.resolve(),'UEP source archive path mismatch')
+        require(m['outputs'].get(str(archive))==item['archive_sha256']==sha(archive)
+                and m['outputs'].get(str(cp_path))==sha(cp_path),'Development archive or source checkpoint changed')
+        cp=u.read(cp_path)
+        require(cp.get('binding')==binding and cp.get('payload_sha256')==u.identity({k:v for k,v in cp.items() if k!='payload_sha256'})
+                and all(cp.get(k)==v for k,v in item.items()),'UEP source checkpoint provenance mismatch')
+        with np.load(archive,allow_pickle=False) as z:
+            tokens=z['tokens']
+            require(tokens.shape==(680,) and np.issubdtype(tokens.dtype,np.integer)
+                    and np.all((0<=tokens)&(tokens<4096)),'Original UEP token array is invalid')
+            arrays.append(tokens.astype(np.int64))
+        bindings[str(archive)]=item['archive_sha256'];bindings[str(cp_path)]=sha(cp_path)
+    return np.stack(arrays),list(source_ids),bindings
+
+def main():
+    ap=argparse.ArgumentParser();ap.add_argument('--root',required=True);ap.add_argument('--out',required=True)
+    ap.add_argument('--role',choices=['calibration','development'],required=True);ap.add_argument('--gate');ap.add_argument('--policy');ap.add_argument('--registration')
+    a=ap.parse_args();root=Path(a.root).resolve();out=Path(a.out).resolve();out.mkdir(parents=True,exist_ok=True)
+    original=root/'outputs/SCALE-CAUSAL-PARTIAL-RESIDUAL-20261002'/('m1_'+a.role+'_registration.json')
+    reg=json.loads(original.read_text());ids=reg['source_ids'];pre=reg['preprocessing_ids'];bindings={str(original):sha(original)}
+    if a.role=='calibration':
+        import torch
+        arrays=[];actual_ids=[]
+        for name,digest in reg['data_bindings']['latents'].items():
+            if sha(name)!=digest:raise RuntimeError('Original calibration shard hash mismatch')
+            d=torch.load(name,map_location='cpu',weights_only=False)
+            arrays.append(d['full_tokens'].cpu().numpy().astype(np.int64));actual_ids.extend(d['image_ids']);bindings[name]=digest
+            del d
+        tokens=np.concatenate(arrays)
+    else:
+        if not a.gate or not a.policy or not a.registration:raise RuntimeError('Development export requires A1 gate, frozen policy and A2 registration')
+        bindings.update(development_freeze(a.registration,a.gate,a.policy,root,out))
+        manifest=root/'outputs/PRIOR-AWARE-UEP-20261004-V1/tx_tokens/manifest.json'
+        tokens,actual_ids,proof=development_arrays(manifest,ids,pre,reg['identity']);bindings.update(proof)
+    expected=1000 if a.role=='calibration' else 100
+    if actual_ids!=ids or tokens.shape!=(expected,680) or tokens.min()<0 or tokens.max()>=4096:raise RuntimeError('Token population mismatch')
+    target=out/('a2_'+a.role+'_tokens.npz')
+    if target.exists():
+        with np.load(target,allow_pickle=False) as z:
+            if set(z.files)!={'tokens','source_ids','preprocessing_ids'} or not np.array_equal(z['tokens'],tokens) or z['source_ids'].tolist()!=ids or z['preprocessing_ids'].tolist()!=pre:raise RuntimeError('Export changed')
+    else:
+        temp=target.with_suffix('.tmp')
+        with temp.open('wb') as f:np.savez(f,tokens=tokens,source_ids=np.asarray(ids),preprocessing_ids=np.asarray(pre))
+        os.replace(temp,target)
+    receipt=dict(status='FROZEN_TOKEN_EXPORT_COMPLETE',role=a.role,sources=expected,archive=str(target),sha256=sha(target),input_bindings=bindings,
+        original_visual_identity=reg['identity'],source_code_sha256=sha(__file__),gpu_used=False,new_inference=False,labels_exported=False)
+    p=out/('a2_'+a.role+'_tokens.json')
+    if p.exists() and json.loads(p.read_text())!=receipt:raise RuntimeError('Token receipt changed')
+    p.write_text(json.dumps(receipt,indent=2)+'\n');print(json.dumps({k:receipt[k] for k in ['status','role','sources','archive','sha256']},indent=2))
+
+if __name__=='__main__':main()

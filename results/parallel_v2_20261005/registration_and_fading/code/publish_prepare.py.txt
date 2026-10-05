@@ -1,0 +1,263 @@
+"""Prepare a hash-verified, bounded-size publication without touching Git or jobs."""
+from __future__ import annotations
+import argparse
+import csv
+import hashlib
+import json
+from pathlib import Path
+import shutil
+
+MAX_CHUNK=4_900_000
+MAX_FILE=10_000_000
+VERSION='PARALLEL_V2_REGISTRATION_PUBLICATION_PREPARE_R1'
+
+
+def require(ok,message):
+    if not ok:raise RuntimeError(message)
+
+
+def read(path):return json.loads(Path(path).read_text(encoding='utf-8-sig'))
+
+
+def sha(path):
+    h=hashlib.sha256()
+    with Path(path).open('rb') as stream:
+        for block in iter(lambda:stream.read(1048576),b''):h.update(block)
+    return h.hexdigest()
+
+
+def seal_bytes(path,data):
+    path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
+    require(len(data)<MAX_FILE,'Publication file exceeds size ceiling: '+str(path))
+    if path.exists():require(path.read_bytes()==data,'Publication collision: '+str(path));return
+    with path.open('xb') as stream:stream.write(data)
+
+
+def seal_json(path,value):
+    seal_bytes(path,(json.dumps(value,ensure_ascii=False,indent=2,allow_nan=False)+'\n').encode('utf-8'))
+
+
+def contained(path,parent):
+    path=Path(path).resolve();parent=Path(parent).resolve()
+    require(path.is_relative_to(parent),'Evidence path escapes registered directory: '+str(path))
+    return path
+
+
+def verify_outputs(receipt_path,relative=False):
+    receipt_path=Path(receipt_path);receipt=read(receipt_path);base=receipt_path.parent.resolve()
+    require(isinstance(receipt.get('outputs'),dict) and receipt['outputs'],'Completion has no output bindings')
+    results=[]
+    for key,value in receipt['outputs'].items():
+        p=Path(key)
+        require((not p.is_absolute()) if relative else p.is_absolute(),'Unexpected receipt path convention: '+key)
+        p=contained(base/p if relative else p,base)
+        require(p.is_file() and sha(p)==value,'Completed evidence changed: '+str(p));results.append(p)
+    return results
+
+
+def csv_records(path):
+    """Yield original bytes for each logical CSV record, including CRLF/quotes."""
+    captured=[]
+    with Path(path).open('rb') as stream:
+        def lines():
+            for line in stream:
+                captured.append(line)
+                yield line.decode('utf-8-sig' if stream.tell()==len(line) else 'utf-8')
+        reader=csv.reader(lines())
+        for _ in reader:
+            yield b''.join(captured);captured.clear()
+        require(not captured,'CSV reader left unaccounted bytes')
+
+
+def original_records(path):
+    if Path(path).suffix.lower()=='.csv':yield from csv_records(path)
+    else:
+        with Path(path).open('rb') as stream:yield from stream
+
+
+def split_exact(src,destination,max_chunk=MAX_CHUNK):
+    """Split complete CSV records/text lines; ordered concatenation is exact."""
+    src=Path(src);destination=Path(destination);parts=[];pending=bytearray()
+    require(0<max_chunk<MAX_FILE,'Unsafe chunk limit')
+    suffix='.csv' if src.suffix.lower()=='.csv' else '.txt'
+    def flush():
+        if not pending:return
+        target=destination/('part-%05d%s'%(len(parts)+1,suffix))
+        seal_bytes(target,bytes(pending));parts.append(target);pending.clear()
+    for record in original_records(src):
+        require(len(record)<max_chunk,'One record exceeds publication chunk limit: '+str(src))
+        if pending and len(pending)+len(record)>=max_chunk:flush()
+        pending.extend(record)
+    flush();require(parts,'Empty file does not require splitting')
+    recombined=hashlib.sha256();count=0
+    for part in parts:
+        data=part.read_bytes();require(len(data)<max_chunk,'Chunk ceiling violated');recombined.update(data);count+=len(data)
+    require(count==src.stat().st_size and recombined.hexdigest()==sha(src),'Chunk concatenation differs from original bytes')
+    return parts
+
+
+def copy_artifact(src,dst,base):
+    src=Path(src).resolve();dst=contained(dst,base)
+    require(src.is_file(),'Missing publication evidence: '+str(src))
+    size=src.stat().st_size;before=sha(src)
+    split=size>=MAX_CHUNK if src.suffix.lower()=='.csv' else size>=MAX_FILE
+    if split:paths=split_exact(src,dst.with_name(dst.name+'.parts'))
+    else:
+        dst.parent.mkdir(parents=True,exist_ok=True)
+        if dst.exists():require(sha(dst)==before,'Publication collision: '+str(dst))
+        else:shutil.copyfile(src,dst)
+        require(sha(dst)==before and dst.stat().st_size<MAX_FILE,'Copy failed validation');paths=[dst]
+    require(sha(src)==before,'Source changed while preparing publication: '+str(src))
+    return dict(source_path=str(src),source_sha256=before,source_bytes=size,
+        representation='ordered_exact_byte_chunks' if split else 'exact_copy',
+        chunk_boundary='complete_csv_record' if split and src.suffix.lower()=='.csv' else 'text_line' if split else None,
+        original_reconstruction='Concatenate listed files in order without adding headers, separators, or newlines; only the first CSV chunk has the original header.' if split else 'Unmodified bytes',
+        byte_reconstruction_verified=True,files=[dict(path=p.relative_to(base).as_posix(),sha256=sha(p),bytes=p.stat().st_size) for p in paths])
+
+
+def strict_review():
+    return dict(status='INDEPENDENT_LIMITATION_REVIEW',frozen_implementation_changed=False,
+        judgement='The full-simplex rule is intentionally conservative and cannot deliver a finite-grid certificate without an added model assumption. It is valid as a worst-case refusal to claim a gain, but it does not fully use finite measurements to judge practical engineering merit.',
+        permitted_supplement_interpretation='The finite supplemental measurements could improve diagnostic interpolation, examine tails, or support a separately registered model validation. They cannot, by themselves, exclude arbitrarily narrow between-point failures over the continuum.',
+        conclusion='UNCERTAIN, not physical STOP_NO_GAIN. Current point estimates also fail the preregistered +0.02 threshold, but depend on unverified interpolation and tails.',
+        not_proven=['No real Rayleigh gain exists','The integral decomposition is invalid','The selected practical ranking is stable to realistic tail/interpolation error'],
+        minimal_future_options=[
+            'Register an explicit engineering curve class and a tolerated residual envelope before new table inspection; for example a justified Lipschitz/modulus bound, or a validated parametric curve with an explicit discrepancy budget. A dense grid alone does not prove such a bound.',
+            'If relying on monotonicity, establish the property for the actual finite-iteration decoder and categorical outcomes. Observed nondecreasing correct counts do not certify reject or undetected curves. Use signed quality bounds; Q need not be monotone.',
+            'Treat missing tail mass explicitly and verify image-payload applicability. Statistical uncertainty must cover all selected/competitive profiles and the selection/refinement process, not merely individual Wilson intervals.',
+            'As a separately authorized alternative, estimate the Rayleigh-averaged packet outcomes directly with iid common-h frame simulations and a selection-aware uncertainty budget. This can bound the integral without a continuum interpolation certificate, but requires a new protocol and resources.'],
+        recommended_minimum='Choose and preregister one defensible engineering model/discrepancy criterion or a direct-integral measurement design. Do not silently relax the already frozen strict gate, automatically spend the remaining block cap, or launch F2.',
+        automatic_scope_extension=False)
+
+
+def make_report(f0,f1,strict,resources,a2,launch,review,base_relative):
+    cov=f0['physical_coverage'];cells=f1['cells'];budget=resources['F0_F1'];proto=a2['protocol']
+    require([c['average_snr_db'] for c in cells]==[4,7,10,13],'Unexpected F1 average SNR grid')
+    require(strict['status']=='UNCERTAIN' and strict['F2_authorized'] is False,'Report template requires actual UNCERTAIN gate')
+    table='\n'.join('| %s | %.6f | %.6f | %+.6f | %.6f |'%(
+        c['average_snr_db'],c['single_point'],c['grouped_point'],c['point_gain'],c['CSI_REF_point']) for c in cells)
+    categories={}
+    for row in f0['model_diagnosis']['points']:
+        for k,v in row['categories'].items():categories[k]=categories.get(k,0)+v
+    maxgain=max(c['point_gain'] for c in cells)
+    return f'''# 并行任务登记与 Rayleigh 衰落筛选（2026-10-05）
+
+## 结论与当前安排
+
+F0 已完成资产和覆盖审查；F1 已比较全部 **4041 个候选（209 个单组、3832 个两组）**。严格结论是 **UNCERTAIN**，F2 未启动。实用插值估计的最大两组增量为 **{maxgain:+.6f}**，未达到登记的 +0.02 门槛；这不能解释为已经证明真实衰落链路没有增益。
+
+A1 继续原登记的 M1 动作补测。A2 已完成独立登记与 CPU 工程检查，等待程序已启动（PID {launch['identity']['pid']}，启动身份见证据）。A2 科学评测必须等 A1 发布完成、原进程退出并释放 GPU 后才接续；本次没有启动 F2 或旧 UEP N2048 扩展。
+
+## F0：现有证据足够说明什么
+
+- 固定基线提交：`{f0['baseline_commit']}`。读取最终冻结绑定的 `bler_refined_02`，没有改动旧表或用 A1 新结果替换输入。
+- 完整覆盖 {cov['candidate_count']} 个候选、{cov['physical_configurations']} 个物理配置、{cov['physical_points']} 个离散 SNR 测点；其中 {cov['stop_rule_satisfied_points']} 个点满足原精化停止条件。校准质量表为 1000 张源图、295000 行。
+- 原诊断中 {categories.get('FINITE_DATA_UNRESOLVED',0)} 个独立比较仍未决，{categories.get('STRUCTURAL_IDENTICAL_WAVEFORM',0)} 个比较属于同一波形，不能视为独立增益证据。未确认模型失配，不等于模型验证全部通过；旧停止结论保留。
+- {cov['interior_gaps']} 个测点间区间没有连续概率包络。Rayleigh 平均 SNR 为 4/7/10/13 dB 时，瞬时 SNR 低于已有最小测点 1 dB 的概率约为 39.42% / 22.21% / 11.83% / 6.11%；13 dB 时高于 19 dB 的概率约为 1.87%。
+
+## F1：完整候选的实用点估计
+
+下表使用冻结校准 DINOv2 ViT-L/14 质量，在同一瞬时衰落 h 下先乘头部和各组条件概率，再对 Rayleigh 分布积分。SINGLE 与 GROUPED 都是在完整原候选集中选择；CSI-REF 使用相同候选类并额外知道瞬时 h。
+
+| 平均 SNR（dB） | 最优固定 SINGLE | 最优固定 GROUPED | GROUPED − SINGLE | CSI-REF |
+|---:|---:|---:|---:|---:|
+{table}
+
+这些数值是**诊断模型的估计**，不是新测得的真实 Rayleigh 重建结果。诊断模型采用 SNR-dB 线性插值和常数端点尾部；CRC 接受但错误的载荷，其图像质量点值暂取 0，保守范围仍为 [−1,1]，没有当作正确前缀。逐源质量允许非单调；灰图率和逐源低质量 outage 分开报告。ConvNeXt 与 development 没有参与 F1 选择。
+
+## 严格包络的限制与零新增码块的原因
+
+登记的严格规则在未验证区间允许完整 C/R/U 概率单纯形，并允许错误载荷的质量处于 [−1,1]。已有证据只有有限个离散测点，因此连续 Rayleigh 概率质量几乎处处没有约束；各策略严格质量范围退化为 [−1,1]，比较包络宽度为 4。该包络是工程不确定性范围，**不是联合 95% 置信区间**。
+
+**这个规则确实很保守。** 在不增加任何连续性或曲线模型假设时，即使把登记的有限补点全部测到精确，测点之间仍能存在未约束的行为。因此当前严格规则原则上无法仅靠有限补点达成宽度 ≤0.01 的门槛。它支持“目前不能认证增益”，不能支持“物理上没有增益”，也不能代替对实际工程价值的检验。
+
+本轮按事先登记的可行性早停规则，新增物理码块为 **0**。有上限的诊断请求清单已经输出，但未执行。有限补点仍可用于检验尾部和插值假设；这里停止是因为它们无法单独改变当前严格判定，而不是这些数据没有诊断价值。
+
+下一步若要继续，需要另行登记并验证一个允许跨测点传播误差的模型，例如实际译码器的有依据的曲线正则性、带模型偏差预算的参数模型，或直接用共同 h 的随机帧估计 Rayleigh 平均积分。后者不依赖连续插值证明，但需要单独的统计设计、资源和授权。观察到曲线非降、加密有限网格，都不能自动证明连续单调性或有效包络。本次没有采用这些新增假设，也没有放宽门槛。
+
+## A2：已登记的小型 2×2 归因实验
+
+A2 固定 N{proto['N']}、16QAM、m{proto['m']}、K={proto['K']}，原始源载荷 {proto['source_bits']} bit；头部 68 次、正文 956 次，共 **1024 次实际信道使用**。卷积码与 LDPC 使用相同载荷和发送长度；KEEP/DROP 共用同一次真实解码，比较码型与失败处理及其交互。
+
+工作点为固定 13 dB，加一个仅依靠校准 BLER 从登记候选 SNR 选择的过渡点；不按图像指标重调策略，不重训视觉模型。已有 CPU 工程预检不等于科学评测已经完成。A2 队列的放行条件和启动凭证随本报告保存。
+
+## 资源上限与复现
+
+F0/F1 最多 {budget['cpu_workers_max']} 个 CPU worker、每个 {budget['threads_per_worker_max']} 线程，CPU 24–27、nice {budget['nice']}，不使用视觉 GPU；最多 {budget['wall_hours_max']} 小时、{budget['physical_points_max']} 个新增物理测点、{budget['new_codeblocks_max']:,} 个新增码块。每点最多 {budget['point_max_codeblocks']:,} 块或 {budget['point_stop_errors']} 个错误，头部/单组/两组预留分别 10万/45万/45万；共享物理点只计费一次。本轮 F1 未消耗新增码块预算。
+
+登记门槛保持为：至少两个平均 SNR 点同时满足点增量 ≥0.02、相对全部 SINGLE 的保守增量下界 >0、比较包络宽度 ≤0.01。当前 0 个点通过，不启动 F2。
+
+证据目录：[登记、F0/F1 和源码快照](../{base_relative}/)。大 CSV 按完整记录、过大的 JSON 按文本行拆为 <5 MB 块；原 SHA、块顺序、逐块 SHA 及逐字节拼接验证见 `publication_sources.json`。拼接时不添加表头或换行。原始大资产不重复入库，其来源、版本和哈希保存在 `snapshot_manifest.json`。
+'''
+
+
+def prepare(root,out):
+    root=Path(root).resolve();out=contained(out,root/'outputs')
+    require(out.name=='PARALLEL-V2-20261005','Unexpected independent task directory')
+    base=root/'results/parallel_v2_20261005/registration_and_fading'
+    f0path=out/'F0/f0_completion.json';f1path=out/'F1/completion.json'
+    f0done=read(f0path);f1done=read(f1path)
+    require(f0done['status']=='COMPLETE','F0 audit is incomplete')
+    require(f1done['status']=='UNCERTAIN' and f1done['F2_authorized'] is False,'F1 strict gate changed; review publication prose')
+    require(f1done['physical_codeblocks_generated']==0 and f1done['visual_GPU_used'] is False,'Unexpected new F1 work')
+    wanted=verify_outputs(f0path,True)+[f0path]+verify_outputs(f1path)+[f1path]
+    manifest=out/'snapshot_manifest.json';resource=out/'resource_registration.json'
+    require(sha(manifest)==f0done['snapshot_manifest_sha256'],'F0 snapshot manifest changed')
+    require(read(manifest)['resource_registration_sha256']==sha(resource),'Frozen resources changed')
+    for path,h in f1done['input_bindings'].items():
+        p=contained(path,out);require(sha(p)==h,'F1 input binding changed: '+str(p))
+    require(sha(out/'code/f1_screen.py')==f1done['source_sha256'],'F1 executed source changed')
+    for key,h in f0done['source_bindings'].items():
+        p=contained(out/'code'/key,out/'code');require(sha(p)==h,'F0 executed source changed')
+    cfgpath=out/'owner_config.json';cfg=read(cfgpath);launch=read(out/'launch.json');identity=read(out/'owner_identity.json')
+    require(cfg['status']=='REGISTERED_A2_AFTER_A1' and cfg['F2_queued'] is False,'A2/F2 queue scope changed')
+    require(launch['status']=='LAUNCHED_WAITING_FOR_A1' and launch['A1_untouched'] is True,'Missing original A2 waiter launch')
+    require(launch['config_sha256']==identity['config_sha256']==sha(cfgpath),'A2 launch/config binding mismatch')
+    for k in ('pid','start_ticks','uid','argv'):require(launch['identity'][k]==identity[k],'A2 process identity mismatch')
+    a2path=out/'A2/registration.json';a2=read(a2path)
+    require(cfg['input_bindings'].get(str(a2path))==sha(a2path),'A2 scientific registration changed')
+    qualification=read(out/'qualification.json')
+    require(qualification['status']=='CPU_QUALIFICATION_PASS','CPU qualification did not pass')
+    require(sha(out/'qualification_tests.log')==qualification['tests_log_sha256'],'Qualification log changed')
+    for p,h in qualification['source_bindings'].items():require(sha(p)==h,'Qualified source changed: '+p)
+    ep=out/'A2/engineering_preflight/preflight_completion.json'
+    require(ep.is_file() and sha(ep)==qualification['real_phy_engineering_completion_sha256'],'Engineering preflight receipt changed')
+    require(read(ep)['status']=='COMPLETE','Engineering preflight did not complete')
+    wanted+=verify_outputs(ep)+[ep]
+    wanted+=[manifest,resource,a2path,cfgpath,out/'qualification.json',out/'qualification_tests.log',out/'launch.json',out/'owner_identity.json']
+    wanted+=sorted((out/'code').glob('*.py'))
+    # Copy only small immutable engineering evidence, never token arrays or new stage status.
+    wanted+=[p for p in sorted((out/'A2/engineering_preflight').rglob('*')) if p.is_file() and p.suffix in ('.json','.log','.txt','.csv')]
+    conversions=[];seen=set()
+    for source in wanted:
+        source=contained(source,out)
+        if source in seen:continue
+        seen.add(source);rel=source.relative_to(out)
+        if rel.parts[0]=='code' and rel.suffix=='.py':rel=rel.with_name(rel.name+'.txt')
+        conversions.append(copy_artifact(source,base/rel,base))
+    # Prepare's own source is a new independent helper, outside frozen A2 source bindings.
+    own=Path(__file__).resolve()
+    if own not in seen:conversions.append(copy_artifact(own,base/'preparation_code'/ (own.name+'.txt'),base))
+    review=strict_review();seal_json(base/'strict_envelope_limitations.json',review)
+    report=root/'reports/parallel_v2_20261005.md'
+    report_text=make_report(read(out/'F0/f0_audit.json'),read(out/'F1/practical_summary.json'),read(out/'F1/strict_gate.json'),
+        read(resource),a2,launch,review,base.relative_to(root).as_posix())
+    seal_bytes(report,report_text.encode('utf-8'))
+    seal_json(base/'publication_sources.json',dict(version=VERSION,conversion_only=True,original_outputs_unchanged=True,
+        source_files=conversions,excluded_raw_assets='snapshot payloads, model weights and token caches are not copied; retain manifest and hashes',
+        mutable_status_files_included=False,source_sha256=sha(own)))
+    published={base/f['path'] for conversion in conversions for f in conversion['files']}
+    published.update((base/'strict_envelope_limitations.json',base/'publication_sources.json',report))
+    files={str(p.resolve()):sha(p) for p in sorted(published)}
+    require(all(Path(p).stat().st_size<MAX_FILE for p in files),'Oversize final inventory')
+    inventory=out/'registration_publication_inventory.json'
+    seal_json(inventory,dict(status='PREPARED_NOT_COMMITTED',version=VERSION,files=files,
+        source_bindings={str(own):sha(own)},receipt_bindings={str(p):sha(p) for p in (f0path,f1path,a2path,cfgpath,out/'qualification.json',out/'launch.json',out/'owner_identity.json')},
+        F1_status='UNCERTAIN',F2_started=False,git_operations=False,science_recomputed=False,
+        report_path=str(report),conversion_manifest_sha256=sha(base/'publication_sources.json')))
+    return dict(status='PREPARED_NOT_COMMITTED',inventory=str(inventory),files=len(files),report=str(report))
+
+
+if __name__=='__main__':
+    parser=argparse.ArgumentParser();parser.add_argument('--root',required=True);parser.add_argument('--out',required=True)
+    args=parser.parse_args();print(json.dumps(prepare(args.root,args.out)))

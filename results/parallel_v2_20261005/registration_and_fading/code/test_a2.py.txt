@@ -1,0 +1,101 @@
+"""CPU A2 design and wiring tests; substitutes never count as LDPC qualification."""
+import copy
+import hashlib
+import inspect
+from pathlib import Path
+import sys
+from types import SimpleNamespace
+import unittest
+import numpy as np
+import a2_common as u
+from a2_phy import MatchedLink,receiver_state
+
+
+HERE=Path(__file__).resolve().parent
+for parent in HERE.parents:
+    candidate=parent/'methods_20261002/repo_reference/src'
+    if (candidate/'var_comm/scale_channel.py').exists():sys.path.insert(0,str(candidate))
+
+
+def fake_plan(k,n,q):
+    return dict(k=k,n=n,code_blocks=1,repetition_bits=0,modulation_padding_bits=0)
+
+
+class ContractTests(unittest.TestCase):
+    def test_fixed_dimensions_charge_different_tail_without_extra_symbols(self):
+        self.assertEqual(u.CONTRACT['source_bits'],3060)
+        self.assertEqual(u.CONTRACT['header_symbols']+u.CONTRACT['body_symbols'],1024)
+        self.assertEqual(3060+16+6,3082);self.assertEqual(3060+16,3076)
+        self.assertEqual(956*4,3824);self.assertEqual(10*20000,u.CONTRACT['calibration_total_cap'])
+
+    def points(self):
+        return [dict(codec=c,snr_db=s,n_blocks=200,n_reject=150) for c in ('C','L') for s in [1,4,7,10,19]]
+
+    def test_transition_uses_mean_codecs_and_exact_rational_tie_order(self):
+        points=self.points()
+        for p in points:
+            if p['snr_db']==1:p['n_reject']=10  # mean .05
+            if p['snr_db']==4:p['n_reject']=30  # mean .15, exact equal distance
+        result=u.transition(points);self.assertEqual(result['snrs_db'],[13,1])
+        for p in points:
+            if p['snr_db']==7:p['n_reject']=0 if p['codec']=='C' else 40
+        self.assertEqual(u.transition(points)['snrs_db'],[13,7])
+
+    def test_transition_requires_both_codecs_all_five_registered_candidates(self):
+        points=self.points()
+        with self.assertRaisesRegex(RuntimeError,'ten physical'):u.transition(points[:-1])
+        bad=copy.deepcopy(points);bad[0]['snr_db']=13
+        with self.assertRaisesRegex(RuntimeError,'ten physical'):u.transition(bad)
+
+    def test_shared_masks_have_fixed_algorithm_and_codec_independence(self):
+        result=u.mask(3824,5,'calibration')
+        prefix=b'["VAR_COMM/A2/MASK/20261005/v1","calibration",5,0]|'
+        expected=np.unpackbits(np.frombuffer(hashlib.sha256(prefix+b'0').digest(),dtype=np.uint8),bitorder='big')
+        np.testing.assert_array_equal(result[:256],expected)
+        self.assertEqual(result.shape,(3824,));np.testing.assert_array_equal(result,u.mask(3824,5,'calibration'))
+        self.assertFalse(np.array_equal(result,u.mask(3824,6,'calibration')))
+        self.assertNotIn('codec',inspect.signature(u.mask).parameters)
+        self.assertNotIn('payload',inspect.signature(u.mask).parameters)
+
+    def test_common_noise_repeats_across_codecs_but_role_and_repetition_separate(self):
+        a=u.noise('image',12,'calibration');np.testing.assert_array_equal(a,u.noise('image',12,'calibration'))
+        self.assertEqual(a.shape,(1024,2))
+        self.assertFalse(np.array_equal(a,u.noise('image',13,'calibration')))
+        self.assertFalse(np.array_equal(a,u.noise('image',12,'development')))
+        self.assertNotIn('codec',inspect.signature(u.noise).parameters)
+
+    def test_extreme_count_intervals_contain_mathematical_endpoints(self):
+        self.assertEqual(u.wilson(0,20000)[0],0);self.assertEqual(u.wilson(20000,20000)[1],1)
+
+
+class RulesTests(unittest.TestCase):
+    def event(self,accept=True,header=True):
+        return dict(header_ok=header,body=dict(payload=np.zeros(3060,dtype=np.uint8),crc_accept=accept),observation_sha256='same')
+
+    def test_same_actual_decoded_event_success_is_identical_between_rules(self):
+        event=self.event();before=u.identity(event)
+        self.assertEqual(receiver_state(event,'KEEP'),receiver_state(event,'DROP'));self.assertEqual(u.identity(event),before)
+
+    def test_failure_keeps_actual_parseable_hard_prefix_or_erases_whole_group(self):
+        event=self.event(False);event['body']['payload'][0]=1
+        keep=receiver_state(event,'KEEP');drop=receiver_state(event,'DROP')
+        self.assertEqual(keep['prefix'][0],[2048]);self.assertEqual(len(keep['prefix']),8)
+        self.assertTrue(keep['raw_candidate_used_after_crc_failure']);self.assertEqual(drop['kind'],'gray')
+
+    def test_crc_false_accept_is_used_as_received_without_truth_correction(self):
+        event=self.event(True);event['body']['payload'][0]=1
+        keep=receiver_state(event,'KEEP');drop=receiver_state(event,'DROP')
+        self.assertEqual(keep,drop);self.assertEqual(drop['prefix'][0],[2048])
+        self.assertEqual(list(inspect.signature(receiver_state).parameters),['event','rule'])
+
+    def test_header_rejection_is_gray_for_both_rules_even_if_body_has_values(self):
+        event=self.event(True,False)
+        for rule in ('KEEP','DROP'):self.assertEqual(receiver_state(event,rule),dict(kind='gray',prefix=[],reason='header_rejected'))
+
+    def test_payload_extracts_same_raw_prefix_without_positions_or_labels(self):
+        t=np.arange(680,dtype=np.int64);bits=MatchedLink.payload(t)
+        actual=(bits.reshape(-1,12)*(1<<np.arange(11,-1,-1))).sum(1)
+        np.testing.assert_array_equal(actual,t[:255]);self.assertEqual(len(bits),3060)
+
+
+if __name__=='__main__':unittest.main(verbosity=2)

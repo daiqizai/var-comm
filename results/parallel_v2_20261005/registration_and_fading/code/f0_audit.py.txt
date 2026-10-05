@@ -1,0 +1,520 @@
+"""Read-only F0 audit of the frozen AWGN model and physical-table coverage.
+
+This module does not select policies, simulate a channel, load a visual model,
+recompute development metrics, or change the old validation/extension rules.
+COMPLETE refers to this audit, never to successful model validation.
+"""
+from __future__ import annotations
+
+import argparse
+import csv
+import hashlib
+import itertools
+import json
+import math
+from collections import Counter, defaultdict
+from pathlib import Path
+from statistics import NormalDist
+
+VERSION = "PARALLEL-V2-F0-AUDIT-1"
+BASELINE_COMMIT = "040e94d266126f8cbf384ec23a7d848c074b5d49"
+METHODS = ("B3", "strong_baseline", "validation_candidate")
+STATES = ("gray", "prefix", "full", "other")
+AVERAGE_SNRS = (4, 7, 10, 13)
+REQUIRED = ("model_validation.json", "extension_gate.json", "legacy_policies.json",
+            "bler.json", "candidate_profiles_N1024.json", "code/model_validation_rules.json")
+
+
+def sha(path):
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def read(path):
+    return json.loads(Path(path).read_text(encoding="utf-8-sig"))
+
+
+def canonical(value):
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+
+
+def require(condition, message):
+    if not condition:
+        raise ValueError(message)
+
+
+def finite(value):
+    value = float(value)
+    require(math.isfinite(value), "Nonfinite saved evidence")
+    return value
+
+
+def close(a, b):
+    return abs(finite(a) - finite(b)) <= 1e-11
+
+
+def save(path, value):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data = (json.dumps(value, indent=2, ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8")
+    if path.exists():
+        require(path.read_bytes() == data, "Refusing to replace different audit output: " + str(path))
+    else:
+        path.write_bytes(data)
+
+
+def table(path, rows, minimum_fields=()):
+    fields = list(dict.fromkeys([*minimum_fields, *(key for row in rows for key in row)]))
+    require(fields, "CSV requires a declared schema")
+    import io
+    stream = io.StringIO(newline="")
+    writer = csv.DictWriter(stream, fieldnames=fields, lineterminator="\n")
+    writer.writeheader()
+    for row in rows:
+        writer.writerow({k: canonical(v) if isinstance(v, (dict, list, tuple)) else v for k, v in row.items()})
+    data = stream.getvalue().encode("utf-8")
+    path = Path(path)
+    if path.exists():
+        require(path.read_bytes() == data, "Refusing to replace different CSV: " + str(path))
+    else:
+        path.write_bytes(data)
+
+
+def load_snapshot(manifest_path, asset_root=None):
+    """Admit only byte-matched snapshot assets; relocation changes no identity."""
+    manifest_path = Path(manifest_path).resolve()
+    manifest = read(manifest_path)
+    entries = manifest.get("entries", {})
+    require(all(name in entries for name in REQUIRED), "Snapshot is missing required F0 assets")
+    assets, inventory = {}, []
+    for name, entry in sorted(entries.items()):
+        require(not Path(name).is_absolute() and ".." not in Path(name).parts, "Unsafe snapshot relative name")
+        path = Path(asset_root).resolve() / name if asset_root else Path(entry["path"])
+        if not path.is_absolute():
+            path = manifest_path.parent / path
+        require(path.is_file(), "Missing frozen asset: " + str(path))
+        digest = sha(path)
+        require(digest == entry["sha256"], "Frozen asset SHA mismatch: " + name)
+        require(entry.get("git_commit") == BASELINE_COMMIT, "Wrong frozen baseline commit: " + name)
+        if "bytes" in entry:
+            require(path.stat().st_size == entry["bytes"], "Snapshot byte length differs: " + name)
+        assets[name] = path
+        inventory.append(dict(name=name, sha256=digest, bytes=path.stat().st_size,
+                              source_path=entry.get("source_path"), frozen_path=entry["path"],
+                              git_commit=entry["git_commit"], role=entry.get("role")))
+    return manifest, assets, inventory
+
+
+def state_classification(record, margin):
+    lo, hi = finite(record["envelope_low"]), finite(record["envelope_high"])
+    require(lo <= hi, "Inverted state error envelope")
+    passed = lo > -margin and hi < margin
+    failed = lo > margin or hi < -margin
+    status = "PASS" if passed else "FAIL" if failed else "UNCERTAIN"
+    category = ("WITHIN_REGISTERED_STATE_TOLERANCE" if passed else
+                "CONFIRMED_STATE_MODEL_MISMATCH" if failed else "FINITE_DATA_UNRESOLVED")
+    return status, category
+
+
+def contrast_classification(record, rules, same_wire=False):
+    if same_wire:
+        require(record["status"] == "STRUCTURAL_IDENTITY" and record["independent_validation_evidence"] is False,
+                "Identical waveform must remain non-independent")
+        return dict(recomputed_status="STRUCTURAL_IDENTITY", category="STRUCTURAL_IDENTICAL_WAVEFORM",
+                    independent_validation_evidence=False, explanation="Same frozen waveform; no independent model contrast.")
+    require(record.get("independent_validation_evidence") is True, "Distinct waveform lacks independent evidence flag")
+    actual, pred, error = (record[k] for k in ("actual_delta", "matched_source_predicted_delta", "actual_minus_predicted_delta"))
+    al, ah = finite(actual["ci_low"]), finite(actual["ci_high"])
+    pl, ph = finite(pred["envelope_low"]), finite(pred["envelope_high"])
+    require(al <= ah and pl <= ph, "Inverted paired contrast bounds")
+    sign_a = 1 if al > 0 else -1 if ah < 0 else 0
+    sign_p = 1 if pl > 0 else -1 if ph < 0 else 0
+    same = sign_a != 0 and sign_a == sign_p
+    reversed_order = sign_a * sign_p == -1
+    tie = finite(rules["quality_practical_tie_margin"])
+    equivalent = max(abs(v) for v in (al, ah, pl, ph)) < tie
+    gain = min(abs(v) for v in (al, ah, pl, ph)) if same else 0.0
+    error_upper = finite(error["absolute_error_upper"])
+    require(close(error_upper, max(abs(error["envelope_low"]), abs(error["envelope_high"]))), "Error envelope summary inconsistent")
+    ratio = finite(rules["model_error_to_resolved_gain_max_ratio"])
+    error_pass = same and error_upper < ratio * gain
+    status = "PASS" if (same and error_pass) or equivalent else "FAIL" if reversed_order else "UNCERTAIN"
+    for key, value in (("resolved_matching_direction", same), ("practical_equivalence", equivalent),
+                       ("error_less_than_half_gain", error_pass)):
+        require(record[key] is value, "Saved contrast criterion differs: " + key)
+    require(close(record["conservative_gain_lower_bound"], gain), "Saved conservative gain differs")
+    require(close(error["mean"], actual["mean"] - pred["mean"]), "Saved paired model residual differs")
+    near_zero = ((abs(finite(actual["mean"])) <= tie and abs(finite(pred["mean"])) <= tie) or (same and gain <= tie))
+    if reversed_order:
+        category, explanation = "CONFIRMED_RANKING_MISMATCH", "Resolved observed and predicted directions disagree under the original intervals."
+    elif equivalent:
+        category, explanation = "PRACTICAL_EQUIVALENCE", "All original contrast bounds lie inside the registered practical tie margin."
+    elif same and error_pass:
+        category, explanation = "REGISTERED_CONTRAST_PASSED", "Resolved matching direction and original relative model-error criterion both pass."
+    elif near_zero:
+        category, explanation = "NEAR_ZERO_GAIN_RELATIVE_CRITERION_UNRESOLVED", "Point gains or resolved lower gain are at the original tie scale; this does not prove the model is correct."
+    else:
+        category, explanation = "FINITE_DATA_UNRESOLVED", "Saved bounds do not establish the original direction/error criterion; no mismatch is confirmed by this contrast."
+    return dict(recomputed_status=status, category=category, explanation=explanation,
+                independent_validation_evidence=True, sign_actual=sign_a, sign_predicted=sign_p,
+                resolved_matching_direction=same, practical_equivalence=equivalent,
+                conservative_gain_lower_bound=gain, relative_error_limit=ratio * gain,
+                error_less_than_half_gain=error_pass, finite_data_unresolved=status == "UNCERTAIN",
+                near_zero_gain_diagnostic=near_zero, near_zero_scale=tie)
+
+
+def audit_model(validation, rules, policies, gate):
+    require(validation["status"] == "MODEL_VALIDATION_COMPLETE" and validation["synthetic"] is False,
+            "Only complete real frozen validation can be audited")
+    require(validation["rules"] == rules, "Saved model validation changed its registered rules")
+    require(validation["development_Q_used_for_selection"] is False and validation["additional_samples_allowed"] is False,
+            "Original diagnostic-only development restriction missing")
+    require(policies["development_read"] is False, "Policies were not calibration-only")
+    cells = {int(c["snr_db"]): c for c in policies["cells"] if c["N"] == 1024 and c["snr_db"] in rules["snrs"]}
+    require(set(cells) == set(rules["snrs"]), "Incomplete frozen policies")
+    state_rows, contrast_rows, method_rows, points = [], [], [], []
+    require(len(validation["model_validation"]) == len(rules["snrs"]), "Unexpected model-validation scope")
+    for result in validation["model_validation"]:
+        snr = int(result["snr_db"])
+        require(snr in cells and result["N"] == 1024, "Unexpected model-validation working point")
+        cell = cells[snr]
+        frozen = {"B3": cell["independent_optima"]["B3"]["selected"]["profile"],
+                  "strong_baseline": cell["strong_baseline"]["profile"],
+                  "validation_candidate": cell["frozen_distinct_validation_candidate"]["selected"]["profile"]}
+        methods = result["methods"]
+        require(set(methods) == set(METHODS), "Changed model-validation methods")
+        point_states, point_contrasts = [], []
+        for method in METHODS:
+            data = methods[method]
+            require(data["wire_key"] == frozen[method]["wire_key"] and data["stable_id"] == frozen[method]["stable_id"],
+                    "Saved validation does not use frozen policy")
+            require(data["matched_Q_changes_policy"] is False, "Development Q changed a policy")
+            require({v["state"] for v in data["state_frequencies"]} == set(STATES) and len(data["state_frequencies"]) == 4,
+                    "State-frequency partition incomplete")
+            for state in data["state_frequencies"]:
+                status, category = state_classification(state, rules["state_frequency_equivalence_margin"])
+                require(state["status"] == status and state["qualified"] is (status == "PASS"), "Saved state decision differs from original rule")
+                require(close(state["equivalence_margin"], rules["state_frequency_equivalence_margin"]), "State margin changed")
+                require(close(state["mean"], state["actual_mean"] - state["predicted_mean"]), "State residual differs")
+                row = dict(N=1024, snr_db=snr, method=method, category=category, **state)
+                state_rows.append(row); point_states.append(row)
+            for field in ("actual_mean", "predicted_mean"):
+                require(close(sum(s[field] for s in data["state_frequencies"]), 1.0), "Saved state frequencies do not sum to one")
+            error = data["absolute_model_error"]
+            require(close(error["mean"], data["actual_quality"]["mean"] - data["matched_development_expected"]["mean"]), "Saved quality model residual differs")
+            method_rows.append(dict(N=1024, snr_db=snr, method=method, stable_id=data["stable_id"], wire_key=data["wire_key"],
+                calibration_expected_mean=data["calibration_expected_mean"],
+                matched_development_expected=data["matched_development_expected"], actual_quality=data["actual_quality"],
+                actual_minus_predicted=error, nonzero_residual_resolved=error["envelope_low"] > 0 or error["envelope_high"] < 0,
+                independent_absolute_quality_tolerance="NOT_REGISTERED; nonzero residual alone is not a new FAIL criterion",
+                matched_Q_changes_policy=False, header_phy_key=frozen[method]["header_phy_key"],
+                group_phy_keys=[g["phy_key"] for g in frozen[method]["groups"]]))
+        require(len(result["contrasts"]) == 3, "Expected all three pairwise contrasts")
+        require({(c["method_A"], c["method_B"]) for c in result["contrasts"]} == set(itertools.combinations(METHODS, 2)), "Unexpected paired contrasts")
+        for contrast in result["contrasts"]:
+            a, b = contrast["method_A"], contrast["method_B"]
+            diagnosis = contrast_classification(contrast, rules, methods[a]["wire_key"] == methods[b]["wire_key"])
+            require(contrast["status"] == diagnosis["recomputed_status"], "Saved contrast decision differs from original rule")
+            row = {"N": 1024, "snr_db": snr, **contrast, **diagnosis}
+            contrast_rows.append(row); point_contrasts.append(row)
+        distinct = [c for c in point_contrasts if c["independent_validation_evidence"]]
+        resolved = [c for c in distinct if c["resolved_matching_direction"]]
+        ranking = bool(resolved) and all(c["resolved_matching_direction"] or c["practical_equivalence"] for c in distinct)
+        error_pass = bool(resolved) and all(c["error_less_than_half_gain"] if c["resolved_matching_direction"] else c["practical_equivalence"] for c in distinct)
+        validated = {m: any(m in (c["method_A"], c["method_B"]) and c["error_less_than_half_gain"] for c in distinct) for m in METHODS}
+        if methods["B3"]["wire_key"] == methods["strong_baseline"]["wire_key"]:
+            validated["strong_baseline"] = validated["B3"]
+        flags = dict(state_frequency_qualified=all(s["status"] == "PASS" for s in point_states),
+                     ranking_qualified=ranking, model_error_vs_gain_qualified=error_pass,
+                     strong_baseline_validated=validated["strong_baseline"], distinct_resource_candidate_validated=validated["validation_candidate"])
+        for name, value in flags.items():
+            require(result[name] is value, "Saved working-point decision differs: " + name)
+        status = "PASS" if all(flags.values()) else "FAIL" if any(s["status"] == "FAIL" for s in point_states) or any(c["status"] == "FAIL" for c in distinct) else "UNCERTAIN"
+        require(result["status"] == status, "Saved final validation status differs")
+        points.append(dict(snr_db=snr, original_status=status, **flags,
+                           categories=dict(Counter(c["category"] for c in point_contrasts)),
+                           state_categories=dict(Counter(s["category"] for s in point_states))))
+    require({p["snr_db"] for p in points} == set(rules["snrs"]), "Duplicate/missing saved working point")
+    require(validation["all_four_points_qualified"] is all(p["original_status"] == "PASS" for p in points), "Saved global model gate differs")
+    require(gate["policy_reselection_allowed"] is False and gate["new_samples_to_seek_significance_allowed"] is False,
+            "Original stopping restrictions missing")
+    gate_by_snr = {r["snr_db"]: r for r in gate["working_points"]}
+    require(set(gate_by_snr) == set(rules["snrs"]), "Extension gate scope differs")
+    for point in points:
+        require(gate_by_snr[point["snr_db"]]["model_validation_qualified"] is (point["original_status"] == "PASS"), "Extension gate uses different model result")
+    return dict(points=points, state_rows=state_rows, contrast_rows=contrast_rows, method_rows=method_rows,
+                confirmed_mismatch=any(p["original_status"] == "FAIL" for p in points),
+                confirmed_implementation_bug=False, implementation_bug_assessment="Saved summaries cannot identify implementation causality",
+                original_gate=gate, old_rules_preserved=True, development_used_to_select_new_policies=False)
+
+
+def wilson(success, total, z=NormalDist().inv_cdf(.975)):
+    require(isinstance(success, int) and isinstance(total, int) and 0 <= success <= total and total > 0, "Invalid binomial counts")
+    p = success / total
+    den = 1 + z * z / total
+    center = (p + z * z / (2 * total)) / den
+    radius = z * math.sqrt(p * (1 - p) / total + z * z / (4 * total * total)) / den
+    return (0.0 if success == 0 else max(0.0, center - radius),
+            1.0 if success == total else min(1.0, center + radius))
+
+
+def probability_row(row):
+    """Expose all three disjoint outcomes; accepted is correct + undetected."""
+    n = row["n_blocks"]
+    counts = [row["n_" + name] for name in ("correct", "reject", "undetected")]
+    require(isinstance(n, int) and n > 0 and all(isinstance(c, int) and c >= 0 for c in counts) and sum(counts) == n,
+            "Invalid physical outcome partition")
+    output = dict(phy_key=row["phy_key"], snr_db=finite(row["snr_db"]), source_id=row.get("source_id", "*"),
+                  kind=row["kind"], n_blocks=n, n_correct=counts[0], n_reject=counts[1], n_undetected=counts[2],
+                  block_errors=n - counts[0], n_accept=counts[0] + counts[2],
+                  p_accept=(counts[0] + counts[2]) / n, p_accept_wilson95=wilson(counts[0] + counts[2], n),
+                  registered_stop_rule_satisfied=n >= 256 and (n - counts[0] >= 100 or n >= 20000),
+                  applicability=row.get("applicability"), code_impl=row.get("code_impl"),
+                  real_image_payload_probability_validation_complete=row.get("real_image_payload_probability_validation_complete", False),
+                  interval_label=row.get("interval"), interval_joint_coverage_claimed=False,
+                  zero_observed_errors_is_not_true_BLER_zero=True)
+    rounded = []
+    for name, count in zip(("correct", "reject", "undetected"), counts):
+        p = finite(row["p_" + name]); raw = list(map(finite, row["p_" + name + "_ci"]))
+        require(close(p, count / n), "Physical probability does not match counts")
+        require(len(raw) == 2 and 0 <= raw[0] <= raw[1] <= 1, "Invalid physical interval")
+        excursion = max(raw[0] - p, p - raw[1], 0)
+        require(excursion <= 4 * math.ulp(1.0), "Physical CI fails to contain count estimate beyond roundoff")
+        exact = wilson(count, n)
+        require(max(abs(a - b) for a, b in zip(raw, exact)) < 1e-10, "Physical interval is not the saved ordinary Wilson95 interval")
+        if excursion:
+            require(count in (0, n), "Non-extreme CI containment error is not the registered endpoint issue")
+            rounded.append(name)
+        output["p_" + name] = p
+        output["p_" + name + "_ci_raw"] = raw
+        output["p_" + name + "_ci_mathematical"] = list(exact)
+    require(close(sum(output["p_" + key] for key in ("correct", "reject", "undetected")), 1), "Probability partition invalid")
+    output["roundoff_endpoint_diagnostics"] = rounded
+    output["raw_intervals_unchanged"] = True
+    for name in ("actual_energy_mean", "actual_energy_sd", "actual_energy_min", "actual_energy_max",
+                 "observed_average_energy_per_complex_symbol", "power_protocol", "point_checkpoint_sha256"):
+        if name in row:
+            output[name] = row[name]
+    return output
+
+
+def rayleigh_mass(low_snr, high_snr, average_snr):
+    """Analytic mass under proposed F1 channel, not additional AWGN evidence."""
+    gamma = 10 ** (average_snr / 10)
+    low = 0 if low_snr is None else 10 ** (low_snr / 10)
+    high = math.inf if high_snr is None else 10 ** (high_snr / 10)
+    return math.exp(-low / gamma) - math.exp(-high / gamma)
+
+
+def audit_coverage(bundle, profiles):
+    require(bundle.get("status") == "REFINEMENT_COMPLETE" and bundle.get("synthetic") is False, "Final real BLER bundle required")
+    require(bundle.get("conditional_group_independence") is True, "Old conditional model changed")
+    require(isinstance(profiles, list) and profiles, "Full frozen candidate list required")
+    require(all(p["N"] == 1024 and p.get("encoder_qualified") is True for p in profiles), "Unqualified or wrong-budget candidate")
+    require(len({p["stable_id"] for p in profiles}) == len(profiles), "Duplicate candidate stable ID")
+    required = set()
+    for profile in profiles:
+        require(profile["G"] in (1, 2) and len(profile["groups"]) == profile["G"], "Unexpected group configuration")
+        required.add(profile["header_phy_key"])
+        required.update(group["phy_key"] for group in profile["groups"])
+    by_key, specs, seen = defaultdict(list), {}, set()
+    point_rows = []
+    for raw in bundle["rows"]:
+        row = probability_row(raw)
+        require(row["source_id"] == "*", "F0 coverage expects registered iid payload wildcard rows")
+        key = row["phy_key"], row["snr_db"]
+        require(key not in seen, "Duplicate physical/SNR point")
+        seen.add(key)
+        config = raw.get("physical_configuration")
+        require(isinstance(config, dict) and config.get("phy_key") == row["phy_key"], "Physical configuration missing or changed")
+        require(row["phy_key"] not in specs or specs[row["phy_key"]] == config, "Same PHY key has multiple physical configurations")
+        specs[row["phy_key"]] = config
+        by_key[row["phy_key"]].append(row); point_rows.append(row)
+    missing = sorted(required - set(by_key))
+    require(not missing, "Registered candidate physical keys absent: " + repr(missing[:10]))
+    expected_snrs = (1, 4, 7, 10, 13, 19)
+    gaps, coverage, configurations = [], [], []
+    requested = {tuple(v) for v in bundle.get("merge_registration", {}).get("requested_refinement_points", [])}
+    for key, values in sorted(by_key.items()):
+        values.sort(key=lambda row: row["snr_db"])
+        snrs = [row["snr_db"] for row in values]
+        require(tuple(snrs) == expected_snrs, "Incomplete registered six-SNR physical coverage: " + key)
+        config = specs[key]
+        configurations.append(dict(phy_key=key, kind=config["kind"], used_by_registered_candidates=key in required,
+                                   code_impl=values[0].get("code_impl"), physical_configuration=config,
+                                   configuration_sha256=hashlib.sha256(canonical(config).encode()).hexdigest(),
+                                   decoder_settings_source="physical_configuration.layout; retained verbatim",
+                                   power_protocols=sorted({str(v.get("power_protocol")) for v in values})))
+        coverage_row = dict(phy_key=key, kind=config["kind"], snr_min=snrs[0], snr_max=snrs[-1], measured_snrs=snrs,
+                            max_gap_db=max(b - a for a, b in zip(snrs, snrs[1:])), n_points=len(values),
+                            min_blocks=min(v["n_blocks"] for v in values), max_blocks=max(v["n_blocks"] for v in values),
+                            stop_rule_satisfied_points=sum(v["registered_stop_rule_satisfied"] for v in values),
+                            requested_refinement_points=sum((key, snr) in requested for snr in snrs),
+                            total_blocks=sum(v["n_blocks"] for v in values), total_undetected=sum(v["n_undetected"] for v in values),
+                            outside_range_status="UNMEASURED; no extrapolation accuracy claim",
+                            interior_status="UNVERIFIED_INTERIOR; grid refinement is not physical evidence")
+        for avg in AVERAGE_SNRS:
+            coverage_row[f"rayleigh_below_min_at_mean{avg}"] = rayleigh_mass(None, snrs[0], avg)
+            coverage_row[f"rayleigh_above_max_at_mean{avg}"] = rayleigh_mass(snrs[-1], None, avg)
+        coverage.append(coverage_row)
+        for left, right in zip(values, values[1:]):
+            lc, rc = left["p_correct_ci_mathematical"], right["p_correct_ci_mathematical"]
+            reversal = "DISJOINT_POINTWISE_INTERVAL_REVERSAL" if lc[0] > rc[1] else "POINT_ESTIMATE_REVERSAL_UNRESOLVED" if left["p_correct"] > right["p_correct"] else "NO_ENDPOINT_REVERSAL_OBSERVED"
+            gap = dict(phy_key=key, snr_low=left["snr_db"], snr_high=right["snr_db"], gap_db=right["snr_db"] - left["snr_db"],
+                       blocks_low=left["n_blocks"], blocks_high=right["n_blocks"],
+                       errors_low=left["block_errors"], errors_high=right["block_errors"],
+                       p_correct_low=left["p_correct"], p_correct_high=right["p_correct"],
+                       correct_ci_low=lc, correct_ci_high=rc, endpoint_reversal_diagnostic=reversal,
+                       endpoint_reversal_familywise_inference=False,
+                       near_transition_endpoint=(0.05 < left["p_correct"] < .95 or .05 < right["p_correct"] < .95),
+                       transition_band_crossed_by_means=left["p_correct"] <= .05 and right["p_correct"] >= .95,
+                       transition_flags_diagnostic_only=True, interpolation_status="UNVERIFIED_INTERIOR",
+                       monotonicity_validated=False, cross_curve_order_interior_validated=False,
+                       shape_unrestricted_correct_probability_envelope=[0.0, 1.0],
+                       endpoint_envelope_only_if_monotonicity_assumed=[min(lc[0], rc[0]), max(lc[1], rc[1])])
+            for name in ("reject", "undetected"):
+                gap[f"p_{name}_low"] = left["p_" + name]
+                gap[f"p_{name}_high"] = right["p_" + name]
+            for avg in AVERAGE_SNRS:
+                gap[f"rayleigh_mass_at_mean{avg}"] = rayleigh_mass(left["snr_db"], right["snr_db"], avg)
+            gaps.append(gap)
+    summary = dict(candidate_count=len(profiles), distinct_wire_profiles=len({p["wire_key"] for p in profiles}),
+                   required_physical_configurations=len(required), physical_configurations=len(by_key),
+                   physical_points=len(point_rows), header_configurations=sum(s["kind"] == "header" for s in specs.values()),
+                   body_configurations=sum(s["kind"] == "body" for s in specs.values()),
+                   registered_snr_grid=list(expected_snrs), interior_gaps=len(gaps),
+                   stop_rule_satisfied_points=sum(p["registered_stop_rule_satisfied"] for p in point_rows),
+                   all_physical_points_refined=all(p["registered_stop_rule_satisfied"] for p in point_rows),
+                   rounded_extreme_interval_points=sum(bool(p["roundoff_endpoint_diagnostics"]) for p in point_rows),
+                   original_BLER_file_unchanged=True, incorrect_CRC_acceptance_distinct_from_correct=True,
+                   real_image_payload_probability_validation_complete=bundle.get("real_image_payload_probability_validation_complete", False),
+                   interpolation_and_extrapolation_validated=False,
+                   pointwise_interval_reversals=sum(g["endpoint_reversal_diagnostic"] == "DISJOINT_POINTWISE_INTERVAL_REVERSAL" for g in gaps),
+                   pointwise_reversal_is_not_familywise_proof=True,
+                   probability_assumptions=dict(conditional_group_independence=bundle["conditional_group_independence"],
+                                               source_probability_mode=bundle.get("source_probability_mode")),
+                   proposed_F1_tail_mass=[dict(average_snr_db=a, below_min=rayleigh_mass(None, 1, a),
+                                              above_max=rayleigh_mass(19, None, a),
+                                              applicability="Proposed Rayleigh scenario; analytic coverage diagnostic only") for a in AVERAGE_SNRS])
+    return summary, point_rows, configurations, coverage, gaps
+
+
+def quality_coverage(assets, profiles):
+    if "quality_bundle.json" not in assets:
+        return dict(status="NOT_PROVIDED", used_for_F0_policy_selection=False)
+    bundle = read(assets["quality_bundle.json"])
+    rows = bundle["rows"]
+    ids = bundle.get("source_ids") or sorted({r["source_id"] for r in rows})
+    required_states = {p["full_state_id"] for p in profiles}
+    required_states.update(p["prefix_state_id"] for p in profiles if p["G"] == 2)
+    expected = {("gray", "gray"), *((s, r) for s in required_states for r in ("VAR", "direct"))}
+    by_source = defaultdict(set)
+    for row in rows:
+        key = row["state_id"], row["receiver"]
+        require(key not in by_source[row["source_id"]], "Duplicate calibration Q row")
+        by_source[row["source_id"]].add(key)
+    require(set(by_source) == set(ids), "Calibration Q source IDs differ")
+    missing = {source: sorted(expected - keys) for source, keys in by_source.items() if expected - keys}
+    require(not missing, "Calibration Q is missing frozen candidate states")
+    return dict(status="FROZEN_CALIBRATION_STATES_COVERED", source_count=len(ids), rows=len(rows),
+                non_gray_states=len(required_states), required_receivers=["VAR", "direct"],
+                used_for_F0_policy_selection=False, development_read=False,
+                metrics_used_to_make_new_choices=[], Q_values_modified=False,
+                statement="Coverage only; this audit does not rank profiles or inspect Q to choose policies.")
+
+
+def render_report(audit):
+    model, coverage = audit["model_diagnosis"], audit["physical_coverage"]
+    lines = ["# F0：冻结 AWGN 模型诊断与表覆盖", "", "版本：" + VERSION + "；冻结提交：`" + BASELINE_COMMIT + "`。", "",
+             "F0 已完成只读审计。这里的 COMPLETE 仅表示审计完成，旧模型验证和扩展结论保持原样。", "",
+             "## 旧模型诊断", "", "| SNR (dB) | 原状态 | 状态频率通过 | 排序通过 | 相对模型误差通过 |", "|---:|---|---|---|---|"]
+    for p in sorted(model["points"], key=lambda p: p["snr_db"]):
+        lines.append(f"| {p['snr_db']} | {p['original_status']} | {p['state_frequency_qualified']} | {p['ranking_qualified']} | {p['model_error_vs_gain_qualified']} |")
+    lines += ["", "原 N2048 扩展决定：`" + model["original_gate"]["status"] + "`。原规则、阈值与停止条件均保留。", "",
+              "状态频率和三组配对差值分别见 state_frequencies.csv、contrasts.csv；原图层面的实际质量和匹配源预测见 model_methods.csv。",
+              "这些表复制冻结记录并按原规则核对，不重算 development、不选新策略。相同波形没有独立验证信息；近零收益使相对误差要求严格，不代表模型自动正确。",
+              "已确认的模型失配与实现错误分开：保存的摘要可以识别原规则下的失配，不能单独证明代码根因。", "",
+              "## 物理表覆盖", "",
+              f"- 完整候选 {coverage['candidate_count']} 个；物理配置 {coverage['physical_configurations']} 个，其中头部 {coverage['header_configurations']} 个。",
+              f"- 实测物理点 {coverage['physical_points']} 个，SNR 为 {coverage['registered_snr_grid']}；满足原逐点精化停止条件的点为 {coverage['stop_rule_satisfied_points']} 个。",
+              "- 每个配置的译码、载荷、CRC、功率字段完整保留在 phy_configurations.csv，计数和原始概率区间见 phy_points.csv。",
+              "- p_correct、p_reject、p_undetected 分列；CRC 接受率另由 correct + undetected 计算。未检出错误不等于未检出概率为零。",
+              f"- {coverage['interior_gaps']} 个内部区间都保留为 UNVERIFIED_INTERIOR。1–4、4–7、7–10 dB 等空隙没有被平滑曲线变成新增证据。",
+              "- 区间内若不增加形状假设，概率保守包络仍为 [0,1]。附带的单调端点包络明确要求额外假设；端点未反转不证明内部曲线顺序。",
+              "- 极端计数 Wilson 端点舍入单列诊断；原始区间原样输出，数学端点另列，原 BLER 文件不改写。", "",
+              "下表仅计算新 Rayleigh 场景的未覆盖质量，不是旧 AWGN 数据的性能推断。", "",
+              "| 平均 SNR (dB) | 低于 1 dB 的概率 | 高于 19 dB 的概率 |", "|---:|---:|---:|"]
+    for row in coverage["proposed_F1_tail_mass"]:
+        lines.append(f"| {row['average_snr_db']} | {row['below_min']:.6f} | {row['above_max']:.6f} |")
+    lines += ["", "所有区间的概率质量、样本数和转折提示见 interval_gaps.csv。逐点置信区间未做全目录联合校正，其反转提示不能作为全目录显著性结论。", "",
+              "## 后续任务边界", "", "A2：NOT_RUN。F2：NOT_RUN。F1 的新场景候选筛选和工程包络另行登记，不能把旧 development 诊断用作新策略选择。",
+              "若存在已确认失配，受影响模型应先修复或隔离。若只有有限样本或区间内覆盖不足，则保留不确定性，不放宽旧门槛、不追加样本追求旧结论通过。", ""]
+    return "\n".join(lines)
+
+
+def run(manifest_path, output, asset_root=None):
+    _, assets, inventory = load_snapshot(manifest_path, asset_root)
+    validation = read(assets["model_validation.json"])
+    rules = read(assets["code/model_validation_rules.json"])
+    policies = read(assets["legacy_policies.json"])
+    gate = read(assets["extension_gate.json"])
+    bundle = read(assets["bler.json"])
+    profiles = read(assets["candidate_profiles_N1024.json"])
+    require(validation["rules_sha256"] == sha(assets["code/model_validation_rules.json"]), "Frozen validation rule SHA differs")
+    model = audit_model(validation, rules, policies, gate)
+    coverage, phy_points, configs, phy_coverage, gaps = audit_coverage(bundle, profiles)
+    qcoverage = quality_coverage(assets, profiles)
+    audit = dict(version=VERSION, status="COMPLETE", baseline_commit=BASELINE_COMMIT,
+                 audit_completion_is_model_validation_success=False, model_diagnosis=model,
+                 physical_coverage=coverage, calibration_Q_coverage=qcoverage,
+                 F1_input_disposition="BLOCKED_PENDING_CONFIRMED_MISMATCH_ISOLATION" if model["confirmed_mismatch"] else "REQUIRES_PREREGISTERED_UNCERTAINTY_ENVELOPES",
+                 A2_status="NOT_RUN", F2_status="NOT_RUN", old_N2048_extension_restarted=False,
+                 old_rules=rules, original_gate_sha256=sha(assets["extension_gate.json"]),
+                 snapshot_manifest_sha256=sha(manifest_path), asset_inventory=inventory,
+                 development_used_for_new_policy_selection=False,
+                 new_channel_or_neural_computation=False, source_bindings={Path(__file__).name: sha(__file__)})
+    output = Path(output).resolve(); output.mkdir(parents=True, exist_ok=True)
+    for name, rows, fields in (("snapshot_inventory.csv", inventory, ("name",)),
+                                ("state_frequencies.csv", model["state_rows"], ("snr_db", "method", "state")),
+                                ("contrasts.csv", model["contrast_rows"], ("snr_db", "method_A", "method_B")),
+                                ("model_methods.csv", model["method_rows"], ("snr_db", "method")),
+                                ("phy_points.csv", phy_points, ("phy_key", "snr_db")),
+                                ("phy_configurations.csv", configs, ("phy_key",)),
+                                ("phy_coverage.csv", phy_coverage, ("phy_key",)),
+                                ("interval_gaps.csv", gaps, ("phy_key", "snr_low", "snr_high"))):
+        table(output / name, rows, fields)
+    save(output / "old_extension_gate_preserved.json", gate)
+    save(output / "old_model_validation_rules_preserved.json", rules)
+    save(output / "f0_audit.json", audit)
+    report = render_report(audit).encode("utf-8")
+    report_path = output / "F0_REPORT.md"
+    if report_path.exists():
+        require(report_path.read_bytes() == report, "Refusing to replace different F0 report")
+    else:
+        report_path.write_bytes(report)
+    outputs = {p.name: sha(p) for p in sorted(output.iterdir()) if p.is_file() and p.name != "f0_completion.json"}
+    save(output / "f0_completion.json", dict(version=VERSION, status="COMPLETE", outputs=outputs,
+        snapshot_manifest_sha256=sha(manifest_path), source_bindings=audit["source_bindings"],
+        confirmed_model_mismatch=model["confirmed_mismatch"], old_extension_status=gate["status"],
+        protocol_unchanged=True, F1_input_disposition=audit["F1_input_disposition"], A2_status="NOT_RUN", F2_status="NOT_RUN"))
+    # Recheck every admitted snapshot byte after writing the independent audit.
+    load_snapshot(manifest_path, asset_root)
+    return audit
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument("--asset-root", type=Path)
+    parser.add_argument("--out", type=Path, required=True)
+    args = parser.parse_args()
+    audit = run(args.manifest, args.out, args.asset_root)
+    print(canonical(dict(status=audit["status"], old_extension_status=audit["model_diagnosis"]["original_gate"]["status"],
+                         physical_points=audit["physical_coverage"]["physical_points"], F1_input_disposition=audit["F1_input_disposition"])))
+
+
+if __name__ == "__main__":
+    main()

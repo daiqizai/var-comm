@@ -1,0 +1,213 @@
+"""Small A2 CPU PHY stages and deferred frozen-GPU rendering; no A1 mutation."""
+import argparse
+import csv
+import os
+from pathlib import Path
+import signal
+import subprocess
+import sys
+import time
+import numpy as np
+import a2_common as u
+from a2_phy import load_link,receiver_state
+
+
+def gate(reg):
+    """The registered predecessor publication and exact former owner must be done."""
+    g=u.read(reg['a1_release_gate']);u.require(g['status']=='VERIFIED_A1_PUBLISHED_AND_EXITED','A1 release gate is not ready')
+    u.require(u.sha(g['publication_path'])==g['publication_sha256'],'A1 publication receipt changed')
+    p=u.read(g['publication_path']);u.require(p['status']=='PUSHED_AND_STOPPED' and p['commit']==g['commit'],'A1 publication is incomplete')
+    remote=subprocess.check_output(['git','ls-remote','origin','refs/heads/main'],cwd=reg['root'],text=True).split()[0]
+    if remote!=g['commit']:
+        available=subprocess.run(['git','cat-file','-e',remote+'^{commit}'],cwd=reg['root'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        if available.returncode:subprocess.run(['git','fetch','origin','main'],cwd=reg['root'],check=True)
+        subprocess.run(['git','merge-base','--is-ancestor',g['commit'],remote],cwd=reg['root'],check=True)
+    u.require(isinstance(g.get('child_identities'),list) and len(g['child_identities'])>=4,'A1 cohort exit identities required')
+    for owner in [g['owner_identity']]+g['child_identities']:
+        proc=Path('/proc')/str(owner['pid'])
+        if proc.exists():
+            stat=(proc/'stat').read_text();fields=stat[stat.rfind(')')+2:].split()
+            if str(fields[19])==str(owner['start_ticks']):
+                uid=next(x for x in (proc/'status').read_text().splitlines() if x.startswith('Uid:')).split()[1:]
+                u.require(all(int(x)==owner['uid'] for x in uid),'A1 process user identity differs')
+                u.require(fields[0]=='Z','A1 owner or a cohort child is still active')
+    active=subprocess.check_output(['nvidia-smi','--query-compute-apps=pid','--format=csv,noheader,nounits'],text=True).strip()
+    u.require(not active,'A1 release requires the exclusive GPU queue to be clear')
+    return g
+
+
+def write_csv(path,rows):
+    path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
+    fields=list(dict.fromkeys(k for r in rows for k in r))
+    with path.open('w',newline='',encoding='utf-8') as f:
+        w=csv.DictWriter(f,fields);w.writeheader();w.writerows(rows)
+
+
+class Study:
+    def __init__(self,registration,out):
+        self.registration_path=Path(registration);self.reg=u.registered(registration);self.binding=u.sha(registration)
+        self.out=Path(out).resolve();self.out.mkdir(parents=True,exist_ok=True);self.stop=False
+        signal.signal(signal.SIGTERM,self.stopped);signal.signal(signal.SIGINT,self.stopped)
+    def stopped(self,*_):self.stop=True
+    def check(self):u.require(not self.stop and not (self.out/'STOP').exists(),'A2 stop requested; sealed work is retained')
+    def finish(self,stage,paths,**fields):
+        u.verify(self.reg['source_bindings']);value=dict(status='COMPLETE',stage=stage,registration_sha256=self.binding,
+            outputs={str(p):u.sha(p) for p in paths},training_updates=0,**fields)
+        u.seal(self.out/(stage+'_completion.json'),value);return value
+    def require(self,stage):
+        value=u.read(self.out/(stage+'_completion.json'))
+        u.require(value['status']=='COMPLETE' and value['registration_sha256']==self.binding,'Required A2 stage has wrong registration')
+        u.verify(value['outputs']);return value
+    def checkpoint(self,path,value=None):
+        if value is not None:u.seal(path,dict(value,binding=self.binding,payload_sha256=u.identity(dict(value,binding=self.binding))))
+        saved=u.read(path);digest=saved.pop('payload_sha256');u.require(u.identity(saved)==digest and saved['binding']==self.binding,'A2 checkpoint changed');return saved
+
+    def preflight(self):
+        link=load_link(self.reg);payload=np.random.default_rng(2026100501).integers(0,2,3060,dtype=np.uint8);checks=[]
+        # CPU engineering qualification only: this random payload is not a data result.
+        for codec in ('C','L'):
+            for counter in (0,1):
+                wave,ledger=link.encode(payload,codec,counter,'qualification')
+                event=link.decode(wave,60,codec,counter,'qualification')
+                u.require(event['header_ok'] and event['body']['crc_accept'] and np.array_equal(event['body']['payload'],payload),
+                          'Real-codec noiseless roundtrip failed')
+                a=receiver_state(event,'KEEP');b=receiver_state(event,'DROP');u.require(a==b,'Accepted event changed across receiver rules')
+                checks.append(dict(codec=codec,counter=counter,noiseless_roundtrip=True,N=len(wave),E=ledger['E']))
+        path=self.out/'preflight.json';u.seal(path,dict(status='REAL_CPU_PHY_QUALIFICATION_PASS',engineering_only=True,
+            synthetic_payload=True,real_encoder_decoder=True,checks=checks,ledger=link.ledger,
+            backend_identity=link.backend.identity,development_read=False))
+        return self.finish('preflight',[path],engineering_only=True,development_read=False)
+
+    def calibrate(self):
+        gate(self.reg);self.require('preflight');link=load_link(self.reg);tokens,ids,_=u.load_calibration(self.reg['calibration_payloads'])
+        payloads=[link.payload(t) for t in tokens];points=[];paths=[];total=0
+        for snr in u.CONTRACT['calibration_candidate_snrs']:
+            for codec in u.CONTRACT['codecs']:
+                counts=dict(n_blocks=0,n_correct=0,n_reject=0,n_undetected=0)
+                while counts['n_blocks']<20000 and counts['n_blocks']-counts['n_correct']<100:
+                    self.check();start=counts['n_blocks'];n=min(16,20000-start)
+                    path=self.out/'calibrate'/('%s_snr%s'%(codec,snr))/'batches'/('%06d.json'%start)
+                    if path.exists():saved=self.checkpoint(path)
+                    else:
+                        inc=dict(n_blocks=n,n_correct=0,n_reject=0,n_undetected=0);noise_hashes=[]
+                        for counter in range(start,start+n):
+                            index=counter%1000;payload=payloads[index];z=u.noise(ids[index],counter,'calibration')
+                            wave=link.body_wave(payload,codec,counter,'calibration')
+                            decoded=link.body_decode(wave+z[68:]*10.**(-snr/20),snr,codec,counter,'calibration')
+                            accepted=decoded['crc_accept'];correct=np.array_equal(decoded['payload'],payload)
+                            inc['n_correct']+=int(accepted and correct);inc['n_reject']+=int(not accepted);inc['n_undetected']+=int(accepted and not correct)
+                            noise_hashes.append(u.array_sha(z))
+                        saved=self.checkpoint(path,dict(codec=codec,snr_db=snr,start=start,counts=inc,
+                            noise_hashes_sha256=u.identity(noise_hashes),payload_source_indices=[i%1000 for i in range(start,start+n)],
+                            real_encoder_decoder=True,development_read=False))
+                    u.require(saved['codec']==codec and saved['snr_db']==snr and saved['start']==start and saved['counts']['n_blocks']==n,'Wrong calibration chunk')
+                    u.require(sum(saved['counts'][k] for k in ('n_correct','n_reject','n_undetected'))==n,'CRC outcome partition differs')
+                    for k in counts:counts[k]+=saved['counts'][k]
+                    paths.append(path)
+                    u.write(self.out/'calibrate_status.json',dict(status='RUNNING',codec=codec,snr_db=snr,counts=counts,completed_points=len(points)))
+                total+=counts['n_blocks'];u.require(total<=200000,'Registered A2 block budget exceeded')
+                n=counts['n_blocks'];row=dict(codec=codec,snr_db=snr,**counts,
+                    block_errors=n-counts['n_correct'],p_correct=counts['n_correct']/n,p_reject=counts['n_reject']/n,
+                    p_undetected=counts['n_undetected']/n,
+                    p_correct_ci=u.wilson(counts['n_correct'],n),p_reject_ci=u.wilson(counts['n_reject'],n),
+                    p_undetected_ci=u.wilson(counts['n_undetected'],n),stopping_rule=u.CONTRACT['calibration_stop'])
+                points.append(row)
+        table=self.out/'calibration_counts.csv';write_csv(table,points);paths.append(table)
+        frozen=self.out/'frozen_workpoints.json';u.seal(frozen,dict(u.transition(points),registration_sha256=self.binding,
+            calibration_table_sha256=u.sha(table),payload=dict(N=1024,phy='16QAM',m=8,K=0,order='whole'),
+            source_population_sha256=u.sha(self.reg['calibration_payloads']),calibration_total_blocks=total))
+        paths.append(frozen);return self.finish('calibrate',paths,physical_blocks=total,development_read=False)
+
+    def receive_development(self):
+        gate(self.reg);self.require('calibrate');frozen=u.read(self.out/'frozen_workpoints.json');link=load_link(self.reg)
+        with np.load(self.reg['development_tokens'],allow_pickle=False) as d:tokens=d['tokens'];ids=d['source_ids'];pre=d['preprocessing_ids']
+        u.require(tokens.shape==(100,680) and ids.shape==pre.shape==(100,) and len(set(ids.tolist()))==100,'Exact100 development source tokens required')
+        paths=[]
+        for index in range(100):
+            self.check();path=self.out/'received/source_checkpoints'/('%04d.json'%index)
+            if path.exists():saved=self.checkpoint(path)
+            else:
+                rows=[];payload=link.payload(tokens[index])
+                for snr in frozen['snrs_db']:
+                    for offset,seed in enumerate(u.CONTRACT['development_noise_seeds']):
+                        counter=index*3+offset;z=u.noise(ids[index],counter,'development',seed)
+                        for codec in ('C','L'):
+                            event,ledger,truth=link.realize(payload,codec,snr,counter,'development',z)
+                            rows.append(dict(N=1024,phy_family='16QAM',source_index=index,source_id=str(ids[index]),preprocessing_id=str(pre[index]),
+                                snr_db=snr,noise_seed=seed,codec=codec,event=event,ledger=ledger,truth_after_receiver=truth))
+                saved=self.checkpoint(path,dict(source_index=index,rows=rows,frozen_workpoints_sha256=u.sha(self.out/'frozen_workpoints.json'),
+                    development_tokens_sha256=u.sha(self.reg['development_tokens']),
+                    source_tokens_sha256=u.array_sha(np.asarray(tokens[index],dtype='<i8')),
+                    real_encoder_decoder=True,KEEP_DROP_share_one_decode=True,development_used_for_selection=False))
+            u.require(saved['source_index']==index and len(saved['rows'])==12,'Development physical source is incomplete')
+            u.require(saved['development_tokens_sha256']==u.sha(self.reg['development_tokens']), 'Development token asset changed')
+            paths.append(path);u.write(self.out/'receive_development_status.json',dict(status='RUNNING',sources=index+1,total_sources=100,physical_frames=(index+1)*12))
+        return self.finish('receive_development',paths,sources=100,physical_frames=1200,synthetic=False,development_used_for_selection=False)
+
+    def render_development(self):
+        gate(self.reg);self.require('receive_development');code=Path(self.reg['m1_code']);sys.path.insert(0,str(code))
+        native_module=u.load('_a2_frozen_visual_native',code/'m9_native.py')
+        native=native_module.Native(self.reg['root'],self.stopped);data=native.data('development')
+        u.require(native.loaded['identity']==self.reg['frozen_visual_identity'],'A2 visual identity differs from frozen comparison')
+        paths=[];allrows=[]
+        for index,source in enumerate(data['records']):
+            self.check();physical_path=self.out/'received/source_checkpoints'/('%04d.json'%index);physical=self.checkpoint(physical_path)
+            u.require(physical['source_tokens_sha256']==u.array_sha(np.asarray(data['T'][index].numpy(),dtype='<i8')),
+                      'Actual transmitted development tokens differ from frozen visual source cache')
+            path=self.out/'rendered/source_checkpoints'/('%04d.json'%index)
+            if path.exists():saved=self.checkpoint(path);u.require(u.sha(saved['rgb']['path'])==saved['rgb']['sha256'],'Saved A2 RGB changed')
+            else:
+                rows=[];images=[];slots={};row_ids=[];image_slots=[];states={};metrics={};started=time.monotonic()
+                with native.torch.no_grad():
+                    for record in physical['rows']:
+                        u.require(record['source_id']==source['image_id'] and record['preprocessing_id']==source['preprocessing_id'],'A2 source/preprocessing mismatch')
+                        for rule in ('KEEP','DROP'):
+                            state=receiver_state(record['event'],rule);key=u.identity(state)
+                            if key not in states:
+                                latent=None if state['kind']=='gray' else native.common.legacy.complete_latent(native.loaded['vae'],native.loaded['var'],
+                                    [np.asarray(p,dtype=np.int64) for p in state['prefix']],1000,native.loaded['device']).float().cpu()
+                                states[key]=latent
+                            latent=states[key];h='gray' if latent is None else u.array_sha(latent.numpy())
+                            if h not in metrics:
+                                mis=data['reference'][native.assets.mismatch_permutation()[index]]
+                                metrics[h]=native.common.quality(native.loaded,source,latent,data['F'][index],data['reference'][index],mis,True)
+                            metric,image=metrics[h];image=np.ascontiguousarray(image,dtype=np.float32);ih=u.rgb_sha(image)
+                            if ih not in slots:slots[ih]=len(images);images.append(image)
+                            row={k:record[k] for k in ('N','phy_family','source_index','source_id','preprocessing_id','snr_db','noise_seed','codec')}
+                            row.update(method=record['codec']+'-'+rule,rule=rule,**metric,E=record['ledger']['E'],
+                                class_index=source['class_index'],reference_sha256=u.rgb_sha(np.asarray(source['pixels'],dtype=np.float32)/255),
+                                mismatch_source_id=data['records'][native.assets.mismatch_permutation()[index]]['image_id'],
+                                header_ok=record['event']['header_ok'],body_crc_accept=None if record['event']['body'] is None else record['event']['body']['crc_accept'],
+                                receive_state_sha256=key,shared_decoded_event_sha256=u.identity(record['event']),
+                                shared_observation_sha256=record['event']['observation_sha256'],gray=state['kind']=='gray',
+                                image_sha256=ih,**record['truth_after_receiver'])
+                            rid=u.identity({k:row[k] for k in ('source_id','snr_db','noise_seed','method')});row['replay_row_id']=rid
+                            rows.append(row);row_ids.append(rid);image_slots.append(slots[ih])
+                u.require(len(rows)==len(set(row_ids))==24,'A2 four-arm source result incomplete')
+                rgb=self.out/'rendered/reconstructions'/('%04d.npz'%index);rgb.parent.mkdir(parents=True,exist_ok=True)
+                temporary=rgb.with_name(rgb.name+'.tmp')
+                with temporary.open('wb') as f:np.savez(f,images=np.stack(images),source_rgb=np.asarray(source['pixels'],dtype=np.float32)/255,
+                    row_ids=np.asarray(row_ids),image_slots=np.asarray(image_slots,dtype=np.int64))
+                os.replace(temporary,rgb)
+                saved=self.checkpoint(path,dict(source_index=index,rows=rows,rgb=dict(path=str(rgb),sha256=u.sha(rgb),dtype='float32'),
+                    physical_checkpoint_sha256=u.sha(physical_path),seconds=time.monotonic()-started,synthetic=False,development_used_for_selection=False))
+            allrows.extend(saved['rows']);paths.extend([path,Path(saved['rgb']['path'])])
+            u.write(self.out/'render_development_status.json',dict(status='RUNNING',sources=index+1,total_sources=100,method_rows=len(allrows)))
+        table=self.out/'per_frame.csv';write_csv(table,allrows);paths.append(table);native.frozen()
+        return self.finish('render_development',paths,sources=100,method_rows=2400,synthetic=False,development_used_for_selection=False,
+            unified_metrics_status='PENDING_SEPARATE_FROZEN_SCORER')
+
+
+def main():
+    p=argparse.ArgumentParser();p.add_argument('--registration',required=True);p.add_argument('--out',required=True)
+    p.add_argument('--stage',choices=['preflight','calibrate','receive-development','render-development'],required=True);a=p.parse_args()
+    import fcntl
+    Path(a.out).mkdir(parents=True,exist_ok=True)
+    with (Path(a.out)/'execution.lock').open('a+') as lock:
+        fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB);study=Study(a.registration,a.out)
+        stage=a.stage.replace('-','_')
+        result=study.require(stage) if (study.out/(stage+'_completion.json')).exists() else getattr(study,stage)()
+        print(result['status'])
+
+
+if __name__=='__main__':main()

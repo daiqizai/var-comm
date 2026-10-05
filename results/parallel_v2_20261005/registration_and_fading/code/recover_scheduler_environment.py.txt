@@ -1,0 +1,98 @@
+"""One-time pre-science queue repair: only repository-check Python changes."""
+import copy
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import signal
+import subprocess
+import sys
+import time
+import parallel_owner as o
+
+ROOT=Path('/home/liulu/projects/VAR_COMM')
+OUT=ROOT/'outputs/PARALLEL-V2-20261005'
+REC=OUT/'scheduler_environment_r1'
+ARC=REC/'original_attempt'
+
+def check_no_science():
+    assert not (OUT/'active_child.json').exists()
+    for name in ('calibrate_status.json','calibrate_completion.json','receive_development_status.json',
+                 'render_development_status.json','score_status.json','report_completion.json'):
+        assert not (OUT/'A2'/name).exists(),name
+
+def copy_evidence(p):
+    p=Path(p);q=ARC/p.relative_to(OUT);q.parent.mkdir(parents=True,exist_ok=True)
+    assert not q.exists();shutil.copyfile(p,q);assert o.sha(p)==o.sha(q);return str(q)
+
+def main():
+    assert not (REC/'execution_registration.json').exists() and not ARC.exists()
+    assert o.read(REC/'environment_qualification.json')['status']=='PASS_CPU_ONLY'
+    launch=o.read(OUT/'launch.json');me=launch['identity'];actual=o.identity(me['pid'])
+    assert me['pid']==4072015 and me['start_ticks']==182883200 and me['uid']==1002
+    assert all(actual[k]==me[k] for k in ('pid','start_ticks','uid','argv'))
+    assert o.read(OUT/'owner_status.json')['status']=='WAITING_FOR_A1_DELIVERY_AND_GPU_RELEASE'
+    check_no_science();cfg=o.read(OUT/'owner_config.json');o.verify(cfg['source_bindings']);o.verify(cfg['input_bindings'])
+    inventory=o.read(OUT/'registration_publication_inventory.json');files=inventory['files'];o.verify(files)
+    paths=[Path(p).relative_to(ROOT).as_posix() for p in files]
+    staged=subprocess.check_output(['git','diff','--cached','--name-only'],cwd=ROOT,text=True).splitlines()
+    assert set(staged)==set(paths)
+    dirty=subprocess.check_output(['git','diff','--name-only'],cwd=ROOT,text=True).splitlines()
+    assert dirty==['release_manifest.json']
+    ARC.mkdir()
+    with (ARC/'staged_before_recovery.patch').open('wb') as f:subprocess.run(['git','diff','--cached','--binary'],cwd=ROOT,stdout=f,check=True)
+    o.write(ARC/'index_before_recovery.json',dict(paths=staged,release_manifest_sha256=o.sha(ROOT/'release_manifest.json'),
+        patch_sha256=o.sha(ARC/'staged_before_recovery.patch')))
+    for name in ('owner_config.json','owner_identity.json','launch.json','owner_status.json','registration_publication_inventory.json',
+                 'publication_registration_recovery.json','registration_cpu_failure.log'):
+        copy_evidence(OUT/name)
+    scientific_sha=o.sha(OUT/'A2/registration.json');old_sha=o.sha(OUT/'owner_config.json')
+    o.write(OUT/'STOP',dict(reason='Registered publisher interpreter correction before any A2 science',old_identity=me))
+    os.kill(me['pid'],signal.SIGTERM)
+    deadline=time.time()+50
+    while not o.exited(me) and time.time()<deadline:time.sleep(.5)
+    assert o.exited(me),'Waiter did not exit; no replacement'
+    check_no_science();failure=o.read(OUT/'owner_failure.json')
+    assert failure['status']=='FAILED_REQUIRES_REVIEW' and 'New queue stop requested' in failure['error']
+    assert failure.get('child') is None and failure.get('cleanup_error') is None
+    assert failure.get('A1_untouched') is True
+    for name in ('owner_failure.json','STOP','owner.log'):copy_evidence(OUT/name)
+    # Remove only the exact archived planned-stop markers. No A1 path is touched.
+    for name in ('owner_failure.json','STOP'):
+        assert o.sha(OUT/name)==o.sha(ARC/name);(OUT/name).unlink()
+    new=copy.deepcopy(cfg);last=new['stages'][-1];assert last['name']=='publish' and last['command'][-2]=='--python'
+    old_python=last['command'][-1];assert old_python==str(ROOT/'outputs/PRIOR-AWARE-UEP-20261004-V1/ldpc_environment/bin/python')
+    new_python=str(ROOT/'outputs/UNIFIED-METRICS-20261002/environment/bin/python');last['command'][-1]=new_python
+    check=copy.deepcopy(new);check['stages'][-1]['command'][-1]=old_python;assert check==cfg
+    assert o.sha(OUT/'A2/registration.json')==scientific_sha
+    o.write(OUT/'owner_config.json',new)
+    reg=dict(status='REGISTERED_ENGINEERING_ENVIRONMENT_R1',old_config_sha256=old_sha,new_config_sha256=o.sha(OUT/'owner_config.json'),
+        only_changed_leaf='stages[7].command[-1]',old_value=old_python,new_value=new_python,
+        scientific_registration_sha256=scientific_sha,source_bindings_unchanged=True,other_stages_unchanged=True,
+        environment_packages_changed=False,A1_untouched=True,A2_science_started=False,old_owner=me,
+        qualification_sha256=o.sha(REC/'environment_qualification.json'),source_sha256=o.sha(__file__),
+        archive={str(p.relative_to(REC)):o.sha(p) for p in ARC.rglob('*') if p.is_file()})
+    o.write(REC/'execution_registration.json',reg)
+    # Unstage only this failed publication's explicit inventory, then archive its uncommitted copies.
+    subprocess.run(['git','restore','--staged','--']+paths,cwd=ROOT,check=True)
+    assert not subprocess.check_output(['git','diff','--cached','--name-only'],cwd=ROOT,text=True).strip()
+    for source,dest in [(ROOT/'results/parallel_v2_20261005/registration_and_fading',ARC/'uncommitted_publication'),
+                        (ROOT/'reports/parallel_v2_20261005.md',ARC/'uncommitted_report.md')]:
+        assert ROOT in source.resolve().parents and OUT in dest.resolve().parents and not dest.exists()
+        shutil.move(source,dest)
+    assert o.sha(OUT/'registration_publication_inventory.json')==o.sha(ARC/'registration_publication_inventory.json')
+    (OUT/'registration_publication_inventory.json').unlink()
+    env=dict(os.environ,CUDA_VISIBLE_DEVICES='',PYTHONDONTWRITEBYTECODE='1',OMP_NUM_THREADS='2',MKL_NUM_THREADS='2',OPENBLAS_NUM_THREADS='2')
+    command=['python3','-B',str(OUT/'code/parallel_owner.py'),'--config',str(OUT/'owner_config.json')]
+    with (OUT/'owner.log').open('ab') as log:
+        proc=subprocess.Popen(command,cwd=ROOT,env=env,stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+    identity=o.identity(proc.pid)
+    o.write(OUT/'launch.json',dict(status='LAUNCHED_WAITING_FOR_A1',identity=identity,command=command,
+        config_sha256=o.sha(OUT/'owner_config.json'),time=time.time(),A1_untouched=True,
+        execution_revision='PUBLISH_CHECK_INTERPRETER_R1',execution_registration_sha256=o.sha(REC/'execution_registration.json')))
+    o.write(REC/'launch.json',o.read(OUT/'launch.json'))
+    print(json.dumps(dict(status='REPLACED_WAITING_OWNER_ONLY',identity=identity,new_config_sha256=o.sha(OUT/'owner_config.json'),
+        scientific_registration_sha256=scientific_sha)))
+
+if __name__=='__main__':main()

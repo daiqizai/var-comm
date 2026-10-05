@@ -1,0 +1,113 @@
+"""Create an independent, content-addressed copy of the authorized legacy assets."""
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import time
+import zipfile
+
+BASE_COMMIT = '040e94d266126f8cbf384ec23a7d848c074b5d49'
+
+def sha(p):
+    h = hashlib.sha256()
+    with Path(p).open('rb') as f:
+        for data in iter(lambda: f.read(1024 * 1024), b''): h.update(data)
+    return h.hexdigest()
+
+def seal(p, value):
+    p = Path(p)
+    if p.exists():
+        if json.loads(p.read_text()) != value: raise RuntimeError('Immutable file differs: '+str(p))
+        return
+    p.parent.mkdir(parents=True, exist_ok=True)
+    q = p.with_suffix(p.suffix+'.tmp')
+    q.write_text(json.dumps(value, ensure_ascii=False, indent=2)+'\n')
+    os.replace(q,p)
+
+def main():
+    ap=argparse.ArgumentParser();ap.add_argument('--root',required=True);ap.add_argument('--out',required=True)
+    args=ap.parse_args();root=Path(args.root).resolve();out=Path(args.out).resolve()
+    if root not in out.parents or out.name!='PARALLEL-V2-20261005':raise RuntimeError('Wrong isolated output')
+    old=root/'outputs/PRIOR-AWARE-UEP-20261004-V1'
+    freeze=json.loads((old/'final_freeze.json').read_text())
+    for p,d in freeze['bindings'].items():
+        if sha(p)!=d:raise RuntimeError('Legacy freeze mismatch: '+p)
+    resources={
+        'version':'PARALLEL_V2_RESOURCE_LIMITS_R1','base_commit':BASE_COMMIT,
+        'A1':'Original registered owner and all scientific inputs unchanged; no signals or writes to A1',
+        'F0_F1':{'cpu_workers_max':2,'threads_per_worker_max':2,'cpu_affinity':[24,25,26,27],
+            'nice':10,'visual_gpu_allowed':False,'cuda_visible_devices':'','wall_hours_max':6,
+            'aggregate_resident_memory_gib_max':12,'new_disk_gib_max':20,
+            'new_codeblocks_max':1000000,'physical_points_max':128,
+            'point_stop_errors':100,'point_max_codeblocks':20000,
+            'shared_header_block_cap':100000,'single_block_cap':450000,'grouped_block_cap':450000,
+            'shared_config_accounting':'One physical measurement, debit once; shared evidence available symmetrically',
+            'supplement_snr_candidates_db':[-10,-5,0,2.5,5.5,8.5,11.5,16,25],
+            'early_stop':'UNCERTAIN if even exact proposed point probabilities cannot reduce unverified-interval engineering envelope to gate width; do not spend a scientifically irrelevant budget',
+            'exhaustion':'UNCERTAIN; no budget increase or automatic visual job'},
+        'F1_gate':{'metric':'dinov2_vitl14_cosine','average_snrs_db':[4,7,10,13],
+            'point_gain_min':0.02,'delta_low_strictly_above':0,'envelope_width_max':0.01,'required_points':2,
+            'envelope':'tail,interpolation,probability,numerical; engineering uncertainty, not joint or holdout95CI',
+            'unverified_interval':'categorical probability simplex; no monotonicity or Lipschitz certificate invented',
+            'quality_unknown_error_range':[-1,1],'outage_quality_thresholds':[0.3,0.5,0.7],
+            'independent_metric':'ConvNeXt withheld from selection and refinement'},
+        'A2':{'depends_on':'verified A1 publication, remote commit ancestry, original owner and GPU children exited',
+            'N':1024,'modulation':'16QAM','m':8,'K':0,'groups':1,'header_symbols':68,'body_symbols':956,
+            'payload_bits':3060,'body_crc_bits':16,'conv_tail_bits':6,'ldpc_tail_bits':0,
+            'common_scrambling':'same public deterministic encoded-bit XOR mask and counter; exact algorithm bound by A2 source registration',
+            'snrs_fixed':[13],'transition_candidates_db':[1,4,7,10,19],
+            'transition_selection':'min absolute difference between mean codec calibration CRC rejection rate and0.1; tie ascendingSNR',
+            'calibration_phy_per_point_stop_errors':100,'calibration_phy_per_point_max_blocks':20000,
+            'calibration_phy_total_blocks_max':200000,'development_sources':100,'noise_seeds':[2001,2002,2003],
+            'arms':['C-KEEP','C-DROP','L-KEEP','L-DROP'],'per_arm_policy_reselection':False,
+            'visual_gpu_before_A1_completion':False},
+        'F2':{'auto_start_requires':'frozen F1 gate PASS and separate actual-link execution registration; serialized after A2',
+            'development_sources':100,'joint_h_noise_repeats':3,'include':['SINGLE','GROUPED','P1024','CSI-REF'],
+            'training':False,'same_h_all_frame_groups':True,'independent_ConvNeXt':True},
+        'not_authorized_now':['A3','holdout','broadcast','new_training','old_UEP_extension']}
+    seal(out/'resource_registration.json',resources)
+    entries={}
+    def copy(name,p,role):
+        p=Path(p);target=out/'snapshot'/name;target.parent.mkdir(parents=True,exist_ok=True)
+        digest=sha(p)
+        if target.exists():
+            if sha(target)!=digest:raise RuntimeError('Snapshot changed: '+str(target))
+        else:shutil.copyfile(p,target)
+        entries[name]={'path':str(target),'source_path':str(p),'sha256':digest,'bytes':target.stat().st_size,'role':role,'git_commit':BASE_COMMIT}
+    sources={
+        'candidate_profiles_N1024.json':('stage_a/candidate_profiles_N1024.json','F1_calibration'),
+        'quality_bundle.json':('quality_final1000/quality_bundle.json','F1_calibration'),
+        'quality_registration.json':('quality_final1000/registration.json','provenance'),
+        'quality_completion.json':('quality_final1000/completion.json','provenance'),
+        'bler.json':('bler_refined_02.json','F1_calibration'),
+        'final_freeze.json':('final_freeze.json','provenance'),
+        'legacy_policies.json':('final_policy_revision_03.json','F0_diagnosis_only'),
+        'legacy_codebook.json':('final_codebook.json','F0_diagnosis_only'),
+        'model_validation.json':('model_validation.json','F0_development_diagnosis_only'),
+        'extension_gate.json':('extension_gate.json','F0_development_diagnosis_only'),
+        'ldpc_qualification.json':('ldpc_qualification.json','provenance'),
+        'legacy_publication.json':('publication_completion.json','provenance')}
+    for name,(rel,role) in sources.items():copy(name,old/rel,role)
+    experiment='experiments/prior-aware-grouped-mcs-v1'
+    paths=subprocess.check_output(['git','ls-tree','-r','--name-only',BASE_COMMIT,'--',experiment],cwd=root,text=True).splitlines()
+    for rel in paths:
+        data=subprocess.check_output(['git','show',BASE_COMMIT+':'+rel],cwd=root)
+        p=out/'snapshot'/'code'/Path(rel).name;p.parent.mkdir(parents=True,exist_ok=True)
+        if p.exists() and p.read_bytes()!=data:raise RuntimeError('Pinned source differs')
+        if not p.exists():p.write_bytes(data)
+        entries['code/'+p.name]={'path':str(p),'source_path':rel,'sha256':sha(p),'bytes':len(data),'role':'pinned_source','git_commit':BASE_COMMIT}
+    seal(out/'snapshot_manifest.json',{'version':'F0_F1_FIXED_N1024_SNAPSHOT_R1','base_commit':BASE_COMMIT,
+        'resource_registration_sha256':sha(out/'resource_registration.json'),'entries':entries,
+        'A1_outputs_included':False,'source_population':'original1000 calibration; development diagnostics isolated in F0',
+        'old_experiment_stop_unchanged':True})
+    archive=out/'snapshot_for_review.zip'
+    if not archive.exists():
+        with zipfile.ZipFile(archive,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=1) as z:
+            for name,item in entries.items():z.write(item['path'],name)
+            z.write(out/'snapshot_manifest.json','snapshot_manifest.json');z.write(out/'resource_registration.json','resource_registration.json')
+    print(json.dumps({'status':'SNAPSHOT_REGISTERED','files':len(entries),'archive':str(archive),'archive_bytes':archive.stat().st_size,'manifest_sha256':sha(out/'snapshot_manifest.json'),'resource_sha256':sha(out/'resource_registration.json')},indent=2))
+
+if __name__=='__main__':main()

@@ -1,0 +1,417 @@
+"""Score frozen A2 float reconstructions and report a paired 2x2 attribution.
+
+The four arms and both working points are frozen before development. This entry
+cannot render, change a receiver, reselect a policy, or start an F2 experiment.
+"""
+from __future__ import annotations
+import argparse
+from collections import defaultdict
+import csv
+import gzip
+import math
+import os
+from pathlib import Path
+import sys
+import time
+import numpy as np
+import a2_common as u
+
+METHODS = ("C-KEEP", "C-DROP", "L-KEEP", "L-DROP")
+SEEDS = (2001, 2002, 2003)
+FIXED = (0,25,50,75,4,21,24,29,33,41,52,60,64,87,92,95)
+METRICS = ("psnr_db", "lpips_alex", "dino_cosine", "dinov2_vitl14_cosine", "clip_image_cosine",
+           "dists", "dreamsim", "ms_ssim", "dino_specificity", "resnet50_top1_label",
+           "resnet50_top1_source_prediction", "semantic_error", "confidently_wrong",
+           "convnext_top1_label", "convnext_source_prediction_agreement", "F_sq_error_zero_erasure_proxy", "E")
+LOWER = {"lpips_alex", "dists", "dreamsim", "semantic_error", "confidently_wrong", "F_sq_error_zero_erasure_proxy"}
+CONTRASTS = {
+    "code_L_minus_C_under_DROP": {"L-DROP":1, "C-DROP":-1},
+    "rule_DROP_minus_KEEP_under_L": {"L-DROP":1, "L-KEEP":-1},
+    "interaction_L_DROP_minus_L_KEEP_minus_C_DROP_plus_C_KEEP": {"L-DROP":1, "L-KEEP":-1, "C-DROP":-1, "C-KEEP":1},
+    "code_L_minus_C_under_KEEP": {"L-KEEP":1, "C-KEEP":-1},
+    "rule_DROP_minus_KEEP_under_C": {"C-DROP":1, "C-KEEP":-1},
+}
+
+
+def write_csv(path, rows):
+    path = Path(path); path.parent.mkdir(parents=True, exist_ok=True)
+    opener = gzip.open if str(path).endswith(".gz") else open
+    with opener(path, "wt", encoding="utf-8", newline="") as stream:
+        keys = list(dict.fromkeys(k for row in rows for k in row))
+        writer = csv.DictWriter(stream, keys, lineterminator="\n"); writer.writeheader()
+        writer.writerows({k:u.clean(v) for k,v in row.items()} for row in rows)
+
+
+def sealed_checkpoint(path, binding, index):
+    cp = u.read(path)
+    u.require(cp["binding"] == binding and cp["source_index"] == index and
+              cp["payload_sha256"] == u.identity({k:v for k,v in cp.items() if k != "payload_sha256"}),
+              "A2 source checkpoint identity differs")
+    return cp
+
+
+def row_key(row):
+    return int(row["source_index"]), int(row["snr_db"]), int(row["noise_seed"]), row["method"]
+
+
+def pixels(array):
+    array = np.asarray(array)
+    u.require(array.dtype == np.float32 and array.shape == (3,256,256) and np.isfinite(array).all()
+              and array.min() >= 0 and array.max() <= 1, "Unchanged float32 CHW256 image required")
+    return np.ascontiguousarray(array)
+
+
+def source_images(cp, index, snrs):
+    rows = cp["rows"]
+    expected = {(index,s,n,m) for s in snrs for n in SEEDS for m in METHODS}
+    u.require(len(rows) == len(expected) and {row_key(r) for r in rows} == expected, "A2 source is missing a four-arm frame")
+    proof = cp["rgb"]; u.require(u.sha(proof["path"]) == proof["sha256"], "A2 float archive changed")
+    with np.load(proof["path"], allow_pickle=False) as data:
+        u.require(set(data.files) == {"images","source_rgb","row_ids","image_slots"}, "A2 float archive schema differs")
+        images = data["images"].copy(); target = pixels(data["source_rgb"]).copy()
+        slots = data["image_slots"].tolist(); ids = data["row_ids"].tolist()
+    u.require(images.dtype == np.float32 and images.ndim == 4 and images.shape[1:] == (3,256,256), "Invalid A2 image array")
+    u.require(len(slots) == len(rows) and ids == [r["replay_row_id"] for r in rows] and len(set(ids)) == len(rows), "A2 float row mapping differs")
+    hashes = [u.rgb_sha(pixels(image)) for image in images]; reference = u.rgb_sha(target)
+    identity = {(r["source_id"],r["preprocessing_id"],r["class_index"]) for r in rows}
+    u.require(len(identity) == 1, "Source identity differs within one A2 checkpoint")
+    for row, slot in zip(rows,slots):
+        u.require(type(slot) is int and 0 <= slot < len(images) and row["image_sha256"] == hashes[slot]
+                  and row["reference_sha256"] == reference, "A2 reference/reconstruction hash differs")
+        u.require(row["N"] == 1024 and row["phy_family"] == "16QAM" and row["method"] == row["codec"]+"-"+row["rule"], "A2 registered arm differs")
+    validate_pairing(rows, snrs, [index])
+    return rows, images, target, slots
+
+
+def validate_pairing(rows, snrs, indices=range(100)):
+    indexed = {row_key(r):r for r in rows}
+    expected = {(i,s,n,m) for i in indices for s in snrs for n in SEEDS for m in METHODS}
+    u.require(len(indexed) == len(rows) and set(indexed) == expected, "A2 exact source/noise/SNR/arm grid missing or duplicated")
+    for i in indices:
+        for s in snrs:
+            for n in SEEDS:
+                group = [indexed[i,s,n,m] for m in METHODS]
+                u.require(len({(r["source_id"],r["preprocessing_id"],r["reference_sha256"]) for r in group}) == 1,
+                          "A2 paired arms use different targets")
+                for codec in ("C","L"):
+                    keep, drop = indexed[i,s,n,codec+"-KEEP"], indexed[i,s,n,codec+"-DROP"]
+                    for field in ("shared_decoded_event_sha256","shared_observation_sha256","header_ok","body_crc_accept","E"):
+                        u.require(keep[field] == drop[field], "KEEP/DROP do not share a single physical decode: "+field)
+                    if not keep["header_ok"] or keep["body_crc_accept"]:
+                        u.require(keep["image_sha256"] == drop["image_sha256"], "Equivalent accepted/erased receiver states produced different images")
+                    if not keep["header_ok"]:
+                        u.require(keep["body_crc_accept"] is None and keep["gray"] and drop["gray"], "Header rejection rule changed")
+                    if keep["header_ok"] and keep["body_crc_accept"] is False:
+                        u.require(not keep["gray"] and drop["gray"], "Registered body failure KEEP/DROP rule changed")
+    return indexed
+
+
+def interval(values, draws):
+    values = np.asarray(values, dtype=np.float64)
+    u.require(values.shape == (100,) and np.isfinite(values).all(), "100 finite paired source values required")
+    low, high = np.quantile(values[draws].mean(1), [.025,.975])
+    return dict(mean=float(values.mean()), ci_low=float(low), ci_high=float(high), sources=100, frames=300,
+                bootstrap_unit="source_mean_over_three_registered_noise_seeds", bootstrap_replicates=10000,
+                bootstrap_seed=20261002, interval_role="descriptive_reused_development_not_holdout")
+
+
+def failure_subset(indexed, snr, codec, metric, draws):
+    # Resample all sources as clusters; varying failure counts stay with source.
+    numerator, denominator = np.zeros(100), np.zeros(100)
+    for i in range(100):
+        for seed in SEEDS:
+            keep, drop = indexed[i,snr,seed,codec+"-KEEP"], indexed[i,snr,seed,codec+"-DROP"]
+            if keep["header_ok"] and keep["body_crc_accept"] is False:
+                numerator[i] += float(drop[metric])-float(keep[metric]); denominator[i] += 1
+    frames = int(denominator.sum()); sources = int(np.count_nonzero(denominator))
+    result = dict(snr_db=snr, codec=codec, metric=metric, contrast="DROP_minus_KEEP_given_body_CRC_rejected_and_header_accepted",
+                  eligible_frames=frames, eligible_sources=sources, denominator_population_frames=300,
+                  selected_using_reconstruction_quality=False, post_event_conditional_diagnostic=True,
+                  general_population_effect=False, bootstrap_unit="source_cluster_ratio_of_paired_delta_sum_to_failure_count",
+                  bootstrap_replicates=10000, bootstrap_seed=20261002)
+    if not frames:
+        return dict(result, status="NOT_ESTIMABLE_NO_BODY_REJECTIONS", mean=None, ci_low=None, ci_high=None)
+    den = denominator[draws].sum(1); num = numerator[draws].sum(1)
+    result.update(mean=float(numerator.sum()/frames), zero_denominator_replicates=int(np.count_nonzero(den==0)))
+    if np.any(den==0):
+        return dict(result, status="UNCERTAIN_SPARSE_FAILURES", ci_low=None, ci_high=None)
+    low, high = np.quantile(num/den,[.025,.975])
+    return dict(result,status="DESCRIPTIVE_CONDITIONAL_INTERVAL",ci_low=float(low),ci_high=float(high))
+
+
+def analyze(rows, snrs):
+    u.require(len(snrs)==2 and len(set(snrs))==2 and 13 in snrs, "A2 requires fixed13dB and one frozen transition point")
+    indexed = validate_pairing(rows,snrs); draws=np.random.default_rng(20261002).integers(0,100,(10000,100))
+    summary, effects, failures, means = [], [], [], {}
+    for snr in snrs:
+        for method in METHODS:
+            group=[indexed[i,snr,n,method] for i in range(100) for n in SEEDS]
+            for metric in METRICS:
+                u.require(all(r.get(metric) is not None and math.isfinite(float(r[metric])) for r in group), "Missing mandatory A2 metric: "+metric)
+                values=np.asarray([float(r[metric]) for r in group]).reshape(100,3).mean(1); means[snr,method,metric]=values
+                summary.append(dict(N=1024,snr_db=snr,method=method,metric=metric,**interval(values,draws)))
+            for name,values in (("header_accept_fraction",[float(r["header_ok"]) for r in group]),
+                                ("body_CRC_reject_with_header_fraction",[float(r["header_ok"] and r["body_crc_accept"] is False) for r in group]),
+                                ("gray_fraction",[float(r["gray"]) for r in group]),
+                                ("undetected_fraction",[float(r["undetected"]) for r in group])):
+                summary.append(dict(N=1024,snr_db=snr,method=method,metric=name,**interval(np.asarray(values).reshape(100,3).mean(1),draws)))
+        for metric in METRICS:
+            for name,weights in CONTRASTS.items():
+                values=sum(weight*means[snr,method,metric] for method,weight in weights.items())
+                effects.append(dict(N=1024,snr_db=snr,contrast=name,metric=metric,weights=json_weights(weights),
+                                    direction="smaller_is_better" if metric in LOWER else "resource_no_quality_direction" if metric=="E" else "larger_is_better",
+                                    **interval(values,draws)))
+            for codec in ("C","L"):
+                failures.append(failure_subset(indexed,snr,codec,metric,draws))
+    return summary,effects,failures
+
+
+def json_weights(value):
+    import json
+    return json.dumps(value,sort_keys=True,separators=(",",":"))
+
+
+class Inputs:
+    def __init__(self,registration,out):
+        self.registration_path=Path(registration).resolve(); self.reg=u.registered(self.registration_path)
+        self.binding=u.sha(self.registration_path); self.out=Path(out).resolve()
+        self.bindings={str(self.registration_path):self.binding}
+        path=self.out/"render_development_completion.json"; done=u.read(path)
+        u.require(done["status"]=="COMPLETE" and done["stage"]=="render_development" and done["registration_sha256"]==self.binding
+                  and done["sources"]==100 and done["method_rows"]==2400 and done["synthetic"] is False, "Complete registered A2 rendering required")
+        u.verify(done["outputs"]); self.bindings[str(path)]=u.sha(path); self.bindings.update(done["outputs"])
+        self.frozen=u.read(self.out/"frozen_workpoints.json"); self.snrs=self.frozen["snrs_db"]
+        u.require(self.frozen["status"]=="FROZEN_BEFORE_DEVELOPMENT" and self.frozen["no_per_arm_optimization"] is True
+                  and self.frozen["selection_uses_image_metrics"] is False and self.frozen["registration_sha256"]==self.binding,
+                  "Workpoints must be frozen using this registration's calibration PHY only")
+        calibrated=u.read(self.out/"calibrate_completion.json")
+        u.require(calibrated["status"]=="COMPLETE" and calibrated["registration_sha256"]==self.binding and
+                  calibrated["outputs"].get(str(self.out/"frozen_workpoints.json"))==u.sha(self.out/"frozen_workpoints.json"),
+                  "Working-point freeze is not bound to completed calibration")
+        self.bindings[str(self.out/"calibrate_completion.json")]=u.sha(self.out/"calibrate_completion.json")
+        self.bindings[str(self.out/"frozen_workpoints.json")]=u.sha(self.out/"frozen_workpoints.json")
+        self.checkpoints=[]; self.targets=[]; self.rows=[]
+        for index in range(100):
+            path=self.out/"rendered/source_checkpoints"/f"{index:04d}.json"
+            u.require(done["outputs"].get(str(path))==u.sha(path), "Unbound rendered source")
+            cp=sealed_checkpoint(path,self.binding,index); rows,_,target,_=source_images(cp,index,self.snrs)
+            self.checkpoints.append(cp); self.targets.append(target); self.rows.extend(rows)
+        validate_pairing(self.rows,self.snrs)
+
+
+def score(registration,out):
+    from a2_run import gate
+    inputs=Inputs(registration,out); reg=inputs.reg; out=inputs.out; root=Path(reg["root"])
+    gate(reg)  # No model loading until A1 publication/exit and exclusive GPU gate.
+    for path in (root/"outputs/EXTERNAL-COMPARISON-20261004/runtime",root/"experiments/unified-metrics-20261002"):
+        sys.path.insert(0,str(path))
+    os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG",":4096:8")
+    from step0_reference_metrics import load_suite,numeric_flags
+    import torch,runner,replay
+    from batch_speed import qualified_chunks
+    evaluator,metric,native,lpips,dino,model_bindings,flags=load_suite(root,"cuda:0")
+    validation_path=Path(reg.get("validation_metrics_source",str(Path(reg["uep_code"])/"validation_metrics.py")))
+    validation=u.load("_a2_frozen_independent_validation",validation_path)
+    weight=Path(reg.get("convnext_weights",str(root/"outputs/PRIOR-AWARE-UEP-20261004-V1/weights/convnext_tiny-983f1562.pth")))
+    u.require(reg["input_bindings"].get(str(weight))==u.sha(weight), "ConvNeXt weight must be preregistered")
+    classifier=validation.ConvNeXtValidation(weight,validation.WEIGHTS_SHA256,device="cuda:0",stage="development",
+        policy_path=out/"frozen_workpoints.json",policy_sha256=u.sha(out/"frozen_workpoints.json"))
+    manifest=root/"outputs/UNIFIED-METRICS-20261002/modelmanifest.json"
+    u.require(reg["input_bindings"].get(str(manifest))==u.sha(manifest), "Unified model manifest must be preregistered")
+    model_bindings.update({str(validation_path):u.sha(validation_path),str(weight):u.sha(weight)})
+    metrics=out/"metrics"; metrics.mkdir(parents=True,exist_ok=True)
+    scoring_reg=dict(version="PARALLEL-V2-A2-METRICS-1",registration_sha256=inputs.binding,input_bindings=inputs.bindings,
+        model_bindings=model_bindings,numerical_runtime=flags,metric_evaluator_identity=evaluator.identity(),
+        modelmanifest_sha256=u.sha(manifest),metric_batch_size=8,metric_remainder_batches=[1,2,4,8],
+        independent_classifier=classifier.identity,metric_names=list(METRICS),DINO="DINOv2 ViT-S/14",additional_DINO="DINOv2 ViT-L/14",
+        source_bindings=reg["source_bindings"],sources=100,method_rows=2400,snrs_db=inputs.snrs,methods=list(METHODS),noise_seeds=list(SEEDS),
+        scientific_protocol=reg["protocol"],selection_updates=0,training_updates=0,independent_classifier_used_for_selection=False,
+        bootstrap_seed=20261002,bootstrap_replicates=10000,holdout_access=False,KID="DEFERRED_HOLDOUT",FID="NOT_EVALUATED")
+    u.seal(metrics/"registration.json",scoring_reg); u.seal(metrics/"model_metadata.json",evaluator.metadata)
+    binding=u.identity(scoring_reg); targets=[]
+    for target in inputs.targets:
+        with torch.inference_mode(): targets.append(native.dino_features(dino,torch.from_numpy(target[None]).to("cuda:0"))[0].cpu().numpy())
+    target_features=np.stack(targets); mismatch=replay.ReplayEngine._derangement(); allrows=[]; outputs={}; started=time.monotonic()
+    for index,cp in enumerate(inputs.checkpoints):
+        u.require(not (out/"STOP").exists(), "A2 STOP requested; scored source receipts retained")
+        u.require(numeric_flags(torch)==flags, "Frozen metric numerical runtime changed")
+        rows,images,target,slots=source_images(cp,index,inputs.snrs); path=metrics/"source_checkpoints"/f"{index:04d}.json"
+        if path.exists(): saved=sealed_checkpoint(path,binding,index)
+        else:
+            reference=torch.from_numpy(target[None]); prepared=evaluator.prepare_reference(reference); source_prediction=int(prepared["resnet50"][0])
+            original_convnext=classifier.predict(target); truth=int(rows[0]["class_index"])
+            quality,observed,embeddings=native.quality_metrics(target,list(images),lpips,dino,torch.device("cuda:0"))
+            np.testing.assert_allclose(observed,target_features[index],rtol=1e-6,atol=1e-6)
+            with torch.inference_mode():
+                negative=torch.from_numpy(target_features[mismatch[index]][None]).to("cuda:0").expand(len(images),-1)
+                mismatched=torch.nn.functional.cosine_similarity(torch.from_numpy(embeddings).to("cuda:0"),negative,dim=1).cpu().tolist()
+            scorer=runner.PendingMetricScorer(evaluator,torch,reference,prepared,truth,8,[1,2,4,8]); scored=[]
+            for row,slot in zip(rows,slots):
+                item={**row,**quality[slot],"dino_mismatched":mismatched[slot],"dino_specificity":quality[slot]["dino_cosine"]-mismatched[slot],
+                      "label_conditioned":False,"modelmanifest_sha256":u.sha(manifest)}
+                u.require(type(row["latent_valid"]) is bool, "Explicit A2 latent availability required")
+                item["F_sq_error_zero_erasure_proxy"]=float(row["latent_sq_err_final"] if row["latent_valid"] else row["zero_erasure_proxy_sq_error"])
+                scored.append(item); scorer.add(replay.metric_cache_key(images[slot],target,evaluator.identity()),images[slot],item)
+            scorer.flush(); confidence=[]; offset=0; independent=[]
+            for count in qualified_chunks(len(images),8,[1,2,4,8]):
+                with torch.inference_mode(),metric.no_network():
+                    tensor=torch.from_numpy(images[offset:offset+count]).to("cuda:0")
+                    prob,pred=evaluator.models["resnet50"](metric.preprocess_resnet50(tensor)).float().softmax(-1).max(-1)
+                    confidence.extend(zip(prob.cpu().tolist(),pred.cpu().tolist()))
+                offset+=count
+            for image in images: independent.append(classifier.score(image,true_label=truth,source_prediction=original_convnext))
+            for row,slot in zip(scored,slots):
+                prob,pred=confidence[slot]; u.require(pred==row["resnet50_prediction"], "Classifier probability prediction differs")
+                row.update(independent[slot]); row.update(resnet50_top1_probability=prob,semantic_error=int(pred!=source_prediction),
+                    confidently_wrong=int(prob>=.5 and pred!=source_prediction),convnext_model_id="torchvision_ConvNeXt_Tiny_IMAGENET1K_V1")
+                u.require(all(row.get(key) is not None and math.isfinite(float(row[key])) for key in METRICS), "Incomplete unified A2 metrics")
+            saved=dict(binding=binding,source_index=index,rows=scored,unique_images=len(images),input_rgb=cp["rgb"])
+            saved["payload_sha256"]=u.identity(saved); u.seal(path,saved)
+        u.require([row_key(r) for r in saved["rows"]]==[row_key(r) for r in rows], "Scored A2 population differs")
+        allrows.extend(saved["rows"]); outputs[str(path)]=u.sha(path)
+        u.write(out/"score_status.json",dict(status="RUNNING",sources=index+1,method_rows=len(allrows),elapsed_seconds=time.monotonic()-started))
+    summary,effects,failures=analyze(allrows,inputs.snrs)
+    for name,rows in (("metrics_per_frame.csv.gz",allrows),("metrics_summary.csv",summary),("paired_effects.csv",effects),("failure_subset_diagnostics.csv",failures)):
+        path=metrics/name; write_csv(path,rows); outputs[str(path)]=u.sha(path)
+    for name in ("registration.json","model_metadata.json"):
+        path=metrics/name; outputs[str(path)]=u.sha(path)
+    u.verify(inputs.bindings); u.verify(model_bindings); u.verify(reg["source_bindings"])
+    done=dict(status="COMPLETE",stage="score",registration_sha256=inputs.binding,metric_registration_sha256=u.sha(metrics/"registration.json"),
+        sources=100,method_rows=2400,outputs=outputs,synthetic=False,training_updates=0,selection_updates=0,
+        elapsed_seconds=time.monotonic()-started,input_bindings=inputs.bindings,model_bindings=model_bindings,
+        gpu_peak_allocated_bytes=torch.cuda.max_memory_allocated(),gpu_peak_reserved_bytes=torch.cuda.max_memory_reserved())
+    u.seal(out/"score_completion.json",done); u.write(out/"score_status.json",dict(status="COMPLETE",sources=100,method_rows=2400))
+    return done
+
+
+def mdtable(headers,rows):
+    def cell(value):return str(value).replace("|","\\|").replace("\n"," ")
+    return "\n".join(["| "+" | ".join(map(cell,headers))+" |","| "+" | ".join("---" for _ in headers)+" |"]+
+                     ["| "+" | ".join(map(cell,row))+" |" for row in rows])
+
+
+def format_interval(row):
+    return f"{row['mean']:.4f} [{row['ci_low']:.4f}, {row['ci_high']:.4f}]"
+
+
+def fixed_page(snr,page,indices,data):
+    from PIL import Image,ImageDraw,ImageFont
+    fontpath=next((p for p in (Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),Path("C:/Windows/Fonts/arial.ttf")) if p.exists()),None)
+    font=ImageFont.truetype(str(fontpath),17) if fontpath else ImageFont.load_default()
+    small=ImageFont.truetype(str(fontpath),14) if fontpath else ImageFont.load_default()
+    canvas=Image.new("RGB",(1420,1320),"white"); draw=ImageDraw.Draw(canvas); proof=[]
+    draw.text((20,12),f"A2 N1024 16QAM | m8 K0 | {snr} dB | seed 2001 | fixed page {page+1}/4",fill="black",font=font)
+    draw.text((20,38),"C: convolutional. L: LDPC. Same received waveform/decode within each KEEP-DROP pair.",fill="#444444",font=small)
+    for column,method in enumerate(("Original",)+METHODS):draw.text((20+column*276,67),method,fill="black",font=font)
+    for row_index,index in enumerate(indices):
+        target,rows,images,slots=data[index]; selected={r["method"]:(r,images[slot]) for r,slot in zip(rows,slots) if r["snr_db"]==snr and r["noise_seed"]==2001}
+        for column,method in enumerate(("Original",)+METHODS):
+            image=target if method=="Original" else selected[method][1]; x,y=20+column*276,94+row_index*303
+            display=np.rint(pixels(image).transpose(1,2,0)*255).astype(np.uint8); canvas.paste(Image.fromarray(display),(x,y))
+            caption=f"source {index:03d}" if method=="Original" else "header reject" if not selected[method][0]["header_ok"] else "body accepted" if selected[method][0]["body_crc_accept"] else "body CRC reject"
+            draw.text((x,y+260),caption,fill="#333333",font=small)
+            proof.append(dict(source_index=index,snr_db=snr,noise_seed=2001,method=method,image_sha256=u.rgb_sha(image)))
+    return canvas,proof
+
+
+def report(registration,out):
+    inputs=Inputs(registration,out); out=inputs.out; reg=inputs.reg; root=Path(reg["root"])
+    done=u.read(out/"score_completion.json")
+    u.require(done["status"]=="COMPLETE" and done["stage"]=="score" and done["registration_sha256"]==inputs.binding
+              and done["sources"]==100 and done["method_rows"]==2400 and done["synthetic"] is False, "Full real A2 score receipt required")
+    u.verify(done["outputs"]); metricreg=u.read(out/"metrics/registration.json"); rows=[]
+    for index in range(100):
+        cp=sealed_checkpoint(out/"metrics/source_checkpoints"/f"{index:04d}.json",u.identity(metricreg),index); rows.extend(cp["rows"])
+    summary,effects,failures=analyze(rows,inputs.snrs)
+    destination=Path(reg.get("result_dir",str(root/"results/parallel_v2_20261005/A2")))
+    report_path=Path(reg.get("report_path",str(root/"reports/a2_coding_failure_20261005.md")))
+    if not destination.is_absolute():destination=root/destination
+    if not report_path.is_absolute():report_path=root/report_path
+    destination.mkdir(parents=True,exist_ok=True); report_path.parent.mkdir(parents=True,exist_ok=True); outputs={}
+    for name,values in (("metrics_summary.csv",summary),("paired_effects.csv",effects),("failure_subset_diagnostics.csv",failures)):
+        write_csv(destination/name,values)
+    import shutil
+    for name in ("metrics_per_frame.csv.gz","model_metadata.json"):
+        shutil.copyfile(out/"metrics"/name,destination/name)
+    for name,value in (("EVALUATION_REGISTRATION.json",metricreg),("A2_REGISTRATION.json",reg),
+                       ("FROZEN_WORKPOINTS.json",inputs.frozen),("SCORE_COMPLETION.json",done)):
+        u.seal(destination/name,value)
+    # Normalize text table newlines without changing the calibration records.
+    with (out/"calibration_counts.csv").open(encoding="utf-8-sig",newline="") as stream: calibration=list(csv.DictReader(stream))
+    write_csv(destination/"calibration_counts.csv",calibration)
+    with (destination/"calibration_counts.csv").open(encoding="utf-8",newline="") as stream:
+        u.require(list(csv.DictReader(stream))==calibration,"Calibration CSV serialization changed records")
+    u.seal(destination/"CALIBRATION_PROVENANCE.json",dict(source_path=str(out/"calibration_counts.csv"),source_sha256=u.sha(out/"calibration_counts.csv"),
+                                                      output_sha256=u.sha(destination/"calibration_counts.csv"),records_unchanged=True,newline="LF"))
+    fixed=tuple(reg.get("fixed_source_indices",FIXED)); u.require(fixed==FIXED,"Fixed A2 sources were not preserved")
+    data={}; figures=[]
+    for index in fixed:
+        raw,images,target,slots=source_images(inputs.checkpoints[index],index,inputs.snrs); data[index]=(target,raw,images,slots)
+    for snr in inputs.snrs:
+        for page in range(4):
+            canvas,proof=fixed_page(snr,page,fixed[page*4:page*4+4],data); prefix=f"figures/A2_snr{snr}_page{page+1}"
+            png=destination/(prefix+".png"); png.parent.mkdir(parents=True,exist_ok=True); canvas.save(png)
+            pdf=destination/(prefix+".pdf"); canvas.save(pdf,"PDF",resolution=144)
+            figures.append(dict(snr_db=snr,page=page+1,noise_seed=2001,source_indices=list(fixed[page*4:page*4+4]),
+                png=str(png.relative_to(destination)),png_sha256=u.sha(png),pdf=str(pdf.relative_to(destination)),pdf_sha256=u.sha(pdf),
+                original_float_inputs=proof,display_conversion="round(float32 RGB*255); scores use unchanged float32 RGB"))
+    u.seal(destination/"VISUAL_MANIFEST.json",dict(status="COMPLETE",fixed_source_indices=list(fixed),pages=figures,no_quality_based_sample_selection=True))
+    primary=("psnr_db","lpips_alex","dinov2_vitl14_cosine","convnext_source_prediction_agreement")
+    look={(r["snr_db"],r["method"],r["metric"]):r for r in summary}
+    mainrows=[[snr,method,*[format_interval(look[snr,method,metric]) for metric in primary]] for snr in inputs.snrs for method in METHODS]
+    effectrows=[[r["snr_db"],r["contrast"],r["metric"],format_interval(r)] for r in effects if r["metric"] in primary and r["contrast"] in tuple(CONTRASTS)[:3]]
+    lines=["# A2：固定载荷下信道码与失败规则的 2×2 对照","",
+           "N1024、16QAM、整尺度 m8、K=0；四臂均传输同一 3060 bit 源载荷，头部 68 次、正文 956 次信道使用。", "",
+           f"工作点为 {inputs.snrs} dB：13 dB 固定，另一点仅由校准 PHY 的 CRC 拒收率选择。development 没有参与选 SNR、载荷或策略。",
+           "C 表示卷积码，L 表示 LDPC。每种码的 KEEP 与 DROP 共用同一接收波形和译码结果。头部拒收时两臂均输出灰图；正文 CRC 拒收时，KEEP 使用实际硬判决前缀，DROP 丢弃。", "",
+           "这是独立登记的新匹配实现；旧 M1、旧 UEP 的协议与停止结论均未改写。16QAM 使用同平均功率，逐帧实际能量另列，不能称逐帧等能量。", "",
+           "## 四臂主结果","",mdtable(["SNR","方法","PSNR ↑","LPIPS ↓","DINOv2-L ↑","ConvNeXt 原图预测一致率 ↑"],mainrows),"",
+           "100 张固定 development 图 × 3 个登记噪声。先对每源图三个噪声取均值，再做 10,000 次源配对 bootstrap，种子 20261002；区间为 95% 描述性区间，development 已被复用，不能替代 holdout。", "",
+           "## 三项主要归因","",mdtable(["SNR","差值","指标","均值 [95% 区间]"],effectrows),"",
+           "交互项定义为 (L-DROP − L-KEEP) − (C-DROP − C-KEEP)。所有差值按指标原方向报告，LPIPS 等误差指标越小越好。没有预设信道码或 DROP 必须有正增益，也不把单项获胜写成全面优势。", "",
+           "完整指标含 PSNR、LPIPS-Alex、DINOv2 ViT-S/14、DINOv2 ViT-L/14、CLIP 图像相似度、DISTS、DreamSim、MS-SSIM、DINO 错配特异性、ResNet-50 与 ConvNeXt-Tiny 的标签准确率及原图预测一致率。模型、权重和预处理版本见 model_metadata.json 与 EVALUATION_REGISTRATION.json。两个分类器仅用于评测。", "",
+           "F 误差在无接收 latent 的灰图分支沿用零擦除代理，完整 latent_valid 字段保留；该代理不代表灰图可逆推出真实 latent。FID 未测，KID 留待更大 holdout。", "",
+           "## 失败子集诊断","",
+           "failure_subset_diagnostics.csv 单列头部通过且正文 CRC 拒收的配对样本。该诊断以源图为簇重采样，保留每源失败次数；它是按接收事件条件化的描述，不代表全总体因果效应。无失败时明确 NOT_ESTIMABLE，稀疏失败使重采样分母为零时不给伪造区间，也不追加 SNR 来找显著性。", "",
+           "## 固定样例","",
+           "固定原 16 张样例、seed 2001；每个 SNR 四页，列为原图、C-KEEP、C-DROP、L-KEEP、L-DROP。科学指标使用浮点原始重建，PNG/PDF 只作显示。", ""]
+    for figure in figures:lines.append(f"![{figure['snr_db']} dB page {figure['page']}]({figure['png']})")
+    lines += ["","## 资源与范围","",
+              "训练更新为 0。真实阶段耗时、物理帧数与实际能量由完成凭证及逐帧表记录；在线独占单帧时延为 NOT_MEASURED。F2 未由本流程启动。","",
+              "[全部指标](metrics_summary.csv) · [配对差值](paired_effects.csv) · [失败子集](failure_subset_diagnostics.csv) · [样例来源](VISUAL_MANIFEST.json)",""]
+    text="\n".join(lines); (destination/"A2_REPORT.md").write_text(text,encoding="utf-8",newline="\n")
+    costs=dict(training_updates=0,source_images=100,noise_realizations_per_source=3,snr_points=2,physical_frames=1200,method_rows=2400,
+        measured_score_elapsed_seconds=done["elapsed_seconds"],online_single_frame_latency="NOT_MEASURED",fixed_average_Es=2,
+        observed_energy_min=min(r["E"] for r in rows),observed_energy_max=max(r["E"] for r in rows),
+        measured_render_seconds=sum(cp["seconds"] for cp in inputs.checkpoints),two_receiver_rules_share_physical_decode=True,
+        score_gpu_peak_allocated_bytes=done["gpu_peak_allocated_bytes"],score_gpu_peak_reserved_bytes=done["gpu_peak_reserved_bytes"])
+    u.seal(destination/"COSTS.json",costs)
+    report_path.write_text("# A2：信道码与失败规则对照\n\n完整结果：[报告](../results/parallel_v2_20261005/A2/A2_REPORT.md)。\n\n"
+        +mdtable(["SNR","方法","PSNR ↑","LPIPS ↓","DINOv2-L ↑","ConvNeXt 一致率 ↑"],mainrows)
+        +"\n\n独立登记的固定载荷 2×2 对照；没有改写旧 M1/UEP 结果，也未启动 F2。区间基于复用 development，不能作 holdout 确认。\n",encoding="utf-8",newline="\n")
+    for path in sorted(destination.rglob("*")):
+        if path.is_file():
+            u.require(path.stat().st_size<10_000_000,"Publication file exceeds10MB: "+str(path));outputs[str(path)]=u.sha(path)
+    outputs[str(report_path)]=u.sha(report_path);u.verify(inputs.bindings);u.verify(done["outputs"])
+    value=dict(status="COMPLETE",stage="report",registration_sha256=inputs.binding,sources=100,method_rows=2400,fixed_visual_pages=8,
+        outputs=outputs,metric_recomputation=False,neural_inference=False,training_updates=0,selection_updates=0,synthetic=False)
+    u.seal(out/"report_completion.json",value);return value
+
+
+def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--registration",required=True);parser.add_argument("--out",required=True)
+    parser.add_argument("--stage",choices=("score","report"),required=True);args=parser.parse_args()
+    complete=Path(args.out)/(args.stage+"_completion.json")
+    if complete.exists():
+        reg=u.registered(args.registration);result=u.read(complete)
+        u.require(result["status"]=="COMPLETE" and result["stage"]==args.stage and
+                  result["registration_sha256"]==u.sha(args.registration) and result["method_rows"]==2400,
+                  "Existing A2 completion differs from registered stage")
+        u.verify(result["outputs"])
+    else:
+        result=(score if args.stage=="score" else report)(args.registration,args.out)
+    print(result["status"],result["stage"],result["method_rows"])
+
+
+if __name__=="__main__":main()

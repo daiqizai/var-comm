@@ -1,0 +1,219 @@
+"""CPU mathematical checks; fixtures are explicitly synthetic test data."""
+import copy
+import math
+import unittest
+
+import numpy as np
+
+import f1_screen as f
+
+
+def probability_rows(key, probs=(1.,0.,0.), *, n=1000, snrs=(1,4,7,10,13,19), kind='body'):
+    counts=[int(round(n*v)) for v in probs]
+    assert sum(counts)==n
+    return [dict(phy_key=key,snr_db=s,source_id='*',kind=kind,
+        applicability='source_independent_verified' if kind=='header' else 'iid_scrambled_payload_approximation',
+        n_blocks=n,n_correct=counts[0],n_reject=counts[1],n_undetected=counts[2],
+        p_correct=counts[0]/n,p_reject=counts[1]/n,p_undetected=counts[2]/n) for s in snrs]
+
+
+def profile(pid,G,keys=None):
+    keys=keys or (['a'] if G==1 else ['a','b'])
+    groups=[dict(phy_key=k,source_bits=100,information_bits=116,symbols=300,mcs_id='QPSK:r1/2',
+                 layout=dict(power_protocol='fixed_constellation_average_Es2')) for k in keys]
+    return dict(stable_id=pid,N=1024,G=G,m=5,K=0,j=None if G==1 else 4,
+        groups=groups,header_phy_key='header',header_symbols=68,used_body_symbols=G*300,idle_symbols=956-G*300,
+        full_state_id='m5_K0',prefix_state_id=None if G==1 else 'm4_K0',encoder_qualified=True,
+        order='entropy',receiver_rule='consecutive_crc_accepted_prefix_v1')
+
+
+def fixtures():
+    profiles=[profile('single',1),profile('grouped',2)]
+    quality=dict(population='calibration',development_read=False,synthetic=True,source_ids=['a','b'],rows=[])
+    for state,values in [('gray',[.1,.1]),('m4_K0',[.9,.1]),('m5_K0',[.6,.6])]:
+        quality['rows'] += [dict(source_id=s,state_id=state,receiver='gray' if state=='gray' else 'VAR',
+            dinov2_vitl14_cosine=v) for s,v in zip(['a','b'],values)]
+    bler=dict(synthetic=False,conditional_group_independence=True,
+        rows=probability_rows('header',kind='header')+probability_rows('a')+probability_rows('b',(0.,1.,0.)))
+    return profiles,quality,bler
+
+
+class MathematicalTests(unittest.TestCase):
+    def test_CRC_correct_reject_undetected_partition(self):
+        rng=np.random.default_rng(87)
+        packets=rng.dirichlet(np.ones(3),size=(3,200))
+        for groups in (1,2):
+            w=f.state_weights(packets[0],packets[1],None if groups==1 else packets[2])
+            np.testing.assert_allclose(sum(w.values()),1.,rtol=0,atol=5e-16)
+            self.assertTrue(all(np.all(v>=0) for v in w.values()))
+        w=f.state_weights([1,0,0],[0,0,1],[1,0,0])
+        self.assertEqual(float(w['bad']),1.)
+        self.assertEqual(float(w['full']),0.)
+        self.assertEqual(float(w['prefix']),0.)
+
+    def test_wrong_header_is_not_clean_gray_or_prefix(self):
+        w=f.state_weights([0,0,1],[1,0,0],[1,0,0])
+        self.assertEqual(float(w['bad']),1.)
+        self.assertEqual(float(w['gray']),0.)
+        self.assertEqual(float(f.quality_value(w,.1,.8,.9)),0.)
+
+    def test_common_fading_product_before_average(self):
+        a=np.array([[0,1,0],[1,0,0]],float)
+        correct=float(np.mean(f.state_weights(a,a)['full']))
+        incorrect=float(f.state_weights(np.mean(a,axis=0),np.mean(a,axis=0))['full'])
+        self.assertEqual(correct,.5)
+        self.assertEqual(incorrect,.25)
+
+    def test_signed_nonmonotonic_quality(self):
+        # Moving probability from prefix to full can LOWER quality.
+        prefix=f.quality_value(f.state_weights([1,0,0],[1,0,0],[0,1,0]),.1,.9,.3)
+        full=f.quality_value(f.state_weights([1,0,0],[1,0,0],[1,0,0]),.1,.9,.3)
+        self.assertAlmostEqual(float(full-prefix),-.6)
+
+    def test_Bernstein_range_contains_nonmonotonic_diagonal(self):
+        rng=np.random.default_rng(109)
+        endpoints=[(rng.dirichlet(np.ones(3),15),rng.dirichlet(np.ones(3),15)) for _ in range(3)]
+        lo,hi=f.bernstein_range(endpoints,.2,.95,.3)
+        badlo,badhi=f.bernstein_range(endpoints,.2,.95,.3,kind='bad')
+        for t in np.linspace(0,1,257):
+            ps=[(1-t)*a+t*b for a,b in endpoints]
+            w=f.state_weights(*ps);v=f.quality_value(w,.2,.95,.3)
+            self.assertTrue(np.all(v>=lo) and np.all(v<=hi))
+            self.assertTrue(np.all(w['bad']>=badlo) and np.all(w['bad']<=badhi))
+
+    def test_Bernstein_interior_extremum_is_not_endpoint_bound(self):
+        fixed=(np.array([1,0,0.]),np.array([1,0,0.]))
+        varying=(np.array([0,1,0.]),np.array([1,0,0.]))
+        lo,hi=f.bernstein_range([fixed,varying,varying],.2,.95,.3)
+        value=f.quality_value(f.state_weights([1,0,0],[.5,.5,0],[.5,.5,0]),.2,.95,.3)
+        self.assertGreater(value,.3)
+        self.assertGreaterEqual(hi,value)
+        self.assertLessEqual(lo,.2)
+
+    def test_Rayleigh_mass_complete_and_stable(self):
+        for average in f.SNRS:
+            edges=[-math.inf,-30,1,4,7,10,13,19,40,math.inf]
+            masses=[f.rayleigh_mass(a,b,average) for a,b in zip(edges,edges[1:])]
+            self.assertTrue(all(v>=0 for v in masses))
+            self.assertAlmostEqual(sum(masses),1.,places=15)
+        self.assertAlmostEqual(f.rayleigh_mass(-math.inf,4,4),1-math.exp(-1),places=15)
+        self.assertGreater(f.rayleigh_mass(-100,-99,13),0)
+
+    def test_Wilson_extreme_counts_include_true_endpoint(self):
+        self.assertEqual(f.wilson(0,256)[0],0.)
+        self.assertEqual(f.wilson(256,256)[1],1.)
+        self.assertGreater(f.wilson(0,256)[1],0.)
+        self.assertLess(f.wilson(256,256)[0],1.)
+
+    def test_Wilson_observation_is_not_monotonicity_certificate(self):
+        rows=probability_rows('x',(1,0,0),snrs=(1,4))
+        curve=f.Curves(dict(synthetic=False,conditional_group_independence=True,rows=rows))
+        c=curve.coverage[0]
+        self.assertTrue(c['empirical_correct_curve_nondecreasing'])
+        self.assertFalse(c['monotonicity_certified'])
+        self.assertFalse(c['interpolation_coverage_certified'])
+
+    def test_counts_must_partition_and_match_probability(self):
+        _,_,b=fixtures();b['rows'][0]['p_correct']=.8
+        with self.assertRaisesRegex(ValueError,'actual count'):f.Curves(b)
+        _,_,b=fixtures();b['rows'][0]['n_reject']=1
+        with self.assertRaisesRegex(ValueError,'partition'):f.Curves(b)
+
+
+class GateTests(unittest.TestCase):
+    def test_compare_all_single_upper_bounds(self):
+        single=[dict(id='point_best',point=.6,lower=.6,upper=.6),dict(id='uncertain',point=.4,lower=.2,upper=.9)]
+        grouped=[dict(id='new',point=.7,lower=.699,upper=.701)]
+        result=f.envelope_gate(single,grouped)
+        self.assertEqual(result['selected_single'],'point_best')
+        self.assertAlmostEqual(result['delta_low'],-.201)
+        self.assertFalse(result['passed'])
+
+    def test_gain_is_not_strict_pass(self):
+        a=[dict(id='s',point=.4,lower=-1.,upper=1.)]
+        b=[dict(id='g',point=.8,lower=-1.,upper=1.)]
+        gate=f.envelope_gate(a,b)
+        self.assertEqual(gate['status'],'UNCERTAIN')
+        self.assertEqual(gate['delta_width'],4.)
+
+    def test_defensible_NO_GAIN_and_COMPLETE_are_distinct(self):
+        a=[dict(id='s',point=.4,lower=.399,upper=.401)]
+        b=[dict(id='g',point=.45,lower=.449,upper=.451)]
+        self.assertEqual(f.envelope_gate(a,b)['status'],'COMPLETE')
+        b[0].update(point=.4,lower=.399,upper=.401)
+        self.assertEqual(f.envelope_gate(a,b)['status'],'STOP_NO_GAIN')
+
+    def test_ties_are_deterministic(self):
+        a=[dict(id=v,point=.4,lower=-1.,upper=1.) for v in ('z','a')]
+        b=[dict(id='g',point=.5,lower=-1.,upper=1.)]
+        self.assertEqual(f.envelope_gate(a,b)['selected_single'],'a')
+
+
+class ScreenTests(unittest.TestCase):
+    def test_registration_is_exact_and_population_not_shortlist(self):
+        bad=copy.deepcopy(f.DEFAULT_REGISTRATION);bad['numerical_step_db']=1
+        with self.assertRaisesRegex(ValueError,'Frozen F1'):f.validate_registration(bad)
+        p,q,b=fixtures()
+        with self.assertRaisesRegex(ValueError,'4041'):f.screen(p,q,b,f.DEFAULT_REGISTRATION)
+
+    def test_complete_synthetic_workflow_outage_and_uncertain(self):
+        p,q,b=fixtures();result=f.screen(p,q,b,f.DEFAULT_REGISTRATION,synthetic=True)
+        self.assertEqual(result['strict_gate']['status'],'UNCERTAIN')
+        self.assertFalse(result['strict_gate']['F2_authorized'])
+        self.assertEqual(result['coverage']['candidate_count'],2)
+        self.assertEqual(result['coverage']['nonmonotone_quality_profile_count'],1)
+        row=next(r for r in result['practical_ranking'] if r['id']=='grouped' and r['average_snr_db']==4)
+        self.assertAlmostEqual(row['point'],.5)
+        self.assertAlmostEqual(row['surrogate_outage']['0.5']['lower'],.5)
+        # Thresholding mean quality would incorrectly say zero sources fail.
+        self.assertFalse(.5<.5)
+        self.assertAlmostEqual(row['strict_unknown_curve_mass'],1.)
+        self.assertTrue(all(len(c['competitive_profile_ids'])==2 for c in result['strict_gate']['cells']))
+        self.assertTrue(all(c['CSI_REF']['point']+1e-14>=c['strict_gate']['single_point'] for c in result['strict_gate']['cells']))
+        self.assertFalse(result['refinement_request']['automatic_execution'])
+        self.assertEqual(result['refinement_request']['actual_additional_blocks'],0)
+
+    def test_missing_physical_key_is_retained_and_prevents_reference_claim(self):
+        p,q,b=fixtures();p.append(profile('missing',1,['missing_key']))
+        result=f.screen(p,q,b,f.DEFAULT_REGISTRATION,synthetic=True)
+        rows=[r for r in result['practical_ranking'] if r['id']=='missing']
+        self.assertEqual(len(rows),4)
+        self.assertTrue(all(r['point']is None and r['lower']==-1 and r['upper']==1 for r in rows))
+        for cell in result['strict_gate']['cells']:
+            self.assertIn('missing',cell['competitive_profile_ids'])
+            self.assertIsNone(cell['CSI_REF']['point'])
+
+    def test_direct_or_independent_metric_does_not_select(self):
+        p,q,b=fixtures();first=f.screen(p,q,b,f.DEFAULT_REGISTRATION,synthetic=True)
+        q['rows'].append(dict(source_id='a',state_id='m5_K0',receiver='direct',dinov2_vitl14_cosine=-.9))
+        q['rows'][0]['convnext_prediction_consistency']=0
+        second=f.screen(p,q,b,f.DEFAULT_REGISTRATION,synthetic=True)
+        self.assertEqual(first['practical_ranking'],second['practical_ranking'])
+
+    def test_refinement_is_unique_bounded_and_symmetric(self):
+        p,q,b=fixtures()
+        # Many profiles/configurations, including keys shared by both families.
+        for i in range(20):
+            p.append(profile('s'+str(i),1,['shared'+str(i)]))
+            p.append(profile('g'+str(i),2,['shared'+str(i),'gbody'+str(i)]))
+        curves=f.Curves(b)
+        ranking=[dict(id=x['stable_id'],point=.6,lower=-1,upper=1) for x in p]
+        request=f.refinement_request(p,ranking,curves,f.DEFAULT_REGISTRATION)
+        points=request['points'];ids=[(x['phy_key'],x['snr_db']) for x in points]
+        self.assertEqual(len(ids),len(set(ids)))
+        self.assertLessEqual(len(ids),128)
+        self.assertLessEqual(request['reserved_additional_blocks'],1000000)
+        for family,cap in [('header',100000),('single',450000),('grouped',450000)]:
+            self.assertLessEqual(request['pool_reservations'][family],cap)
+        self.assertEqual(sum(x['reserved_additional_blocks'] for x in points),request['reserved_additional_blocks'])
+        self.assertEqual(sum(request['pool_reservations'].values()),request['reserved_additional_blocks'])
+        self.assertTrue(set(f.REQUEST_SNRS).issubset({x['snr_db'] for x in points if x['kind']=='body'}))
+        self.assertIn(25.,[x['snr_db'] for x in points if x['kind']=='header'])
+        shared=[x for x in points if set(x['families'])=={'SINGLE','GROUPED'} and x['kind']=='body']
+        self.assertTrue(shared)
+        self.assertTrue(all(x['charged_pool_blocks']=={'single':10000,'grouped':10000} for x in shared))
+        self.assertEqual(request['feasibility']['remaining_uncertified_probability_mass_even_after_exact_requests'],1.)
+        self.assertFalse(request['physical_measurements_started'])
+
+
+if __name__=='__main__':unittest.main()

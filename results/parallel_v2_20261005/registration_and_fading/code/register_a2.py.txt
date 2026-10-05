@@ -1,0 +1,69 @@
+"""Freeze the matched experiment and its independent after-A1 queue."""
+import argparse
+from pathlib import Path
+import a2_common as u
+
+
+def main():
+    p=argparse.ArgumentParser();p.add_argument('--root',required=True);p.add_argument('--out',required=True);a=p.parse_args()
+    root=Path(a.root).resolve();out=Path(a.out).resolve();code=out/'code';a2=out/'A2'
+    reg=u.read(a2/'preflight_registration.json')
+    u.require(reg['protocol']==u.CONTRACT,'Qualified engineering protocol differs')
+    u.verify(reg['source_bindings']);u.verify(reg['input_bindings'])
+    reg['scope']='MATCHED_N1024_2X2_AFTER_VERIFIED_A1_DELIVERY_R1'
+    sources=dict(reg['source_bindings'])
+    for base in [code,root/'outputs/EXTERNAL-COMPARISON-20261004/runtime']:
+        for path in base.glob('*.py'):sources[str(path)]=u.sha(path)
+    for rel in ['tools/update_repository_manifest.py','tools/verify_repository.py','tools/run_cpu_checks.py']:
+        path=root/rel;sources[str(path)]=u.sha(path)
+    reg['source_bindings']=sources
+    reg['convnext_weights']=str(root/'outputs/PRIOR-AWARE-UEP-20261004-V1/weights/convnext_tiny-983f1562.pth')
+    reg['validation_metrics_source']=str(out/'snapshot/code/validation_metrics.py')
+    reg['result_dir']=str(root/'results/parallel_v2_20261005/A2')
+    reg['report_path']=str(root/'reports/a2_coding_failure_20261005.md')
+    reg['fixed_source_indices']=[0,25,50,75,4,21,24,29,33,41,52,60,64,87,92,95]
+    additional=[Path(reg['convnext_weights']),root/'outputs/UNIFIED-METRICS-20261002/modelmanifest.json',
+        root/'outputs/SCALE-CAUSAL-PARTIAL-RESIDUAL-20261002/m1_development_registration.json',
+        root/'outputs/PRIOR-AWARE-UEP-20261004-V1/tx_tokens/manifest.json',
+        root/'outputs/PRIOR-AWARE-UEP-20261004-V1/tx_tokens/registration.json',
+        out/'resource_registration.json',out/'F1/strict_gate.json',out/'qualification.json']
+    for path in additional:reg['input_bindings'][str(path)]=u.sha(path)
+    reg['calibration_export_provenance']=u.read(a2/'assets/a2_calibration_tokens.json')['source_code_sha256']
+    reg['calibration_export_note']='Original CPU export and receipt retained; later exporter hardening applies only to future development export.'
+    reg['metric_selection_access']='Calibration BLER only; no image-quality metric chooses the A2 workpoints.'
+    reg['independent_classification']='ConvNeXt-Tiny and ResNet50 withheld from all A2 choices'
+    reg['16QAM_power']='Fixed constellation average Es2; actual per-frame energy recorded, not framewise equal energy'
+    reg['failure_rules']='Header rejection gray; KEEP retains actual parseable hard m8; DROP gray; both use actual CRC false accept'
+    reg['runtime_limits']={'cpu_threads':2,'cpu_affinity':[24,25,26,27],'cpu_nice':10,'gpu_stages_serial':True,
+        'calibration_wall_hours_max':12,'receive_wall_hours_max':3,'render_wall_hours_max':4,'score_wall_hours_max':6,
+        'automatic_retry':False,'new_training':False,'F2_launch':False}
+    target=a2/'registration.json';u.seal(target,reg)
+    cpu=str(root/'outputs/PRIOR-AWARE-UEP-20261004-V1/ldpc_environment/bin/python')
+    gpu=str(root/'outputs/UNIFIED-METRICS-20261002/environment/bin/python')
+    def stage(name,script,args,receipt,gpu_stage=False,hours=1,expected='COMPLETE'):
+        return dict(name=name,command=[gpu if gpu_stage else cpu,'-B',str(code/script)]+args,
+            gpu=gpu_stage,receipt=str(receipt),expected_status=[expected],wall_seconds_max=int(hours*3600))
+    base=['--registration',str(target),'--out',str(a2)]
+    stages=[stage('preflight','a2_run.py',base+['--stage','preflight'],a2/'preflight_completion.json'),
+        stage('calibrate','a2_run.py',base+['--stage','calibrate'],a2/'calibrate_completion.json',hours=12),
+        stage('export_development','export_a2_tokens.py',['--root',str(root),'--out',str(a2/'assets'),'--role','development',
+            '--gate',str(a2/'a1_release_gate.json'),'--policy',str(a2/'frozen_workpoints.json'),'--registration',str(target)],
+            a2/'assets/a2_development_tokens.json',expected='FROZEN_TOKEN_EXPORT_COMPLETE'),
+        stage('receive_development','a2_run.py',base+['--stage','receive-development'],a2/'receive_development_completion.json',hours=3),
+        stage('render_development','a2_run.py',base+['--stage','render-development'],a2/'render_development_completion.json',True,4),
+        stage('score','a2_score_report.py',base+['--stage','score'],a2/'score_completion.json',True,6),
+        stage('report','a2_score_report.py',base+['--stage','report'],a2/'report_completion.json',hours=2),
+        stage('publish','publish_results.py',['--root',str(root),'--out',str(out),'--mode','a2','--python',cpu],
+            out/'a2_publication_completion.json',hours=1,expected='PUSHED')]
+    cfg=dict(status='REGISTERED_A2_AFTER_A1',root=str(root),out=str(out),
+        a1_out=str(root/'outputs/M1-ACTION-SPACE-CLOSURE-20261005'),
+        a1_owner_identity=dict(pid=3823500,start_ticks=181766976,uid=1002),
+        a1_registration_sha256='2317949d14ac2c93444a045e50dfcc9dec50b807a0832a274c0ad42149e04292',
+        source_bindings=sources,input_bindings={str(target):u.sha(target),str(out/'resource_registration.json'):u.sha(out/'resource_registration.json')},
+        stages=stages,F1_status=u.read(out/'F1/strict_gate.json')['status'],F2_queued=False,
+        polling_seconds=30,A1_untouched=True)
+    u.seal(out/'owner_config.json',cfg)
+    print({'status':'REGISTERED_A2_AFTER_A1','registration_sha256':u.sha(target),'owner_config_sha256':u.sha(out/'owner_config.json'),'stages':len(stages)})
+
+
+if __name__=='__main__':main()

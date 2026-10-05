@@ -1,0 +1,168 @@
+"""Independent publication checks with all Git/remote operations mocked."""
+from pathlib import Path
+import tempfile
+import unittest
+from unittest.mock import patch
+import publish_results as p
+
+
+class PublicationTests(unittest.TestCase):
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
+        self.root=Path(self.temp.name).resolve();self.out=self.root/'outputs/PARALLEL-V2-20261005';self.out.mkdir(parents=True)
+        self.file=self.root/'results/parallel_v2_20261005/F1/summary.json';p.write(self.file,{'registered':'result'})
+        self.files={str(self.file):p.sha(self.file)}
+        p.write(self.out/'registration_publication_inventory.json',dict(files=self.files))
+        self.commands=[];self.head='a'*40;self.staged=set();self.remote_calls=0;self.changed=False
+
+    def fake_run(self,root,args):
+        self.assertEqual(root,self.root);self.commands.append(list(args))
+        if args[:4]==['git','diff','--cached','--name-only']:return '\n'.join(sorted(self.staged))
+        if args==['git','diff','--name-only']:return ''
+        if args==['git','rev-parse','HEAD']:return self.head+'\n'
+        if args[:2]==['git','ls-remote']:
+            self.remote_calls+=1;return self.head+'\trefs/heads/main\n'
+        if args==['git','branch','--show-current']:return 'main\n'
+        if args[:3]==['git','add','--']:
+            self.staged.update(args[3:]);return ''
+        if args[:2]==['git','commit']:self.head='b'*40;return 'mock commit'
+        if args[:2]==['git','push']:return 'mock push'
+        if args[0]=='cpu-python':return 'PASS'
+        raise AssertionError('Unexpected command '+repr(args))
+
+    def invoke(self,mode='registration',callback=None):
+        with patch.object(p,'run',side_effect=callback or self.fake_run):p.publish(self.root,self.out,mode,'cpu-python')
+
+    def assert_no_commit_or_push(self):
+        self.assertFalse(any(c[:2] in (['git','commit'],['git','push']) for c in self.commands))
+
+    def test_copy_once_preserves_existing_different_destination(self):
+        dest=self.root/'immutable.txt';dest.write_text('old')
+        with self.assertRaisesRegex(RuntimeError,'collision'):p.copy_once(self.file,dest)
+        self.assertEqual(dest.read_text(),'old')
+
+    def test_copy_once_identical_source_is_idempotent(self):
+        dest=self.root/'copy.json';p.copy_once(self.file,dest);p.copy_once(self.file,dest)
+        self.assertEqual(p.sha(self.file),p.sha(dest))
+
+    def test_bound_content_change_is_rejected(self):
+        self.file.write_text('changed')
+        with self.assertRaisesRegex(RuntimeError,'input changed'):self.invoke()
+        self.assertFalse(self.commands)
+
+    def test_existing_publication_receipt_prevents_blind_repeat(self):
+        p.write(self.out/'registration_publication_completion.json',{'status':'PUSHED'})
+        with self.assertRaisesRegex(RuntimeError,'already has a receipt'):self.invoke()
+        self.assertFalse(self.commands)
+
+    def test_outside_allowlist_fails_before_git(self):
+        forbidden=self.root/'src/not-a-result.py';p.write(forbidden,{'keep':'untouched'})
+        p.write(self.out/'registration_publication_inventory.json',{'files':{str(forbidden):p.sha(forbidden)}})
+        with self.assertRaisesRegex(RuntimeError,'outside scope'):self.invoke()
+        self.assertFalse(self.commands)
+
+    def test_size_limit_fails_before_git(self):
+        self.file.write_bytes(b'x'*10_000_000)
+        p.write(self.out/'registration_publication_inventory.json',{'files':{str(self.file):p.sha(self.file)}})
+        with self.assertRaisesRegex(RuntimeError,'Oversize'):self.invoke()
+        self.assertFalse(self.commands)
+
+    def test_unrelated_staging_is_preserved(self):
+        self.staged={'unrelated.py'}
+        with self.assertRaisesRegex(RuntimeError,'Unrelated staged'):self.invoke()
+        self.assert_no_commit_or_push();self.assertFalse(any(c[:2]==['git','add'] for c in self.commands))
+
+    def test_non_main_branch_refuses(self):
+        def command(root,args):
+            result=self.fake_run(root,args)
+            return 'other\n' if args==['git','branch','--show-current'] else result
+        with self.assertRaisesRegex(RuntimeError,'Unexpected publication branch'):self.invoke(callback=command)
+        self.assert_no_commit_or_push()
+
+    def test_registration_stages_only_allowlist_and_manifest(self):
+        self.invoke();done=p.read(self.out/'registration_publication_completion.json')
+        self.assertEqual(done['status'],'PUSHED');self.assertEqual(done['commit'],done['remote_commit']);self.assertEqual(done['files'],self.files)
+        self.assertEqual(set(done['checks_passed']),{'manifest','repository','cpu'})
+        self.assertEqual(self.staged,{self.file.relative_to(self.root).as_posix(),'release_manifest.json'})
+        self.assertTrue(done['no_force_push']);self.assertFalse(any('--force' in c for c in self.commands))
+
+    def test_remote_advance_before_commit_refuses(self):
+        def command(root,args):
+            result=self.fake_run(root,args)
+            if args[:2]==['git','ls-remote'] and self.remote_calls==2:return 'c'*40+'\trefs/heads/main\n'
+            return result
+        with self.assertRaisesRegex(RuntimeError,'Remote advanced'):self.invoke(callback=command)
+        self.assert_no_commit_or_push();self.assertFalse((self.out/'registration_publication_completion.json').exists())
+
+    def test_index_escape_refuses(self):
+        def command(root,args):
+            result=self.fake_run(root,args)
+            if args==['cpu-python','tools/run_cpu_checks.py']:self.staged.add('src/unrelated.py')
+            return result
+        with self.assertRaisesRegex(RuntimeError,'index escaped'):self.invoke(callback=command)
+        self.assert_no_commit_or_push()
+
+    def test_changed_input_during_checks_refuses(self):
+        def command(root,args):
+            result=self.fake_run(root,args)
+            if args==['cpu-python','tools/run_cpu_checks.py']:self.file.write_text('changed during checks')
+            return result
+        with self.assertRaisesRegex(RuntimeError,'input changed'):self.invoke(callback=command)
+        self.assert_no_commit_or_push()
+
+    def a2_fixture(self):
+        a2=self.out/'A2';a2.mkdir();reg=a2/'registration.json'
+        dependency=self.root/'source.py';dependency.write_text('frozen')
+        p.write(reg,dict(source_bindings={str(dependency):p.sha(dependency)},input_bindings={str(dependency):p.sha(dependency)}))
+        artifact=a2/'science.json';p.write(artifact,{'unchanged':'observations'})
+        for stage in ('preflight','calibrate','receive_development','render_development','score','report'):
+            outputs=self.files if stage=='report' else {str(artifact):p.sha(artifact)}
+            p.write(a2/(stage+'_completion.json'),dict(status='COMPLETE',stage=stage,registration_sha256=p.sha(reg),outputs=outputs))
+        for rel in ['owner_config.json','owner_identity.json','launch.json','A2/assets/a2_development_tokens.json','A2/frozen_workpoints.json']:
+            p.write(self.out/rel,{'evidence':rel})
+        a1=self.root/'outputs/M1-ACTION-SPACE-CLOSURE-20261005'
+        pub=a1/'publication_completion.json';recovery=a1/'recovery_r1/completion.json'
+        p.write(pub,dict(status='PUSHED_AND_STOPPED',commit='a'*40))
+        p.write(recovery,dict(status='RECOVERY_DELIVERED_AND_STOPPED',publication_completion_sha256=p.sha(pub)))
+        for rel in ['recovery_r1/recovery_owner_identity.json','recovery_r1/launch.json','recovery_r1/barriers/production/PARENT_REAPED.json']:
+            p.write(a1/rel,{'evidence':rel})
+        p.write(a2/'a1_release_gate.json',dict(status='VERIFIED_A1_PUBLISHED_AND_EXITED',publication_path=str(pub),publication_sha256=p.sha(pub),
+            recovery_completion_path=str(recovery),recovery_completion_sha256=p.sha(recovery)))
+        return a2,a1
+
+    def test_complete_a2_inventory_includes_six_stage_and_final_a1_evidence(self):
+        a2,a1=self.a2_fixture();self.invoke('a2');done=p.read(self.out/'a2_publication_completion.json')
+        base=self.root/'results/parallel_v2_20261005/A2/execution_evidence'
+        for stage in ('preflight','calibrate','receive_development','render_development','score','report'):
+            path=base/'A2'/(stage+'_completion.json');self.assertEqual(done['files'][str(path)],p.sha(a2/(stage+'_completion.json')))
+        for rel in ['publication_completion.json','recovery_r1/completion.json','recovery_r1/barriers/production/PARENT_REAPED.json']:
+            self.assertEqual(done['files'][str(base/'A1_final_runtime'/rel)],p.sha(a1/rel))
+
+    def test_a2_report_registration_mismatch_refuses_before_git(self):
+        a2,_=self.a2_fixture();report=p.read(a2/'report_completion.json');report['registration_sha256']='wrong';p.write(a2/'report_completion.json',report)
+        with self.assertRaisesRegex(RuntimeError,'report is not complete'):self.invoke('a2')
+        self.assertFalse(self.commands)
+
+    def test_missing_a2_stage_receipt_refuses_before_git(self):
+        a2,_=self.a2_fixture();(a2/'receive_development_completion.json').unlink()
+        with self.assertRaises(FileNotFoundError):self.invoke('a2')
+        self.assertFalse(self.commands)
+
+    def test_a2_intermediate_stage_from_other_registration_refuses(self):
+        a2,_=self.a2_fixture();path=a2/'receive_development_completion.json';receipt=p.read(path)
+        receipt['registration_sha256']='another-study';p.write(path,receipt)
+        with self.assertRaisesRegex(RuntimeError,'Incomplete A2 stage'):self.invoke('a2')
+        self.assertFalse(self.commands)
+
+    def test_a2_intermediate_science_changed_after_report_refuses(self):
+        a2,_=self.a2_fixture();(a2/'science.json').write_text('changed')
+        with self.assertRaisesRegex(RuntimeError,'input changed'):self.invoke('a2')
+        self.assertFalse(self.commands)
+
+    def test_a1_receipt_changed_since_release_gate_refuses(self):
+        _,a1=self.a2_fixture();path=a1/'publication_completion.json';pub=p.read(path);pub['commit']='c'*40;p.write(path,pub)
+        with self.assertRaisesRegex(RuntimeError,'differs from release gate'):self.invoke('a2')
+        self.assertFalse(self.commands)
+
+
+if __name__=='__main__':unittest.main()
