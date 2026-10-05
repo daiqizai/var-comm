@@ -1,0 +1,62 @@
+"""Run synthetic CPU tests, then prepare pinned requests; launch no science."""
+from pathlib import Path
+import argparse, hashlib, json, os, subprocess, time
+
+R=Path('REPO')
+O=R/'outputs/CONTENT-REAL-64QAM-20261006'
+H=O/'H'; E=R/'experiments/content-real-64qam-20261006'
+
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def pin(p):return dict(path=str(p),sha256=sha(p))
+def save(p,v):
+    with p.open('x') as f:json.dump(v,f,indent=2,sort_keys=True);f.write('\n');f.flush();os.fsync(f.fileno())
+
+def main():
+    a=argparse.ArgumentParser();a.add_argument('--kind',choices=('closeout','selection'),required=True);kind=a.parse_args().kind
+    python=R/'outputs/UNIFIED-METRICS-20261002/environment/bin/python'
+    if kind=='closeout':
+        folder=O/'prepared_v1/render_closeout_qualification'
+        names=['certify_render_closeout.py','test_certify_render_closeout.py']
+        tests=['test_certify_render_closeout.py']
+        status='H_RENDER_CLOSEOUT_CPU_QUALIFICATION_PASS'
+    else:
+        folder=O/'prepared_v1/initial_selection_r2_qualification'
+        names=['register_initial_selection_r2.py','test_register_initial_selection_r2.py',
+               'register_initial_selection.py','test_register_initial_selection.py','h_payload_select.py','test_h_payload_select.py']
+        tests=['test_register_initial_selection_r2.py','test_register_initial_selection.py','test_h_payload_select.py']
+        status='H_INITIAL_SELECTION_R2_CPU_QUALIFICATION_PASS'
+    assert not folder.exists(),'Preserve an existing attempt; diagnose before another version'
+    folder.mkdir()
+    env=dict(os.environ,CUDA_VISIBLE_DEVICES='',OMP_NUM_THREADS='2',MKL_NUM_THREADS='2',OPENBLAS_NUM_THREADS='2',PYTHONDONTWRITEBYTECODE='1')
+    results=[]
+    for test in tests:
+        p=subprocess.run([str(python),'-B',str(E/test)],cwd=E,env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True)
+        log=folder/(test+'.log');log.write_text(p.stdout)
+        results.append(dict(test=test,exit_code=p.returncode,log=pin(log)))
+        print(test,p.returncode,flush=True)
+    sources={str(E/n):sha(E/n) for n in names}
+    sources[str(Path(__file__).resolve())]=sha(__file__)
+    passed=all(v['exit_code']==0 for v in results)
+    receipt=folder/('completion.json' if passed else 'failure.json')
+    save(receipt,dict(status=status if passed else 'FAILED_PRESERVE_NO_LAUNCH',results=results,source_bindings=sources,
+         GPU_used=False,new_packet_decodes=0,created_unix=time.time()))
+    assert passed,'Synthetic qualification failed; no registration'
+    if kind=='closeout':
+        request=dict(schema='H_RENDER_CLOSEOUT_REQUEST_V1',root=str(R),execution_dir=str(H/'render_closeout_v1'),cpu_affinity=[24,25])
+        paths=dict(original_owner_config=H/'render_execution_r1/owner_config.json',original_registration=H/'render_execution_r1/execution_registration.json',
+                   original_launch=H/'render_execution_r1/launch.json',render_config=H/'render_execution_r1/render_config.json',
+                   diagnosis=H/'render_exit_recovery_r2/diagnosis.json',failure_archive=H/'render_exit_recovery_r2/failure_archive_receipt.json',
+                   renderer_stop_evidence=H/'render_exit_recovery_r2/renderer_stop_evidence.json',prepared_qualification=receipt)
+    else:
+        request=dict(schema='H_INITIAL_SELECTION_REGISTRATION_REQUEST_R2',execution_dir=str(H/'initial_selection_execution_r2'),
+                     selection_out=str(H/'initial_selection200_r2'),python=str(python),max_seconds=3600)
+        paths=dict(render_owner_config=H/'render_execution_r1/owner_config.json',render_registration=H/'render_execution_r1/execution_registration.json',
+                   render_owner_launch=H/'render_execution_r1/launch.json',render_config=H/'render_execution_r1/render_config.json',
+                   selector_module=E/'h_payload_select.py',interpretation=H/'PRESCREEN_INTERPRETATION_V1.json',prepared_qualification=receipt,
+                   closeout_registration=H/'render_closeout_v1/execution_registration.json',closeout_certificate=H/'render_closeout_v1/completion.json',
+                   stop_release=H/'render_closeout_v1/release_receipt.json',closeout_completion=H/'render_closeout_v1/closeout_completion.json')
+    request.update({k:pin(p) for k,p in paths.items()})
+    save(folder/'request.json',request)
+    print(json.dumps(dict(status=status,request=str(folder/'request.json'),request_sha256=sha(folder/'request.json'))))
+
+if __name__=='__main__':main()

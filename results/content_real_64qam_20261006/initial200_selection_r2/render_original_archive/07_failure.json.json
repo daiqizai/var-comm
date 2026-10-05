@@ -1,0 +1,33 @@
+{
+  "status": "IMMUTABLE_CLOSED_ENGINEERING_EVIDENCE_COPY",
+  "original_path": "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/render_execution_r1/failure.json",
+  "preserved_source_path": "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/render_exit_recovery_r2/original_attempt/render_execution_r1/failure.json",
+  "original_raw_sha256": "498904e98a009ea3d8cf3e7f7a4f5a32850a04fbb99565921af7bd61c098bd92",
+  "original_raw_bytes": 1511,
+  "closed_evidence": true,
+  "content_encoding": "JSON_VALUE",
+  "content": {
+    "status": "FAILED_PRESERVE_AND_DIAGNOSE",
+    "traceback": "Traceback (most recent call last):\n  File \"REPO/experiments/content-real-64qam-20261006/stage_owner.py\", line 402, in run\n    else:check_live(row['process'],row['identity'])\n  File \"REPO/experiments/content-real-64qam-20261006/stage_owner.py\", line 84, in check_live\n    try:current=reader(proc.pid)\n  File \"REPO/experiments/content-real-64qam-20261006/stage_owner.py\", line 73, in identity\n    require(fields[0] not in ('Z','X'),'Process is no longer live')\n  File \"REPO/experiments/content-real-64qam-20261006/stage_owner.py\", line 31, in require\n    raise RuntimeError(message)\nRuntimeError: Process is no longer live\n",
+    "registration_sha256": "a1e176bfd0c937a8bb36148bc27875d4dd3d13d0eab9e223b8969cb283745750",
+    "time": 1791234734.9974732,
+    "current_stage": "render",
+    "active": [
+      {
+        "job": "render",
+        "identity": {
+          "pid": 444971,
+          "start_ticks": 188215204,
+          "uid": 1002,
+          "argv": [
+            "REPO/outputs/UNIFIED-METRICS-20261002/environment/bin/python",
+            "-B",
+            "REPO/experiments/content-real-64qam-20261006/h_payload_render_driver.py",
+            "--config",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/render_execution_r1/render_config.json"
+          ]
+        }
+      }
+    ]
+  }
+}
