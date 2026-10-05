@@ -1,0 +1,45 @@
+{
+  "root": "${REPO}",
+  "out": "${OUT}/H/initial_true200",
+  "registration": "${OUT}/H/initial_execution/execution_registration.json",
+  "protocol": "${OUT}/H_CODEC_PROTOCOL.json",
+  "engineering_contract": "${OUT}/H/initial_execution/engineering_contract.json",
+  "runtime_dir": "${REPO}/experiments/content-real-64qam-20261006",
+  "legacy_runtime": "${REPO}/experiments/prior-aware-grouped-mcs-v1",
+  "budget_registration": "${OUT}/resource_budget.json",
+  "budget_registration_sha256": "FILL_ORIGINAL_BUDGET_FILE_SHA256",
+  "ledger": "${OUT}/H/packet_budget.sqlite",
+  "ledger_module": "${REPO}/experiments/content-real-64qam-20261006/budget_ledger.py",
+  "catalogue": "${OUT}/H/qualification/catalogue.json",
+  "reference_qualification": "${REPO}/outputs/PRIOR-AWARE-UEP-20261004-V1/ldpc_qualification.json",
+  "qualification_completion": "${OUT}/H/qualification/completion.json",
+  "shortlist": "${FINAL_PRESCREEN}/shortlist.json",
+  "prescreen_completion": "${FINAL_PRESCREEN}/completion.json",
+  "source_completion": "${OUT}/H/source200/completion.json",
+  "S1_completion": "${S1}/completion.json",
+  "S1_assets_completion": "${S1}/export-assets/completion.json",
+  "source200": "${S1}/source200.json",
+  "phase_limits": {
+    "qualification": 2000,
+    "coarse": 49152,
+    "refine": 12288,
+    "initial_true200": 20000,
+    "whole_calibration": 48000,
+    "partial_calibration": 36000,
+    "development": 13200,
+    "engineering_reserve": 19360
+  },
+  "workers": 2,
+  "cpu_affinities": [
+    [
+      0,
+      1
+    ],
+    [
+      2,
+      3
+    ]
+  ],
+  "max_worker_seconds": 14400,
+  "stop_file": "${OUT}/H/initial_true200/STOP"
+}

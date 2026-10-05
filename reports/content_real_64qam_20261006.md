@@ -35,3 +35,9 @@
 已在正式误块率数据产生前冻结[预筛解释与接续规则](../results/content_real_64qam_20261006/prescreen_registration_v1/PRESCREEN_SCHEDULE.md)，并启动独立CPU等待器。它在质量表和正式误块率批次全部收尾后运行完整候选排名；若需要精化，只登记请求，不自动调用额外译码。
 
 [新增工程测试与执行登记](../results/content_real_64qam_20261006/prescreen_registration_v1/PUBLIC_EXPORT_MANIFEST.json)已保存。尚无新的系统质量结论。
+
+## 后续接收与选策代码准备
+
+[准备范围和模拟测试](../results/content_real_64qam_20261006/prepared_execution_v1/PREPARED_CODE.md)已归档。新增有界精化、实际载荷接收、独立算术源解码与重建，以及200源逐帧PSNR选策代码；接收阶段不读取发送端真值。
+
+这些代码尚未登记或启动科学运行。完整1000源校准、全部指标、正式评测、发送端计时和C-REAL仍待完成，当前没有新的系统质量结论。

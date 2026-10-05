@@ -1,0 +1,23 @@
+{
+  "schema": "H_REFINEMENT_ENGINEERING_CONTRACT_V1",
+  "status": "DRAFT_REQUIRES_EXECUTION_REGISTRATION",
+  "scientific_protocol_changed": false,
+  "selection": "Only the at most2 cells in the frozen coarse prescreen refinement_requests; no new ranking and no replacement cell",
+  "phase": "refine",
+  "additional_packets_per_cell": 6144,
+  "old_packets_per_cell": 2048,
+  "merged_packets_per_cell": 8192,
+  "maximum_total_additional_body_calls": 12288,
+  "header_calls": 0,
+  "random_seed": 2026100602,
+  "random_namespace": "SHA256(canonicalJSON[H protocol,refine,2026100602,layout_id,SNR,global_index,stream]); first16 bytes little-endian seed PCG64; stream payload or noise",
+  "global_indices": "2048..8191; coarse indices0..2047 and coarse namespace are both disjoint",
+  "public_scrambling_session": "H_REFINE_R1",
+  "public_frame_counter": "2026100602*100000+100000+layout_index*2*6144+main_snr_index*6144+(global_index-2048); disjoint from old coarse counter range",
+  "message": "Same as coarse: uniform independent source_capacity bits, actual13-bit length, zero padding andCRC16; no source-model parsing",
+  "noise": "Same frozen AWGN Es2 convention and float32 waveform construction as coarse; no per-frame power normalization",
+  "parallel": "One worker per requested cell, one or two workers; each two CPU cores/threads, nice15, CUDA hidden",
+  "failure": "Each actual decoder is prepaid through the existing immutable H ledger. STOP/SIGTERM acts before the next packet; a started call finishes or leaves durable FAILED/RESERVED evidence. No automatic retries, refunds, cell replacement or quota transfers",
+  "merge": "Verify original coarse CSV and summary hashes, preserve their exact2048 observations, append the new6144 and calculate merged C/R/U plus energy distributions from all8192 actual rows",
+  "execution": "Local implementation contract only; no science starts until this document, entrypoints, inputs, exactCPU allocation and configuration are bound by a new H_EXECUTION_REVISION_REGISTERED receipt"
+}

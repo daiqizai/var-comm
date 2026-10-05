@@ -1,0 +1,36 @@
+{
+  "status": "H_PAYLOAD_CPU_ENGINEERING_SEALED",
+  "core_source_sha256": "5801c4947d2b5dbd3d82a57f7e69a1326557b5e823036382344f634526300f2d",
+  "protocol_canonical_sha256": "45477bd51c39dd9af8440b38caa0e26eec3cc9dd079917e6cd1bb1294db2ddeb",
+  "catalogue_canonical_sha256": "d8248ecb9d13bda527531d433e3750912c3f8b67d0406f2a0feb9692417951a0",
+  "shortlist_canonical_sha256": "FILL_FINAL_READY_SHORTLIST_CANONICAL_SHA256",
+  "engineering_choices_sha256": "95762c1155c037b6e1083e5142248c94b9ae7720419e1c13bfba351c0957979b",
+  "engineering_choices": {
+    "schema": "H_INITIAL_TRUE200_CPU_CHOICES_V1",
+    "phase": "initial_true200",
+    "noise_identity": [
+      "CONTENT-REAL-64QAM-H-20261006-V1",
+      "initial_true200",
+      "source_id",
+      "integer_snr_db",
+      "integer_noise_seed"
+    ],
+    "json": "ensure_ascii=True,sort_keys=True,separators=(comma,colon),allow_nan=False; UTF8",
+    "seed": "SHA256 first16 bytes interpreted little-endian unsigned integer",
+    "generator": "numpy.random.Generator(numpy.random.PCG64(seed))",
+    "noise": "one standard_normal((1024,2)) float64 draw; no candidate/arm/profile fields",
+    "received": "(float64 transmitted_wave + 10**(-snr_db/20)*float64 noise).astype(float32)",
+    "source_order": "exact frozen shortlist source_ids; 200 entries",
+    "candidate_slot": "frozen whole_candidates.slot, global0..15; source-independent",
+    "counter": "((slot*200+source_index)*3+SEEDS.index(noise_seed))",
+    "scrambling_session": "H_INITIAL_TRUE200_V1",
+    "scrambling_group": 0,
+    "event": "H:initial_true200:<candidate_id>:snr<SNR>:src<index4digits>:seed<seed>",
+    "codebook": "all admitted frozen catalogue profiles, original paid profile_id unchanged",
+    "awgn_shared": "same underlying Gaussian, not same received waveform",
+    "cpu_boundary": "frame CRC/L/padding parsing; raw bits to tokens; arithmetic source decoding deferred",
+    "ledger": "existing H ledger; every actual header/body callback uses initial_true200",
+    "source_cache": "read only m6_bits..m9_bits from bound source200 NPZ; no image arrays loaded",
+    "execution": "no real decoder call until a new contract binds these choices and this module"
+  }
+}

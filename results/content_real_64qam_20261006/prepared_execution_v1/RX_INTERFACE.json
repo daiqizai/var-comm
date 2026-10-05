@@ -1,0 +1,74 @@
+{
+  "schema": "H_INITIAL_TRUE200_RX_CORE_INTERFACE_V1",
+  "status": "PURE_CORE_IMPLEMENTED_GPU_STAGE_NOT_IMPLEMENTED_NOT_REGISTERED",
+  "scope": "Actual H received content reconstruction and original PSNR, after complete CPU frame traces; no selection, new PHY, development or model training",
+  "API": {
+    "extract": "receiver_view(trace) -> {rx,recorded_rx_profile}; reads no other trace fields",
+    "pure_receiver": "Receiver(catalogue, primitives=bound_arithmetic_primitives, provider_factory=fresh_RX_factory, render_tokens=callable, inference_context=context_factory)",
+    "native_adapter": "frozen_native_receiver(native,primitives,catalogue) -> Receiver; constructs no model; preserves original flags; fresh IndependentProvider per arithmetic stream",
+    "reconstruct": "Receiver.reconstruct(receiver_view(trace)) -> {image float32(3,256,256), received_tokens int64 or null, summary}",
+    "score": "score_reconstruction(result,target_u8,expected_preprocessing_sha256=originalSHA) -> mse,psnr_db,target/image SHA",
+    "evaluation_only": "evaluation_diagnostics(result,trace.evaluation_only) after reconstruction; diagnostics never reach reconstruct or render_tokens"
+  },
+  "receiver_contract": {
+    "profile": "Reconstruct public format from actual rx.header.profile_id and complete bound catalogue; validate redundant rx_profile exactly",
+    "body": "Check actual body profile_key and digest(bucket.layout); reparse decoded_bits with frozen parse_body and require all recorded parse fields/status agree",
+    "raw": "Decode actual payload bits to actual tokens, including wrong accepted content and partial profiles selected by a wrong accepted legal header",
+    "arithmetic": "Only actual payload and received m enter frozen decode_prefix; independent RX-only probability state; bounded30-zero lookahead and exact canonical reencode",
+    "gray": "Only actual header rejection, body CRC/length/padding rejection or InvalidCodeStream from canonical source decoding; RGB0.5",
+    "failures": "Malformed evidence, inconsistent paid profile/body parse, model/resource errors and invalid renderer outputs raise; they are never converted into successful gray samples",
+    "source_truth": "No TX tokens, TX profile, clean image, source ID, labels, actual transmitted stream or correctness flags enter receiver reconstruction",
+    "targets": "Original pixels are passed only to the separate post-reconstruction scorer; preserve original uint8-to-float32 /255 then float64 MSE",
+    "cache": "No cache implemented in this core. Renderer is injected for a future separately bound exact-RX-input deterministic cache; this version reports no cache use",
+    "accounting": "No header or LDPC decoder import/call. CRC/format reparse and source arithmetic decode do not create new packet events; CPU ledger remains authoritative"
+  },
+  "CPU_input_schema_from_delivery": {
+    "trace_path": "CPU_OUT/worker_i/traces/NNNN.json",
+    "bundle_status": "H_INITIAL_CPU_SOURCE_TRACES",
+    "bundle_fields": [
+      "registration_sha256",
+      "source_id",
+      "source_index",
+      "frames",
+      "source_bindings"
+    ],
+    "source_checkpoint": "CPU_OUT/worker_i/source_checkpoints/NNNN.json binds trace SHA",
+    "merge_status": "H_INITIAL_TRUE200_CPU_RECEIVE_COMPLETE",
+    "merge_must_state": {
+      "images_scored": false,
+      "source_decode_complete": false
+    },
+    "real_header_fields": [
+      "header_ok",
+      "header_crc_ok",
+      "header_fields_legal",
+      "profile_id"
+    ],
+    "body_fields": "Original decoded_bits, parsed status/CRC/L/padding/payload, profile_key, phy_key; no substitution from TX"
+  },
+  "required_full_GPU_stage_gate_not_yet_implemented": [
+    "Independent execution revision/config/source bindings for h_payload_rx, tests, frozen h64_catalog/phy/source and h_source_driver helpers; no modification of original frozen modules",
+    "Bind CPU merge completion and execution registration; verify all worker/source checkpoints, trace/archive outputs, source ID order and exact frozen candidate/SNR/seed Cartesian coverage",
+    "Verify original H budget registration/path/phase limits and zero FAILED/RESERVED; verify all CPU workers and owner exited before the GPU batch; no new packet events during RX",
+    "Bind final ready_for_real_calibration shortlist and ENGINEERING_CHOICES/CPU seal with actual source/input SHAs; do not use provisional coarse shortlist while refinement remains required",
+    "Bind H source200, S1 export-assets completion/checkpoints and original calibration visual/preprocessing identity; target pixels loaded only for their exact source after reconstruction",
+    "Admit one exclusive visual GPU through frozen guard/owner; retain original six-thread/native numeric flags and bound VAR/VQ/Encoder/Dc weights; source-bound dependencies include old arithmetic classes and CDF code",
+    "Per-source safe STOP and immutable completion checkpoints; preserve failure, actual CPU trace and already rendered output; no blind restart or truth correction",
+    "Only report source_decode_complete after all frames, including every rejection and every U, have a final source status and image/PSNR; reject unresolved arithmetic state",
+    "Stage completion binds scientific outputs only. Closed logs/launch/exit belong to owner receipts. Global96-hour deadline and original H quota partitions unchanged"
+  ],
+  "proposed_full_stage_outputs_not_emitted_here": {
+    "per_source": "Float32 reconstruction NPZ indexed by stable logical frame event; metrics rows include source/SNR/seed/frozen candidate and actual received profile/status",
+    "checkpoint": "registration/config/input trace SHA, outputs absolute path->SHA, frame count and final source-status counts",
+    "completion": "H_INITIAL_TRUE200_RX_COMPLETE with images_scored=true, source_decode_complete=true, new_packet_decodes=0, exact all-frame coverage, no policy selection or full-H delivery claim",
+    "all_frame_RGB_upper_bound_bytes": 7549747200,
+    "size_basis": "At most16 frozen candidate/SNR rows x200 sources x3 noises x3 channels x256x256 x4bytes, before exact input dedup or container overhead"
+  },
+  "local_validation": {
+    "tests": 13,
+    "test_scope": "Frozen pure arithmetic encoder/decoder with synthetic uniform CDFs; fake image renderer; no PHY decoder, GPU model, real source dataset or channel",
+    "actual_GPU_numerical_qualification": "NOT_RUN",
+    "actual_stage_launch": "NOT_RUN",
+    "full_driver_or_scheduler_ready": false
+  }
+}
