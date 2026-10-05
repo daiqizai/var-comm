@@ -1,0 +1,208 @@
+"""Small CPU-only integration checks for frozen-policy reporting, no model search."""
+import csv
+import hashlib
+import importlib.util
+import json
+from pathlib import Path
+import tempfile
+import unittest
+from unittest.mock import patch
+import time
+
+import numpy as np
+import content_report as report
+import content_owner as owner
+
+HERE = Path(__file__).resolve().parent
+AUX = HERE.parent / 'two_stage_feedback_20261005/runtime/auxiliary.py'
+
+
+def save(path, data):
+    Path(path).write_text(json.dumps(data, allow_nan=False) + '\n', encoding='utf8')
+
+
+def read_csv(path):
+    with Path(path).open(encoding='utf8', newline='') as f:
+        return list(csv.DictReader(f))
+
+
+class Fixture:
+    def __init__(self, root):
+        self.root = Path(root)
+        self.model = self.root / 'model'
+        self.model.mkdir()
+        self.sources = ['source%04d' % i for i in range(1000)]
+        self.states = ['gray', 'm4_K0', 'm5_K0']
+        self.q = np.stack([np.zeros(1000), np.linspace(.1, .5, 1000), np.linspace(.2, .6, 1000)])
+        self.quality = self.root / 'quality.csv'
+        columns = ['source_id', 'state_id', 'receiver', 'population', 'generation', 'label_conditioned',
+                   'dinov2_vitl14_cosine', 'psnr_db', 'resnet50_top1_source_prediction']
+        with self.quality.open('w', encoding='utf8', newline='') as f:
+            writer = csv.DictWriter(f, columns, lineterminator='\n')
+            writer.writeheader()
+            for j, source in enumerate(self.sources):
+                for i, state in enumerate(self.states):
+                    writer.writerow(dict(source_id=source, state_id=state, receiver='gray' if i == 0 else 'VAR',
+                        population='calibration', generation='constant_RGB_0.5' if i == 0 else 'unconditional_class1000_greedy_argmax_no_CFG_no_sampling',
+                        label_conditioned=False, dinov2_vitl14_cosine=self.q[i, j],
+                        psnr_db=10 + 5 * i + j / 1000, resnet50_top1_source_prediction=j % 2 if i else 0))
+        bundle = self.root / 'quality_bundle.json'
+        save(bundle, dict(table_sha256=report.sha(self.quality)))
+        reg = self.root / 'quality_registration.json'
+        save(reg, dict(score_identity={'model_metadata': {'source': 'test-only synthetic metric fixture'}}))
+        self.manifest = self.root / 'manifest.json'
+        save(self.manifest, dict(assets={key: dict(path=str(path), sha256=report.sha(path)) for key, path in
+            [('quality_csv', self.quality), ('quality_bundle', bundle), ('quality_registration', reg)]}))
+        for snr in (4, 7, 10, 13):
+            folder = self.model / ('snr' + str(snr))
+            folder.mkdir()
+            save(folder / 'selected_profiles.json', dict(source_ids=self.sources, state_ids=self.states,
+                construction_only=True, receiver_uses_source_id=False))
+            save(folder / 'split.json', dict(construction_source_ids=self.sources[:800], verification_source_ids=self.sources[800:]))
+            data = {}
+            for method, state_index in [('QCSI-U', 1), ('QCSI-C8', 2)]:
+                w = np.zeros((1000, 3))
+                w[:, state_index] = .8
+                data[method + '__weights'] = w
+                data[method + '__bad_probability'] = np.full(1000, .2)
+                data[method + '__quality_point'] = .8 * self.q[state_index]
+            np.savez(folder / 'source_weights.npz', **data)
+            save(folder / 'model_screen.json', dict(average_snr_db=snr, internal200_C8_minus_U=.08,
+                this_snr_passes=True, threshold=.03, minimum_passing_snrs=2, status='MODEL_SCREEN_COMPLETE'))
+            save(folder / 'sender_cost.json', dict(measured_online_latency=False))
+            save(folder / 'numerical_diagnostic.json', dict(status='FROZEN_CHOICES', reselected=False))
+            save(folder / 'sensitivity.json', dict(status='FROZEN_POLICY_MODEL_ASSUMPTION_DIAGNOSTICS',
+                rows=[dict(scenario='low_tail_all_U', internal200_C8_minus_U=.01, reselected=False)],
+                selected_packet_tail_masses=[dict(phy_key='fixture', probability_below_lowest=.1)]))
+            self.bind(folder)
+
+    def bind(self, folder):
+        paths = [p for p in folder.iterdir() if p.name != 'completion.json']
+        save(folder / 'completion.json', dict(status='COMPLETE', new_PHY_decodes=0, new_neural_inference=0,
+            selection_on='construction800', review_sources=200, development_read=False,
+            outputs={str(p): report.sha(p) for p in paths}))
+
+    def run(self, output='report'):
+        out = self.root / output
+        report.report(self.model, self.manifest, AUX, out)
+        return out
+
+
+class ContentReportTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.fixture = Fixture(self.temp.name)
+
+    def test_source_paired_intervals_and_unknown_quality_remain_distinct(self):
+        out = self.fixture.run()
+        rows = read_csv(out / 'paired_differences.csv')
+        dino = next(r for r in rows if r['metric'] == 'dinov2_vitl14_cosine')
+        # Shared per-source trend cancels, so paired known contribution has zero-width CI.
+        self.assertAlmostEqual(float(dino['known_contribution_source_ci_low']), .08, places=12)
+        self.assertAlmostEqual(float(dino['known_contribution_source_ci_high']), .08, places=12)
+        self.assertEqual(dino['total_difference'], '')
+        self.assertAlmostEqual(float(dino['total_difference_lower']), -.32)
+        self.assertAlmostEqual(float(dino['total_difference_upper']), .48)
+        psnr = next(r for r in rows if r['metric'] == 'psnr_db')
+        self.assertEqual(psnr['total_difference'], '')
+        self.assertEqual(psnr['total_difference_lower'], '')
+        self.assertEqual(psnr['total_difference_upper'], '')
+        source_rows = read_csv(out / 'internal200_per_source_metrics.csv')
+        self.assertEqual({r['source_id'] for r in source_rows}, set(self.fixture.sources[800:]))
+        self.assertFalse(any(r['total_value'] for r in source_rows))
+
+    def test_reporting_does_not_rewrite_selection_or_frozen_inputs(self):
+        paths = [p for p in self.fixture.root.rglob('*') if p.is_file()]
+        before = {str(p): report.sha(p) for p in paths}
+        out = self.fixture.run()
+        self.assertEqual(before, {p: report.sha(p) for p in before})
+        result = json.loads((out / 'gate.json').read_text())
+        self.assertFalse(result['measured_actual_fading_gain'])
+        self.assertFalse(result['automatic_followup'])
+        self.assertFalse(result['internal200_independent_holdout'])
+
+    def test_frozen_quality_corruption_is_rejected(self):
+        with self.fixture.quality.open('a', encoding='utf8') as f:
+            f.write('changed\n')
+        with self.assertRaisesRegex(RuntimeError, 'Frozen input differs'):
+            self.fixture.run()
+
+    def test_duplicate_review_sources_are_rejected_even_when_count_is200(self):
+        folder = self.fixture.model / 'snr4'
+        split = json.loads((folder / 'split.json').read_text())
+        split['verification_source_ids'][-1] = split['verification_source_ids'][0]
+        save(folder / 'split.json', split)
+        self.fixture.bind(folder)
+        with self.assertRaises(RuntimeError):
+            self.fixture.run()
+
+    def test_frozen_model_screen_must_match_replayed_review_gain(self):
+        folder = self.fixture.model / 'snr4'
+        screen = json.loads((folder / 'model_screen.json').read_text())
+        screen.update(internal200_C8_minus_U=-.08, this_snr_passes=False)
+        save(folder / 'model_screen.json', screen)
+        self.fixture.bind(folder)
+        with self.assertRaises(RuntimeError):
+            self.fixture.run()
+
+    def test_sensitivity_is_exported_and_runtime_logs_are_not_scientific_outputs(self):
+        out = self.fixture.root / 'report'
+        out.mkdir()
+        (out / 'worker.log').write_text('runtime may continue after report returns\n')
+        self.fixture.run()
+        completion = json.loads((out / 'completion.json').read_text())
+        self.assertNotIn('worker.log', completion['outputs'])
+        tail = json.loads((out / 'tail_diagnostics.json').read_text())
+        self.assertEqual(len(tail), 4)
+        self.assertIn('low_tail_all_U', json.dumps(tail))
+
+
+class OwnerSafetyTests(unittest.TestCase):
+    def test_child_identity_failure_still_terminates_spawned_process(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            config = root/'config.json'
+            registration = root/'registration.json'
+            jobout = root/'job'
+            cfg = dict(output=str(root/'owner'), root=str(root), registration=str(registration),
+                deadline_unix=time.time()+60, per_worker_seconds=60, max_concurrent_workers=1,
+                jobs=[dict(output=str(jobout), argv=['synthetic-worker'], snr=4,
+                           completion=str(jobout/'completion.json'))])
+            save(config, cfg)
+            save(registration, dict(owner_config_sha256=owner.sha(config), input_bindings={}, source_bindings={}))
+
+            class Child:
+                pid = 123456
+                stopped = False
+                def poll(self): return -15 if self.stopped else None
+                def wait(self, timeout=None): self.stopped=True; return -15
+
+            child = Child()
+            def identity(pid):
+                if pid==child.pid:
+                    raise RuntimeError('injected child identity read failure')
+                return dict(pid=pid,start_ticks=1,uid=1,argv=['test'])
+
+            with patch.object(owner.sys, 'argv', ['content_owner.py','--config',str(config)]), \
+                 patch.object(owner.subprocess, 'Popen', return_value=child), \
+                 patch.object(owner, 'identity', side_effect=identity), \
+                 patch.object(owner.os, 'killpg', create=True) as kill:
+                with self.assertRaisesRegex(RuntimeError, 'injected child identity'):
+                    owner.main()
+                kill.assert_called_once_with(child.pid, owner.signal.SIGTERM)
+                self.assertTrue(child.stopped)
+                failure=json.loads((root/'owner/failure.json').read_text())
+                self.assertEqual(failure['active'][0]['identity']['pid'],child.pid)
+
+    def test_changed_registered_source_is_rejected_before_execution(self):
+        with tempfile.TemporaryDirectory() as td:
+            path=Path(td)/'source.py';path.write_text('original')
+            registration=dict(input_bindings={},source_bindings={str(path):owner.sha(path)})
+            path.write_text('changed')
+            with self.assertRaisesRegex(RuntimeError,'Immutable source mismatch'):
+                owner.verify(registration)
+
+
+if __name__ == '__main__':
+    unittest.main()

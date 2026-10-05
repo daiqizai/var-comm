@@ -1,0 +1,158 @@
+"""Single-forward G1/G2 catalogue and same-h probability integration.
+
+No CSI is observed between groups. A single paid header describes the complete
+profile selected after the transmitter receives the public quantized CSI bin.
+"""
+import hashlib
+import json
+import numpy as np
+
+DTYPE = np.dtype([('first', '<i4'), ('second', '<i4'), ('prefix', '<i2'), ('target', '<i2'), ('body', '<i2')])
+
+
+def require(ok, message):
+    if not ok: raise RuntimeError(message)
+
+
+def state_tokens(state):
+    if state == 'gray': return 0
+    m, k = map(int, state[1:].split('_K'))
+    return sum(s * s for s in (1,2,3,4,5,6,8,10,13,16)[:m]) + k
+
+
+def stable_hash(value):
+    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()).hexdigest()
+
+
+class Catalogue:
+    """Every exact existing body layout in the admitted flat G1/G2 family."""
+    def __init__(self, model, maximum_body=924, expected_count=None):
+        self.model = model; self.maximum_body = maximum_body
+        self.group_keys = sorted(model.groups)
+        self.groups = [model.groups[k] for k in self.group_keys]
+        self.group_index = {k:i for i,k in enumerate(self.group_keys)}
+        by_bits = {}
+        for i,g in enumerate(self.groups):
+            if g['symbols'] <= maximum_body: by_bits.setdefault(g['source_bits'], []).append(i)
+        for v in by_bits.values(): v.sort(key=lambda i:(self.groups[i]['symbols'],self.groups[i]['modulation'],self.group_keys[i]))
+        states = list(model.state_ids); target_ids = sorted((i for i,s in enumerate(states) if s!='gray'),key=lambda i:(state_tokens(states[i]),states[i]))
+        self.complete_prefixes = [i for i in target_ids if states[i].endswith('_K0')]
+        rows = []; self.missing = []; suffixes = {}; totals = {}; segments = []
+        for target in target_ids:
+            ids=by_bits.get(12*state_tokens(states[target]), [])
+            if not ids: self.missing.append(dict(kind='G1',target_state=states[target],reason='NO_EXACT_BODY_LAYOUT_WITHIN_924'))
+            rows.extend((g,-1,model.gray_index,target,self.groups[g]['symbols']) for g in ids)
+        g1_count=len(rows)
+        for prefix in self.complete_prefixes:
+            s=states[prefix];firsts=by_bits.get(12*state_tokens(s),[]);suffix=[];missing=0
+            for target in target_ids:
+                if state_tokens(states[target])<=state_tokens(s): continue
+                ids=by_bits.get(12*(state_tokens(states[target])-state_tokens(s)),[])
+                if not ids:
+                    self.missing.append(dict(kind='G2_SUFFIX',prefix_state=s,target_state=states[target],reason='NO_EXACT_BODY_LAYOUT_WITHIN_924'));missing+=1
+                suffix.extend((g,target) for g in ids)
+            suffixes[prefix]=suffix;begin=len(rows)
+            for first in firsts:
+                start=len(rows);cost=self.groups[first]['symbols']
+                rows.extend((first,g,prefix,target,cost+self.groups[g]['symbols']) for g,target in suffix if cost+self.groups[g]['symbols']<=maximum_body)
+                if len(rows)>start:segments.append((start,len(rows),prefix,first))
+            totals[s]=dict(first_layouts=len(firsts),suffix_layouts=len(suffix),legal_G2=len(rows)-begin,missing_suffix_targets=missing)
+        self.rows=np.asarray(rows,dtype=DTYPE);self.segments=segments;self.g1_count=g1_count
+        require(len(self.rows)>0 and np.all(self.rows['body']<=maximum_body),'Empty or over-budget flat catalogue')
+        if expected_count is not None: require(len(self.rows)==expected_count,'Formal complete catalogue count differs from preregistered audit')
+        self._by_bits=by_bits;self._suffixes=suffixes
+        covered=self.original_containment(list(model.profiles)+list(model.extra_profiles))
+        complete_set={states[i] for i in self.complete_prefixes}
+        self.coverage=dict(candidate_count=len(self.rows),G1_count=g1_count,G2_count=len(self.rows)-g1_count,
+            physical_layouts=len(self.groups),quality_states=len(states),complete_prefix_coverage=totals,
+            absent_complete_quality_states=[f'm{m}_K0' for m in range(1,11) if f'm{m}_K0' not in complete_set],
+            missing_exact_layouts=self.missing,original_profile_containment=covered,body_symbols_max=maximum_body,
+            candidate_order='G1 then G2; target and complete-prefix token count ascending; first/second layout by symbols, modulation, PHY key',
+            all_groups_share_h=True,second_header_symbols=0,intermediate_feedback=False,new_PHY=False,
+            receiver_rule='consecutive_crc_accepted_prefix_v1_DROP_extension',partial_order='original_entropy_quality_assets',
+            partial_positions_reexported=False,scope='All existing exact G1 layouts and G2 complete-prefix/suffix pairs with both received states in frozen Q')
+
+    def original_containment(self, profiles):
+        admitted=excluded=0
+        prefixes=set(self.complete_prefixes)
+        for p in profiles:
+            body=sum(g['symbols'] for g in p['groups'])
+            if body>self.maximum_body: excluded+=1;continue
+            target=self.model.state_index[p['full_state_id']]
+            groups=[self.group_index[g['phy_key']] for g in p['groups']]
+            if p['G']==1:
+                require(groups[0] in self._by_bits[12*state_tokens(p['full_state_id'])],'Original G1 missing from common candidate universe')
+            else:
+                prefix=self.model.state_index[p['prefix_state_id']]
+                require(prefix in prefixes and groups[0] in self._by_bits[12*state_tokens(p['prefix_state_id'])]
+                        and (groups[1],target) in self._suffixes[prefix],'Original G2 missing from common candidate universe')
+            admitted+=1
+        return dict(status='ALL_RESOURCE_FEASIBLE_ORIGINAL_PROFILES_INCLUDED',total_profiles=len(profiles),included=admitted,excluded_by_paid_budget=excluded)
+
+    def profile(self, index):
+        row=self.rows[int(index)]; first=int(row['first']);second=int(row['second']);prefix=int(row['prefix']);target=int(row['target'])
+        groups=[self.groups[first]]+([] if second<0 else [self.groups[second]])
+        descriptor=dict(G=len(groups),prefix_state_id=None if second<0 else self.model.state_ids[prefix],full_state_id=self.model.state_ids[target],
+            groups=groups,N=1024,header_symbols=68,header_information_bits=12,used_body_symbols=int(row['body']),
+            paid_pilot_symbols=16,paid_feedback_symbols=16,unused_symbols=924-int(row['body']),
+            receiver_rule='consecutive_crc_accepted_prefix_v1',order='entropy',second_header_symbols=0,
+            intermediate_feedback=False,selection_time='after_quantized_CSI_before_all_forward_data')
+        descriptor.update(candidate_index=int(index),stable_id='flat_%07d_'%int(index)+stable_hash(descriptor))
+        return descriptor
+
+
+def packet(header,body):
+    return np.stack((header[...,0]*body[...,0],header[...,1]+header[...,0]*body[...,1],header[...,2]+header[...,0]*body[...,2]),axis=-1)
+
+
+def same_h_coefficients(header, first, second, bin_weights):
+    """Integrate conditional C/R/U products, not products of averages."""
+    initial=packet(header,first);c,r,u=np.asarray(initial).T
+    if second is None:
+        return np.stack((r@bin_weights,np.zeros(bin_weights.shape[1]),c@bin_weights,u@bin_weights),axis=-1)
+    body=np.asarray(second);weighted=c[:,None]*bin_weights
+    output=np.empty((len(body),bin_weights.shape[1],4),dtype=np.float64)
+    output[:,:,0]=r@bin_weights;output[:,:,1]=body[:,:,1]@weighted
+    output[:,:,2]=body[:,:,0]@weighted;output[:,:,3]=u@bin_weights+body[:,:,2]@weighted
+    return output
+
+
+def coefficient_rows(model,catalogue,indices):
+    """Evaluate arbitrary selected profiles for diagnostics; no selection."""
+    header=model.header(68);result=[]
+    for index in indices:
+        row=catalogue.rows[int(index)];a=model.probabilities[catalogue.group_keys[int(row['first'])]]
+        if int(row['second'])<0: c=same_h_coefficients(header,a,None,model.bin_weights)
+        else:
+            b=model.probabilities[catalogue.group_keys[int(row['second'])]]
+            c=same_h_coefficients(header,a,b[None,:,:],model.bin_weights)[0]
+        result.append(c)
+    return np.stack(result)
+
+
+def build_coefficients(model,catalogue,path,progress):
+    result=np.lib.format.open_memmap(path,mode='w+',dtype=np.float64,shape=(len(catalogue.rows),8,4))
+    header=model.header(68)
+    for start in range(0,catalogue.g1_count,256):
+        ids=range(start,min(start+256,catalogue.g1_count));result[start:start+len(ids)]=coefficient_rows(model,catalogue,ids)
+        progress('integrate_G1',start,catalogue.g1_count)
+    for ordinal,(start,stop,prefix,first) in enumerate(catalogue.segments):
+        body=np.stack([model.probabilities[catalogue.group_keys[int(i)]] for i in catalogue.rows['second'][start:stop]])
+        c=same_h_coefficients(header,model.probabilities[catalogue.group_keys[first]],body,model.bin_weights)
+        require(np.isfinite(c).all() and c.min()>=-1e-12 and np.allclose(c.sum(2),model.bin_masses[None,:],atol=1e-10,rtol=0),'Flat profile probability mass lost')
+        result[start:stop]=c
+        if ordinal%10==0:progress('integrate_G2',ordinal,len(catalogue.segments))
+    result.flush();return np.load(path,mmap_mode='r',allow_pickle=False)
+
+
+def score_block(coefficients,rows,Q,gray):
+    c=np.asarray(coefficients)
+    score=c[:,:,0,None]*Q[gray][None,None,:]
+    score+=c[:,:,1,None]*Q[np.asarray(rows['prefix'],dtype=int)][:,None,:]
+    score+=c[:,:,2,None]*Q[np.asarray(rows['target'],dtype=int)][:,None,:]
+    return score
+
+
+def population_scores(coefficients,rows,Q,gray):
+    q=Q.mean(1);c=np.asarray(coefficients)
+    return c[:,:,0]*q[gray]+c[:,:,1]*q[np.asarray(rows['prefix'],dtype=int)][:,None]+c[:,:,2]*q[np.asarray(rows['target'],dtype=int)][:,None]

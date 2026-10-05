@@ -1,0 +1,136 @@
+"""Score frozen C model policies on cached independent metrics; no selection."""
+import argparse
+import csv
+import hashlib
+import importlib.util
+import json
+from pathlib import Path
+import numpy as np
+
+
+def sha(path):
+    h=hashlib.sha256()
+    with Path(path).open('rb') as f:
+        for b in iter(lambda:f.read(1048576),b''):h.update(b)
+    return h.hexdigest()
+
+
+def read(path): return json.loads(Path(path).read_text(encoding='utf-8-sig'))
+def save(path,value): Path(path).write_text(json.dumps(value,indent=2,ensure_ascii=False,allow_nan=False)+'\n',encoding='utf-8')
+def require(ok,message):
+    if not ok: raise RuntimeError(message)
+def rows(path, values):
+    with Path(path).open('w',encoding='utf-8',newline='') as f:
+        writer=csv.DictWriter(f,fieldnames=list(values[0]),lineterminator='\n');writer.writeheader();writer.writerows(values)
+
+
+def load(path):
+    spec=importlib.util.spec_from_file_location('frozen_auxiliary',path)
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);return module
+
+
+def report(root,manifest_path,aux_path,output):
+    root,output=Path(root),Path(output);output.mkdir(parents=True,exist_ok=True)
+    require(not(output/'completion.json').exists(),'Existing report must remain unchanged')
+    manifest=read(manifest_path);bindings={str(Path(manifest_path)):sha(manifest_path),str(Path(aux_path)):sha(aux_path)}
+    for asset in manifest['assets'].values():
+        require(sha(asset['path'])==asset['sha256'],'Frozen input differs: '+asset['path']);bindings[asset['path']]=asset['sha256']
+    aux=load(aux_path)
+    asset=manifest['assets'];require(read(asset['quality_bundle']['path'])['table_sha256']==asset['quality_csv']['sha256'],'Quality table identity mismatch')
+    rng=np.random.default_rng(2026100507)
+    boot=np.zeros((5000,200));indices=rng.integers(0,200,size=(5000,200))
+    for i in range(5000):boot[i]=np.bincount(indices[i],minlength=200)/200
+    summary=[];paired=[];source_rows=[];gates=[];costs=[];numerical=[];tail=[];arrays=None
+    for snr in [4,7,10,13]:
+        folder=root/('snr'+str(snr));completion=read(folder/'completion.json')
+        require(completion['status']=='COMPLETE' and completion['new_PHY_decodes']==0 and completion['new_neural_inference']==0,'Model shard incomplete or scope changed')
+        for p,h in completion['outputs'].items():require(sha(p)==h,'Shard output differs: '+p)
+        bindings[str(folder/'completion.json')]=sha(folder/'completion.json')
+        policy=read(folder/'selected_profiles.json');split=read(folder/'split.json')
+        if arrays is None:
+            sources,states=policy['source_ids'],policy['state_ids']
+            arrays,missing=aux.read_cache(asset['quality_csv']['path'],sources,states)
+        require(policy['source_ids']==sources and policy['state_ids']==states,'Shard source/state mapping differs')
+        review=np.array([sources.index(s) for s in split['verification_source_ids']])
+        construction=split['construction_source_ids'];verification=split['verification_source_ids']
+        require(len(construction)==len(set(construction))==800 and len(verification)==len(set(verification))==200
+                and not set(construction)&set(verification) and set(construction)|set(verification)==set(sources),
+                'Original800/200 must be a unique complete disjoint partition')
+        vectors={}
+        with np.load(folder/'source_weights.npz',allow_pickle=False) as z:
+            for method in ['QCSI-U','QCSI-C8']:
+                weights=z[method+'__weights'];bad=z[method+'__bad_probability']
+                require(weights.shape==(1000,len(states)) and np.all(weights>=0) and np.all(bad>=0)
+                        and np.allclose(weights.sum(1)+bad,1,atol=1e-9,rtol=0),'Probability mass mismatch')
+                for metric,matrix in arrays.items():
+                    allvalues=np.einsum('st,ts->s',weights,matrix)
+                    if metric=='dinov2_vitl14_cosine':require(np.allclose(allvalues,z[method+'__quality_point'],atol=1e-10,rtol=0),'Primary replay differs')
+                    values,unknown=allvalues[review],bad[review];vectors[(method,metric)]=(values,unknown)
+                    summary.append(dict(average_snr_db=snr,method=method,metric=metric,sources=200,
+                         **aux.metric_summary(values,unknown,metric,boot)))
+                    for j,index in enumerate(review):
+                        source_rows.append(dict(average_snr_db=snr,source_id=sources[index],method=method,metric=metric,
+                            population='previously_explored_internal200_not_holdout',known_state_contribution=float(values[j]),
+                            unscored_probability=float(unknown[j]),total_value=float(values[j]) if unknown[j]==0 else None))
+            for metric in arrays:
+                a,ua=vectors['QCSI-C8',metric];b,ub=vectors['QCSI-U',metric];delta=a-b
+                ci=np.quantile(boot@delta,[.025,.975]);full=bool(np.all(ua==0) and np.all(ub==0))
+                low=high=cilow=cihigh=None
+                if metric in aux.BOUNDS:
+                    lo,hi=aux.BOUNDS[metric];lv=delta+lo*ua-hi*ub;hv=delta+hi*ua-lo*ub
+                    low,high=float(lv.mean()),float(hv.mean());cilow=float(np.quantile(boot@lv,.025));cihigh=float(np.quantile(boot@hv,.975))
+                paired.append(dict(average_snr_db=snr,method_a='QCSI-C8',method_b='QCSI-U',metric=metric,sources=200,
+                    point_convention_unknown_zero_difference=float(delta.mean()),known_contribution_source_ci_low=float(ci[0]),
+                    known_contribution_source_ci_high=float(ci[1]),total_difference=float(delta.mean()) if full else None,
+                    total_difference_lower=low,total_difference_upper=high,total_difference_source_ci_low=cilow,total_difference_source_ci_high=cihigh,
+                    unscored_probability_a=float(ua.mean()),unscored_probability_b=float(ub.mean()),
+                    bootstrap_repeats=5000,bootstrap_seed=2026100507,interval_scope='source_only_conditional_on_frozen_table_and_policy',
+                    selection_metric=metric=='dinov2_vitl14_cosine'))
+        gate=read(folder/'model_screen.json')
+        gain=float((vectors['QCSI-C8','dinov2_vitl14_cosine'][0]-vectors['QCSI-U','dinov2_vitl14_cosine'][0]).mean())
+        require(abs(gain-gate['internal200_C8_minus_U'])<1e-10 and gate['this_snr_passes']==(gain>=.03)
+                and gate['average_snr_db']==snr,'Gate does not match frozen source-weight replay')
+        gates.append(gate)
+        costs.append(dict(average_snr_db=snr,**read(folder/'sender_cost.json')))
+        numerical.append(dict(average_snr_db=snr,**read(folder/'numerical_diagnostic.json')))
+        p=folder/'sensitivity.json'
+        require(str(p) in completion['outputs'],'Sensitivity diagnostic missing from shard binding')
+        tail.append(dict(average_snr_db=snr,path=p.name,diagnostic=read(p)))
+    # Different metrics have different optional bounds: union keys in an explicit common schema.
+    fields=sorted(set().union(*(r.keys() for r in summary)))
+    rows(output/'metric_summary.csv',[{k:r.get(k) for k in fields} for r in summary])
+    rows(output/'paired_differences.csv',paired);rows(output/'internal200_per_source_metrics.csv',source_rows)
+    n=sum(bool(g['this_snr_passes']) for g in gates)
+    result=dict(status='MODEL_SCREEN_REPORTED_STOP_FOR_USER',point_gate_passing_snrs=n,point_gate_met=n>=2,
+        gate='+0.03 DINOv2-L at at least two average SNRs on original internal200',rows=gates,
+        measured_actual_fading_gain=False,model_only=True,internal200_independent_holdout=False,
+        assets_and_real_link_require_user_confirmation=True,automatic_followup=False,
+        gate_does_not_test_significance=True,tail_sensitivity_requires_report_review=True,
+        input_bindings=bindings,new_PHY_decodes=0,new_neural_inference=0,holdout_pixels_read=False)
+    save(output/'gate.json',result);save(output/'sender_cost.json',costs)
+    save(output/'numerical_diagnostics.json',numerical);save(output/'tail_diagnostics.json',tail)
+    save(output/'metric_availability.json',dict(available=sorted(arrays),missing=missing,
+        ConvNeXt='NOT_AVAILABLE_IN_FROZEN_CACHE',F_error='NOT_AVAILABLE_IN_FROZEN_CACHE',
+        auxiliary_metrics_used_for_selection=False,model_metadata=read(asset['quality_registration']['path']).get('score_identity',{})))
+    lines=['# C：同资源 QCSI-U 与 QCSI-C8 模型筛选','',
+        '这是冻结查表模型上的内部筛选，不是实际衰落链路或独立 holdout 结果。',
+        '每图 N1024：导频16、3-bit反馈16、首头68、正文最多924；CSI仍理想，未模拟导频估计或反馈误码。',
+        '全部策略仅用原800张构造图选择，下表使用原200张内部复核图；这200张在过往探索中已被使用。','',
+        '| 平均 SNR | C8 − U DINOv2-L | 达到 +0.03 |','|---:|---:|:---:|']
+    for g in gates:lines.append(f"| {g['average_snr_db']} | {g['internal200_C8_minus_U']:+.6f} | {'是' if g['this_snr_passes'] else '否'} |")
+    lines+=['',f'点估计门槛：{n}/4 个平均 SNR 达到 +0.03，需要至少两个。',
+        '该门槛仅决定工程方向是否值得继续，不代表统计显著性或内容正确性结论。',
+        '插值、尾部、数值积分和漏检未知质量的敏感性见配套 JSON；辅助指标见完整 CSV。',
+        '停止在模型筛选：未补位置资产、未新增物理译码、未启动视觉 GPU；后续需用户确认。','']
+    (output/'REPORT.md').write_text('\n'.join(lines),encoding='utf-8')
+    published=['metric_summary.csv','paired_differences.csv','internal200_per_source_metrics.csv','gate.json',
+               'sender_cost.json','numerical_diagnostics.json','tail_diagnostics.json','metric_availability.json','REPORT.md']
+    save(output/'completion.json',dict(status='COMPLETE_STOP_FOR_USER',source_bindings={str(Path(__file__).absolute()):sha(__file__),str(Path(aux_path)):sha(aux_path)},
+        inputs=bindings,outputs={name:sha(output/name) for name in published},
+        future_assets_authorized=False,future_real_link_authorized=False))
+
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--root',required=True);p.add_argument('--manifest',required=True)
+    p.add_argument('--auxiliary',required=True);p.add_argument('--output',required=True);a=p.parse_args()
+    report(a.root,a.manifest,a.auxiliary,a.output)

@@ -1,0 +1,141 @@
+"""Bounded CPU-only owner for the registered consolidation C model screen."""
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import sys
+import time
+import traceback
+
+
+def sha(path):
+    h = hashlib.sha256()
+    with open(path, 'rb') as f:
+        for b in iter(lambda: f.read(1048576), b''):
+            h.update(b)
+    return h.hexdigest()
+
+
+def save(path, value):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_name(path.name + '.tmp')
+    temp.write_text(json.dumps(value, indent=2, allow_nan=False) + '\n')
+    os.replace(temp, path)
+
+
+def identity(pid):
+    proc = Path('/proc') / str(pid)
+    text = (proc / 'stat').read_text()
+    return dict(pid=pid, start_ticks=int(text[text.rfind(')') + 2:].split()[19]),
+                uid=proc.stat().st_uid,
+                argv=(proc / 'cmdline').read_bytes().decode().rstrip('\0').split('\0'))
+
+
+def verify(registration):
+    for path, digest in registration['input_bindings'].items():
+        if sha(path) != digest:
+            raise RuntimeError('Immutable input mismatch: ' + path)
+    for path, digest in registration['source_bindings'].items():
+        if sha(path) != digest:
+            raise RuntimeError('Immutable source mismatch: ' + path)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', required=True)
+    args = parser.parse_args()
+    config_path = Path(args.config).absolute()
+    cfg = json.loads(config_path.read_text())
+    out = Path(cfg['output'])
+    out.mkdir(parents=True, exist_ok=True)
+    if any((out / f).exists() for f in ['owner_identity.json', 'failure.json', 'completion.json']):
+        raise RuntimeError('Owner output already used; preserve prior attempt')
+    reg_path = Path(cfg['registration'])
+    reg = json.loads(reg_path.read_text())
+    if sha(config_path) != reg['owner_config_sha256']:
+        raise RuntimeError('Owner configuration differs from registration')
+    verify(reg)
+    save(out / 'owner_identity.json', dict(**identity(os.getpid()), time=time.time(),
+         registration_sha256=sha(reg_path), config_sha256=sha(config_path)))
+    pending = list(cfg['jobs'])
+    active = []
+    receipts = []
+    env = dict(os.environ, CUDA_VISIBLE_DEVICES='', OMP_NUM_THREADS='2',
+               MKL_NUM_THREADS='2', OPENBLAS_NUM_THREADS='2', PYTHONDONTWRITEBYTECODE='1')
+    start = time.time()
+    try:
+        while pending or active:
+            if time.time() >= cfg['deadline_unix']:
+                raise RuntimeError('Preregistered global wall-time cap reached')
+            if (out / 'STOP').exists():
+                raise RuntimeError('Explicit owner STOP received')
+            while pending and len(active) < cfg['max_concurrent_workers']:
+                job = pending.pop(0)
+                folder = Path(job['output'])
+                folder.mkdir(parents=True, exist_ok=True)
+                log = (folder / 'worker.log').open('xb')
+                proc = subprocess.Popen(job['argv'], cwd=cfg['root'], env=env,
+                                        stdin=subprocess.DEVNULL, stdout=log,
+                                        stderr=subprocess.STDOUT, start_new_session=True)
+                row = dict(job=job, process=proc, log=log, start=time.time(), identity=dict(pid=proc.pid, identity_capture='PENDING'))
+                active.append(row)
+                row['identity'] = identity(proc.pid)
+                save(folder / 'launch.json', dict(identity=row['identity'], argv=job['argv'],
+                     started=row['start'], registration_sha256=sha(reg_path)))
+            for row in list(active):
+                proc, job = row['process'], row['job']
+                if time.time() - row['start'] > cfg['per_worker_seconds']:
+                    raise RuntimeError('Per-SNR registered cap reached: ' + str(job['snr']))
+                code = proc.poll()
+                if code is None:
+                    continue
+                proc.wait()
+                row['log'].close()
+                active.remove(row)
+                completion = Path(job['completion'])
+                receipt = dict(snr=job['snr'], identity=row['identity'], exit_code=code,
+                               elapsed_seconds=time.time()-row['start'], closed_log_sha256=sha(Path(job['output'])/'worker.log'))
+                if code != 0 or not completion.is_file():
+                    save(Path(job['output']) / 'exit_receipt.json', receipt)
+                    raise RuntimeError('C model worker failed or missing completion: ' + str(job['snr']))
+                receipt.update(completion=str(completion), completion_sha256=sha(completion))
+                save(Path(job['output']) / 'exit_receipt.json', receipt)
+                receipts.append(receipt)
+            save(out / 'status.json', dict(status='CPU_MODEL_SCREEN_RUNNING', elapsed_seconds=time.time()-start,
+                 pending=[j['snr'] for j in pending], active=[dict(snr=r['job']['snr'],
+                 identity=r['identity'], elapsed_seconds=time.time()-r['start']) for r in active],
+                 completed=receipts, visual_gpu_jobs=0, actual_decodes=0))
+            if pending or active:
+                time.sleep(5)
+        verify(reg)
+        save(out / 'completion.json', dict(status='MODEL_SCREEN_SHARDS_COMPLETE_AWAIT_REPORT',
+             elapsed_seconds=time.time()-start, receipts=receipts,
+             input_bindings=reg['input_bindings'], source_bindings=reg['source_bindings'],
+             registration_sha256=sha(reg_path), future_C_assets_authorized=False,
+             future_C_real_link_authorized=False, development_read=False, visual_gpu_jobs=0,
+             actual_decodes=0))
+    except BaseException:
+        save(out / 'failure.json', dict(status='FAILED_PRESERVE_AND_DIAGNOSE', time=time.time(),
+             traceback=traceback.format_exc(), receipts=receipts,
+             active=[dict(snr=r['job']['snr'],identity=r['identity']) for r in active]))
+        for row in active:
+            p=row['process']
+            if p.poll() is None:
+                os.killpg(p.pid, signal.SIGTERM)
+        for row in active:
+            p=row['process']
+            try:
+                p.wait(timeout=20)
+            except subprocess.TimeoutExpired:
+                os.killpg(p.pid, signal.SIGKILL)
+                p.wait()
+            row['log'].close()
+        raise
+
+
+if __name__ == '__main__':
+    main()

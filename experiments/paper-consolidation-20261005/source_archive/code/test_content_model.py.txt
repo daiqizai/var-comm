@@ -1,0 +1,89 @@
+import types
+import unittest
+import numpy as np
+import content_model as c
+from flat_model import Catalogue, DTYPE, same_h_coefficients, score_block
+
+
+def synthetic(seed=19,profiles=21,sources=11):
+    rng=np.random.default_rng(seed);coeff=rng.uniform(size=(profiles,8,4));coeff/=coeff.sum(2)[:,:,None];coeff/=8
+    rows=np.zeros(profiles,dtype=DTYPE);rows['prefix']=rng.integers(0,5,size=profiles);rows['target']=rng.integers(0,5,size=profiles);rows['body']=rng.integers(1,924,size=profiles)
+    Q=rng.uniform(-1,1,size=(5,sources));return coeff,rows,Q
+
+
+class ContentModelTests(unittest.TestCase):
+    def test_lazy_greedy_matches_full_signed_scan_each_round(self):
+        for seed in range(5):
+            coefficients,rows,Q=synthetic(seed,37,13);U,first,_=c.uniform_and_fixed(coefficients,rows,Q,0,chunk=9)
+            lazy,lh,_=c.exact_greedy(coefficients,rows,Q,0,first,8,chunk=5,lazy=True)
+            full,fh,_=c.exact_greedy(coefficients,rows,Q,0,first,8,chunk=7,lazy=False)
+            self.assertEqual(lazy,full)
+            np.testing.assert_allclose([h['marginal_gain'] for h in lh],[h['marginal_gain'] for h in fh],rtol=0,atol=1e-13)
+
+    def test_ties_zero_and_negative_quality_do_not_invent_gain(self):
+        coefficients,rows,Q=synthetic();coefficients[:]=0;coefficients[:,:,0]=1/8
+        Q[:]=-1;U,first,_=c.uniform_and_fixed(coefficients,rows,Q,0,chunk=3)
+        self.assertEqual(first,0);self.assertEqual(U.tolist(),[0]*8)
+        for lazy in (False,True):
+            chosen,history,_=c.exact_greedy(coefficients,rows,Q,0,first,8,chunk=3,lazy=lazy)
+            self.assertEqual(chosen,[0]);self.assertEqual(history,[])
+
+    def test_dictionary_competition_uses_only_construction_sources(self):
+        coefficients,rows,Q=synthetic(profiles=25,sources=10);build=[0,1,2,3,4,5,6,7]
+        U,first,_=c.uniform_and_fixed(coefficients,rows,Q[:,build],0)
+        a,metadata=c.choose_dictionary(coefficients,rows,Q[:,build],0,U,first,chunk=6)
+        modified=Q.copy();modified[:,8:]*=-1
+        b,_=c.choose_dictionary(coefficients,rows,modified[:,build],0,U,first,chunk=4)
+        self.assertEqual(a,b);self.assertLessEqual(len(a['indices']),8)
+        _,_,uniform=c.dictionary_scores(coefficients,rows,Q[:,build],0,U)
+        self.assertGreaterEqual(a['construction_mean'],uniform.sum(0).mean()-1e-14)
+
+    def test_observed_bin_choice_uses_integrated_expectation_and_paid_paths(self):
+        coeff=np.zeros((2,8,4));coeff[:,:,0]=1/8;coeff[0,:4,0]=0;coeff[0,:4,2]=1/8;coeff[1,4:,0]=0;coeff[1,4:,2]=1/8
+        rows=np.zeros(2,dtype=DTYPE);rows['target']=[1,2];rows['body']=[924,800]
+        Q=np.array([[0.,0.],[1.,-.5],[.2,1.]])
+        result=c.frozen_source_weights(coeff,rows,Q,0,[0,1],'QCSI-C8',np.full(8,1/8),3)
+        np.testing.assert_allclose(result['weights'].sum(1)+result['bad_probability'],1)
+        np.testing.assert_allclose(result['quality_point'],[.6,.5]);self.assertLessEqual(result['max_used_symbols'].max(),1024)
+        self.assertEqual(result['profile_indices_by_bin'][1,:4].tolist(),[1]*4)
+
+    def test_common_h_is_integrated_before_any_packet_average(self):
+        h=np.array([[1.,0.,0.],[1.,0.,0.]]);first=np.array([[.9,.1,0.],[.1,.9,0.]])
+        second=first[None,:,:];weights=np.zeros((2,8));weights[:,0]=.5
+        coeff=same_h_coefficients(h,first,second,weights)
+        self.assertAlmostEqual(coeff[0,0,2],.41)
+        self.assertNotAlmostEqual(coeff[0,0,2],first[:,0].mean()**2)
+        self.assertAlmostEqual(coeff[0,0].sum(),1)
+
+    def test_undetected_first_packet_is_absorbing_not_clean_quality(self):
+        header=np.array([[1.,0.,0.]]);first=np.array([[.3,.2,.5]]);second=np.array([[[0.,0.,1.]]])
+        weights=np.zeros((1,8));weights[0,0]=1
+        coeff=same_h_coefficients(header,first,second,weights)
+        np.testing.assert_allclose(coeff[0,0],[.2,0,0,.8])
+
+    def test_all_complete_prefixes_not_just_m4_to_m6(self):
+        groups={'a':dict(source_bits=1860,symbols=400,modulation='16QAM',phy_key='a'),
+                'b':dict(source_bits=1200,symbols=400,modulation='16QAM',phy_key='b'),
+                'c':dict(source_bits=3060,symbols=924,modulation='16QAM',phy_key='c')}
+        model=types.SimpleNamespace(groups=groups,state_ids=['gray','m7_K0','m8_K0'],gray_index=0,
+            state_index={'gray':0,'m7_K0':1,'m8_K0':2},profiles=[],extra_profiles=[])
+        catalogue=Catalogue(model);g2=catalogue.rows[catalogue.rows['second']>=0]
+        self.assertEqual(len(g2),1);self.assertEqual(int(g2[0]['prefix']),1);self.assertEqual(int(g2[0]['body']),800)
+        profile=catalogue.profile(2);self.assertEqual(profile['prefix_state_id'],'m7_K0');self.assertEqual(profile['second_header_symbols'],0)
+
+    def test_tail_stress_does_not_mutate_primary_probability_arrays(self):
+        model=types.SimpleNamespace(curves={'x':(np.array([-5.,19.]),np.array([[.2,.8,0.],[.9,.1,0.]]))},
+            locations=np.array([-10.,7.,25.]),probabilities={'x':np.array([[.2,.8,0.],[.55,.45,0.],[.9,.1,0.]])})
+        before=model.probabilities['x'].copy();reject=c.scenario_model(model,'low_tail_all_R');unknown=c.scenario_model(model,'low_tail_all_U')
+        np.testing.assert_array_equal(model.probabilities['x'],before)
+        np.testing.assert_array_equal(reject.probabilities['x'][0],[0,1,0]);np.testing.assert_array_equal(unknown.probabilities['x'][0],[0,0,1])
+        np.testing.assert_array_equal(reject.probabilities['x'][1:],before[1:])
+
+    def test_selected_policy_replay_does_not_reselect_after_curve_changes(self):
+        coefficients,rows,Q=synthetic(profiles=5,sources=7)
+        result=c.frozen_source_weights(coefficients,rows,Q,0,[0,2,4],'QCSI-C8',np.full(8,1/8),5)
+        replay,bad=c.evaluate_with_frozen_choices(coefficients,[0,1,2,3,4],rows,Q,0,result['profile_indices_by_bin'],np.full(8,1/8))
+        np.testing.assert_allclose(replay,result['quality_point'],atol=1e-14,rtol=0);np.testing.assert_allclose(bad,result['bad_probability'],atol=1e-14,rtol=0)
+
+
+if __name__=='__main__':unittest.main()

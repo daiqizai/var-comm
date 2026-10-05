@@ -1,0 +1,329 @@
+"""Bounded, single-forward paid-QCSI content screening using frozen CPU tables."""
+import argparse
+import copy
+import csv
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import time
+import numpy as np
+from flat_model import Catalogue, build_coefficients, coefficient_rows, population_scores, score_block, require
+
+SCHEMA='CONTENT_QCSI_MODEL_SCREEN_20261005_V1'
+EPS=1e-14
+BOUND_EPS=1e-12
+THRESHOLDS=[-5,0,4,7,10,13,19]
+
+
+def read(path): return json.loads(Path(path).read_text(encoding='utf-8-sig'))
+def sha(path):
+    h=hashlib.sha256()
+    with Path(path).open('rb') as f:
+        for b in iter(lambda:f.read(1048576),b''):h.update(b)
+    return h.hexdigest()
+def save(path,value):
+    path=Path(path);path.parent.mkdir(parents=True,exist_ok=True);tmp=path.with_name(path.name+'.tmp.'+str(os.getpid()))
+    tmp.write_text(json.dumps(value,ensure_ascii=False,indent=2,allow_nan=False)+'\n',encoding='utf-8');os.replace(tmp,path)
+def csv_save(path,rows):
+    with Path(path).open('w',encoding='utf-8',newline='') as f:
+        w=csv.DictWriter(f,fieldnames=list(rows[0]),lineterminator='\n');w.writeheader();w.writerows(rows)
+def load_module(path):
+    spec=importlib.util.spec_from_file_location('frozen_probability_model',path);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);return module
+
+
+def split_sources(source_ids):
+    require(len(source_ids)==len(set(source_ids))==1000,'Original1000 unique calibration sources required')
+    key=lambda s:(hashlib.sha256(json.dumps(['C/SOURCE_SPLIT',2026100501,s],ensure_ascii=False,separators=(',',':')).encode()).hexdigest(),s)
+    ordered=sorted(source_ids,key=key);lookup={s:i for i,s in enumerate(source_ids)}
+    return dict(ordered_source_ids=ordered,construction_source_ids=ordered[:800],verification_source_ids=ordered[800:],
+                construction_indices=[lookup[s] for s in ordered[:800]],verification_indices=[lookup[s] for s in ordered[800:]],
+                source_split_namespace='C/SOURCE_SPLIT',source_split_seed=2026100501,internal_verification_is_holdout=False)
+
+
+def validate_protocol(p):
+    require(p['schema']==SCHEMA,'Wrong content screening protocol')
+    for k,v in dict(N=1024,pilot_symbols=16,feedback_bits=3,feedback_symbols=16,header_symbols=68,body_symbols_max=924,
+                    dictionary_max=8,expected_candidate_count=792747,construction_sources=800,verification_sources=200,
+                    gate_gain=.03,gate_min_snrs=2,per_snr_seconds=7200,max_rss_bytes=2147483648).items():
+        require(p[k]==v,'Protocol constant differs: '+k)
+    require(p['average_snrs_db']==[4,7,10,13] and p['thresholds_db']==THRESHOLDS,'Registered SNR grid or unique quantizer changed')
+    require(p['greedy_compare_U_dictionary'] is True and p['second_header_symbols']==0 and p['intermediate_feedback'] is False,'Single-forward dictionary contract differs')
+    require(p['sensitivity_scenarios']==['primary_clip','low_tail_all_R','low_tail_all_U','interpolation_left_hold','interpolation_right_hold'],
+            'Frozen-policy sensitivity scenarios changed')
+    require(p['failure_rule']=='consecutive_crc_accepted_prefix_v1_DROP_extension' and p['generation']=='unconditional_class1000_greedy_argmax_no_CFG_no_sampling',
+            'Cached receiver/generation protocol changed')
+    require(p['new_PHY_decodes']==0 and p['new_GPU_jobs']==0 and p['development_read'] is False and p['automatic_asset_or_link_followup'] is False,
+            'Model-only stopping boundary changed')
+
+
+def update_best(value,index,best_value,best_index):
+    return value>best_value+EPS or (abs(value-best_value)<=EPS and (best_index<0 or index<best_index))
+
+
+def uniform_and_fixed(coeff,rows,Q,gray,chunk=8192,progress=None):
+    uvalue=np.full(8,-np.inf);uid=np.full(8,-1,dtype=np.int64);fixed_value=-np.inf;fixed=-1
+    for begin in range(0,len(rows),chunk):
+        end=min(begin+chunk,len(rows));scores=population_scores(coeff[begin:end],rows[begin:end],Q,gray)
+        for b in range(8):
+            local=int(np.argmax(scores[:,b]));value=float(scores[local,b]);index=begin+local
+            if update_best(value,index,uvalue[b],int(uid[b])):uvalue[b]=value;uid[b]=index
+        totals=scores.sum(1);local=int(np.argmax(totals));value=float(totals[local]);index=begin+local
+        if update_best(value,index,fixed_value,fixed):fixed_value=value;fixed=index
+        if progress:progress('population_reference_scan',end,len(rows))
+    return uid,fixed,dict(per_bin_construction_contributions=uvalue.tolist(),U_construction_mean=float(uvalue.sum()),fixed_construction_mean=fixed_value)
+
+
+def dictionary_scores(coeff,rows,Q,gray,indices):
+    ids=np.asarray(sorted(set(map(int,indices))),dtype=np.int64)
+    scores=score_block(coeff[ids],rows[ids],Q,gray)
+    choice=np.argmax(scores,axis=0)
+    return ids,ids[choice],np.take_along_axis(scores,choice[None,:,:],axis=0)[0]
+
+
+def exact_greedy(coeff,rows,Q,gray,first,maximum=8,chunk=256,progress=None,lazy=True):
+    """Exact diminishing-return upper bounds accelerate the registered greedy.
+
+    Every bound is a previously evaluated marginal for the same candidate at a
+    subset of the current dictionary. This preserves the full candidate set.
+    """
+    selected=[int(first)];current=score_block(coeff[[first]],rows[[first]],Q,gray)[0]
+    bounds=np.full(len(rows),np.inf);bounds[first]=-np.inf;history=[];evaluations=0
+    while len(selected)<maximum and len(selected)<len(rows):
+        if lazy: order=np.lexsort((np.arange(len(rows)), -bounds))
+        else: order=np.arange(len(rows))
+        best=-1;best_gain=-np.inf;examined=0
+        for begin in range(0,len(order),chunk):
+            if lazy and np.isfinite(best_gain) and bounds[order[begin]]+BOUND_EPS<best_gain:break
+            ids=order[begin:begin+chunk];ids=ids[np.isfinite(bounds[ids])|np.isposinf(bounds[ids])]
+            if not len(ids):continue
+            score=score_block(coeff[ids],rows[ids],Q,gray)
+            gains=np.maximum(score-current[None,:,:],0).sum((1,2))/Q.shape[1]
+            require(np.isfinite(gains).all() and gains.min()>=0,'Nonfinite content marginal')
+            bounds[ids]=gains;evaluations+=len(ids);examined+=len(ids)
+            for index,gain in zip(ids,gains):
+                if update_best(float(gain),int(index),best_gain,best):best_gain=float(gain);best=int(index)
+            if progress and begin%(chunk*32)==0:progress('greedy_round_'+str(len(selected)+1),examined,len(rows))
+        if best<0 or best_gain<=EPS:break
+        selected.append(best);bounds[best]=-np.inf
+        current=np.maximum(current,score_block(coeff[[best]],rows[[best]],Q,gray)[0])
+        history.append(dict(added_candidate=best,marginal_gain=best_gain,construction_mean=float(current.sum(0).mean()),evaluated_candidates=examined))
+    return selected,history,evaluations
+
+
+def choose_dictionary(coeff,rows,Q,gray,U,first,maximum=8,chunk=256,progress=None):
+    greedy,history,count=exact_greedy(coeff,rows,Q,gray,first,maximum,chunk,progress)
+    uids,_,uvalues=dictionary_scores(coeff,rows,Q,gray,U)
+    gids,_,gvalues=dictionary_scores(coeff,rows,Q,gray,greedy)
+    alternatives=[dict(name='U_BIN_WINNERS_DICTIONARY',indices=uids.tolist(),construction_mean=float(uvalues.sum(0).mean())),
+                  dict(name='EXACT_GREEDY_MAX8',indices=gids.tolist(),construction_mean=float(gvalues.sum(0).mean()))]
+    winner=alternatives[0]
+    other=alternatives[1]
+    if other['construction_mean']>winner['construction_mean']+EPS or (abs(other['construction_mean']-winner['construction_mean'])<=EPS
+        and (len(other['indices']),other['indices'])<(len(winner['indices']),winner['indices'])):winner=other
+    require(len(winner['indices'])<=maximum,'Dictionary capacity exceeded')
+    return winner,dict(alternatives=alternatives,selected_alternative=winner['name'],greedy_history=history,
+        marginal_candidate_evaluations=count,greedy_is_global_dictionary_optimum=False,
+        greedy_exact_for_registered_stepwise_rule=True,construction_only=True)
+
+
+def frozen_source_weights(coeff,rows,Q,gray,ids,method,bin_masses,states_count):
+    if method=='QCSI-C8':_,choice,_=dictionary_scores(coeff,rows,Q,gray,ids)
+    elif method=='QCSI-U':choice=np.broadcast_to(np.asarray(ids,dtype=np.int64)[:,None],(8,Q.shape[1])).copy()
+    else:choice=np.full((8,Q.shape[1]),int(ids[0]),dtype=np.int64)
+    weights=np.zeros((Q.shape[1],states_count));bad=np.zeros(Q.shape[1]);mean_used=np.zeros(Q.shape[1]);maximum=np.zeros(Q.shape[1],dtype=int)
+    for b in range(8):
+        picked=choice[b];c=np.asarray(coeff[picked,b]);sources=np.arange(Q.shape[1])
+        np.add.at(weights,(sources,np.full(Q.shape[1],gray)),c[:,0])
+        np.add.at(weights,(sources,np.asarray(rows['prefix'][picked],dtype=int)),c[:,1])
+        np.add.at(weights,(sources,np.asarray(rows['target'][picked],dtype=int)),c[:,2])
+        bad+=c[:,3];cost=100+rows['body'][picked].astype(int)
+        mean_used+=float(bin_masses[b])*cost;maximum=np.maximum(maximum,cost)
+    require(np.allclose(weights.sum(1)+bad,1,atol=1e-9,rtol=0) and np.max(maximum)<=1024,'Frozen policy probability/resource inconsistency')
+    score=np.sum(weights*Q.T,axis=1)
+    return dict(weights=weights,bad_probability=bad,quality_point=score,mean_used_symbols=mean_used,max_used_symbols=maximum,profile_indices_by_bin=choice.T)
+
+
+def evaluate_with_frozen_choices(coeff_subset,selected_ids,rows,Q,gray,choice,bin_masses):
+    lookup={int(i):k for k,i in enumerate(selected_ids)};score=np.zeros(Q.shape[1]);bad=np.zeros(Q.shape[1])
+    for b in range(8):
+        ids=choice[:,b];local=np.asarray([lookup[int(i)] for i in ids]);c=coeff_subset[local,b];source=np.arange(Q.shape[1])
+        score+=c[:,0]*Q[gray]+c[:,1]*Q[rows['prefix'][ids],source]+c[:,2]*Q[rows['target'][ids],source];bad+=c[:,3]
+    return score,bad
+
+
+def scenario_model(model,scenario):
+    require(scenario in ('primary_clip','low_tail_all_R','low_tail_all_U','interpolation_left_hold','interpolation_right_hold'),'Unknown frozen-policy sensitivity scenario')
+    if scenario=='primary_clip':return model
+    result=copy.copy(model);result.probabilities={}
+    for key,(knots,probabilities) in model.curves.items():
+        values=model.probabilities[key].copy()
+        if scenario.startswith('low_tail_'):
+            where=model.locations<knots[0];values[where]=[0.,1.,0.] if scenario=='low_tail_all_R' else [0.,0.,1.]
+        else:
+            side='right' if scenario=='interpolation_left_hold' else 'left'
+            indices=np.searchsorted(knots,model.locations,side=side)-(1 if side=='right' else 0)
+            values=probabilities[np.clip(indices,0,len(knots)-1)].copy()
+        result.probabilities[key]=values
+    return result
+
+
+def main():
+    ap=argparse.ArgumentParser();ap.add_argument('--manifest',required=True);ap.add_argument('--protocol',required=True);ap.add_argument('--registration',required=True)
+    ap.add_argument('--model-code',required=True);ap.add_argument('--out',required=True);ap.add_argument('--snr',type=int,choices=(4,7,10,13),required=True)
+    ap.add_argument('--benchmark',action='store_true');a=ap.parse_args()
+    require(os.environ.get('CUDA_VISIBLE_DEVICES')=='','Explicit empty CUDA visibility required')
+    for name in ('OMP_NUM_THREADS','MKL_NUM_THREADS','OPENBLAS_NUM_THREADS'):require(0<int(os.environ.get(name,'999'))<=2,'Explicit two-thread cap required')
+    protocol=read(a.protocol);validate_protocol(protocol);registration=read(a.registration)
+    require(registration['schema']=='CONTENT_QCSI_MODEL_SCREEN_EXECUTION_V1' and registration['status']=='FROZEN_BEFORE_SELECTION','Wrong execution registration')
+    bindings={str(Path(p).resolve()):sha(p) for p in (a.manifest,a.protocol)}
+    sources={str(Path(p).resolve()):sha(p) for p in (__file__,Path(__file__).with_name('flat_model.py'),a.model_code)}
+    for p,h in registration['source_bindings'].items():require(sha(p)==h,'Registered source changed: '+p)
+    for p,h in registration['input_bindings'].items():require(sha(p)==h,'Registered input changed: '+p)
+    require(all(registration['source_bindings'].get(p)==h for p,h in sources.items()),'Actual model dependency not registered')
+    manifest=read(a.manifest)
+    def asset(name):
+        item=manifest['assets'][name];require(sha(item['path'])==item['sha256'],'Frozen input asset changed: '+name)
+        bindings[str(Path(item['path']).resolve())]=item['sha256'];return read(item['path'])
+    profiles=asset('profiles');quality=asset('quality_bundle');qreg=asset('quality_registration');bler=asset('bler');original_split=asset('source_split')
+    qualified=asset('extra_qualified');extra_rows=asset('extra_bler')['rows']
+    require(qualified.get('complete') is True,'Supplemental exact-layout qualification incomplete')
+    require(quality['registration_sha256']==sha(manifest['assets']['quality_registration']['path']) and qreg['population']=='calibration'
+            and qreg['source_ids']==quality['source_ids'] and qreg['development_read'] is False and qreg['label_conditioned'] is False
+            and qreg['metric']=='dinov2_vitl14_cosine' and qreg['source_count']==1000 and qreg['training_updates']==0,'Wrong clean quality identity')
+    require(all(registration['input_bindings'].get(p)==h for p,h in bindings.items()),'Actual input dependency not registered')
+    bindings[str(Path(a.registration).resolve())]=sha(a.registration)
+    split=split_sources(quality['source_ids'])
+    for key in ('ordered_source_ids','construction_source_ids','verification_source_ids'):require(split[key]==original_split[key],'Original800/200 split changed')
+    out=Path(a.out).resolve();out.mkdir(parents=True,exist_ok=True)
+    require(not(out/'completion.json').exists() and not(out/'failure.json').exists(),'Existing result/failure requires explicit review, no automatic rerun')
+    started=time.monotonic();deadline=min(time.time()+protocol['per_snr_seconds'],protocol['global_deadline_unix'])
+    def progress(stage,count=0,total=0):
+        require(not(out/'STOP').exists(),'Requested stop; partial evidence preserved');require(time.time()<deadline,'Registered wall cap reached')
+        proc=Path('/proc/self/status')
+        if proc.exists():
+            rss=int(next(x for x in proc.read_text().splitlines() if x.startswith('VmRSS:')).split()[1])*1024
+            require(rss<=protocol['max_rss_bytes'],'Registered per-worker RSS cap reached')
+        save(out/'status.json',dict(status='RUNNING',stage=stage,completed=count,total=total,elapsed_seconds=time.monotonic()-started))
+    try:
+        Model=load_module(a.model_code).Model;progress('load_model')
+        model=Model(profiles,quality,bler,extra_groups=qualified['configs'],extra_rows=extra_rows,average_snr=a.snr,pilot=16,header_mode='measured_headers')
+        catalogue=Catalogue(model,924,protocol['expected_candidate_count']);build=split['construction_indices'];review=split['verification_indices']
+        if a.benchmark:
+            segment=max(catalogue.segments,key=lambda x:x[1]-x[0]);ids=np.arange(segment[0],min(segment[0]+256,segment[1]))
+            t=time.monotonic();c=coefficient_rows(model,catalogue,ids);integration_seconds=time.monotonic()-t
+            current=score_block(c[:1],catalogue.rows[ids[:1]],model.Q[:,build],model.gray_index)[0]
+            t=time.monotonic()
+            for _ in range(3):
+                score=score_block(c,catalogue.rows[ids],model.Q[:,build],model.gray_index)
+                np.maximum(score-current[None,:,:],0).sum((1,2))/len(build)
+            scoring_seconds=(time.monotonic()-t)/3
+            save(out/'benchmark.json',dict(status='ENGINEERING_BENCHMARK_ONLY',candidate_count=len(catalogue.rows),profiles_timed=len(ids),construction_sources=len(build),
+                integration_seconds=integration_seconds,scoring_seconds_per_block=scoring_seconds,
+                conservative_seven_full_marginal_pass_seconds=7*len(catalogue.rows)/len(ids)*scoring_seconds,
+                dictionary_selected=False,full_science_results=False,coverage=catalogue.coverage))
+            save(out/'benchmark_completion.json',dict(status='COMPLETE',input_bindings=bindings,source_bindings=sources,
+                outputs={str(out/'benchmark.json'):sha(out/'benchmark.json')},selection_reused_by_production=False));print('BENCHMARK_COMPLETE');return
+        np.save(out/'catalogue.npy',catalogue.rows,allow_pickle=False)
+        save(out/'coverage.json',catalogue.coverage);save(out/'split.json',split)
+        coefficients=build_coefficients(model,catalogue,out/'coefficients.npy',progress)
+        U,fixed,population=uniform_and_fixed(coefficients,catalogue.rows,model.Q[:,build],model.gray_index,progress=progress)
+        winner,selection=choose_dictionary(coefficients,catalogue.rows,model.Q[:,build],model.gray_index,U,fixed,progress=progress)
+        chosen=sorted(set(U.tolist()+winner['indices']+[fixed]));results={}
+        for name,ids in (('QCSI-U',U),('QCSI-C8',winner['indices'])):
+            results[name]=frozen_source_weights(coefficients,catalogue.rows,model.Q,model.gray_index,ids,name,model.bin_masses,len(model.state_ids))
+        require(results['QCSI-C8']['quality_point'][build].mean()>=results['QCSI-U']['quality_point'][build].mean()-1e-10,'C8 chosen dictionary fell below feasible U dictionary construction objective')
+        ubook=sorted(set(map(int,U)));cbook=winner['indices']
+        policies=dict(schema=SCHEMA,average_snr_db=a.snr,thresholds_db=THRESHOLDS,quantizer_candidates=1,quantizer_search_freedom=False,
+            bin_masses=model.bin_masses.tolist(),bin_decision='source conditional expectation after integrating h within observed bin',
+            state_ids=model.state_ids,source_ids=model.source_ids,selected_profiles={str(i):catalogue.profile(i) for i in chosen},
+            U_profile_indices_by_bin=U.tolist(),C8_profile_indices=cbook,greedy_first_candidate_index=fixed,
+            public_codebooks={'QCSI-U':{str(j):i for j,i in enumerate(ubook)},'QCSI-C8':{str(j):i for j,i in enumerate(cbook)}},
+            public_header_bits=12,public_header_symbols=68,source_profile_choice_after_bin=True,receiver_uses_source_id=False,
+            dictionary_selection=selection,population_reference=population,construction_only=True,independent_test=False,
+            partial_entropy_positions_available_for_actual_link=False,actual_header_roundtrip=False)
+        save(out/'selected_profiles.json',policies)
+        payload={}
+        for name,result in results.items():
+            for key,value in result.items():payload[name+'__'+key]=value
+        np.savez(out/'source_weights.npz',**payload)
+        np.savez(out/'selected_coefficients.npz',candidate_indices=np.asarray(chosen),coefficients=np.asarray(coefficients[chosen]),
+                 prefix_indices=catalogue.rows['prefix'][chosen],target_indices=catalogue.rows['target'][chosen],bin_masses=model.bin_masses)
+        source_rows=[];summary=[]
+        for name,result in results.items():
+            for index,source in enumerate(model.source_ids):
+                source_rows.append(dict(source_id=source,population='construction800' if index in build else 'internal_verification200',method=name,
+                    quality_point=float(result['quality_point'][index]),unscored_probability=float(result['bad_probability'][index]),
+                    quality_lower=float(result['quality_point'][index]-result['bad_probability'][index]),quality_upper=float(result['quality_point'][index]+result['bad_probability'][index]),
+                    mean_used_symbols=float(result['mean_used_symbols'][index]),max_used_symbols=int(result['max_used_symbols'][index])))
+            summary.append(dict(method=name,construction_mean=float(result['quality_point'][build].mean()),internal200_mean=float(result['quality_point'][review].mean()),
+                unscored_probability=float(result['bad_probability'][review].mean()),mean_used_symbols=float(result['mean_used_symbols'][review].mean()),
+                max_used_symbols=int(result['max_used_symbols'].max())))
+        csv_save(out/'per_source.csv',source_rows);csv_save(out/'summary.csv',summary)
+        online=[]
+        for b in range(8):
+            states=set()
+            for i in cbook:
+                if coefficients[i,b,1]>0:states.add(int(catalogue.rows['prefix'][i]))
+                if coefficients[i,b,2]>0:states.add(int(catalogue.rows['target'][i]))
+            states.discard(model.gray_index)
+            online.append(dict(bin=b,distinct_generated_states=len(states),DINO_source_comparisons=len(states),candidate_expected_quality_scores=len(cbook),state_ids=[model.state_ids[i] for i in sorted(states)]))
+        save(out/'sender_cost.json',dict(scope='Requirements only; cached CPU throughput is not online neural latency',C8_by_bin=online,
+            U_source_dependent_quality_computation=0,measured_online_latency=False))
+        progress('frozen_policy_quadrature_diagnostic')
+        coarse=Model(profiles,quality,bler,extra_groups=qualified['configs'],extra_rows=extra_rows,average_snr=a.snr,pilot=16,header_mode='measured_headers',order=16)
+        require(coarse.state_ids==model.state_ids and sorted(coarse.groups)==catalogue.group_keys,'Diagnostic state or PHY ordering changed')
+        coarse_coeff=coefficient_rows(coarse,catalogue,chosen);diagnostics=[]
+        for name,result in results.items():
+            score,bad=evaluate_with_frozen_choices(coarse_coeff,chosen,catalogue.rows,coarse.Q,coarse.gray_index,result['profile_indices_by_bin'],coarse.bin_masses)
+            difference=score-result['quality_point'];diagnostics.append(dict(method=name,max_abs_source_difference=float(np.max(abs(difference))),
+                construction_mean_difference=float(difference[build].mean()),internal200_mean_difference=float(difference[review].mean()),
+                max_abs_bad_mass_difference=float(np.max(abs(bad-result['bad_probability']))),reselected=False))
+        save(out/'numerical_diagnostic.json',dict(status='SAME_FROZEN_PROFILE_AND_SOURCE_BIN_CHOICES_ORDER16_VS32',rows=diagnostics,
+            physical_curve_uncertainty_checked=False,interpolation='linear_dB',tails='constant_endpoint',selection_repeated=False))
+        sensitivity=[];sensitivity_arrays={}
+        for scenario in protocol['sensitivity_scenarios']:
+            stress=scenario_model(model,scenario);stress_coeff=coefficient_rows(stress,catalogue,chosen);values={}
+            for name,result in results.items():
+                score,bad=evaluate_with_frozen_choices(stress_coeff,chosen,catalogue.rows,stress.Q,stress.gray_index,result['profile_indices_by_bin'],stress.bin_masses)
+                sensitivity_arrays[scenario+'__'+name+'__quality_point']=score;sensitivity_arrays[scenario+'__'+name+'__bad_probability']=bad
+                values[name]=(score,bad)
+            diff=values['QCSI-C8'][0]-values['QCSI-U'][0];unknown=values['QCSI-C8'][1]+values['QCSI-U'][1]
+            sensitivity.append(dict(scenario=scenario,internal200_C8_minus_U=float(diff[review].mean()),
+                difference_unknown_lower=float((diff-unknown)[review].mean()),difference_unknown_upper=float((diff+unknown)[review].mean()),
+                construction_gain=float(diff[build].mean()),passes_point03=float(diff[review].mean())>=.03,
+                reselected=False,physical_confidence_bound=False))
+        packet_keys=set()
+        for index in chosen:
+            row=catalogue.rows[index];packet_keys.add(catalogue.group_keys[int(row['first'])])
+            if int(row['second'])>=0:packet_keys.add(catalogue.group_keys[int(row['second'])])
+        packet_keys.add(load_module(a.model_code).HEADER_KEY)
+        tails=[]
+        for key in sorted(packet_keys):
+            knots=model.curves[key][0];low=float(knots[0]);high=float(knots[-1])
+            tails.append(dict(phy_key=key,lowest_measured_snr_db=low,highest_measured_snr_db=high,
+                probability_below_lowest=float(-np.expm1(-10**((low-a.snr)/10))),probability_above_highest=float(np.exp(-10**((high-a.snr)/10)))))
+        save(out/'sensitivity.json',dict(status='FROZEN_POLICY_MODEL_ASSUMPTION_DIAGNOSTICS',rows=sensitivity,selected_packet_tail_masses=tails,
+            upper_tail='All scenarios retain the last measured endpoint; no actual high-SNR tail validation',
+            interpolation='Primary linear in dB; optional left/right holds are stress cases, not confidence bounds',
+            no_policy_or_source_choice_reselection=True))
+        np.savez(out/'sensitivity.npz',**sensitivity_arrays)
+        gain=float((results['QCSI-C8']['quality_point']-results['QCSI-U']['quality_point'])[review].mean())
+        save(out/'model_screen.json',dict(status='MODEL_SCREEN_COMPLETE',average_snr_db=a.snr,internal200_C8_minus_U=gain,
+            threshold=.03,this_snr_passes=gain>=.03,minimum_passing_snrs=2,stop_after_model_requires_user_confirmation=True,
+            automatic_asset_export=False,automatic_PHY_validation=False,receiver_protocol='separate_DROP_G1_G2_extension_not_final_main_system',
+            unknown_probability_is_empirical_plugin=True,independent_holdout=False,real_decodes=0,new_neural_inference=0))
+        progress('complete')
+        names=('catalogue.npy','coefficients.npy','coverage.json','split.json','selected_profiles.json','source_weights.npz',
+               'selected_coefficients.npz','per_source.csv','summary.csv','sender_cost.json','numerical_diagnostic.json',
+               'sensitivity.json','sensitivity.npz','model_screen.json')
+        outputs={str(out/name):sha(out/name) for name in names}
+        save(out/'completion.json',dict(status='COMPLETE',schema=SCHEMA,average_snr_db=a.snr,outputs=outputs,input_bindings=bindings,source_bindings=sources,
+            runtime_seconds=time.monotonic()-started,candidate_count=len(catalogue.rows),selection_on='construction800',review_sources=200,
+            new_PHY_decodes=0,new_neural_inference=0,development_read=False,GPU_used=False,automatic_followup=False));print('COMPLETE')
+    except Exception as exc:
+        save(out/'failure.json',dict(status='FAILED_REQUIRES_REVIEW',error=repr(exc),elapsed_seconds=time.monotonic()-started,automatic_retry=False));raise
+
+
+if __name__=='__main__':main()
