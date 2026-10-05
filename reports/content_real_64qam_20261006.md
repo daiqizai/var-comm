@@ -29,3 +29,9 @@
 资格曲线每布局/SNR仅64个码块，正式可靠性仍由后续2048次粗测与登记精化确定。无噪声往返正确不能证明有噪声图像质量改善。所有最终结论仍需失败计入的真实链路评测、独立指标、完整主系统参考和发送端成本。
 
 旧 A1/A2、旧 C 停止结论和既有模型保持原版本。本批没有训练更新，未启动最终 holdout。
+
+## 预筛执行补充
+
+已在正式误块率数据产生前冻结[预筛解释与接续规则](../results/content_real_64qam_20261006/prescreen_registration_v1/PRESCREEN_SCHEDULE.md)，并启动独立CPU等待器。它在质量表和正式误块率批次全部收尾后运行完整候选排名；若需要精化，只登记请求，不自动调用额外译码。
+
+[新增工程测试与执行登记](../results/content_real_64qam_20261006/prescreen_registration_v1/PUBLIC_EXPORT_MANIFEST.json)已保存。尚无新的系统质量结论。

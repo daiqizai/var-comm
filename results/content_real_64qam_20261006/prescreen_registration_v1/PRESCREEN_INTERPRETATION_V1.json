@@ -1,0 +1,19 @@
+{
+  "schema": "H_PRESCREEN_INTERPRETATION_V1",
+  "status": "FROZEN_BEFORE_COARSE_DATA",
+  "original_protocol_changed": false,
+  "selection_objective": "Mean per-source PSNR on the exact registered hash200, including all failure probability mass; never PSNR of mean MSE",
+  "refinement_competition": "Within each main SNR and each of the four whole arms plus the complete raw64 control, take the top2 expected-PSNR candidates and compare each screening envelope with its own family best envelope",
+  "refinement_deduplication": "A layout/SNR cell appears once; assign the largest qualifying candidate envelope width; retain all qualifying candidate IDs as evidence",
+  "refinement_priority": "Descending envelope width, then SNR ascending, q ascending, exact rational rate ascending; at most2 cells, only 0.01<=observed BLER<=0.99, +6144 each",
+  "probability_interval": "Header-C and body-C individual Wilson95 intervals are multiplied at their endpoints; signed mean(correct PSNR-gray PSNR) determines score endpoint order. This is a Wilson95 marginal-propagated screening envelope, not a joint95% confidence interval",
+  "unknown_accepted": "All probability mass outside correct header AND correct body receives per-source gray PSNR only in this prescreen surrogate; this is never an actual accepted-error image measurement",
+  "probability_scales_tie_cost": "Raw policies use0; arithmetic policies use their target_m because the registered continuous transmitter encoder obtains the attempted target prefix before fallback. Shared offline preparation throughm9 is not charged as every online policy's target",
+  "duplicate_policies": "Retain distinct target-m/r policies even if all200 sources produce the same actual fallback waveform; partial shortlist distinctness is actual public profile_key",
+  "ties": "Repeated deterministic best extraction: compute the maximum remaining expected score, collect candidates at most1e-12 below that maximum, and choose the least tuple(mean attempted TX probability scales,q,exact rational rate,target_m,K,lexical profile key). Remove that candidate and repeat",
+  "stages": "Coarse outputs are provisional if the frozen refinement list is nonempty. A separate final invocation accepts only those cells with exactly6144 additional calls each and8192 merged observations. No new refinement iteration is permitted. If the list is empty the coarse shortlist is final",
+  "source200_used_for_selection": true,
+  "development_used": false,
+  "new_packet_decodes_in_prescreen": 0,
+  "new_visual_inference_in_prescreen": 0
+}
