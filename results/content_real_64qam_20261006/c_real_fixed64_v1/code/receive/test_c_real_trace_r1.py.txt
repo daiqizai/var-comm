@@ -1,0 +1,233 @@
+"""C8192 metadata/actual-RX fixtures; no real decoder, model or GPU."""
+from contextlib import closing
+from copy import deepcopy
+import hashlib
+import json
+import os
+from pathlib import Path
+import sqlite3
+import tempfile
+import unittest
+from unittest.mock import patch,Mock
+import numpy as np
+import c_real_trace_core_r1 as c
+import c_real_trace_driver_r1 as d
+import register_c_real_trace_r1 as r
+
+HERE=Path(__file__).resolve().parent
+ASSETS=Path(os.environ.get('C_REAL_TEST_FROZEN_DIR',str(HERE.parent/'delivery')))
+Q848=Path(os.environ.get('C_REAL_TEST_C848_CLOSED',str(HERE.parent/'current/c_real_qualification_r1')))
+FILES=('C_REAL_PROTOCOL.json','frozen_policy_identity.json','C_SOURCE64.metadata.json','choices64_by_bin.csv','C_resource_budget.json')
+
+def packed(bits):return dict(bits=len(bits),hex=np.packbits(bits,bitorder='big').tobytes().hex())
+class FakeLedger:
+    def __init__(self):self.observed=[]
+    def record(self,event,kind,result):
+        self.observed.append(dict(event_id=event,kind=kind,phy_key=kind,request_sha256='a'*64,result_sha256=c.digest(result)));return result
+class FakePHY:
+    def __init__(self):self.ledger=FakeLedger();self.actual=[];self.wrong=None;self.reject=False
+    def header_wave(self,pid):self.pid=pid;self.actual=[];return np.ones((68,2))
+    def body_wave(self,payload,g,counter,j,session):self.actual.append(payload.copy());return np.ones((g['symbols'],2))
+    def header_receive(self,y,h,v,book,event,phase):
+        pid=self.pid if self.wrong is None else self.wrong
+        return self.ledger.record(event,'header',dict(profile_id=pid,header_crc_accept=not self.reject,header_fields_legal=str(pid) in book,header_ok=not self.reject and str(pid) in book,decoded=packed(np.zeros(34,dtype=np.uint8))))
+    def body_receive(self,y,h,v,g,counter,j,session,event,phase):
+        bits=self.actual[j] if j<len(self.actual) and len(self.actual[j])==g['source_bits'] else np.zeros(g['source_bits'],dtype=np.uint8)
+        return self.ledger.record(event,'body',dict(payload=packed(bits),crc_accept=True,decoded_sha256=c.array_sha(bits)))
+
+class Trace(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):cls.frozen=c.load_frozen(*[ASSETS/n for n in FILES])
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.root=Path(self.temp.name)
+    def write(self,path,value):d.save(path,value);return str(path)
+    def orders(self,index):return {m:np.arange(c.SIZES[m]**2,dtype=np.int64) for m in self.frozen['required_entropy_orders'][self.frozen['source_ids'][index]]}
+    def source(self,index=0):
+        orders=self.orders(index);tokens=np.arange(680,dtype=np.int64)%4096;archive=self.root/f'{index:04d}.npz'
+        np.savez(archive,tokens=tokens,**{f'entropy_order_m{m}':o for m,o in orders.items()})
+        row=dict(source_index=index,source_id=self.frozen['source_ids'][index],required_ms=sorted(orders),archive=str(archive),archive_sha256=c.sha(archive),
+            tokens_sha256=d.token_sha(tokens),checkpoint_sha256='b'*64)
+        cp=dict(order_metadata={str(m):dict(length=len(o),sha256=c.array_sha(o.astype('<i8'))) for m,o in orders.items()})
+        cp_path=self.root/f'{index:04d}.json';self.write(cp_path,cp);row['checkpoint']=str(cp_path);row['checkpoint_sha256']=c.sha(cp_path)
+        return row,cp,tokens,orders
+    def parity(self):
+        choices=[];states=set()
+        for i,sid in enumerate(self.frozen['source_ids'][:8]):
+            for snr in c.SNRS:
+                for method in c.METHODS:
+                    t=self.frozen['tables'][snr,method]
+                    for b,pid in enumerate(t['choices'][sid]):
+                        p=t['codebook'][str(pid)];choices.append(dict(source_index=i,source_id=sid,average_snr_db=snr,method=method,bin=b,
+                            public_header_id=pid,profile_id=p['stable_id'],frozen_candidate_index=p['candidate_index']))
+                        states.add((i,p['full_state_id']))
+                        if p['G']==2:states.add((i,p['prefix_state_id']))
+        rows=[dict(source_index=i,source_id=self.frozen['source_ids'][i],state_id=state,exact_tokens=True,exact_positions=True,exact_values=True,
+            max_abs_image_error=1e-7,TX_RX_contexts_independent=True,RX_reads_TX_order=False) for i,state in sorted(states)]
+        return dict(status='C_REAL_FIRST8_INDEPENDENT_TX_RX_PARITY_PASS_R1',source_ids=self.frozen['source_ids'][:8],source_indices=list(range(8)),
+            cases=91,choice_check_count=512,choice_checks=choices,rows=rows,image_tolerance=1e-6,new_packet_decodes=0,policy_selection=False)
+    def test_all8192_fixed_schedule_two_disjoint32source_shards(self):
+        halves=[{row for i in range(w,64,2) for row in d.schedule(i)} for w in (0,1)]
+        self.assertEqual(tuple(map(len,halves)),(4096,4096));self.assertFalse(halves[0]&halves[1]);self.assertEqual(len(halves[0]|halves[1]),8192)
+        self.assertEqual(c.LIMITS,dict(qualification=848,development=24576,diagnostic_reserve=74576))
+    def test_wrong_header_with_identical_payload_is_not_body_error(self):
+        original=next(iter(self.frozen['tables'][4,'QCSI-U']['codebook'].values()))
+        # Public aliases have identical physical geometry, but distinct IDs.
+        frozen=deepcopy(self.frozen);frozen['tables'][4,'QCSI-U']=dict(codebook={'0':original,'1':deepcopy(original)},
+            choices={self.frozen['source_ids'][0]:[0]*8})
+        phy=FakePHY();phy.wrong=1
+        result=c.trajectory(phy,frozen,0,4,0,'QCSI-U',np.arange(680),self.orders(0))
+        self.assertTrue(result['evaluation_only']['header_undetected']);self.assertTrue(all(result['evaluation_only']['body_payload_equals_transmitted_group']))
+        self.assertFalse(any(result['evaluation_only']['accepted_body_wrong_payload']));self.assertNotIn('body_undetected',result['evaluation_only'])
+    def test_same_channel_noise_unchanged_and_RX_keeps_accepted_values(self):
+        phy=FakePHY();a=c.trajectory(phy,self.frozen,0,7,4,'QCSI-U',np.arange(680),self.orders(0))
+        b=c.trajectory(phy,self.frozen,0,7,4,'QCSI-C8',np.arange(680),self.orders(0))
+        self.assertEqual(a['h'],b['h']);self.assertEqual(a['standard_noise_sha256'],b['standard_noise_sha256'])
+        self.assertEqual(a['public_frame_counter'],b['public_frame_counter']);self.assertFalse(a['images_scored'])
+        self.assertLessEqual(a['total_paid_symbols'],1024);self.assertTrue(a['receive']['accepted_groups'])
+    def test_missing206_parity_blocks_before_backend(self):
+        parity=self.parity();d.validate_parity(parity,self.frozen)
+        parity['rows'].pop()
+        with self.assertRaisesRegex(ValueError,'missing/incomplete'):d.validate_parity(parity,self.frozen)
+        parity=self.parity();parity['choice_checks'][0]['public_header_id']+=1
+        with self.assertRaisesRegex(ValueError,'frozen choices'):d.validate_parity(parity,self.frozen)
+        parity=self.parity();parity['rows'][0]['max_abs_image_error']=1.00001e-6
+        with self.assertRaisesRegex(ValueError,'parity failed'):d.validate_parity(parity,self.frozen)
+    def test_exact_TX_permutations_tokens_and_archive_keys(self):
+        row,cp,tokens,orders=self.source();a,b=d.load_source(row,cp);np.testing.assert_array_equal(a,tokens);self.assertEqual(set(b),set(orders))
+        cp['order_metadata'][str(row['required_ms'][0])]['sha256']='0'*64
+        with self.assertRaisesRegex(ValueError,'permutation'):d.load_source(row,cp)
+        np.savez(row['archive'],tokens=tokens,**{f'entropy_order_m{m}':o for m,o in orders.items()},pixels=np.zeros((1,)))
+        row['archive_sha256']=c.sha(row['archive'])
+        with self.assertRaisesRegex(ValueError,'additional arrays'):d.load_source(row,cp)
+    def test_actual848_downloaded_fields_not_ledger_failed_invention(self):
+        cfg=c.read(Q848/'execution/config.json');reg=c.read(Q848/'execution/execution_registration.json')
+        normal=c.read(Q848/'execution/completion.json');science=c.read(Q848/'science/completion.json');exit_=c.read(Q848/'execution/worker_exit.json')
+        d.qualification_fields(cfg,reg,normal,science,exit_)
+        bad=deepcopy(normal);bad['worker_reaped']=False
+        with self.assertRaisesRegex(ValueError,'wait/identity'):d.qualification_fields(cfg,reg,bad,science,exit_)
+    def test_source128frames_archive_written_once_no_gray_substitution(self):
+        row,cp,tokens,orders=self.source();ctx=dict(manifest=dict(sources=[row]),frozen=self.frozen,regsha='a'*64)
+        phy=FakePHY();out=self.root/'worker';proof=d.execute_source(ctx,phy,0,out,lambda:None)
+        frames=c.read(proof['trace']);self.assertEqual(len(frames),128);self.assertEqual(proof['source_id'],row['source_id'])
+        self.assertFalse(proof['source_reconstruction_complete']);self.assertTrue(any(f['receive']['actual_entropy_mapping_pending'] for f in frames))
+        with self.assertRaises(FileExistsError):d.execute_source(ctx,phy,0,out,lambda:None)
+    def test_worker_precreated_empty_out_allowed_prior_evidence_refused(self):
+        p=self.root/'worker';p.mkdir();d.claim(p,'a'*64)
+        with self.assertRaisesRegex(ValueError,'Prior'):d.claim(p,'a'*64)
+    def test_missing_registration_dependency_refused_before_import(self):
+        p=self.root/'bad.py';p.write_text('raise AssertionError("must not import")')
+        with self.assertRaisesRegex(ValueError,'Executable not bound'):d.module(str(p),'synthetic',{})
+    def test_missing_entropy_owner_gate_is_not_registered_as_ready(self):
+        regpath=self.root/'execution';out=self.root/'out';source=self.root/'source';source.write_text('synthetic')
+        ledger=self.root/'C.sqlite';ledger.write_bytes(b'fixture')
+        cfg=dict(registration=str(regpath/'execution_registration.json'),out=str(out),ledger=str(ledger),budget_registration=str(source),owner_config=str(regpath/'owner_config.json'))
+        owner=dict(worker_config=str(regpath/'config.json'),registration=cfg['registration'],execution_dir=str(regpath))
+        sources={str(Path(p).absolute()):c.sha(p) for p in (r.__file__,d.__file__,c.__file__)}
+        request=self.root/'request.json';self.write(request,dict(schema='C_REAL_CPU_8192_REGISTRATION_REQUEST_R1',execution_dir=str(regpath),config=cfg,owner_config=owner,source_bindings=sources,input_bindings={}))
+        before=dict(charged=848,unresolved=0,phase_charged=dict(qualification=848,development=0,diagnostic_reserve=0))
+        with patch.object(d,'ledger_snapshot',return_value=before),patch.object(d,'load_registered',side_effect=ValueError('entropy normal closure missing')):
+            with self.assertRaisesRegex(ValueError,'normal closure'):r.register(request)
+        self.assertTrue((regpath/'failure.json').exists());self.assertFalse((regpath/'registration_completion.json').exists())
+
+    def test_closed_entropy_exact_producer_schema_and_registration_self_pin(self):
+        e=self.root/'entropy_execution';out=self.root/'entropy';rp=e/'execution_registration.json';config=e/'config.json'
+        cfg=dict(schema='C_ENTROPY_WORKER_CONFIG_R1',execution_dir=str(e),out=str(out),registration=str(rp))
+        self.write(config,cfg);budget=dict(charged=848,unresolved=0,phase_charged=dict(qualification=848,development=0,diagnostic_reserve=0))
+        reg=dict(status='C_ENTROPY_GPU_REGISTERED_R1',config_sha256=c.sha(config),source_bindings={},input_bindings={str(config):c.sha(config)},budget_before=budget)
+        self.write(rp,reg);rs=c.sha(rp);owner=dict(pid=1,start_ticks=2,uid=3);child=dict(pid=4,start_ticks=5,uid=3)
+        (e/'worker.log').write_text('COMPLETE\n');self.write(e/'owner_identity.json',dict(identity=owner,registration_sha256=rs))
+        self.write(e/'worker_launch.json',dict(identity=child,registration_sha256=rs));self.write(e/'worker_exit.json',dict(identity=child,reaped=True,exit_code=0,log_sha256=c.sha(e/'worker.log')))
+        self.write(e/'registration_completion.json',dict(status='C_ENTROPY_REGISTERED_NOT_LAUNCHED_R1',registration_sha256=rs,outputs={str(config):c.sha(config),str(rp):rs}))
+        science=dict(registration_sha256=rs,config_sha256=c.sha(config),source_count=64,entropy_pair_count=206,new_packet_decodes=0,
+            worker_identity=child,budget_before=budget,budget_after=budget,source_bindings={},input_bindings=reg['input_bindings'],outputs={})
+        self.write(out/'completion.json',science)
+        normal=dict(status='C_ENTROPY_GPU_NORMALLY_COMPLETE_R1',registration_sha256=rs,worker_reaped=True,exit_code=0,
+            worker_identity=child,owner_identity=owner,source_count=64,entropy_pair_count=206,parity_cases=91,new_packet_decodes=0,
+            budget_after=budget,source_bindings={},input_bindings=reg['input_bindings'],outputs={str(out/'completion.json'):c.sha(out/'completion.json')})
+        self.write(e/'completion.json',normal);pins={str(p):c.sha(p) for p in self.root.rglob('*') if p.is_file()}
+        spec=dict(config=str(config),completion=str(e/'completion.json'))
+        with patch.object(d,'process_absent',return_value=True):
+            self.assertEqual(d.closed_entropy(spec,pins)['manifest_path'],str(out/'completion.json'))
+            del pins[str(rp)]
+            with self.assertRaisesRegex(ValueError,'evidence missing'):d.closed_entropy(spec,pins)
+            pins[str(rp)]=rs
+        with patch.object(d,'process_absent',side_effect=ValueError('Original process still present')):
+            with self.assertRaisesRegex(ValueError,'still present'):d.closed_entropy(spec,pins)
+
+    def test_real_SQLite_8192_merge_inventory_and_tampered_result_rejected(self):
+        # Original schema is constructed by the frozen ledger; rows are synthetic fixture events.
+        lp=Path(os.environ.get('C_REAL_TEST_LEDGER_MODULE',str(HERE.parent/'runner/budget_ledger.py')))
+        ledger_module=d.module(str(lp),'c8192_test_original_ledger',{str(lp):c.sha(lp)})
+        identity=dict(pid=55,start_ticks=66,uid=77,argv=['fixture']);budget_file=self.root/'budget.json';self.write(budget_file,{'fixture':True})
+        ledger_path=self.root/'C.sqlite';ledger=ledger_module.BudgetLedger(ledger_path,c.sha(budget_file),'C',c.LIMITS,identity,lambda pid:identity)
+        cfg_path=self.root/'cfg.json';self.write(cfg_path,{});cfg=dict(out=str(self.root/'rx'),ledger=str(ledger_path),budget_registration=str(budget_file),_path=str(cfg_path))
+        ctx=dict(cfg=cfg,regsha='a'*64,reg=dict(source_bindings={},input_bindings={}),frozen=self.frozen,
+            manifest={'sources':[dict(checkpoint_sha256='b'*64,archive_sha256='c'*64) for _ in range(64)]})
+        result=dict(header_ok=False,profile_id=None);result_json=json.dumps(result,sort_keys=True,separators=(',',':'));events=[]
+        for i in range(848):events.append((f'qualification:{i}','qualification','header','fixture','a'*64,'COMPLETE','{}',0,0,result_json,c.digest(result),None))
+        for w in (0,1):
+            base=Path(cfg['out'])/f'worker_{w}';outputs={}
+            for i in range(w,64,2):
+                frames=[]
+                for _,snr,trial,method in d.schedule(i):
+                    event=f'C:development:src{i:02d}:snr{snr}:trial{trial:02d}:{method}/header'
+                    packet=dict(event_id=event,kind='header',phy_key='fixture',request_sha256='a'*64,result_sha256=c.digest(result))
+                    rx=dict(header=result,bodies=[],accepted_groups=[],state_id='gray',gray=True,actual_entropy_mapping_pending=False,source_reconstruction_complete=False,format_rejected=False)
+                    frames.append(dict(status='C_REAL_ACTUAL_CPU_TRAJECTORY_R2',source_index=i,source_id=self.frozen['source_ids'][i],average_snr_db=snr,trial=trial,method=method,
+                        images_scored=False,source_reconstruction_complete=False,logical_packet_events=1,packet_events=[packet],receive=rx,
+                        actual_forward_symbols=68,h=[1,0],variance_per_real=1,public_frame_counter=c.public_counter(i,snr,trial)))
+                    events.append((event,'development','header','fixture','a'*64,'COMPLETE','{}',0,0,result_json,c.digest(result),None))
+                trace=base/'traces'/f'{i:04d}.json';self.write(trace,frames)
+                cp=base/'source_checkpoints'/f'{i:04d}.json';self.write(cp,dict(status='C_REAL_CPU_SOURCE_RECEIVE_COMPLETE_R1',registration_sha256=ctx['regsha'],source_index=i,
+                    source_id=self.frozen['source_ids'][i],frame_count=128,logical_packet_events=128,trace=str(trace),trace_sha256=c.sha(trace),
+                    entropy_checkpoint_sha256='b'*64,entropy_archive_sha256='c'*64,images_scored=False,source_reconstruction_complete=False,policy_selection=False))
+                outputs.update({str(cp):c.sha(cp),str(trace):c.sha(trace)})
+            self.write(base/'completion.json',dict(status=d.WORKER,registration_sha256=ctx['regsha'],config_sha256=c.sha(cfg_path),worker_index=w,source_indices=list(range(w,64,2)),source_count=32,frame_count=4096,
+                source_bindings={},input_bindings={},images_scored=False,source_reconstruction_complete=False,outputs=outputs))
+        with ledger.transaction() as db:
+            db.executemany('INSERT INTO events VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',events)
+            db.execute("UPDATE counters SET charged=848 WHERE phase='qualification'");db.execute("UPDATE counters SET charged=8192 WHERE phase='development'")
+        inventory=d.audit_inventory(ctx);self.assertEqual(inventory['packet_calls'],8192);self.assertEqual(inventory['budget']['charged'],9040)
+        self.assertEqual(inventory['budget']['phase_charged']['diagnostic_reserve'],0)
+        with ledger.transaction() as db:db.execute("UPDATE events SET result=? WHERE event_id=?",('{}',events[-1][0]))
+        with self.assertRaisesRegex(ValueError,'packet result evidence'):d.audit_inventory(ctx)
+
+    def test_reserved_or_failed_ledger_row_never_refunded_or_silently_completed(self):
+        lp=Path(os.environ.get('C_REAL_TEST_LEDGER_MODULE',str(HERE.parent/'runner/budget_ledger.py')))
+        lm=d.module(str(lp),'c8192_failure_ledger',{str(lp):c.sha(lp)});identity=dict(pid=55,start_ticks=66,uid=77,argv=['fixture'])
+        path=self.root/'failed.sqlite';ledger=lm.BudgetLedger(path,'a'*64,'C',c.LIMITS,identity,lambda pid:identity);ledger.register_configuration('fixture',{})
+        adapter=c.CAtomicAdapter(ledger,'a'*64,'development',{'fixture'})
+        for phase in ('diagnostic_reserve','qualification'):
+            with self.assertRaises(ValueError):adapter.decode_once(phase,'no-reserve','body','fixture',{},lambda:{})
+        def fail():raise RuntimeError('real decoder failed fixture')
+        with self.assertRaises(RuntimeError):adapter.decode_once('development','C:development:failed','body','fixture',{},fail)
+        with self.assertRaises(lm.BudgetError):adapter.decode_once('development','C:development:failed','body','fixture',{},lambda:{})
+        with closing(sqlite3.connect(path)) as db:
+            self.assertEqual(db.execute("SELECT charged FROM counters WHERE phase='development'").fetchone()[0],1)
+            self.assertEqual(db.execute("SELECT status FROM events WHERE event_id='C:development:failed'").fetchone()[0],'FAILED')
+
+    def test_completed_packet_reparse_preserves_wrong_header_and_received_tokens(self):
+        phy=FakePHY();frame=c.trajectory(phy,self.frozen,0,7,4,'QCSI-C8',np.arange(680),self.orders(0))
+        rows={}
+        for i,event in enumerate(frame['packet_events']):
+            value=frame['receive']['header'] if i==0 else {k:v for k,v in frame['receive']['bodies'][i-1].items() if k not in ('group_index','phy_key')}
+            rows[event['event_id']]={'result':json.dumps(value)}
+        recovered=d.receiver_from_completed_events(frame,self.frozen,rows)
+        self.assertEqual(recovered,frame['receive'])
+        changed=deepcopy(frame);changed['receive']['accepted_groups'][0]['received_token_values'][0]^=1
+        self.assertNotEqual(d.receiver_from_completed_events(changed,self.frozen,rows),changed['receive'])
+
+    def test_merge_requires_own_live_admission_before_reading_final_inventory(self):
+        cp=self.root/'config.json';self.write(cp,{})
+        owner=Mock();owner.admit_merge.side_effect=ValueError('current merge not admitted')
+        cfg=dict(out=str(self.root/'out'),affinities=[[0,1],[2,3]],deadline_unix=10**12,stop_file=str(self.root/'STOP'))
+        ctx=dict(cfg=cfg,regsha='a'*64,owner=owner)
+        env=dict(CUDA_VISIBLE_DEVICES='',OMP_NUM_THREADS='2',MKL_NUM_THREADS='2',OPENBLAS_NUM_THREADS='2',NUMEXPR_NUM_THREADS='2')
+        with patch.object(d,'load_registered',return_value=ctx),patch.object(d.sys,'platform','linux'),patch.dict(os.environ,env),\
+            patch.object(d.os,'sched_getaffinity',return_value={0,1},create=True),patch.object(d.os,'getpriority',return_value=15,create=True),\
+            patch.object(d.os,'PRIO_PROCESS',0,create=True),patch.object(d,'audit_inventory') as audit:
+            with self.assertRaisesRegex(ValueError,'not admitted'):d.merge(cp)
+            audit.assert_not_called();owner.closed_workers.assert_not_called()
+        self.assertTrue((Path(cfg['out'])/'merge/failure.json').is_file())
+
+if __name__=='__main__':unittest.main()

@@ -1,0 +1,92 @@
+from contextlib import contextmanager
+from copy import deepcopy
+from pathlib import Path
+from types import SimpleNamespace as NS
+import tempfile
+import unittest
+from unittest.mock import patch
+import c_online_tx_execution_r1 as e
+from test_c_online_tx_driver_r1 import all_cases
+
+class Execution(unittest.TestCase):
+    def setUp(self):
+        self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup);self.root=Path(self.tmp.name)
+    def qfixture(self):
+        paths=[]
+        for name in ('visualcfg','normal','encoder'):
+            p=self.root/name;p.write_bytes(name.encode());paths.append(str(p))
+        cfg=dict(python='originalUM',visual_batch={'config':paths[0],'completion':paths[1]},encoder_module=paths[2])
+        log=self.root/'tests.log';log.write_text('Ran 29 tests in 0.01s\n\nOK\n')
+        sources=e.bind(Path(e.__file__).with_name(n)for n in e.SOURCES);inputs=e.bind(paths)
+        q=dict(status=e.QPASS,tests_run=29,test_modules=e.TEST_MODULES,python='originalUM',exit_code=0,process_waited=True,
+            new_GPU_calls=0,new_packet_decodes=0,source_bindings=sources,input_bindings=inputs,outputs=e.bind([log]),log=str(log))
+        path=self.root/'qualification.json';e.save(path,q);return path,cfg,e.combine(sources,inputs),q
+    def done_fixture(self):
+        out=self.root/'out';out.mkdir();execution=self.root/'e';execution.mkdir();cfg=dict(out=str(out),execution_dir=str(execution),_path=str(execution/'config.json'))
+        e.save(cfg['_path'],{});cases=all_cases();source_ids=['s'+str(i)for i in range(64)];outputs={}
+        for i in range(16):
+            rp=out/f'sources/{i:04d}.json';cp=out/f'source_checkpoints/{i:04d}.json';e.save(rp,cases[i*8:(i+1)*8])
+            e.save(cp,dict(status='C_FIRST16_ONLINE_TX_SOURCE_COMPLETE_R1',source_index=i,source_id=source_ids[i],case_count=8,fresh_encoder_calls=32,registration_sha256='reg',outputs=e.bind([rp])))
+            outputs.update(e.bind([rp,cp]))
+        e.save(out/'component_cases.json',cases);e.save(out/'component_summary.json',e.d.summarize(cases));outputs.update(e.bind([out/'component_cases.json',out/'component_summary.json']))
+        before={'charged':21495};identity={'pid':999999};scope={'fixed':16}
+        ctx=dict(cfg=cfg,regsha='reg',before=before,scope=scope,frozen={'source_ids':source_ids},native_bindings={},
+            reg={'source_bindings':{},'input_bindings':{}},prior_owner=NS(absent=lambda i:True))
+        done=dict(status=e.d.DONE,worker_identity=identity,registration_sha256='reg',config_sha256=e.sha(cfg['_path']),source_count=16,case_count=128,fresh_encoder_calls=512,
+            warmup_repetitions=1,measured_repetitions=3,timing_design=scope,new_packet_decodes=0,new_noise=0,new_quality_samples=0,policy_selection=False,
+            source_ids=source_ids[:16],source_indices=list(range(16)),budget_before=before,budget_after=before,source_bindings={},input_bindings={},native_source_bindings={},outputs=outputs)
+        e.save(out/'completion.json',done);return ctx,dict(exit_code=0,reaped=True,identity=identity)
+
+    def test_real_qualification_consumer_exact29_sources_and_metadata(self):
+        p,cfg,pins,q=self.qfixture();self.assertEqual(e.qualification(p,cfg,pins),q)
+    def test_bad_qualification_count_or_missing_original_dependency_refused(self):
+        p,cfg,pins,q=self.qfixture();bad=deepcopy(q);bad['tests_run']=28;p.write_text(__import__('json').dumps(bad))
+        with self.assertRaises(ValueError):e.qualification(p,cfg,pins)
+        p.write_text(__import__('json').dumps(q));pins.pop(cfg['encoder_module'])
+        with self.assertRaises(ValueError):e.qualification(p,cfg,pins)
+    def test_check_live_preserves_successful_C_phase_aware_guard(self):
+        calls=[];ctx={'prior_owner':NS(check_live=lambda c,p:calls.append((c,p)))}
+        e.check_live(ctx,{'actual':'identity'});self.assertEqual(calls,[(ctx,{'actual':'identity'})])
+    def test_full16_checkpoints_128cases_zero_PHY_validated(self):
+        ctx,x=self.done_fixture()
+        with patch.object(e.d,'budget',return_value=ctx['before']):done=e.validate_done(ctx,x)
+        self.assertEqual(done['fresh_encoder_calls'],512)
+    def test_incomplete_checkpoint_or_unreaped_child_refused(self):
+        ctx,x=self.done_fixture();x['reaped']=False
+        with self.assertRaisesRegex(ValueError,'reaped'):e.validate_done(ctx,x)
+        x['reaped']=True;(Path(ctx['cfg']['out'])/'source_checkpoints/0015.json').write_text('{}')
+        with self.assertRaises(ValueError):e.validate_done(ctx,x)
+    def test_no_retry_of_existing_owner_attempt(self):
+        folder=self.root/'e';folder.mkdir();(folder/'run_attempt.json').write_text('preserve')
+        cfg=dict(execution_dir=str(folder),out=str(self.root/'out'));ctx=dict(cfg=cfg,prior_owner=NS(check_stop=lambda c:None))
+        with patch.object(e,'load',return_value=ctx),self.assertRaisesRegex(ValueError,'No retry'):e.run('unused')
+    def test_owner_error_drains_before_both_locks_release(self):
+        folder=self.root/'e';folder.mkdir();events=[];cfg=dict(execution_dir=str(folder),out=str(self.root/'out'),root=str(self.root),
+            resources={'affinity':[4,5,6,7,8,9],'max_seconds':10},nvidia_smi='/gpu',_path='cfg',python='py',driver_module='driver')
+        @contextmanager
+        def lock(p):
+            events.append('lock'+p)
+            try:yield
+            finally:events.append('unlock'+p)
+        child=NS(pid=12,poll=lambda:0)
+        def finish(rec,ex):
+            events.append('wait');rec['handle'].close();rec['exit']={}
+        old=NS(check_stop=lambda c:None,identity=lambda p:{'pid':p},lock_paths=lambda c:['gpu','ledger'],lock=lock,
+            gpu_idle=lambda p:{'status':'GPU_IDLE_CONFIRMED'},environment=lambda c:{},resources=lambda a:None,
+            capture=lambda child,cmd:{'pid':12},finish=finish,marker=lambda c,m:events.append('marker'))
+        ctx=dict(cfg=cfg,prior_owner=old,regsha='reg',before={'charged':21495})
+        with patch.object(e,'load',return_value=ctx),patch.object(e.d,'budget',return_value=ctx['before']),patch.object(e,'sha',return_value='h'),\
+            patch.object(e.os,'sched_getaffinity',return_value=set(range(10)),create=True),patch.object(e.subprocess,'Popen',return_value=child),\
+            patch.object(e,'validate_done',side_effect=ValueError('bad receipt')),self.assertRaisesRegex(ValueError,'bad receipt'):
+            e.run('config')
+        self.assertLess(max(i for i,x in enumerate(events)if x=='wait'),events.index('unlockledger'))
+        self.assertTrue((folder/'failure.json').exists())
+    def test_admission_cannot_accept_different_worker_argv(self):
+        folder=self.root/'e';folder.mkdir();cfg=dict(execution_dir=str(folder),_path=str(folder/'cfg'),python='py',driver_module='driver',nvidia_smi=str(folder/'gpu'))
+        for p in (cfg['_path'],cfg['nvidia_smi']):Path(p).write_bytes(b'fixture')
+        identity={'argv':['wrong']};owner={'pid':5};gpu=folder/'gpu_admission.json';e.save(gpu,dict(status='GPU_IDLE_CONFIRMED',nvidia_smi_sha256=e.sha(cfg['nvidia_smi'])))
+        e.save(folder/'owner_identity.json',dict(identity=owner,registration_sha256='reg'));e.save(folder/'worker_launch.json',dict(identity=identity,registration_sha256='reg'))
+        e.save(folder/'worker_admission.json',dict(status='C_ONLINE_TX_WORKER_ADMITTED_R1',registration_sha256='reg',config_sha256=e.sha(cfg['_path']),worker_identity=identity,owner_identity=owner,gpu_admission_sha256=e.sha(gpu)))
+        with self.assertRaisesRegex(ValueError,'admission'):e.admit_worker(dict(cfg=cfg,regsha='reg',prior_owner=object()))
+
+if __name__=='__main__':unittest.main()

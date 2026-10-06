@@ -1,0 +1,225 @@
+"""Fixed C first16 uncached TX components; no channel, new policy, or metrics result."""
+from __future__ import annotations
+import argparse
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import signal
+import statistics
+import sys
+import time
+import traceback
+import numpy as np
+import c_online_tx_components_r1 as core
+
+SCHEMA='C_REAL_ONLINE_TX_CONFIG_R1'
+REG='C_REAL_ONLINE_TX_REGISTERED_R1'
+DONE='C_REAL_FIRST16_ONLINE_TX_COMPONENTS_COMPLETE_R1'
+ENCODER_SHA='31bb602e0204ffd16c1ee213f822ca1339a3df78950fd14775e580f6e4b71e5f'
+METRIC_SHA='dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066'
+FLAT_SHA='dbc3fe857af53bad2d4282360cb331ed0aa11fa548dc146c6b9f0eaa11dddbab'
+L14_SHA='d5383ea8f4877b2472eb973e0fd72d557c7da5d3611bd527ceeb1d7162cbf428'
+STOP=False
+require=core.require
+def sha(p):
+    h=hashlib.sha256()
+    with Path(p).open('rb')as f:
+        for b in iter(lambda:f.read(1048576),b''):h.update(b)
+    return h.hexdigest()
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def save(p,value):
+    p=Path(p);p.parent.mkdir(parents=True,exist_ok=True)
+    with p.open('x',encoding='utf-8',newline='\n')as f:json.dump(value,f,indent=2,allow_nan=False);f.write('\n');f.flush();os.fsync(f.fileno())
+def bind(paths):return {str(Path(p).absolute()):sha(p) for p in paths}
+def combine(*maps):
+    result={}
+    for pins in maps:
+        for p,h in pins.items():require(p not in result or result[p]==h,'Conflicting binding '+p);result[p]=h
+    return result
+def verify(pins):
+    for p,h in pins.items():require(Path(p).is_absolute() and sha(p)==h,'Changed bound file '+p)
+def module(p,name,bound):
+    p=str(Path(p).absolute());require(bound.get(p)==sha(p),'Module unbound before import '+p)
+    spec=importlib.util.spec_from_file_location(name,p);m=importlib.util.module_from_spec(spec);sys.modules[name]=m;spec.loader.exec_module(m);return m
+def exact(pins,name,expected=None):
+    found=[p for p,h in pins.items() if Path(p).name==name and (expected is None or h==expected)]
+    require(len(found)==1,'Unique original dependency required '+name);require(sha(found[0])==pins[found[0]],'Original dependency changed');return found[0]
+def stop(*_):
+    global STOP
+    STOP=True
+
+def normal_visual(cfg,bound):
+    spec=cfg['visual_batch'];oldcfg=read(spec['config']);reg=read(oldcfg['registration'])
+    require(reg['status']=='C_REAL_VISUAL_REGISTERED_R1' and reg['config_sha256']==sha(spec['config'])
+        and bound.get(spec['config'])==sha(spec['config']) and bound.get(oldcfg['registration'])==sha(oldcfg['registration']),
+        'Actual successful visual registration/config must be pinned')
+    verify(reg['source_bindings']);require(all(bound.get(p)==h for p,h in reg['source_bindings'].items()),'Original C visual code omitted')
+    require(cfg['visual_owner_module']==oldcfg['owner_module'],'Use the actual successful recovery owner')
+    sys.path.insert(0,str(Path(oldcfg['owner_module']).parent));owner=module(oldcfg['owner_module'],'c_timing_prior_visual_owner',bound)
+    closed=owner.closed_batch(spec)
+    require(closed['science']['images_scored'] is True and closed['science']['frame_count']==8192
+        and closed['science']['source_count']==64,'All actual C RX and original metrics must finish first')
+    return closed,owner
+
+def model_tables(frozen,pins):
+    tables={};inputs={}
+    for snr in core.SNRS:
+        pair={}
+        for name in ('selected_profiles.json','selected_coefficients.npz'):
+            matches=[p for p in pins if Path(p).name==name and Path(p).parent.name=='snr'+str(snr)]
+            require(len(matches)==1,'Exact original selected-model asset required '+name)
+            p=matches[0];require(sha(p)==pins[p],'Original model asset changed');pair[name]=p;inputs[p]=pins[p]
+        with np.load(pair['selected_coefficients.npz'],allow_pickle=False)as z:arrays={k:z[k].copy() for k in z.files}
+        tables[snr]=core.model_table(frozen,snr,read(pair['selected_profiles.json']),arrays)
+    return tables,inputs
+
+def inspect(cfg,bound,closed=None,prior_owner=None):
+    require(cfg['schema']==SCHEMA,'Separate fixed C timing config required');verify(bound)
+    for p in (str(Path(__file__).absolute()),str(Path(core.__file__).absolute()),cfg['owner_module'],cfg['encoder_module'],cfg['native_source_graph']):
+        require(bound.get(p)==sha(p),'Timing source/input omitted '+p)
+    require(sha(cfg['encoder_module'])==ENCODER_SHA,'Only original admitted fresh Encoder/VQ function')
+    if closed is None:closed,prior_owner=normal_visual(cfg,bound)
+    require(prior_owner is not None and all(bound.get(p)==h for p,h in closed['bindings'].items()),'Normal actual C closure omitted')
+    prior=closed['ctx'];before=prior['before'];prior_owner.validate_budget(before)
+    require(cfg['root']==prior['cfg']['root'] and cfg['python']==prior['cfg']['python']
+        and cfg['visual_lock']==prior['cfg']['visual_lock'] and cfg['nvidia_smi']==prior['cfg']['nvidia_smi'],
+        'Original UM interpreter, root, shared GPU lock and admission executable required')
+    prior_owner.validate_resources(cfg)
+    study=Path(cfg['root'])/'outputs/CONTENT-REAL-64QAM-20261006/C'
+    require(Path(cfg['out']).parent==Path(cfg['execution_dir']).parent==study
+        and cfg['out']!=cfg['execution_dir'] and cfg['out']!=prior['cfg']['out'],'Independent C timing output required')
+    frozen=prior['cpu_closed']['cpu']['frozen'];scope=core.design(frozen)
+    require(cfg['timing_design']==scope,'Explicit one warmup/three repeats and first16 engineering registration required')
+    tables,mpins=model_tables(frozen,prior['bound'])
+    graph=read(cfg['native_source_graph']);nativepins=graph['source_bindings']
+    require(graph['status']=='EXACT_SOURCE_CLOSURE_MATCH' and all(bound.get(p)==h for p,h in nativepins.items())
+        and all(nativepins.get(p)==h for p,h in prior['native_bindings'].items()),'Native graph missing original inputs')
+    identitypath=str(Path(prior['cfg']['out'])/'metric_identity.json')
+    require(closed['science']['outputs'].get(identitypath)==bound.get(identitypath)==sha(identitypath),'Actual C metric metadata unsealed')
+    identity=read(identitypath);require(identity['metric_identity']==closed['science']['metric_evaluator_identity'],'Metric identity differs')
+    evaluator=identity['metadata']['original_suite']['metric_evaluator']
+    require(evaluator['metrics']['dinov2_vitl14']['status']=='READY','Original L14 evaluation must be complete')
+    flatpath=exact(prior['bound'],'flat_model.py',FLAT_SHA);metricpath=exact(prior['bound'],'metric_models.py',METRIC_SHA)
+    require(L14_SHA in prior['bound'].values(),'Original L14 weights not sealed')
+    entropy=exact(prior['entropy']['reg']['source_bindings'],'c_entropy_core.py')
+    require(all(bound.get(p)==prior['bound'].get(p)==sha(p) for p in (flatpath,metricpath,entropy)),'Original timing primitives omitted')
+    return dict(cfg=cfg,bound=bound,prior=prior,closed=closed,prior_owner=prior_owner,before=before,scope=scope,
+        frozen=frozen,tables=tables,model_inputs=mpins,native_bindings=nativepins,evaluator=evaluator,
+        flat_module=flatpath,metric_module=metricpath,entropy_module=entropy,regsha=None,
+        cpu_closed=prior['cpu_closed'],cpu_supervisor=prior['cpu_supervisor'],visual_config=prior['visual_config'])
+
+def budget(ctx):return ctx['prior']['driver'].budget(ctx['prior'])
+def command(cfg):return [cfg['python'],'-B',cfg['driver_module'],'--config',cfg['_path']]
+def import_paths(ctx):
+    return list(dict.fromkeys([str(Path(__file__).parent),str(Path(ctx['cfg']['owner_module']).parent),
+        *ctx['prior']['driver'].import_paths(ctx['prior'])]))
+def load_registered(path):
+    cfg=read(path);reg=read(cfg['registration']);bound=combine(reg['source_bindings'],reg['input_bindings'])
+    require(reg['status']==REG and reg['config_sha256']==sha(path) and bound.get(str(Path(path).absolute()))==sha(path),
+        'Exact timing worker registration required')
+    ctx=inspect(cfg,bound);require(reg['timing_design']==ctx['scope'] and reg['budget_before']==ctx['before']==budget(ctx),'Timing budget/design changed')
+    ctx.update(reg=reg,regsha=sha(cfg['registration']));cfg['_path']=str(Path(path).absolute());return ctx
+
+def timing_source(ctx,index):
+    require(type(index)is int and 0<=index<16,'Only first16 registered64')
+    prior=ctx['prior'];cpu=prior['cpu_closed']['cpu'];item=prior['driver'].source.load_source(prior['cpu_closed'],index)
+    ent=cpu['manifest']['sources'][index];ecp=read(ent['checkpoint']);asset=ecp['raw_asset'];cp=read(asset['checkpoint'])
+    require(cp['tokens_sha256']==asset['tokens_sha256'] and item['source_id']==ctx['frozen']['source_ids'][index],
+        'Original source token parity evidence differs')
+    with np.load(asset['archive'],allow_pickle=False)as z:pixels=z['pixels'].copy()
+    require(pixels.dtype==np.uint8 and pixels.shape==(3,256,256) and hashlib.sha256(pixels.tobytes()).hexdigest()==asset['preprocessing_id'],
+        'Original source uint8 pixels changed')
+    return dict(source_index=index,source_id=item['source_id'],pixels=pixels,tokens_sha256=cp['tokens_sha256'],input_bindings=item['input_bindings'])
+
+def build_models(ctx):
+    prior=ctx['prior'];v=prior['visual_config'];bound=ctx['bound']
+    for p in reversed(prior['driver'].import_paths(prior)):sys.path.insert(0,p)
+    quality=module(Path(v['uep_runtime'])/'quality_driver.py','quality_driver',bound)
+    native=quality.build_native(Path(ctx['cfg']['root']),v['native_runtime'],stop)
+    require(quality.q.identity(native.loaded['identity'])==quality.q.identity(prior['native_identity']) and native.flags==prior['flags']
+        and native.driver_bindings==ctx['native_bindings'],'Actual original native source/FP32/model identity differs')
+    metric=module(ctx['metric_module'],'c_timing_original_metric_models',bound)
+    evaluator=metric.MetricEvaluator(prior['metric_assets']['paths']['modelmanifest'],device='cuda:0',requested=('dinov2_vitl14',))
+    expected=ctx['evaluator'];actual=quality.q.jsonable(evaluator.metadata)
+    require(actual['metrics']['dinov2_vitl14']==expected['metrics']['dinov2_vitl14']
+        and all(actual[k]==expected[k] for k in ('input','inference','package_versions','numerical_backend')),
+        'Actual original DINO-L identity/precision/preprocessing/GPU differs')
+    flat=module(ctx['flat_module'],'c_timing_original_expected_model',bound)
+    entropy=module(ctx['entropy_module'],'c_timing_original_entropy',bound)
+    encoder=module(ctx['cfg']['encoder_module'],'c_timing_original_fresh_encoder',bound)
+    feature,cosine=core.original_dino(native.torch,metric,evaluator.models['dinov2_vitl14'],evaluator.device)
+    return dict(native=native,quality=quality,metric=metric,evaluator=evaluator,flat=flat,entropy=entropy,encoder=encoder,
+        feature=feature,cosine=cosine,metric_identity=evaluator.identity())
+
+def measure_source(ctx,item,models,guard):
+    native=models['native'];rows=[]
+    for snr in core.SNRS:
+        for method in core.METHODS:
+            def call():
+                with native.torch.inference_mode(),models['metric'].no_network(),native.torch.autocast(device_type='cuda',enabled=False):
+                    return core.frame_once(item['pixels'],item['source_index'],snr,method,ctx['frozen'],ctx['tables'][snr],
+                        expected_tokens_sha256=item['tokens_sha256'],encoder=lambda x:models['encoder'].native_encoder(native,x),
+                        render_fresh=lambda flat,state:core.original_render(native,models['quality'].q,flat,state),
+                        dino_features=models['feature'],dino_cosine=models['cosine'],
+                        entropy_fresh=lambda flat,ms:models['entropy'].entropy_orders(native,models['quality'].q,flat,ms,guard),
+                        pack=ctx['prior']['cpu_supervisor'].d.c.source_payloads,score_block=models['flat'].score_block,
+                        synchronize=native.torch.cuda.synchronize,guard=guard)
+            rows.append(core.repetitions(call,guard))
+    return rows
+
+def summarize(cases):
+    require(len(cases)==128,'All128 predetermined source/SNR/method cases required');seen=set();groups={}
+    for case in cases:
+        rows=case['rows'];require(len(rows)==4 and [(r['repetition_kind'],r['repetition']) for r in rows]==[('warmup',0),('measured',0),('measured',1),('measured',2)],'One warmup and three measured rows required')
+        base=rows[0];key=base['source_index'],base['average_snr_db'],base['method'];require(key not in seen,'Duplicate case');seen.add(key)
+        require(all((r['source_index'],r['average_snr_db'],r['method'])==key and r['fingerprint']==base['fingerprint']
+            and r['choice_parity'] is True and r['new_packet_decodes']==r['new_noise']==0 and r['cross_frame_cache'] is False for r in rows),'Repeated fresh computation changed')
+        measured=rows[1:];names={k for r in measured for k in r['seconds']}
+        for name in names:groups.setdefault((key[1],key[2],name),{})[key[0]]=statistics.mean(r['seconds'].get(name,0.) for r in measured)
+    require(seen=={(i,s,m) for i in range(16) for s in core.SNRS for m in core.METHODS},'Fixed128 grid incomplete')
+    out=[]
+    for (s,m,name),values in sorted(groups.items()):
+        source_means=[values.get(i,0.) for i in range(16)]
+        out.append(dict(average_snr_db=s,method=m,component=name,mean_seconds=statistics.mean(source_means),
+            median_source_seconds=statistics.median(source_means),source_means=source_means,source_count=16,
+            measured_repetitions_per_source=3,warmup_excluded=True,inclusive=name=='TX_total'))
+    return dict(status='C_FIRST16_ONLINE_TX_COMPONENT_SUMMARY',case_count=128,source_count=16,total_fresh_encoder_calls=512,
+        components=out,uncached=True,PHY_encode_measured=False,PHY_decode_measured=False,end_to_end_latency_measured=False,
+        quality_sample_added=False,policy_selection=False,
+        caveat='TX_total includes encoding and its nested components; do not add nested means to it. Instrumented fresh source-side work only.')
+
+def run(path):
+    ctx=load_registered(path);cfg=ctx['cfg'];out=Path(cfg['out']);require(not out.exists(),'No timing retry or overwritten evidence')
+    out.mkdir();save(out/'attempt.json',dict(registration_sha256=ctx['regsha'],new_packet_decodes=0));start=time.monotonic()
+    try:
+        owner=module(cfg['owner_module'],'c_timing_live_owner',ctx['bound']);proof=owner.admit_worker(ctx);models=None
+        def guard():
+            require(not STOP and time.monotonic()-start<cfg['resources']['max_seconds'],'Timing signal/wall limit');owner.check_live(ctx,proof)
+            if models is not None:models['native'].common.check()
+        guard();models=build_models(ctx);guard();cases=[];outputs={}
+        for index in range(16):
+            guard();require(not models['quality'].boundary(models['native']),'Original thermal/source boundary');item=timing_source(ctx,index)
+            rows=measure_source(ctx,item,models,guard);rp=out/'sources'/f'{index:04d}.json';cp=out/'source_checkpoints'/f'{index:04d}.json';save(rp,rows)
+            save(cp,dict(status='C_FIRST16_ONLINE_TX_SOURCE_COMPLETE_R1',source_index=index,source_id=item['source_id'],bin=index%8,
+                registration_sha256=ctx['regsha'],case_count=8,fresh_encoder_calls=32,outputs=bind([rp]),input_bindings=item['input_bindings'],
+                new_packet_decodes=0,new_noise=0,policy_selection=False,new_quality_samples=0));outputs.update(bind([rp,cp]));cases.extend(rows)
+        guard();models['native'].frozen();require(models['evaluator'].identity()==models['metric_identity'],'DINO-L identity changed')
+        summary=summarize(cases);rp=out/'component_cases.json';sp=out/'component_summary.json';save(rp,cases);save(sp,summary);outputs.update(bind([rp,sp]))
+        after=budget(ctx);require(after==ctx['before'],'C budget changed during zero-PHY timing');verify(ctx['bound']);verify(outputs)
+        done=dict(status=DONE,registration_sha256=ctx['regsha'],config_sha256=sha(path),worker_identity=proof['worker_identity'],
+            source_count=16,source_indices=list(range(16)),source_ids=ctx['frozen']['source_ids'][:16],case_count=128,
+            fresh_encoder_calls=512,warmup_repetitions=1,measured_repetitions=3,timing_design=ctx['scope'],outputs=outputs,
+            source_bindings=ctx['reg']['source_bindings'],input_bindings=ctx['reg']['input_bindings'],
+            native_source_bindings=models['native'].driver_bindings,numerical_runtime=models['native'].flags,
+            DINO_L_metadata=models['quality'].q.jsonable(models['evaluator'].metadata),budget_before=ctx['before'],budget_after=after,
+            new_packet_decodes=0,new_noise=0,new_quality_samples=0,policy_selection=False,holdout_used=False,
+            source_population='original_calibration_internal64_first16',automatic_successor=False,
+            end_to_end_latency_measured=False,overall_C_delivery_complete=False,elapsed_seconds=time.monotonic()-start)
+        save(out/'completion.json',done);return done
+    except BaseException:save(out/'failure.json',dict(status='FAILED_PRESERVE_NO_RETRY',traceback=traceback.format_exc(),new_packet_decodes=0));raise
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--config',required=True);a=p.parse_args()
+    signal.signal(signal.SIGTERM,stop);signal.signal(signal.SIGINT,stop);print(run(a.config)['status'],flush=True)

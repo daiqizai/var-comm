@@ -1,0 +1,89 @@
+"""Independent reviewer fixture for actual frozen ReceivedRenderer control flow.
+
+Extracts original functions/classes by AST and injects deterministic tiny prior
+and tensor interfaces. No torch import, model weights, GPU or actual quality.
+This demonstrates input separation/control flow, not numerical model parity.
+"""
+import ast
+from contextlib import nullcontext
+from copy import deepcopy
+import hashlib
+import json
+import os
+from pathlib import Path
+from types import SimpleNamespace
+import unittest
+import numpy as np
+import c_real_received_adapter_r1 as adapter
+from test_c_real_received_adapter_r1 import entropy,frame,pack
+
+HERE=Path(__file__).resolve().parent
+SOURCE=Path(os.environ.get('C_RX_REVIEW_SOURCE_QUALITY',str(HERE.parents[1]/'prior_aware_uep_20261004/runtime/source_quality.py')))
+
+class Tensor:
+    def __init__(self,v):self.value=np.asarray(v)
+    def __getitem__(self,k):return Tensor(self.value[k])
+    def float(self):return Tensor(self.value.astype(np.float32))
+    def cpu(self):return self
+    def numpy(self):return self.value
+    def clone(self):return Tensor(self.value.copy())
+    def to(self,device):return self
+    def argmax(self,axis):return Tensor(self.value.argmax(axis))
+
+class Prior:
+    instances=[]
+    def __init__(self,*args):self.seen=[];self.closed=False;self.fhat=Tensor(np.zeros((1,3,256,256),np.float32));self.instances.append(self)
+    def advance(self,tokens,scale):self.seen.append(np.asarray(tokens).copy())
+    def logits(self,scale):
+        n=entropy.SIZES[scale]**2;shift=sum(int(t.sum()) for t in self.seen)%n
+        score=np.roll(np.arange(n,dtype=np.float32),shift)
+        return Tensor(np.stack([score,np.zeros(n,np.float32)],axis=1)[None])
+    def close(self):self.closed=True
+
+class Decoder:
+    training=False
+    def __call__(self,x):return Tensor(np.full((1,3,256,256),.25,np.float32))
+
+def original_renderer():
+    source=SOURCE.read_text(encoding='utf-8');tree=ast.parse(source)
+    names={'canonical_state','entropy_order','accepted_payload_key','ReceivedRenderer'}
+    nodes=[n for n in tree.body if isinstance(n,(ast.FunctionDef,ast.ClassDef)) and n.name in names]
+    if {n.name for n in nodes}!=names:raise AssertionError('Exact original receiver definitions missing')
+    def require(ok,message):
+        if not ok:raise ValueError(message)
+    ns=dict(np=np,hashlib=hashlib,SIZES=entropy.SIZES,GENERATION=adapter.GENERATION,require=require,
+        identity=lambda x:json.dumps(x,sort_keys=True),sha=lambda p:hashlib.sha256(Path(p).read_bytes()).hexdigest(),
+        rgb_sha=adapter.rgb_sha,SourceRenderer=SimpleNamespace(direct_partial=None),__file__=str(SOURCE))
+    exec(compile(ast.Module(body=nodes,type_ignores=[]),str(SOURCE),'exec'),ns)
+    prior=SimpleNamespace(_Prior=Prior,ENTROPY_DECIMALS=6,torch=SimpleNamespace(no_grad=nullcontext),entropy_values=lambda logits:logits[:,0])
+    loaded=dict(vae=SimpleNamespace(quantize=SimpleNamespace(v_patch_nums=entropy.SIZES),training=False),
+        var=SimpleNamespace(training=False),decoder=Decoder(),device='cpu',identity={'models':{'fixture':'no model'}})
+    return ns['ReceivedRenderer'](loaded,prior)
+
+class ActualOriginalRenderer(unittest.TestCase):
+    def setUp(self):Prior.instances=[]
+    def test_received_corrupt_prefix_changes_recomputed_entropy_positions(self):
+        f,book=frame();r=adapter.Receiver(original_renderer(),entropy,{'source_sha':hashlib.sha256(SOURCE.read_bytes()).hexdigest()})
+        first=r.reconstruct(adapter.receiver_view(f),book)
+        f['receive']['bodies'][0]['payload']=pack([1,*range(1,30),30])
+        second=r.reconstruct(adapter.receiver_view(f),book)
+        self.assertNotEqual(first['summary']['received_positions_sha256'],second['summary']['received_positions_sha256'])
+        self.assertNotEqual(first['summary']['receiver_cache_key'],second['summary']['receiver_cache_key'])
+        self.assertEqual(r.render_calls,2);self.assertTrue(all(p.closed for p in Prior.instances))
+        # Both accepted (possibly corrupt) prefixes reach the prior unchanged.
+        self.assertEqual(Prior.instances[0].seen[0].tolist(),[0]);self.assertEqual(Prior.instances[1].seen[0].tolist(),[1])
+    def test_original_receiver_partial_values_fixed_at_its_own_positions(self):
+        f,book=frame();state=adapter.accepted_state(adapter.receiver_view(f),book,entropy);state['partial_values'][0]=777
+        rx=original_renderer();result=rx.render_received(state['prefix_tokens'],state['partial_values'],state['m'],state['K'],'VAR',cache=None)
+        p=int(result['positions'][0]);self.assertEqual(int(result['tokens'][4][p]),777)
+        for j in range(4):np.testing.assert_array_equal(result['tokens'][j],state['prefix_tokens'][j])
+        self.assertEqual(result['values'].tolist(),[777]);self.assertFalse(result['label_conditioned'])
+    def test_truth_and_TX_order_changes_cannot_change_original_RX_or_cache(self):
+        f,book=frame();r=adapter.Receiver(original_renderer(),entropy,{'frozen':'fixture'})
+        a=r.reconstruct(adapter.receiver_view(f),book);f.update(source_id='another-source',transmitted_public_id=700,TX_entropy_order=list(reversed(range(25))),target_pixels='forbidden')
+        f['evaluation_only']={'source_correct':True,'replace_with_clean_image':True}
+        b=r.reconstruct(adapter.receiver_view(f),book)
+        self.assertEqual(a['summary']['receiver_cache_key'],b['summary']['receiver_cache_key']);self.assertTrue(b['summary']['receiver_cache_hit'])
+        self.assertEqual(r.render_calls,1);np.testing.assert_array_equal(a['image'],b['image'])
+
+if __name__=='__main__':unittest.main()

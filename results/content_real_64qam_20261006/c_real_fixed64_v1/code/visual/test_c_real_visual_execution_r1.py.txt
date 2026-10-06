@@ -1,0 +1,172 @@
+"""Pure process/receipt tests; no real model, image evaluation or packet call."""
+from contextlib import ExitStack, contextmanager
+from copy import deepcopy
+import json
+import os
+from pathlib import Path
+import tempfile
+from types import SimpleNamespace
+import unittest
+from unittest.mock import patch, Mock
+import c_real_visual_execution_r1 as e
+
+class Child:
+    def __init__(self,code=0,polls=None):self.pid=1234;self.code=code;self.waited=0;self.polls=list(polls or [code])
+    def poll(self):return self.polls.pop(0) if self.polls else self.code
+    def wait(self):self.waited+=1;return self.code
+
+class Execution(unittest.TestCase):
+    def setUp(self):
+        t=tempfile.TemporaryDirectory();self.addCleanup(t.cleanup);self.base=Path(t.name);self.ex=self.base/'execution';self.ex.mkdir()
+        self.cfg=dict(root=str(self.base),execution_dir=str(self.ex),out=str(self.base/'science'),registration=str(self.ex/'execution_registration.json'),
+            _path=str(self.ex/'config.json'),driver_module=str(Path(e.__file__).with_name('c_real_visual_driver_r1.py')),owner_module=str(Path(e.__file__).absolute()),
+            python='/original/UM/environment/bin/python',visual_lock=str(self.base/'visual.lock'),nvidia_smi=str(self.base/'nvidia-smi'),
+            cpu_supervisor_module=str(self.base/'cpu/c_real_trace_supervisor_r1.py'),resources=dict(gpu_device=0,threads=6,interop_threads=2,affinity=[4,5,6,7,8,9],nice=15,max_seconds=100))
+        self.before=dict(branch='C',charged=21495,unresolved=0,phase_charged=dict(qualification=848,development=20647,diagnostic_reserve=0))
+        self.reg=dict(source_bindings={},input_bindings={},budget_before=self.before)
+        e.save(self.cfg['_path'],{k:v for k,v in self.cfg.items() if k!='_path'});e.save(self.cfg['registration'],self.reg)
+        Path(self.cfg['nvidia_smi']).write_text('fixture NVML',encoding='utf-8')
+        self.me=dict(pid=100,start_ticks=200,uid=1002,argv=['python','owner'])
+        self.worker=dict(pid=1234,start_ticks=300,uid=1002,argv=e.command(self.cfg))
+        self.driver=SimpleNamespace(budget=lambda c:deepcopy(self.before),import_paths=lambda c:['new-runtime','native','E'])
+        self.ctx=dict(cfg=self.cfg,reg=self.reg,regsha=e.sha(self.cfg['registration']),bound={},before=self.before,native_bindings={},
+            driver=self.driver,visual_config={},cpu_closed=dict(cpu=dict(frozen=dict(source_ids=[f's{i}' for i in range(64)]),cfg=dict(ledger=str(self.base/'ledger.sqlite'),qualification_config=str(self.base/'C/qualification_execution_r1/config.json')))))
+        self.addCleanup(setattr,e,'STOP',False);e.STOP=False
+    def replace(self,p,v):Path(p).unlink();e.save(p,v)
+    def science(self):
+        out=Path(self.cfg['out']);outputs={}
+        for i in range(64):
+            p=out/f'source_checkpoints/{i:04d}.json'
+            e.save(p,dict(status='C_REAL_ACTUAL_RX_SOURCE_COMPLETE_R1',source_index=i,source_id=f's{i}',registration_sha256=self.ctx['regsha'],
+                frame_count=128,images_scored=True,source_reconstruction_complete=True,new_packet_decodes=0,new_noise=0,outputs={},metric_identity='metric',receiver_identity={'receiver':'frozen'}))
+            outputs.update(e.bind([p]))
+        done=dict(status=e.SCIENCE,registration_sha256=self.ctx['regsha'],config_sha256=e.sha(self.cfg['_path']),worker_identity=self.worker,
+            source_count=64,frame_count=8192,source_ids=[f's{i}' for i in range(64)],images_scored=True,source_reconstruction_complete=True,
+            new_packet_decodes=0,new_noise=0,policy_selection=False,holdout_used=False,automatic_successor=False,population='original_calibration_internal64',
+            budget_before=self.before,budget_after=self.before,source_bindings={},input_bindings={},native_source_bindings={},outputs=outputs,
+            trials=list(range(16)),metric_evaluator_identity='metric',receiver_identity={'receiver':'frozen'})
+        e.save(out/'completion.json',done);return done
+    def patches(self,child,*,fail_capture=False):
+        stack=ExitStack();self.addCleanup(stack.close)
+        self.held=[];self.events=[]
+        @contextmanager
+        def lock(p):
+            self.held.append(p);self.events.append(('acquire',p))
+            try:yield
+            finally:self.events.append(('release',p));self.held.remove(p)
+        oldwait=child.wait
+        def wait():self.assertEqual(len(self.held),2);self.events.append(('wait',None));return oldwait()
+        child.wait=wait
+        stack.enter_context(patch.object(e,'load',return_value=self.ctx));stack.enter_context(patch.object(e,'lock',side_effect=lock))
+        stack.enter_context(patch.object(e,'identity',return_value=self.me));stack.enter_context(patch.object(e,'absent',return_value=True))
+        stack.enter_context(patch.object(e.os,'sched_getaffinity',return_value=set(range(32)),create=True))
+        stack.enter_context(patch.object(e,'gpu_idle',return_value=dict(status='GPU_IDLE_CONFIRMED',device=0)))
+        stack.enter_context(patch.object(e,'environment',return_value={'CUDA_VISIBLE_DEVICES':'0'}));stack.enter_context(patch.object(e.time,'sleep'))
+        stack.enter_context(patch.object(e.subprocess,'Popen',return_value=child))
+        stack.enter_context(patch.object(e,'capture',side_effect=RuntimeError('identity capture failure') if fail_capture else None,return_value=self.worker))
+        return stack
+
+    def test_exact_budget_no_new_reserve_or_failed_call(self):
+        self.assertEqual(e.validate_budget(self.before),self.before)
+        for k,v in [('charged',21496),('unresolved',1)]:
+            x=deepcopy(self.before);x[k]=v
+            with self.assertRaisesRegex(ValueError,'21495'):e.validate_budget(x)
+        x=deepcopy(self.before);x['phase_charged']['diagnostic_reserve']=1
+        with self.assertRaises(ValueError):e.validate_budget(x)
+
+    def test_single_GPU_environment_preserves_venv_and_source_directory(self):
+        e.validate_resources(self.cfg);self.assertEqual(e.command(self.cfg)[0],self.cfg['python'])
+        env=e.environment(self.ctx);self.assertEqual(env['CUDA_VISIBLE_DEVICES'],'0');self.assertTrue(all(env[k]=='6' for k in e.THREAD_KEYS))
+        self.assertIn('E',env['PYTHONPATH'].split(os.pathsep));self.assertIn('new-runtime',env['PYTHONPATH'])
+        x=deepcopy(self.cfg);x['resources']['threads']=2
+        with self.assertRaises(ValueError):e.validate_resources(x)
+
+    def test_gpu_idle_rejects_foreign_and_multiple_devices(self):
+        runner=Mock(side_effect=[SimpleNamespace(stdout='0, UUID\n'),SimpleNamespace(stdout='')]);self.assertEqual(e.gpu_idle(self.cfg['nvidia_smi'],runner)['device'],0)
+        runner=Mock(side_effect=[SimpleNamespace(stdout='0, UUID\n'),SimpleNamespace(stdout='999\n')])
+        with self.assertRaisesRegex(ValueError,'Foreign'):e.gpu_idle(self.cfg['nvidia_smi'],runner)
+        with self.assertRaises(ValueError):e.gpu_idle(self.cfg['nvidia_smi'],Mock(return_value=SimpleNamespace(stdout='0, A\n1, B')))
+
+    def test_finished_worker_waits_and_closes_log_before_receipt(self):
+        child=Child();h=(self.ex/'worker.log').open('xb');h.write(b'complete\n');rec=dict(child=child,handle=h,identity=self.worker)
+        x=e.finish(rec,self.ex);self.assertTrue(h.closed);self.assertEqual(child.waited,1);self.assertTrue(x['reaped'])
+        self.assertEqual(x['log_sha256'],e.sha(self.ex/'worker.log'));self.assertEqual(e.finish(rec,self.ex),x);self.assertEqual(child.waited,1)
+
+    def test_normal_poll_zombie_window_never_live_checks_unreaped_child(self):
+        child=Child(polls=[None,0]);self.patches(child);self.science()
+        # run owns output creation in production; science fixture is returned after the spawn.
+        original_exists=Path.exists
+        def exists(p):return False if p==Path(self.cfg['out']) else original_exists(p)
+        with patch.object(Path,'exists',exists):result=e.run(self.cfg['_path'])
+        self.assertEqual(result['status'],e.DONE);self.assertEqual(child.waited,1)
+        self.assertEqual(self.events[-2:],[('release',e.lock_paths(self.ctx)[1]),('release',e.lock_paths(self.ctx)[0])])
+
+    def test_identity_capture_failure_preserves_PID_and_drains_under_both_locks(self):
+        child=Child();self.patches(child,fail_capture=True)
+        with self.assertRaisesRegex(RuntimeError,'identity capture'):e.run(self.cfg['_path'])
+        self.assertEqual(e.read(self.ex/'spawn_pending_identity.json')['pid'],1234)
+        self.assertEqual(e.read(self.ex/'worker_exit.json')['exit_code'],0);self.assertEqual(child.waited,1)
+        self.assertTrue((self.ex/'failure.json').exists());self.assertFalse((self.ex/'completion.json').exists());self.assertFalse(self.held)
+
+    def test_nonzero_exit_retains_failure_no_normal_science_claim(self):
+        child=Child(code=1);self.patches(child)
+        with self.assertRaises((ValueError,FileNotFoundError)):e.run(self.cfg['_path'])
+        self.assertEqual(child.waited,1);self.assertEqual(e.read(self.ex/'worker_exit.json')['exit_code'],1)
+        self.assertTrue((self.ex/'failure.json').exists());self.assertFalse((self.ex/'completion.json').exists())
+
+    def test_STOP_drains_without_kill_and_retains_lock(self):
+        child=Child(polls=[None,0]);self.patches(child)
+        calls=[0]
+        def check(cfg,**kw):
+            calls[0]+=1
+            if calls[0]>=3:raise ValueError('registered STOP')
+        with patch.object(e,'check_stop',side_effect=check):
+            with self.assertRaises(ValueError):e.run(self.cfg['_path'])
+        self.assertEqual(child.waited,1);self.assertTrue((Path(self.cfg['out'])/'STOP').exists());self.assertFalse((self.ex/'completion.json').exists())
+
+    def test_science_requires_all64_exact_CP_and_closed_exit(self):
+        done=self.science();rec=dict(exit=dict(identity=self.worker,reaped=True,exit_code=0))
+        with patch.object(e,'absent',return_value=True):self.assertEqual(e.validate_done(self.ctx,rec)['frame_count'],8192)
+        p=Path(self.cfg['out'])/'source_checkpoints/0063.json';cp=e.read(p);cp['source_index']=0;self.replace(p,cp)
+        with patch.object(e,'absent',return_value=True):
+            with self.assertRaises(ValueError):e.validate_done(self.ctx,rec)
+
+    def test_live_worker_requires_exact_parent_resources_and_two_locks(self):
+        proof=dict(worker_identity=self.worker,owner_identity=self.me)
+        with patch.object(e,'identity',side_effect=[self.worker,self.me]),patch.object(e,'locked',return_value=True),\
+            patch.object(e.os,'sched_getaffinity',return_value=set(range(4,10)),create=True),patch.object(e.os,'getpriority',return_value=15,create=True),\
+            patch.object(e.os,'PRIO_PROCESS',0,create=True),patch.dict(os.environ,dict(CUDA_VISIBLE_DEVICES='0',**{k:'6' for k in e.THREAD_KEYS})):
+            e.check_live(self.ctx,proof)
+        with patch.object(e,'identity',side_effect=[self.worker,self.me]),patch.object(e,'locked',return_value=False):
+            with self.assertRaisesRegex(ValueError,'ownership'):e.check_live(self.ctx,proof)
+
+    def test_no_retry_and_history_does_not_invent_current_deadline(self):
+        e.save(self.ex/'run_attempt.json',{'prior':True})
+        with patch.object(e,'load',return_value=self.ctx):
+            with self.assertRaisesRegex(ValueError,'No retry'):e.run(self.cfg['_path'])
+        with patch.object(e.time,'time',return_value=e.DEADLINE+1):
+            e.check_stop(self.cfg,historical=True)
+            with self.assertRaises(ValueError):e.check_stop(self.cfg)
+
+    def test_actual_receipt_metadata_schema_via_explicit_manifest(self):
+        """Real downloaded metadata fixture; no archive/image/score data read."""
+        path=os.environ.get('C_VISUAL_TEST_METADATA')
+        if path:
+            value=e.read(path);e.verify(value['input_bindings']);p=value['paths'];values={k:e.read(v) for k,v in p.items()}
+        else:
+            b=Path(__file__).parents[1]/'current';values={k:e.read(b/v) for k,v in dict(
+                cpu_config='c8192_r1/config.json',cpu_normal='c8192_r1/normal_completion.json',
+                entropy_config='c_entropy_r1/config.json',entropy_science='c_entropy_r1/science_completion.json',
+                raw_checkpoint='c8192_r1/source0_raw_checkpoint_0190.json',entropy_checkpoint='c8192_r1/source0_entropy_checkpoint.json',
+                cpu_checkpoint='c8192_r1/source0_cpu_checkpoint.json').items()}
+        c,n,ec,es=[values[k] for k in ('cpu_config','cpu_normal','entropy_config','entropy_science')]
+        e.validate_budget(n['budget_after']);self.assertEqual(n['frame_count'],8192);self.assertEqual(n['source_count'],64)
+        self.assertEqual(c['entropy_batch']['config'],ec['execution_dir']+'/config.json')
+        self.assertEqual(es['status'],'C_REAL_64_SOURCE_206_ENTROPY_ASSETS_COMPLETE_R1');self.assertEqual(len(es['sources']),64)
+        raw,entropy,cp=[values[k] for k in ('raw_checkpoint','entropy_checkpoint','cpu_checkpoint')]
+        self.assertEqual(raw['status'],'H_FULL1000_SOURCE_ASSET_READY');self.assertIsInstance(raw['evaluation_class_index'],int)
+        self.assertEqual(raw['source_id'],entropy['source_id']);self.assertEqual(cp['source_id'],entropy['source_id'])
+        self.assertEqual(raw['preprocessing_id'],entropy['preprocessing_id']);self.assertEqual(raw['source_index'],190)
+        self.assertEqual(cp['source_index'],entropy['source_index']);self.assertEqual(entropy['source_index'],0)
+
+if __name__=='__main__':unittest.main()

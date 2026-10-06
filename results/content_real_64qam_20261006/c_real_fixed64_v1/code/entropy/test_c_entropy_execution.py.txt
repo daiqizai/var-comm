@@ -1,0 +1,126 @@
+"""CPU-only C206 execution contracts, no real models, arrays or packet calls."""
+from copy import deepcopy
+import ast
+import json
+import os
+from pathlib import Path
+from types import SimpleNamespace
+import tempfile
+import unittest
+from unittest import mock
+import numpy as np
+import c_entropy_core as core
+import c_entropy_execution as x
+import test_c_entropy_core as f
+
+
+def original_fixture(root):
+    e=root/'source_execution';out=root/'source';cfgp=e/'source_config.json';ocp=e/'owner_config.json';rp=e/'registration.json'
+    owner=dict(pid=11,start_ticks=22,uid=33,argv=['um','-B',str(root/'owner.py'),'--config',str(ocp)])
+    child=dict(pid=12,start_ticks=23,uid=33,argv=['um','-B',str(root/'source.py'),'--config',str(cfgp)])
+    for p in (root/'owner.py',root/'source.py'):p.write_text('# original')
+    cfg=dict(schema='H_FULL1000_SOURCE_CODEC_CONFIG_V1',source_owner_config=str(ocp),registration=str(rp),out=str(out))
+    x.save(cfgp,cfg);sciencep=out/'completion.json';job=dict(id='full1000_source',argv=child['argv'],out=str(out),completion=str(sciencep),receipt_expect={'source_count':1000})
+    oc=dict(registration=str(rp),owner_out=str(e),stages=[dict(id='source',resource='gpu',jobs=[job])]);x.save(ocp,oc)
+    reg=dict(status='H_EXECUTION_REVISION_REGISTERED',owner_config_sha256=x.sha(ocp),allowed_stage_ids=['source'],source_bindings=x.bind([root/'owner.py',root/'source.py']),input_bindings=x.bind([cfgp]))
+    x.save(rp,reg);rs=x.sha(rp);budget=dict(failed=0,unresolved=0)
+    science=dict(status='H_FULL1000_SOURCE_CODEC_COMPLETE',registration_sha256=rs,config_sha256=x.sha(cfgp),source_count=1000,source1000_codec_complete=True,
+        new_packet_decodes=0,new_image_renders=0,new_metric_calls=0,development_used=False,holdout_used=False,budget_before=budget,budget_after=budget)
+    x.save(sciencep,science);x.save(e/'launch.json',dict(identity=owner,registration_sha256=rs,owner_config_sha256=x.sha(ocp)))
+    x.save(e/'owner_identity.json',dict(**owner,registration_sha256=rs,config_sha256=x.sha(ocp)))
+    folder=e/'stages/source/workers/full1000_source';folder.mkdir(parents=True);(folder/'worker.log').write_text('COMPLETE\n')
+    start=dict(identity=child,registration_sha256=rs);end=dict(identity=child,registration_sha256=rs,exit_code=0,completion=str(sciencep),completion_sha256=x.sha(sciencep),closed_log_sha256=x.sha(folder/'worker.log'))
+    x.save(folder/'launch.json',start);x.save(folder/'exit_receipt.json',end);sp=e/'stages/source/completion.json'
+    x.save(sp,dict(status='REGISTERED_STAGE_COMPLETE',registration_sha256=rs,jobs=[end]))
+    x.save(e/'completion.json',dict(status='REGISTERED_H_STAGE_BATCH_COMPLETE',registration_sha256=rs,allowed_stage_ids=['source'],qualification_passed=True,future_stages_started=False,
+        budget=budget,completed=[dict(completion=str(sp),sha256=x.sha(sp),stage='source')]))
+    return dict(config=str(cfgp),owner_config=str(ocp),completion=str(e/'completion.json'))
+
+class Execution(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):f.Entropy.setUpClass();cls.plan=f.Entropy.plan
+    def test_original_visual_normal_chain_and_missing_self_registration(self):
+        with tempfile.TemporaryDirectory() as td,mock.patch.object(x,'exited',return_value=True):
+            spec=original_fixture(Path(td));ctx=x.original_visual_closed(spec)
+            self.assertIn(str(Path(td)/'source_execution/registration.json'),ctx['bindings']);self.assertEqual(ctx['python'],'um')
+            p=Path(td)/'source_execution/stages/source/workers/full1000_source/worker.log';p.write_text('changed')
+            with self.assertRaisesRegex(ValueError,'normal closure'):x.original_visual_closed(spec)
+    def test_original_visual_live_or_failure_rejected(self):
+        with tempfile.TemporaryDirectory() as td:
+            spec=original_fixture(Path(td))
+            with mock.patch.object(x,'exited',return_value=False),self.assertRaises(ValueError):x.original_visual_closed(spec)
+            with mock.patch.object(x,'exited',return_value=True):
+                x.save(Path(td)/'source/failure.json',{'failure':True})
+                with self.assertRaisesRegex(ValueError,'failure retained'):x.original_visual_closed(spec)
+    def test_gpu_idle_rejects_foreign_and_multiple_devices(self):
+        with tempfile.TemporaryDirectory() as td:
+            p=Path(td)/'nvidia-smi';p.write_text('bound executable')
+            run=mock.Mock(side_effect=[SimpleNamespace(stdout='0, GPU-exact\n'),SimpleNamespace(stdout='')])
+            self.assertEqual(x.gpu_idle(str(p),run)['status'],'GPU_IDLE_CONFIRMED')
+            run=mock.Mock(side_effect=[SimpleNamespace(stdout='0, GPU-exact\n'),SimpleNamespace(stdout='999')])
+            with self.assertRaisesRegex(ValueError,'compute process'):x.gpu_idle(str(p),run)
+            run=mock.Mock(return_value=SimpleNamespace(stdout='0, GPU-a\n1, GPU-b'))
+            with self.assertRaisesRegex(ValueError,'Exactly'):x.gpu_idle(str(p),run)
+    def test_write_source_exact_arrays_and_reject_overwrite_or_wrong_order(self):
+        with tempfile.TemporaryDirectory() as td:
+            flat=np.arange(680);record=deepcopy(self.plan['sources'][0]);record['raw_asset']['tokens_sha256']=core.token_sha(flat)
+            ctx=dict(request={'out':td},regsha='a'*64);orders={m:np.arange(core.SIZES[m]**2) for m in record['required_ms']}
+            item,pins=x.write_source(ctx,record,flat,orders,{},[]);cp=x.read(item['checkpoint'])
+            with np.load(item['archive'],allow_pickle=False) as z:self.assertEqual(set(z.files),{'tokens',*[f'entropy_order_m{m}' for m in record['required_ms']]})
+            self.assertEqual(cp['tokens_sha256'],core.token_sha(flat));x.verify(pins)
+            with self.assertRaises(FileExistsError):x.write_source(ctx,record,flat,orders,{},[])
+    def test_environment_explicit_UM_paths_and_original_threads(self):
+        ctx=dict(request={'root':'/study','c848':{'supervisor_module':'/cpu/c_real_qualification_supervisor.py'}},visual={'cfg':dict(uep_runtime='/uep',native_runtime='/native',source_driver_module='/E/h_source_driver.py')})
+        gpu=x.env(ctx,True);cpu=x.env(ctx,False)
+        self.assertIn(str(Path('/E')),gpu['PYTHONPATH'].split(os.pathsep));self.assertEqual(gpu['CUDA_VISIBLE_DEVICES'],'0');self.assertEqual(gpu['OMP_NUM_THREADS'],'6')
+        self.assertEqual(cpu['CUDA_VISIBLE_DEVICES'],'');self.assertEqual(cpu['OMP_NUM_THREADS'],'2')
+    def test_no_phy_constructor_metrics_or_automatic_successor(self):
+        tree=ast.parse(Path(x.__file__).read_text(encoding='utf-8-sig'));calls={ast.unparse(n.func) for n in ast.walk(tree) if isinstance(n,ast.Call)}
+        for name in ('BudgetLedger','PacketPHY','MetricScorer','load_suite','encode_prefixes'):self.assertNotIn(name,calls)
+        self.assertIn('quality.build_native',calls);self.assertIn('core.entropy_orders',calls);self.assertIn('core.parity_source',calls)
+        supervise=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='supervise')
+        text=ast.unparse(supervise);self.assertIn('child.wait()',text);self.assertNotIn('child.kill()',text);self.assertNotIn('child.terminate()',text)
+    def test_process_reused_pid_allowed_but_unreaped_original_not(self):
+        old=dict(pid=42,start_ticks=1,uid=2,argv=['a'])
+        with mock.patch.object(x,'identity',return_value=old),self.assertRaisesRegex(ValueError,'unreaped'):x.exited(old)
+        with mock.patch.object(x,'identity',return_value=dict(old,start_ticks=3)):self.assertTrue(x.exited(old))
+        with mock.patch.object(x,'identity',side_effect=FileNotFoundError):self.assertTrue(x.exited(old))
+    def test_targeted_imports_only_exact_original_sources(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);(root/'uep').mkdir();(root/'native').mkdir();pins={};mods={}
+            for folder,names in [('uep',['quality_driver','source_quality']),('native',['m1_common','m1_native','m1_performance'])]:
+                for n in names:
+                    p=root/folder/(n+'.py');p.write_text('# original');pins[str(p)]=x.sha(p);mods[n]=SimpleNamespace(__file__=str(p))
+            num=root/'nativequal.json';num.write_text('{}');mods['quality_driver'].build_native=lambda:None
+            mods['source_quality'].SourceRenderer=lambda:None;mods['source_quality'].ReceivedRenderer=lambda:None;mods['quality_driver'].q=mods['source_quality']
+            ctx=dict(visual={'cfg':dict(uep_runtime=str(root/'uep'),native_runtime=str(root/'native'),numerical_reference=str(num))},bound=pins)
+            torch=SimpleNamespace(cuda=SimpleNamespace(is_initialized=lambda:False))
+            with mock.patch.object(x,'module',side_effect=lambda p,n:mods[n]),mock.patch.dict('sys.modules',{'torch':torch}):
+                done=x.targeted_imports(ctx);self.assertEqual(len(done['resolved_modules']),5);self.assertFalse(done['model_constructors_called'])
+                pins[str(root/'native/m1_native.py')]='0'*64
+                with self.assertRaisesRegex(ValueError,'not bound'):x.targeted_imports(ctx)
+    def test_full64_writer91_parity_worker_fixture(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);e=root/'e';e.mkdir();out=root/'out';flat=np.arange(680);plan=deepcopy(self.plan)
+            for record in plan['sources']:record['raw_asset']['tokens_sha256']=core.token_sha(flat)
+            req=dict(root=str(root),execution_dir=str(e),out=str(out),resources={'affinity':[4,5,6,7,8,9],'max_seconds':3600})
+            me=dict(pid=os.getpid(),start_ticks=1,uid=2,argv=['worker']);parent=dict(pid=os.getppid(),start_ticks=2,uid=2,argv=['owner'])
+            x.save(e/'worker_admission.json',dict(worker_identity=me,owner_identity=parent,registration_sha256='a'*64,gpu={'status':'GPU_IDLE_CONFIRMED'}))
+            helper=f.Entropy();helper.setUp();native=helper.native;native.loaded={'identity':{}};native.flags={};native.driver_bindings={};native.common=SimpleNamespace(check=lambda:None);native.frozen=lambda:None
+            quality=SimpleNamespace(q=helper.quality,build_native=lambda *args:native,boundary=lambda _:False)
+            ctx=dict(request=req,visual={'cfg':dict(uep_runtime=td,native_runtime=td,source_driver_module=str(root/'h_source_driver.py')),'owner':{'visual_lock_path':str(root/'shared.lock')}},
+                plan=plan,regsha='a'*64,calibration={'identity':{}},flags={},static={},bound={},sources={},inputs={},before={'charged':848},reg={'source_bindings':{},'input_bindings':{}},c848={'sup':SimpleNamespace(c=f.c)})
+            cfg=root/'cfg.json';cfg.write_text('{}')
+            with mock.patch.object(x,'load_registered',return_value=ctx),mock.patch.object(x,'identity',side_effect=lambda pid:me if pid==os.getpid() else parent),mock.patch.object(x,'locked',return_value=True),\
+                mock.patch.object(x.os,'sched_getaffinity',return_value=set(range(4,10)),create=True),mock.patch.object(x,'module',return_value=quality),mock.patch.object(x,'budget',return_value=ctx['before']),\
+                mock.patch.object(core,'load_raw_tokens',return_value=flat),mock.patch.dict(os.environ,dict(CUDA_VISIBLE_DEVICES='0',OMP_NUM_THREADS='6',MKL_NUM_THREADS='6',OPENBLAS_NUM_THREADS='6',NUMEXPR_NUM_THREADS='6')):
+                done=x.worker(cfg)
+            self.assertEqual(len(done['sources']),64);self.assertEqual(done['entropy_pair_count'],206);self.assertEqual(len(done['outputs']),129)
+            parity=x.read(done['parity_completion']['path']);self.assertEqual(parity['cases'],91);self.assertEqual(parity['choice_check_count'],512);x.verify(done['outputs'])
+    def test_stop_preserves_before_new_models_or_source_work(self):
+        with tempfile.TemporaryDirectory() as td:
+            r=dict(root=td,out=str(Path(td)/'out'));ctx={'request':r};p=Path(td)/'outputs/CONTENT-REAL-64QAM-20261006/C/STOP';p.parent.mkdir(parents=True);p.write_text('preserve')
+            with self.assertRaisesRegex(ValueError,'STOP'):x.check_stop(ctx)
+            self.assertEqual(p.read_text(),'preserve')
+
+if __name__=='__main__':unittest.main()

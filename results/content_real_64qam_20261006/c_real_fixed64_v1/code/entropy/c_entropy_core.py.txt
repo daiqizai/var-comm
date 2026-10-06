@@ -1,0 +1,228 @@
+"""C64 entropy assets and independent first8 parity, prepared but not registered.
+
+No model is imported or created here. A future separately registered GPU driver
+injects the original source_quality module/native object after validating its
+normal predecessors, model/source bindings, numeric flags and GPU admission.
+The 206 TX orders never enter the independent received-payload renderer.
+"""
+from __future__ import annotations
+from copy import deepcopy
+import hashlib
+import json
+from pathlib import Path
+import re
+import time
+import numpy as np
+
+SIZES=(1,2,3,4,5,6,8,10,13,16)
+PREFIX=tuple(sum(s*s for s in SIZES[:m]) for m in range(11))
+ASSET_STATUS='C64_EXISTING_CP_AND_RAW_ARCHIVE_BYTES_VERIFIED'
+PARITY_STATUS='C_REAL_FIRST8_INDEPENDENT_TX_RX_PARITY_PASS_R1'
+COMPLETE='C_REAL_64_SOURCE_206_ENTROPY_ASSETS_COMPLETE_R1'
+IMAGE_TOLERANCE=1e-6
+
+
+def require(ok,message):
+    if not ok:raise ValueError(message)
+def sha(path):
+    h=hashlib.sha256()
+    with Path(path).open('rb') as f:
+        for block in iter(lambda:f.read(1048576),b''):h.update(block)
+    return h.hexdigest()
+def read(path):return json.loads(Path(path).read_text(encoding='utf-8-sig'))
+def digest(value):return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
+def array_sha(a):return hashlib.sha256(np.ascontiguousarray(a).tobytes()).hexdigest()
+def token_sha(a):return hashlib.sha256(b'int64:680\0'+np.asarray(a,dtype='<i8').tobytes()).hexdigest()
+def valid_sha(value):return isinstance(value,str) and re.fullmatch('[0-9a-f]{64}',value) is not None
+def state(value):
+    match=re.fullmatch(r'm(\d+)_K(\d+)',value);require(match is not None,'Canonical state ID required')
+    m,k=map(int,match.groups())
+    require(4<=m<=10 and 0<=k and (k==0 if m==10 else k<SIZES[m]**2),'Unsupported/noncanonical frozen state')
+    return dict(state_id=value,m=m,K=k)
+def tokens(value):
+    a=np.asarray(value)
+    require(a.shape==(680,) and a.dtype.kind in 'iu' and ((a>=0)&(a<4096)).all(),'Original680 raw VQ tokens required')
+    return a.astype(np.int64,copy=True)
+
+
+def build_plan(frozen,asset_audit):
+    """Only inspect frozen choices and IDs. Never read source/quality arrays."""
+    ids=frozen['source_ids']
+    require(len(ids)==len(set(ids))==64 and len(frozen['groups'])==26 and len(frozen['profiles'])==16,'Original C freeze required')
+    require(asset_audit['status']==ASSET_STATUS and asset_audit['source_count']==64
+        and asset_audit['new_PHY_calls']==asset_audit['new_GPU_jobs']==asset_audit['new_source_encoding']==0,
+        'Existing64 raw byte audit required')
+    audit=asset_audit['sources'];byid={r['source_id']:r for r in audit}
+    require(len(audit)==len(byid)==64 and set(byid)==set(ids),'Raw asset64 ID coverage differs')
+    original_indices=[r['source_index'] for r in audit]
+    require(len(set(original_indices))==64 and all(type(i)is int and 0<=i<1000 for i in original_indices),
+        'Original calibration1000 indices required; do not treat them as C64 positions')
+    sources=[];cases=[];choices=[]
+    for i,sid in enumerate(ids):
+        a=byid[sid]
+        require(a['archive_members']==['tokens.npy','pixels.npy'],'Expected original raw archive members')
+        for key in ('checkpoint_sha256','archive_sha256','source_registration_sha256','tokens_sha256','preprocessing_id'):
+            require(valid_sha(a[key]),'Missing exact raw source pin: '+key)
+        ms=frozen['required_entropy_orders'][sid]
+        require(ms==sorted(set(ms)) and all(m in (4,5,6,7) for m in ms),'Frozen C entropy scale set differs')
+        sources.append(dict(source_index=i,source_id=sid,original_calibration_index=a['source_index'],required_ms=ms,
+            raw_asset=deepcopy(a)))
+        if i>=8:continue
+        bystate={}
+        for snr in (4,7,10,13):
+            for method in ('QCSI-U','QCSI-C8'):
+                table=frozen['tables'][snr,method]
+                for bin_,pid in enumerate(table['choices'][sid]):
+                    p=table['codebook'][str(pid)]
+                    ref=dict(average_snr_db=snr,method=method,bin=bin_,public_header_id=pid,
+                        profile_id=p['stable_id'],frozen_candidate_index=p['candidate_index'])
+                    choices.append(dict(source_index=i,source_id=sid,**ref))
+                    for count_,name in [(p['G'],p['full_state_id'])]+([(1,p['prefix_state_id'])] if p['G']==2 else []):
+                        ref2=dict(ref,accepted_groups=count_,scenario='all_groups_accepted' if count_==p['G'] else 'first_group_only')
+                        if name not in bystate:
+                            bystate[name]=dict(source_index=i,source_id=sid,**state(name),
+                                profile=deepcopy(p),accepted_group_count=count_,references=[])
+                        bystate[name]['references'].append(ref2)
+        cases.extend(bystate[name] for name in sorted(bystate,key=lambda n:(state(n)['m'],state(n)['K'])))
+    require(sum(len(r['required_ms']) for r in sources)==206,'Exact206 source/scale pairs required')
+    require(len(choices)==512 and len(cases)==91,'First8 frozen reachable-state coverage differs')
+    return dict(status='LOCAL_PREPARED_C_ENTROPY_AND_PARITY_PLAN_R1',source_ids=ids,sources=sources,
+        source_count=64,entropy_pair_count=206,parity_source_indices=list(range(8)),parity_cases=cases,
+        parity_case_count=91,parity_image_evaluations=182,choice_checks=choices,choice_check_count=512,
+        policy_selection=False,PHY_decode_calls=0,new_source_encoding=0,
+        parity_deduplication='Identical accepted state within one source only; all frozen profile/bin references retained')
+
+
+def load_raw_tokens(record,*,bound):
+    """Load only tokens from the original NPZ; pixels are not materialized."""
+    a=record['raw_asset'];p=a['checkpoint'];archive=a['archive']
+    require(bound.get(p)==a['checkpoint_sha256']==sha(p) and bound.get(archive)==a['archive_sha256']==sha(archive),
+        'Registered raw checkpoint/archive changed')
+    cp=read(p)
+    require(cp['status']=='H_FULL1000_SOURCE_ASSET_READY' and cp['source_id']==record['source_id']
+        and cp['source_index']==cp['original_calibration_index']==record['original_calibration_index']
+        and cp['registration_sha256']==a['source_registration_sha256'] and cp['archive']==archive
+        and cp['outputs'].get(archive)==a['archive_sha256'] and cp['tokens_sha256']==a['tokens_sha256']
+        and cp['preprocessing_id']==a['preprocessing_id'],'Original raw source checkpoint mapping differs')
+    with np.load(archive,allow_pickle=False) as z:
+        require(set(z.files)=={'tokens','pixels'},'Unregistered archive keys')
+        value=tokens(z['tokens'])
+    require(token_sha(value)==a['tokens_sha256'],'Raw tokens differ from original cached Encoder/VQ evidence')
+    return value
+
+
+def entropy_orders(native,quality,flat,required_ms,guard=lambda:None):
+    """Fresh original prefix computations; no snapshot or final-order reuse."""
+    flat=tokens(flat);require(required_ms==sorted(set(required_ms)) and required_ms,'Frozen nonempty scale list required')
+    states=[dict(state_id=f'm{m}_K1',m=m,K=1) for m in required_ms]
+    orders={};native.torch.cuda.synchronize();start=time.perf_counter()
+    renderer=quality.SourceRenderer(native.loaded,native.receiver,flat,states,use_snapshots=False)
+    try:
+        with native.torch.no_grad():
+            for m in required_ms:
+                guard();prior,logits=renderer._open(m)
+                try:order=np.asarray(quality.entropy_order(native.receiver,logits[0].float().cpu().numpy()))
+                finally:prior.close()
+                require(order.dtype.kind in 'iu' and np.array_equal(np.sort(order),np.arange(SIZES[m]**2)),
+                    'Original entropy function did not return a complete permutation')
+                orders[m]=order.astype(np.int64,copy=True)
+    finally:renderer.close()
+    native.torch.cuda.synchronize()
+    return orders,dict(seconds=time.perf_counter()-start,prior_forward_calls=renderer.prior_forward_calls,
+        use_snapshots=False,order_cache_read=False,new_image_renders=0,new_encoder_calls=0)
+
+
+def actual_accepted_payload(profile,accepted_payloads):
+    """Receiver-only unpacking. No source token, ID or TX positions argument."""
+    count_=len(accepted_payloads);require(0<=count_<=profile['G'],'Invalid accepted group count')
+    if not count_:return dict(kind='gray',prefix_tokens=[],partial_values=np.empty(0,dtype=np.int64),m=0,K=0)
+    values=[]
+    for bits,group in zip(accepted_payloads,profile['groups']):
+        bits=np.asarray(bits)
+        require(bits.shape==(group['source_bits'],) and bits.dtype.kind in 'iu' and np.isin(bits,(0,1)).all(),
+            'Actual accepted raw binary payload differs')
+        values.extend((bits.reshape(-1,12).astype(np.int64)*(1<<np.arange(11,-1,-1))).sum(1).tolist())
+    name=profile['full_state_id'] if count_==profile['G'] else profile['prefix_state_id'];s=state(name)
+    require(len(values)==PREFIX[s['m']]+s['K'],'Actual received prefix/partial length differs')
+    value=np.asarray(values,dtype=np.int64)
+    prefix=[value[PREFIX[m]:PREFIX[m+1]].copy() for m in range(s['m'])]
+    return dict(kind='accepted',prefix_tokens=prefix,partial_values=value[PREFIX[s['m']]:].copy(),m=s['m'],K=s['K'])
+
+
+def compare_rendered(tx,rx):
+    """Truth comparison is after both original independent forwards finish."""
+    for name in ('positions','values'):
+        require(np.array_equal(tx[name],rx[name]),'Independent received '+name+' differ')
+    require(len(tx['tokens'])==len(rx['tokens'])==10 and all(np.array_equal(a,b) for a,b in zip(tx['tokens'],rx['tokens'])),
+        'Independent completed token histories differ')
+    require(tx['known_tokens_fixed'] is True and rx['known_tokens_fixed'] is True
+        and tx['label_conditioned'] is False and rx['label_conditioned'] is False,'Frozen greedy/accepted token rule changed')
+    a,b=np.asarray(tx['image']),np.asarray(rx['image'])
+    require(a.dtype==b.dtype==np.float32 and a.shape==b.shape==(3,256,256) and np.isfinite(a).all()
+        and np.isfinite(b).all() and min(a.min(),b.min())>=0 and max(a.max(),b.max())<=1,'Invalid original RGB output')
+    difference=np.abs(a.astype(np.float64)-b.astype(np.float64));maximum=float(difference.max())
+    require(maximum<=IMAGE_TOLERANCE,'Independent TX/RX image exceeds original1e-6 tolerance')
+    return dict(max_abs_image_error=maximum,mean_abs_image_error=float(difference.mean()),
+        tx_image_sha256=array_sha(a),rx_image_sha256=array_sha(b),exact_RGB_bytes=bool(np.array_equal(a,b)),
+        positions_sha256=array_sha(np.asarray(rx['positions'],dtype='<i8')),
+        completed_tokens_sha256=array_sha(np.concatenate(rx['tokens']).astype('<i8')),
+        exact_tokens=True,exact_positions=True,exact_values=True)
+
+
+def parity_source(native,quality,cpu,plan,index,flat,orders,guard=lambda:None):
+    require(type(index)is int and index in range(8),'Only originalfirst8 independent parity sources')
+    flat=tokens(flat);cases=[r for r in plan['parity_cases'] if r['source_index']==index]
+    require(cases and all(r['source_id']==plan['source_ids'][index] for r in cases),'First8 source mapping differs')
+    states=[{k:r[k] for k in ('state_id','m','K')} for r in cases]
+    tx_renderer=quality.SourceRenderer(native.loaded,native.receiver,flat,states,use_snapshots=False)
+    rx_renderer=quality.ReceivedRenderer(native.loaded,native.receiver);rows=[]
+    try:
+        with native.torch.no_grad():
+            for case in cases:
+                guard();p=case['profile']
+                packed=cpu.source_payloads(flat,orders,p)[:case['accepted_group_count']]
+                # Copy/pack/unpack is source serialization only; no channel, CRC,
+                # encoder or packet decoder is invoked by this qualification.
+                wire=[np.unpackbits(np.packbits(bits,bitorder='big'),bitorder='big')[:len(bits)].copy() for bits in packed]
+                received=actual_accepted_payload(p,wire)
+                require(received['m']==case['m'] and received['K']==case['K'],'Frozen parity case differs')
+                native.torch.cuda.synchronize();start=time.perf_counter()
+                tx=tx_renderer.render({k:case[k] for k in ('state_id','m','K')},'VAR')
+                # RX receives only actual unpacked values and the public m/K.
+                # In particular, the TX entropy order is not an argument.
+                rx=rx_renderer.render_received(received['prefix_tokens'],received['partial_values'],
+                    received['m'],received['K'],'VAR',cache=None)
+                native.torch.cuda.synchronize()
+                proof=compare_rendered(tx,rx)
+                if case['K']:
+                    require(np.array_equal(tx['positions'],orders[case['m']][:case['K']]),'Exported TX order differs from independent parity TX')
+                rows.append(dict(source_index=index,source_id=case['source_id'],state_id=case['state_id'],m=case['m'],K=case['K'],
+                    references=deepcopy(case['references']),accepted_payload_sha256=[array_sha(b) for b in wire],
+                    seconds=time.perf_counter()-start,TX_RX_contexts_independent=True,RX_reads_TX_order=False,
+                    final_image_cache_enabled=False,**proof))
+    finally:tx_renderer.close()
+    return rows
+
+
+def validate_export_arrays(arrays,required_ms,expected_tokens_sha):
+    require(set(arrays)=={'tokens',*[f'entropy_order_m{m}' for m in required_ms]},'Exact TX token/order keys required')
+    flat=tokens(arrays['tokens']);require(token_sha(flat)==expected_tokens_sha,'Export changed original source tokens')
+    for m in required_ms:
+        order=np.asarray(arrays[f'entropy_order_m{m}'])
+        require(order.dtype.kind in 'iu' and order.shape==(SIZES[m]**2,)
+            and np.array_equal(np.sort(order),np.arange(SIZES[m]**2)),'Invalid full entropy permutation')
+    return True
+
+
+def finish_parity(plan,rows):
+    expected={(r['source_index'],r['state_id']) for r in plan['parity_cases']}
+    require(len(rows)==91 and {(r['source_index'],r['state_id']) for r in rows}==expected,'Incomplete/duplicate91 parity states')
+    for row in rows:
+        require(row['source_id']==plan['source_ids'][row['source_index']] and row['exact_tokens'] and row['exact_positions']
+            and row['exact_values'] and row['max_abs_image_error']<=IMAGE_TOLERANCE
+            and row['TX_RX_contexts_independent'] and row['RX_reads_TX_order'] is False,'Failed independent source parity')
+    return dict(status=PARITY_STATUS,source_ids=plan['source_ids'][:8],source_indices=list(range(8)),cases=91,
+        choice_checks=deepcopy(plan['choice_checks']),choice_check_count=512,rows=rows,
+        maximum_image_error=max(r['max_abs_image_error'] for r in rows),image_tolerance=IMAGE_TOLERANCE,
+        new_packet_decodes=0,new_source_encoding=0,policy_selection=False,quality_metrics_run=False,
+        actual_channel_performance_claimed=False)

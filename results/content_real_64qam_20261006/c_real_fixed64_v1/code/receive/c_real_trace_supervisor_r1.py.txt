@@ -1,0 +1,253 @@
+"""Bounded two-worker C8192 CPU supervisor, with explicit normal merge closure."""
+from __future__ import annotations
+import argparse
+from contextlib import ExitStack, contextmanager
+import os
+from pathlib import Path
+import signal
+import subprocess
+import sys
+import time
+import traceback
+import c_real_trace_driver_r1 as d
+
+SCHEMA='C_REAL_CPU_8192_OWNER_CONFIG_R1'
+COMPLETE='C_REAL_CPU_8192_NORMALLY_COMPLETE_R1'
+STOP=False
+require=d.require;save=d.save;read=d.c.read;sha=d.c.sha;verify=d.verify
+THREAD_KEYS=('OMP_NUM_THREADS','MKL_NUM_THREADS','OPENBLAS_NUM_THREADS','NUMEXPR_NUM_THREADS')
+QUALIFICATION='C8192_ACTUAL_ENVIRONMENT_CPU_TESTS_PASS'
+TEST_MODULES=['test_c_real_trace_r1','test_c_real_trace_supervisor_r1']
+NEW_SOURCES=('c_real_trace_core_r1.py','c_real_trace_driver_r1.py','register_c_real_trace_r1.py',
+    'test_c_real_trace_r1.py','c_real_trace_supervisor_r1.py','test_c_real_trace_supervisor_r1.py')
+
+def bind(paths):return {str(Path(p).absolute()):sha(p) for p in paths}
+def identity(pid):
+    p=Path('/proc')/str(pid);fields=(p/'stat').read_text().rsplit(')',1)[1].split()
+    return dict(pid=pid,start_ticks=int(fields[19]),uid=p.stat().st_uid,argv=(p/'cmdline').read_bytes().decode().rstrip('\0').split('\0'))
+def absent(value):return d.process_absent(value)
+def command(cfg,index=None):
+    value=[cfg['python'],'-B',str(Path(d.__file__).absolute()),'--config',cfg['_path'],'--stage','merge' if index is None else 'worker']
+    return value if index is None else value+['--worker',str(index)]
+def qualified(cfg,ctx):
+    path=cfg['prepared_qualification'];q=read(path)
+    require(ctx['bound'].get(path)==sha(path),'Actual CPU qualification must be input-bound')
+    require(q['status']==QUALIFICATION and q['python']==cfg['python'] and q['tests_run']==28 and q['test_modules']==TEST_MODULES
+        and q['exit_code']==0 and q['process_waited'] is True and q['new_packet_decodes']==0 and q['new_GPU_calls']==0,
+        'Actual original LDPC interpreter /28 CPU tests must pass before registration')
+    verify(q['source_bindings']);verify(q['input_bindings']);verify(q['outputs'])
+    for name in NEW_SOURCES:
+        p=str(Path(__file__).parent/name)
+        require(q['source_bindings'].get(p)==ctx['reg']['source_bindings'].get(p)==sha(p),'CPU qualification omitted or changed executable: '+name)
+    old=ctx['qualification'];required=[old[k] for k in ('protocol','frozen_identity','source64','choices','resource_budget')]
+    required += [cfg['qualification_config'],cfg['entropy_batch']['config'],cfg['entropy_batch']['completion'],cfg['entropy_manifest'],cfg['raw_asset_audit']]
+    for p in required:require(q['input_bindings'].get(p)==ctx['bound'].get(p)==sha(p),'CPU fixture/predecessor not exactly qualified: '+p)
+    log=Path(q['log']);require(q['outputs'].get(str(log))==sha(log),'Qualification closed log missing')
+    tail=log.read_text(encoding='utf-8',errors='strict').rstrip()
+    require('Ran 28 tests in ' in tail and tail.endswith('OK'),'Actual28-test closed log required')
+    require(cfg['ledger'] not in q['input_bindings'],'Mutable C ledger cannot be frozen as a qualification input path')
+    return q
+def validate_worker_contract(cfg,ctx):
+    p=cfg['owner_config'];oc=read(p);e=Path(cfg['registration']).parent
+    require(ctx['bound'].get(p)==sha(p) and ctx['bound'].get(cfg['owner_module'])==sha(__file__), 'Actual owner config/source must be sealed')
+    require(oc['schema']==SCHEMA and oc['root']==cfg['root'] and oc['execution_dir']==str(e)
+        and oc['registration']==cfg['registration'] and oc['worker_config']==cfg['_path']
+        and oc['driver_module']==str(Path(d.__file__).absolute()) and oc['python']==cfg['python']
+        and oc['affinities']==cfg['affinities'] and oc['nice']==cfg['nice']==15
+        and oc['max_seconds']==cfg['max_seconds'] and oc['deadline_unix']==cfg['deadline_unix']
+        and oc['automatic_successor'] is False and oc['prepared_qualification']==cfg['prepared_qualification'],'Exact two-worker/merge owner contract required')
+    require(len(oc['affinities'])==2 and all(len(set(a))==2 for a in oc['affinities'])
+        and not(set(oc['affinities'][0])&set(oc['affinities'][1])),'Two disjoint two-core shards required')
+    qualified(cfg,ctx);return oc
+
+def load(path,*,require_seal=True):
+    oc=read(path);ctx=d.load_registered(oc['worker_config']);cfg=ctx['cfg'];require(cfg['owner_config']==str(Path(path).absolute()),'Wrong owner config')
+    validate_worker_contract(cfg,ctx)
+    if require_seal:
+        e=Path(oc['execution_dir']);seal=read(e/'registration_completion.json')
+        require(seal['status']=='C_REAL_CPU_8192_REGISTERED_NOT_LAUNCHED_R1' and seal['registration_sha256']==ctx['regsha']
+            and not(e/'failure.json').exists(),'Successful C8192 registration required');verify(seal['outputs'])
+    ctx['owner_config']=oc;return ctx
+
+def check_stop(cfg):
+    require(not STOP and time.time()<cfg['deadline_unix'] and not any(p.exists() for p in
+        (Path(cfg['stop_file']),Path(cfg['out'])/'STOP',Path(cfg['registration']).parent/'STOP')),'C8192 STOP/deadline')
+def marker(cfg,cause):
+    p=Path(cfg['stop_file']);p.parent.mkdir(parents=True,exist_ok=True)
+    if not p.exists():
+        try:save(p,dict(status='C8192_STOP_PRESERVE_CHARGED_EVIDENCE',cause=cause,registration_sha256=sha(cfg['registration'])))
+        except FileExistsError:pass
+
+def folder(cfg,index):return Path(cfg['registration']).parent/('merge' if index is None else f'workers/{index}')
+def proof(cfg,ctx,index):
+    p=folder(cfg,index)/'admission.json';deadline=time.monotonic()+10
+    while not p.exists():require(time.monotonic()<deadline,'Owner admission not sealed');time.sleep(.02)
+    value=read(p);expected=command(cfg,index)
+    require(value['status']=='C8192_CPU_PROCESS_ADMITTED' and value['registration_sha256']==ctx['regsha']
+        and value['config_sha256']==sha(cfg['_path']) and value['role']==('merge' if index is None else 'worker')
+        and value['worker_index']==index and value['worker_identity']==identity(os.getpid())
+        and value['owner_identity']==identity(os.getppid()) and value['worker_identity']['argv']==expected,'Actual admitted parent/worker identity differs')
+    require(value['affinity']==cfg['affinities'][0 if index is None else index]
+        and value['source_indices']==([] if index is None else list(range(index,64,2))),'Exact ownership/CPU admission differs')
+    check_live_admission(ctx,value);return value
+
+def admit_worker(cfg,ctx,index):
+    require(type(index)is int and index in (0,1),'Only original workers0/1');return proof(cfg,ctx,index)
+def admit_merge(cfg,ctx):
+    value=proof(cfg,ctx,None);closed_workers(cfg,ctx);return value
+
+def check_live_admission(ctx,value):
+    cfg=ctx['cfg'];check_stop(cfg)
+    require(value['registration_sha256']==ctx['regsha'] and identity(os.getpid())==value['worker_identity']
+        and identity(os.getppid())==value['owner_identity'],'Original live parent/process identity changed')
+    require(os.environ.get('CUDA_VISIBLE_DEVICES')=='' and all(os.environ.get(k)=='2' for k in THREAD_KEYS)
+        and os.sched_getaffinity(0)==set(value['affinity']) and os.getpriority(os.PRIO_PROCESS,0)==15,'CPU-only actual affinity/thread/nice differs')
+    require(lock_held(str(Path(cfg['ledger']).with_suffix('.owner.lock'))),'Original C ledger owner lock not held')
+
+def closed_workers(cfg,ctx):
+    outputs={};e=Path(cfg['registration']).parent;owner=read(e/'owner_identity.json')
+    require(owner['registration_sha256']==ctx['regsha'] and owner['config_sha256']==sha(cfg['owner_config']),'Owner start seal differs')
+    for i in (0,1):
+        f=folder(cfg,i);launch=read(f/'launch.json');end=read(f/'exit.json');admission=read(f/'admission.json');donep=Path(cfg['out'])/f'worker_{i}/completion.json';done=read(donep)
+        require(launch['identity']==end['identity']==admission['worker_identity']==done['worker_identity']
+            and admission['owner_identity']==owner['identity'] and launch['argv']==end['identity']['argv']==command(cfg,i)
+            and launch['registration_sha256']==end['registration_sha256']==ctx['regsha'] and end['wait_completed'] is True
+            and end['exit_code']==0 and absent(end['identity']) and end['closed_log_sha256']==sha(f/'worker.log')
+            and end['completion']==str(donep) and end['completion_sha256']==sha(donep),'Worker wait/exit0/closed log evidence differs')
+        require(done['status']==d.WORKER and done['registration_sha256']==ctx['regsha'] and done['config_sha256']==sha(cfg['_path'])
+            and done['source_indices']==list(range(i,64,2)) and done['source_count']==32 and done['frame_count']==4096
+            and done['source_bindings']==ctx['reg']['source_bindings'] and done['input_bindings']==ctx['reg']['input_bindings'],
+            'Exact complete32-source worker required')
+        require(not any((Path(cfg['out'])/f'worker_{i}'/n).exists() for n in ('failure.json','STOP')),'Worker has failure evidence')
+        verify(done['outputs']);outputs.update(done['outputs']);outputs.update(bind([donep]+[f/n for n in ('launch.json','admission.json','exit.json','worker.log')]))
+    outputs.update(bind([e/'owner_identity.json']));return dict(worker_indices=[0,1],all_waited=True,exit_codes=[0,0],outputs=outputs)
+
+@contextmanager
+def owner_lock(cfg):
+    import fcntl
+    p=Path(cfg['ledger']).with_suffix('.owner.lock');require(p.parent.is_dir(),'Existing C ledger directory required')
+    with p.open('a+') as f:
+        fcntl.flock(f,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        try:yield
+        finally:fcntl.flock(f,fcntl.LOCK_UN)
+def lock_held(path):
+    import fcntl
+    with Path(path).open('r+') as f:
+        try:fcntl.flock(f,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        except BlockingIOError:return True
+        fcntl.flock(f,fcntl.LOCK_UN);return False
+
+def environment(cfg):
+    paths=[str(Path(__file__).parent),str(Path(cfg['qualification_config']).parent.parent/'qualification_runtime_r1'),cfg['legacy_runtime'],cfg['src']]
+    return dict(os.environ,PYTHONPATH=os.pathsep.join(paths),CUDA_VISIBLE_DEVICES='',PYTHONDONTWRITEBYTECODE='1',PYTHONUNBUFFERED='1',**{k:'2' for k in THREAD_KEYS})
+def resources(affinity):os.sched_setaffinity(0,set(affinity));os.setpriority(os.PRIO_PROCESS,0,15)
+def capture(child,argv):
+    for _ in range(100):
+        now=identity(child.pid)
+        if now['argv']==argv:return now
+        require(child.poll() is None,'Process exited before argv admission');time.sleep(.02)
+    raise RuntimeError('Actual child argv never matched')
+
+def launch(ctx,index,owner):
+    cfg=ctx['cfg'];f=folder(cfg,index);require(not f.exists(),'No retry of old worker/merge launch');f.mkdir(parents=True)
+    cmd=command(cfg,index);aff=cfg['affinities'][0 if index is None else index];h=(f/'worker.log').open('xb')
+    child=subprocess.Popen(cmd,cwd=cfg['root'],env=environment(cfg),stdin=subprocess.DEVNULL,stdout=h,stderr=subprocess.STDOUT,
+        start_new_session=True,preexec_fn=lambda:resources(aff))
+    record=dict(child=child,handle=h,folder=f,index=index,identity=None,closed=False)
+    # Caller records Popen immediately, including an identity-capture failure.
+    ctx['_active'].append(record);save(f/'pending_pid.json',dict(pid=child.pid,argv=cmd,identity_verified=False))
+    me=capture(child,cmd);record['identity']=me
+    save(f/'launch.json',dict(identity=me,argv=cmd,registration_sha256=ctx['regsha']))
+    save(f/'admission.json',dict(status='C8192_CPU_PROCESS_ADMITTED',registration_sha256=ctx['regsha'],config_sha256=sha(cfg['_path']),
+        owner_identity=owner,worker_identity=me,role='merge' if index is None else 'worker',worker_index=index,affinity=aff,
+        source_indices=[] if index is None else list(range(index,64,2))))
+    return record
+
+def finish(ctx,record):
+    if record['closed']:return record['exit']
+    child=record['child'];code=child.wait();h=record['handle'];h.flush();os.fsync(h.fileno());h.close();record['closed']=True
+    cfg=ctx['cfg'];index=record['index'];cp=Path(cfg['out'])/('merge' if index is None else f'worker_{index}')/'completion.json'
+    result=dict(identity=record['identity'],pid=child.pid,exit_code=code,wait_completed=True,registration_sha256=ctx['regsha'],
+        closed_log_sha256=sha(record['folder']/'worker.log'),completion=str(cp),completion_sha256=sha(cp) if cp.is_file() else None)
+    save(record['folder']/'exit.json',result);record['exit']=result;return result
+
+def wait_group(ctx,records,started):
+    cfg=ctx['cfg'];failure=False
+    while any(not r['closed'] for r in records):
+        try:check_stop(cfg);require(time.monotonic()-started<cfg['max_seconds'],'Owner wall cap')
+        except BaseException as error:marker(cfg,str(error));failure=True
+        for r in records:
+            if not r['closed'] and r['child'].poll() is not None:
+                result=finish(ctx,r)
+                if result['exit_code']!=0:marker(cfg,'A registered child failed');failure=True
+        if any(not r['closed'] for r in records):time.sleep(.25)
+    require(not failure and all(r['exit']['exit_code']==0 for r in records),'Failed/STOP child batch; preserve all charged calls')
+
+def run(path):
+    ctx=load(path);cfg=ctx['cfg'];oc=ctx['owner_config'];e=Path(oc['execution_dir']);ctx['_active']=[]
+    require(sys.platform.startswith('linux') and not(e/'owner_attempt.json').exists() and not Path(cfg['out']).exists(),'Fresh Linux C8192 owner only')
+    require(set().union(*map(set,cfg['affinities']))<=os.sched_getaffinity(0),'Both registered worker CPU pairs must be available to owner')
+    save(e/'owner_attempt.json',dict(registration_sha256=ctx['regsha'],automatic_retry=False));me=identity(os.getpid());start=time.monotonic();locks=ExitStack()
+    try:
+        locks.enter_context(owner_lock(cfg))
+        check_stop(cfg);before=d.ledger_snapshot(cfg['ledger'],sha(cfg['budget_registration']))
+        require(before==ctx['reg']['budget_before'] and before['charged']==848 and before['unresolved']==0
+            and before['phase_charged']==dict(qualification=848,development=0,diagnostic_reserve=0),'Original848 preserved and actual phase must be fresh')
+        save(e/'owner_identity.json',dict(identity=me,registration_sha256=ctx['regsha'],config_sha256=sha(path)))
+        workers=[launch(ctx,i,me) for i in (0,1)];wait_group(ctx,workers,start);closed=closed_workers(cfg,ctx)
+        current=d.ledger_snapshot(cfg['ledger'],sha(cfg['budget_registration']));require(current['unresolved']==0,'Unresolved charged packet after both exits')
+        merge=launch(ctx,None,me);wait_group(ctx,[merge],start);cp=Path(cfg['out'])/'merge/completion.json';done=read(cp)
+        require(done['status']==d.COMPLETE and done['registration_sha256']==ctx['regsha'] and done['config_sha256']==sha(cfg['_path'])
+            and done['source_count']==64 and done['frame_count']==8192 and done['new_GPU_calls']==0
+            and done['images_scored'] is done['source_reconstruction_complete'] is done['policy_selection'] is done['automatic_successor'] is False,
+            'Exact CPU-only merged C8192 result required')
+        verify(done['source_bindings']);verify(done['input_bindings']);verify(done['outputs'])
+        require(done['source_bindings']==ctx['reg']['source_bindings'] and done['input_bindings']==ctx['reg']['input_bindings'],'Merged input/source maps differ')
+        after=d.ledger_snapshot(cfg['ledger'],sha(cfg['budget_registration']))
+        require(done['budget_after']==after and after['unresolved']==0 and after['phase_charged']['qualification']==848
+            and after['phase_charged']['diagnostic_reserve']==0 and 0<done['actual_development_packet_calls']==after['phase_charged']['development']<=24576,
+            'Actual merge and original C paid ledger differ')
+        check_stop(cfg);outputs=dict(done['outputs']);outputs.update(closed['outputs']);outputs.update(bind([cp,path,cfg['_path'],cfg['registration']]+[folder(cfg,None)/n for n in ('launch.json','admission.json','exit.json','worker.log')]))
+        result=dict(status=COMPLETE,registration_sha256=ctx['regsha'],owner_identity=me,worker_identities=[r['identity'] for r in workers],merge_identity=merge['identity'],
+            worker_exit_codes=[0,0],merge_exit_code=0,all_waited=True,source_count=64,frame_count=8192,budget_before=before,budget_after=after,
+            actual_development_packet_calls=done['actual_development_packet_calls'],outputs=outputs,source_bindings=ctx['reg']['source_bindings'],input_bindings=ctx['reg']['input_bindings'],
+            new_GPU_calls=0,images_scored=False,source_reconstruction_complete=False,automatic_successor=False)
+        save(e/'completion.json',result);return result
+    except BaseException:
+        marker(cfg,'C8192 supervisor failed; safe drain only')
+        for r in ctx['_active']:
+            if not r['closed']:finish(ctx,r)
+        save(e/'owner_failure.json',dict(status='FAILED_PRESERVE_NO_RETRY',traceback=traceback.format_exc(),owner_identity=me,
+            children=[dict(pid=r['child'].pid,identity=r['identity'],exit_code=r['child'].returncode) for r in ctx['_active']],refund=False));raise
+    finally:
+        locks.close()
+
+def closed_batch(spec):
+    ctx=load(spec['owner_config']);cfg=ctx['cfg'];e=Path(cfg['registration']).parent
+    require(spec['completion']==str(e/'completion.json'),'Exact normal C8192 owner completion required');done=read(spec['completion'])
+    require(done['status']==COMPLETE and done['registration_sha256']==ctx['regsha'] and done['all_waited'] is True
+        and done['worker_exit_codes']==[0,0] and done['merge_exit_code']==0 and absent(done['owner_identity']),'Normal owner completion/exit required')
+    require(not any(p.exists() for p in (e/'owner_failure.json',e/'STOP',Path(cfg['out'])/'STOP',Path(cfg['out'])/'merge/failure.json',Path(cfg['stop_file']))),'C8192 failure/STOP retained')
+    closed_workers(cfg,ctx);end=read(folder(cfg,None)/'exit.json');launch=read(folder(cfg,None)/'launch.json');admission=read(folder(cfg,None)/'admission.json')
+    cp=Path(cfg['out'])/'merge/completion.json';science=read(cp)
+    require(end['identity']==done['merge_identity'] and end['exit_code']==0 and end['wait_completed'] is True and absent(end['identity'])
+        and end['identity']==launch['identity']==admission['worker_identity'] and admission['owner_identity']==done['owner_identity']
+        and launch['argv']==end['identity']['argv']==command(cfg,None) and end['registration_sha256']==ctx['regsha']
+        and end['completion']==str(cp) and end['completion_sha256']==sha(cp)
+        and end['closed_log_sha256']==sha(folder(cfg,None)/'worker.log'),'Normal merge exit differs')
+    require(science['status']==d.COMPLETE and science['registration_sha256']==ctx['regsha'] and science['config_sha256']==sha(cfg['_path'])
+        and science['source_count']==done['source_count']==64 and science['frame_count']==done['frame_count']==8192
+        and science['budget_after']==done['budget_after'] and science['actual_development_packet_calls']==done['actual_development_packet_calls']
+        and done['source_bindings']==science['source_bindings']==ctx['reg']['source_bindings']
+        and done['input_bindings']==science['input_bindings']==ctx['reg']['input_bindings'],'Normal science/owner closure differs')
+    verify(done['outputs']);verify(done['source_bindings']);verify(done['input_bindings'])
+    require(d.ledger_snapshot(cfg['ledger'],sha(cfg['budget_registration']))==done['budget_after'],'C ledger changed after normal C8192 closure')
+    bindings=dict(ctx['bound']);bindings.update(done['outputs']);bindings.update(bind([spec['completion'],cfg['registration'],cfg['owner_config']]))
+    return dict(ctx=ctx,done=done,bindings=bindings)
+
+def stop(*_):
+    global STOP
+    STOP=True
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--config',required=True);a=p.parse_args();signal.signal(signal.SIGTERM,stop);signal.signal(signal.SIGINT,stop)
+    print(run(a.config)['status'],flush=True)

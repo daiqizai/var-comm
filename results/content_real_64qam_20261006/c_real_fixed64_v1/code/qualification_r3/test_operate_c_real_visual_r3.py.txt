@@ -1,0 +1,120 @@
+"""Real unchanged final consumer plus complete producer request regression; no models."""
+from copy import deepcopy
+import os
+from pathlib import Path
+import shutil
+import sys
+import tempfile
+import types
+import unittest
+from unittest.mock import patch
+import operate_c_real_visual_r3 as p
+import original_preflight_environment_r1 as compatibility
+
+HERE=Path(__file__).resolve().parent;BASE=HERE.parent
+RUNTIME=Path(os.environ.get('C_R3_TEST_ORIGINAL_RUNTIME',BASE/'c_real_rx_prep'))
+OLDOPS=Path(os.environ.get('C_R3_TEST_ORIGINAL_OPS',BASE/'c_real_rx_prep/operate_c_real_visual_r1.py'))
+ACTUAL=Path(os.environ.get('C_R3_TEST_FAILED_Q',BASE/'current/c_visual_qualification_recovery_r3/qualification_completion.json'))
+
+class ReceiptRecovery(unittest.TestCase):
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.root=Path(self.temp.name);rt=self.root/'runtime';rt.mkdir()
+        for source in RUNTIME.glob('*.py'):
+            if source.name=='c_real_visual_execution_r1.py':
+                data=source.read_bytes()
+                if p.sha(source)==compatibility.OWNER_SHA['C']:data=compatibility.derive_owner(data,'C')
+                (rt/source.name).write_bytes(data)
+            else:shutil.copyfile(source,rt/source.name)
+        shutil.copyfile(compatibility.__file__,rt/Path(compatibility.__file__).name)
+        sys.path.insert(0,str(rt));self.addCleanup(lambda:sys.path.remove(str(rt)))
+        self.e=p.module(rt/'c_real_visual_execution_r1.py','c_r3_test_actual_consumer')
+        self.oldops=p.module(OLDOPS,'c_r3_test_actual_request_builder')
+        self.rt=rt;f=self.root/'fixtures';f.mkdir();metadata_paths={}
+        for name in ('cpu_config','cpu_normal','entropy_config','entropy_science','raw_checkpoint','entropy_checkpoint','cpu_checkpoint'):
+            path=f/(name+'.json');p.save(path,{'fixture':name});metadata_paths[name]=str(path)
+        self.fix={}
+        for name in p.FIXTURES+p.COMPAT:
+            path=f/(name+'.json');p.save(path,dict(paths=metadata_paths,input_bindings=p.bind(metadata_paths.values())) if name=='C_VISUAL_TEST_METADATA' else {'fixture':name});self.fix[name]=str(path)
+        metric=f/'metrics.json';p.save(metric,{});adapter=f/'adapter.py';adapter.write_text('# no model\n')
+        self.sources=p.bind(rt/n for n in self.e.NEW_SOURCES)
+        self.inputs=p.bind([*self.fix.values(),*metadata_paths.values(),metric,adapter])
+        self.oldqdir=self.root/'failed_q';self.oldqdir.mkdir();self.outputs={}
+        for sub,count in (('original39',39),('compatibility10',10)):
+            folder=self.oldqdir/sub;folder.mkdir();log=folder/'tests.log';log.write_text('Ran %s tests in 0.001s\n\nOK\n'%count)
+            identity={'pid':99999999,'start_ticks':999999,'uid':1002,'argv':['python','-B']}
+            p.save(folder/'launch.json',dict(identity=identity,argv=['python','-B']))
+            p.save(folder/'exit.json',dict(identity=identity,exit_code=0,process_waited=True,log_sha256=p.sha(log)))
+            self.outputs.update(p.bind(folder/n for n in ('tests.log','launch.json','exit.json')))
+        p.save(self.oldqdir/'failure.json',dict(traceback='ValueError: Four explicit deployed fixture paths required',new_GPU_calls=0))
+        self.oldq=dict(status=self.e.QPASS,python='python',tests_run=39,test_modules=self.e.TEST_MODULES,exit_code=0,process_waited=True,
+            new_packet_decodes=0,new_GPU_calls=0,source_bindings=self.sources,input_bindings=self.inputs,outputs=self.outputs,
+            fixture_paths=self.fix,log=str(self.oldqdir/'original39/tests.log'),compatibility_tests_run=10,original39_assertions_unchanged=True)
+        self.qp=self.oldqdir/'completion.json';p.save(self.qp,self.oldq)
+        self.new=dict(root=str(self.root),runtime=str(rt),execution_dir=str(self.root/'new_execution'),out=str(self.root/'new_science'),
+            qualification_dir=str(self.root/'new_q'),operations_dir=str(self.root/'new_ops'),metric_assets=str(metric),h_metric_adapter_module=str(adapter),max_seconds=86400)
+        self.meta=dict(cpu_batch={'owner_config':metadata_paths['cpu_config'],'completion':metadata_paths['cpu_normal']},
+            cpu={'owner_module':str(f/'cpu_owner.py')},prior_sources={},prior_inputs={},python='python')
+        self.eng=self.root/'old_engineering.json';p.save(self.eng,{'budget_before':{'charged':21495}})
+        self.materials=self.root/'materials.json';p.save(self.materials,{'scope':'test metadata only'})
+
+    def consume(self,qp):
+        q=p.read(qp);request=self.oldops.make_request(self.e,self.new,self.meta,q['source_bindings'],q['input_bindings'])
+        return self.e.qualification(str(qp),'python',p.combine(request['source_bindings'],request['input_bindings']),request['config'])
+
+    def test_real_consumer_rejects_old_seven_accepts_corrected_four_plus_three(self):
+        # make_request expects new_q/completion to exist, just as actual producer ordering.
+        qdir=Path(self.new['qualification_dir']);qdir.mkdir();qp=qdir/'completion.json';p.save(qp,self.oldq)
+        with self.assertRaisesRegex(ValueError,'Four explicit'):self.consume(qp)
+        fixed=p.corrected_receipt(self.oldq,{},self.inputs,self.qp,self.eng)
+        other=self.root/'corrected.json';p.save(other,fixed)
+        result=self.consume(other)
+        self.assertEqual(set(result['fixture_paths']),set(p.FIXTURES));self.assertEqual(set(result['compatibility_fixture_paths']),set(p.COMPAT))
+        self.assertEqual(result['tests_run'],39);self.assertEqual(result['compatibility_tests_run'],10)
+        self.assertTrue(result['qualification_tests_reused']);self.assertFalse(result['original_R2_operation_success'])
+        self.assertEqual(p.read(self.qp),self.oldq)
+
+    def test_true_prepare_request_and_consumer_preserve_original_failures(self):
+        before={'charged':21495};old={'e':self.e,'eng':{'budget_before':before},'engp':self.eng,'oldops':self.oldops,'meta':self.meta}
+        ctx=dict(new=self.new,e=self.e,old=old,q=self.oldq,qp=self.qp,pins=p.bind([self.qp,self.oldqdir/'failure.json']),
+            m={'source_bindings':{},'input_bindings':{}},r2=types.SimpleNamespace(current_budget=lambda e,m:before))
+        with patch.object(p,'context',return_value=ctx):
+            result=p.prepare(self.materials)
+            with self.assertRaisesRegex(ValueError,'Fresh'):p.prepare(self.materials)
+        self.assertEqual(result['status'],p.READY);self.assertTrue(result['original_consumer_validation_passed'])
+        self.consume(Path(self.new['qualification_dir'])/'completion.json')
+        request=p.read(Path(self.new['operations_dir'])/'request.json')
+        self.assertEqual(request['config']['owner_module'],str(self.rt/'c_real_visual_execution_r1.py'))
+        self.assertEqual(p.read(self.qp),self.oldq);self.assertTrue((self.oldqdir/'failure.json').exists())
+        self.assertFalse(Path(self.new['execution_dir']).exists());self.assertFalse(Path(self.new['out']).exists())
+
+    def test_all_seven_fixtures_remain_bound_and_unknown_keys_rejected(self):
+        bad=deepcopy(self.oldq);bad['fixture_paths']['unknown']='unused'
+        with self.assertRaisesRegex(ValueError,'seven'):p.corrected_receipt(bad,{},self.inputs,self.qp,self.eng)
+        for key in p.FIXTURES+p.COMPAT:
+            bad=deepcopy(self.oldq);bad['input_bindings'].pop(bad['fixture_paths'][key])
+            with self.subTest(key=key),self.assertRaisesRegex(ValueError,'remain bound'):
+                p.corrected_receipt(bad,{}, {},self.qp,self.eng)
+
+    def test_closed_test_evidence_rejects_exit_or_log_changes(self):
+        with patch.object(self.e,'absent',return_value=True):p.closed_tests(self.oldq,self.e)
+        ex=self.oldqdir/'original39/exit.json';value=p.read(ex);value['exit_code']=1;ex.write_text(__import__('json').dumps(value))
+        q=deepcopy(self.oldq);q['outputs'][str(ex)]=p.sha(ex)
+        with patch.object(self.e,'absent',return_value=True),self.assertRaisesRegex(ValueError,'reaped'):
+            p.closed_tests(q,self.e)
+
+    def test_actual_downloaded_failed_receipt_has_exact_seven_and_original_inventory(self):
+        q=p.read(ACTUAL)
+        self.assertEqual(set(q['fixture_paths']),set(p.FIXTURES+p.COMPAT));self.assertEqual(q['tests_run'],39)
+        self.assertEqual(q['test_modules'],self.e.TEST_MODULES);self.assertEqual(q['compatibility_tests_run'],10)
+        self.assertTrue(q['original39_assertions_unchanged'])
+
+    def test_preserved25_archive_requires_equal_original_and_copy_bytes(self):
+        folder=self.root/'archive';folder.mkdir();rows=[]
+        for i in range(25):
+            original=folder/('original%d'%i);copy=folder/('copy%d'%i);original.write_bytes(str(i).encode());copy.write_bytes(original.read_bytes())
+            rows.append(dict(original=str(original),copy=str(copy),sha256=p.sha(original),bytes=original.stat().st_size))
+        a=dict(status=p.ARCHIVE,files=rows,originals_retained=True,new_GPU_calls=0,new_PHY_calls=0)
+        self.assertEqual(len(p.archive_pins(a)),50);Path(rows[-1]['copy']).write_bytes(b'changed')
+        with self.assertRaisesRegex(ValueError,'Changed'):p.archive_pins(a)
+
+if __name__=='__main__':unittest.main()

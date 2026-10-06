@@ -1,0 +1,250 @@
+"""Prepared C-REAL CPU core: frozen choices, paid Rayleigh packets, deferred RX.
+
+No model, policy fitting, image score, registration or launch occurs on import.
+The original PHY functions and the original C atomic ledger are injected only
+after a separate execution registration. Missing entropy positions block TX.
+Accepted partial bits remain pending until an RX-only visual stage derives the
+entropy order from the actual received complete prefix.
+"""
+from __future__ import annotations
+from copy import deepcopy
+import csv
+import hashlib
+import json
+import math
+from pathlib import Path
+import re
+import numpy as np
+
+SNRS=(4,7,10,13)
+METHODS=('QCSI-U','QCSI-C8')
+THRESHOLDS=(-5,0,4,7,10,13,19)
+SIZES=(1,2,3,4,5,6,8,10,13,16)
+PREFIX=tuple(sum(x*x for x in SIZES[:m]) for m in range(11))
+LIMITS=dict(qualification=848,development=24576,diagnostic_reserve=74576)
+ENGINEERING=dict(schema='C_REAL_CPU_ENGINEERING_CHOICES_R1',
+    frame_counter='((source64_index*4+average_SNR_index)*16+trial); both methods share the public counter',
+    body_scrambling_session='CONTENT_REAL_20261006/C/development',
+    event='C:development:src{source64_index:02d}:snr{average_SNR_db}:trial{trial:02d}:{method}/{header|body0|body1}',
+    physical_deduplication=False,
+    header_codebook='Original method-and-average-SNR public dictionary; IDs unchanged; do not use true transmitted ID at RX',
+    forward_waveform='68 header plus selected body groups, no untransmitted suffix/normalization; 16 pilot and 16 feedback symbols paid',
+    receiver='DROP at first rejected group; preserve all accepted bits; partial entropy mapping deferred to actual-prefix RX',
+    qualification='Each of26 exact body layouts:32 noiseless roundtrips; headers0..7 each twice; h=1, variance=1e-6',
+    qualification_patterns='body block0=zeros,block1=ones,remaining PCG64 seed SHA256 JSON [C_REAL_QUALIFICATION_R1,phy_key,block]',
+    source_selection=False,weights_updated=False,new_quality_model=False)
+PROTOCOL_SHA='0800d41ca5f9721686f1da847f2ce62e547651e653df0bb4165866aea669fc52'
+IDENTITY_SHA='1fc96a63ae0a30815802d6d5287aae8e17325f3c839f0057706b42d9748042e7'
+SOURCE64_SHA='3e2e213850d54e6b28b6fa5d56fcc80925266b183806431658e59906925fc7f7'
+CHOICES_SHA='bff4945eeddafaedf4c2afc3d52eb6352f3686d6e8109b70c3f4e7a4f85bfedf'
+BUDGET_SHA='b5c0038088ef1d7a090fb0b7e378e398522d05a06af6f9ee3375e14de52c5915'
+
+
+def require(ok,message):
+    if not ok:raise ValueError(message)
+def digest(v):return hashlib.sha256(json.dumps(v,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def array_sha(a):return hashlib.sha256(np.ascontiguousarray(a).tobytes()).hexdigest()
+def parse_state(s):
+    m=re.fullmatch(r'm(\d+)_K(\d+)',s);require(m is not None,'Frozen state ID required')
+    m,K=map(int,m.groups());require(0<=m<=10 and 0<=K and (K==0 if m==10 else K<SIZES[m]**2),'Noncanonical state')
+    return m,K
+def count(s):
+    m,K=parse_state(s);return PREFIX[m]+K
+
+
+def load_frozen(protocol,identity,source64,choices,budget):
+    pins={str(Path(p).absolute()):sha(p) for p in (protocol,identity,source64,choices,budget)}
+    for p,s in ((protocol,PROTOCOL_SHA),(identity,IDENTITY_SHA),(source64,SOURCE64_SHA),(choices,CHOICES_SHA),(budget,BUDGET_SHA)):
+        require(sha(p)==s,'Original frozen C artifact changed: '+str(p))
+    proto,model,pop,b=map(read,(protocol,identity,source64,budget))
+    require(b['ledger_phase_limits']==LIMITS and b['packet_decode_cap']==100000,'Independent C quota differs')
+    ids=pop['source_ids'];require(len(ids)==len(set(ids))==64,'Exact original64 required')
+    require(proto['seeds']['master']==2026100604 and proto['statistics']['bootstrap_seed']==2026100605
+        and proto['statistics']['bootstrap_repeats']==10000,'Frozen channel/statistic seeds differ')
+    tables={};groups={};profiles={};required_orders={s:set() for s in ids}
+    for snr in SNRS:
+        frozen=model['snrs'][str(snr)];require(frozen['source_ids']==ids and frozen['no_reselection'] is True,'Source order/selection differs')
+        for method in METHODS:
+            spec=frozen['methods'][method];book={};rows=spec['source_choices']
+            require([r['source_id'] for r in rows]==ids,'Frozen choice source order differs')
+            for public,candidate in spec['public_codebook'].items():
+                p=deepcopy(frozen['frozen_profiles'][str(candidate)]);validate_profile(p)
+                require(p['candidate_index']==candidate and (p['stable_id'] not in profiles or profiles[p['stable_id']]==p),'Conflicting frozen profile')
+                profiles[p['stable_id']]=p;book[str(public)]=p
+                for g in p['groups']:
+                    require(g['phy_key'] not in groups or groups[g['phy_key']]==g,'Layout alias changed');groups[g['phy_key']]=g
+            require(set(book)=={str(i) for i in range(len(book))} and len(book)<=8,'Original public ID range differs')
+            bysource={}
+            for row in rows:
+                picks=row['public_header_ids_by_bin'];require(len(picks)==8,'Eight frozen bin decisions required')
+                for j,pid in enumerate(picks):
+                    require(book[str(pid)]['candidate_index']==row['candidate_indices_by_bin'][j],'Public ID/profile choice differs')
+                    m,K=parse_state(book[str(pid)]['full_state_id'])
+                    if K:required_orders[row['source_id']].add(m)
+                bysource[row['source_id']]=picks
+            tables[snr,method]=dict(codebook=book,choices=bysource)
+    require(len(groups)==26 and len(profiles)==16,'Exactly frozen26 layouts/16profiles required')
+    with Path(choices).open(encoding='utf-8',newline='') as f:rows=list(csv.DictReader(f))
+    seen=set()
+    for r in rows:
+        key=(int(r['average_snr_db']),r['method'],r['source_id'],int(r['bin']));require(key not in seen,'Duplicate frozen choice');seen.add(key)
+        snr,method,sid,bin_=key;table=tables[snr,method];pid=table['choices'][sid][bin_];p=table['codebook'][str(pid)]
+        require(pid==int(r['public_header_id']) and p['stable_id']==r['profile_id'] and p['candidate_index']==int(r['frozen_candidate_index']),
+            'CSV choice and original frozen array extraction differ')
+    require(seen=={(s,m,i,b) for s in SNRS for m in METHODS for i in ids for b in range(8)},'4096 frozen choices incomplete')
+    return dict(source_ids=ids,tables=tables,groups=groups,profiles=profiles,input_bindings=pins,
+        required_entropy_orders={s:sorted(v) for s,v in required_orders.items()},protocol=proto)
+
+
+def validate_profile(p):
+    require(p['G']==len(p['groups']) and p['G'] in (1,2) and p['N']==1024 and p['header_symbols']==68
+        and p['header_information_bits']==12 and p['paid_pilot_symbols']==p['paid_feedback_symbols']==16
+        and p['second_header_symbols']==0 and p['intermediate_feedback'] is False and p['order']=='entropy'
+        and p['receiver_rule']=='consecutive_crc_accepted_prefix_v1','Frozen C packet format differs')
+    states=[p['full_state_id']] if p['G']==1 else [p['prefix_state_id'],p['full_state_id']]
+    if p['G']==2:require(parse_state(states[0])[1]==0,'Current frozen first group must be a complete prefix')
+    start=0
+    for state,g in zip(states,p['groups']):
+        stop=count(state);q={'QPSK':2,'16QAM':4}[g['modulation']]
+        require(stop>start and g['source_bits']==12*(stop-start) and g['information_bits']==g['source_bits']+16
+            and g['transmitted_bits']==q*g['symbols']==g['layout']['n'] and g['layout']['k']==g['information_bits']
+            and g['layout']['power_protocol']=='fixed_constellation_average_Es2','Exact frozen body geometry differs')
+        start=stop
+    require(sum(g['symbols'] for g in p['groups'])==p['used_body_symbols']<=924
+        and 100+p['used_body_symbols']+p['unused_symbols']==1024,'Paid total1024 differs')
+
+
+def standard_channel(source_id,snr,trial):
+    require(snr in SNRS and type(snr)is int and type(trial)is int and 0<=trial<16,'Frozen SNR/trial only')
+    key=json.dumps(['CONTENT-REAL-64QAM-20261006/C/channel',2026100604,source_id,snr,trial],ensure_ascii=False,separators=(',',':')).encode()
+    gen=np.random.Generator(np.random.PCG64(int.from_bytes(hashlib.sha256(key).digest()[:16],'little')))
+    h=complex(*gen.standard_normal(2))/np.sqrt(2.);z=gen.standard_normal((992,2))
+    return h,z,10.**(-snr/10)
+
+
+def public_counter(index,snr,trial):
+    require(type(index)is int and 0<=index<64 and snr in SNRS and type(trial)is int and 0<=trial<16,'Public frame schedule differs')
+    return (index*4+SNRS.index(snr))*16+trial
+
+
+class CAtomicAdapter:
+    """Compatibility adapter, without relabelling the original C ledger."""
+    def __init__(self,ledger,budget_sha,phase,allowed_keys):
+        require(ledger.branch=='C' and ledger.binding==budget_sha and ledger.limits==LIMITS
+            and phase in ('qualification','development'),'Original independent C limits/phase required')
+        self.ledger,self.phase,self.allowed_keys,self.budget_sha=ledger,phase,set(allowed_keys),budget_sha
+        self.observed=[]
+    def check(self):
+        require(self.ledger.branch=='C' and self.ledger.binding==self.budget_sha and self.ledger.limits==LIMITS,'C budget identity changed')
+    def register_configuration(self,key,definition,new=None):
+        self.check();require(key in self.allowed_keys,'Unregistered C layout');return self.ledger.register_configuration(key,definition)
+    def decode_once(self,phase,event,kind,key,request,decode):
+        self.check();require(phase==self.phase and key in self.allowed_keys and event.startswith('C:'+phase+':')
+            and kind in ('header','body'),'Outside registered C phase/event/layout')
+        result=self.ledger.decode_once(phase,event,kind,key,request,decode)
+        self.observed.append(dict(event_id=event,kind=kind,phy_key=key,request_sha256=digest(request),result_sha256=digest(result)))
+        return result
+
+
+def admit_layouts(phy,ctx):
+    for key in sorted(ctx['groups']):phy.admit(ctx['groups'][key],False)
+
+
+def qualify(phy,ctx,boundary=lambda:None):
+    """848 real callbacks when the injected PHY is real; never fit a curve."""
+    checks=[];book={str(i):{} for i in range(8)};admit_layouts(phy,ctx)
+    for i in range(8):
+        for repeat in range(2):
+            boundary();event=f'C:qualification:header{i}:repeat{repeat}'
+            r=phy.header_receive(phy.header_wave(i),1+0j,1e-6,book,event,'qualification')
+            require(r['header_ok'] and r['profile_id']==i,'C public header roundtrip failed')
+            checks.append(dict(event_id=event,kind='header',public_header_id=i,passed=True))
+    for key in sorted(ctx['groups']):
+        g=ctx['groups'][key]
+        for block in range(32):
+            boundary();event=f'C:qualification:body:{key}:block{block:02d}'
+            seed=int.from_bytes(hashlib.sha256(json.dumps(['C_REAL_QUALIFICATION_R1',key,block],separators=(',',':')).encode()).digest()[:16],'little')
+            bits=np.random.Generator(np.random.PCG64(seed)).integers(0,2,g['source_bits'],dtype=np.uint8)
+            if block<2:bits.fill(block)
+            wave=phy.body_wave(bits,g,block,0,'CONTENT_REAL_20261006/C/qualification')
+            r=phy.body_receive(wave,1+0j,1e-6,g,block,0,'CONTENT_REAL_20261006/C/qualification',event,'qualification')
+            actual=unpack(r['payload']);require(r['crc_accept'] and np.array_equal(actual,bits),'C exact LDPC layout roundtrip failed')
+            checks.append(dict(event_id=event,kind='body',phy_key=key,block=block,passed=True))
+    require(len(checks)==848,'Exact848 qualification callbacks required')
+    return dict(status='C_REAL_26_LAYOUT_848_ROUNDTRIPS_COMPLETE',checks=checks,body_layouts=26,header_calls=16,
+        body_calls=832,packet_calls=848,new_source_images=0,new_metric_calls=0,scientific_BLER_table=False,
+        selected_profiles_changed=False,coefficients_changed=False)
+
+
+def unpack(value):
+    require(type(value['bits'])is int and value['bits']>=0 and len(value['hex'])==2*((value['bits']+7)//8),'Malformed actual packed payload')
+    return np.unpackbits(np.frombuffer(bytes.fromhex(value['hex']),dtype=np.uint8),bitorder='big')[:value['bits']]
+
+
+def source_payloads(tokens,orders,p):
+    t=np.asarray(tokens);require(t.shape==(680,) and t.dtype.kind in 'iu' and ((t>=0)&(t<4096)).all(),'Frozen original raw source tokens required')
+    states=[p['full_state_id']] if p['G']==1 else [p['prefix_state_id'],p['full_state_id']];result=[];start=0
+    for state,g in zip(states,p['groups']):
+        m,K=parse_state(state);positions=list(range(PREFIX[m]))
+        if K:
+            require(m in orders,'MISSING_ENTROPY_ASSET: full frozen source permutation required')
+            order=np.asarray(orders[m]);require(order.dtype.kind in 'iu' and np.array_equal(np.sort(order),np.arange(SIZES[m]**2)),'Invalid entropy permutation')
+            positions.extend(PREFIX[m]+int(x) for x in order[:K])
+        positions=positions[start:];values=t[positions];bits=((values[:,None]>>np.arange(11,-1,-1))&1).astype(np.uint8).ravel()
+        require(len(bits)==g['source_bits'],'Actual source payload geometry differs');result.append(bits);start=count(state)
+    return result
+
+
+def receive_only(phy,y,h,variance,book,counter,event,boundary=lambda:None):
+    """No source ID/tokens/selected profile enters the receiver."""
+    boundary();header=phy.header_receive(y[:68],h,variance,book,event+'/header','development')
+    record=dict(header=header,bodies=[],accepted_groups=[],state_id='gray',gray=True,
+        actual_entropy_mapping_pending=False,source_reconstruction_complete=False,format_rejected=False)
+    if not header['header_ok']:return record
+    p=book[str(header['profile_id'])];needed=68+p['used_body_symbols']
+    # Public duration is the actually transmitted forward frame. A wrong ID
+    # requesting extra symbols is a format rejection, not free extra samples.
+    if needed>len(y):record['format_rejected']=True;return record
+    states=[p['full_state_id']] if p['G']==1 else [p['prefix_state_id'],p['full_state_id']];offset=68
+    for j,(state,g) in enumerate(zip(states,p['groups'])):
+        boundary();body=phy.body_receive(y[offset:offset+g['symbols']],h,variance,g,counter,j,
+            ENGINEERING['body_scrambling_session'],event+'/body'+str(j),'development');offset+=g['symbols']
+        record['bodies'].append(dict(group_index=j,phy_key=g['phy_key'],**body))
+        if not body['crc_accept']:break
+        bits=unpack(body['payload']);require(len(bits)==g['source_bits'],'Accepted payload length differs')
+        vals=(bits.reshape(-1,12).astype(np.int64)*(1<<np.arange(11,-1,-1))).sum(1).tolist()
+        record['accepted_groups'].append(dict(group_index=j,state_id=state,received_token_values=vals,
+            received_payload=deepcopy(body['payload']),requires_entropy_mapping=parse_state(state)[1]>0))
+        record.update(state_id=state,gray=False,actual_entropy_mapping_pending=parse_state(state)[1]>0)
+    return record
+
+
+def trajectory(phy,ctx,source_index,snr,trial,method,tokens,orders,boundary=lambda:None):
+    require(type(source_index)is int and 0<=source_index<64 and method in METHODS,'Frozen source/method required')
+    sid=ctx['source_ids'][source_index];h,z,variance=standard_channel(sid,snr,trial)
+    instant=-math.inf if h==0 else snr+10*math.log10(abs(h)**2)
+    bin_=int(np.searchsorted(THRESHOLDS,instant,side='right'));table=ctx['tables'][snr,method]
+    pid=table['choices'][sid][bin_];p=table['codebook'][str(pid)];payloads=source_payloads(tokens,orders,p)
+    counter=public_counter(source_index,snr,trial);pieces=[phy.header_wave(pid)]
+    for j,(payload,g) in enumerate(zip(payloads,p['groups'])):pieces.append(phy.body_wave(payload,g,counter,j,ENGINEERING['body_scrambling_session']))
+    wave=np.concatenate(pieces).astype(np.float64);require(wave.shape==(68+p['used_body_symbols'],2) and len(wave)<=992 and np.isfinite(wave).all(),'Actual paid forward frame differs')
+    noise=z[:len(wave)];complex_y=h*(wave[:,0]+1j*wave[:,1])+np.sqrt(variance)*(noise[:,0]+1j*noise[:,1])
+    y=np.stack([complex_y.real,complex_y.imag],1);event=f'C:development:src{source_index:02d}:snr{snr}:trial{trial:02d}:{method}'
+    before=len(phy.ledger.observed);rx=receive_only(phy,y,h,variance,table['codebook'],counter,event,boundary)
+    events=deepcopy(phy.ledger.observed[before:]);require(len(events)==1+len(rx['bodies'])<=3,'Header/body metering differs')
+    # Truth labels are produced after receive_only; never affect its decisions.
+    wrong_header=bool(rx['header']['header_ok'] and rx['header']['profile_id']!=pid)
+    wrong=[]
+    for j,b in enumerate(rx['bodies']):
+        truth=not wrong_header and j<len(payloads) and np.array_equal(unpack(b['payload']),payloads[j])
+        wrong.append(bool(b['crc_accept'] and not truth))
+    return dict(status='C_REAL_ACTUAL_CPU_TRAJECTORY_R1',source_id=sid,source_index=source_index,population='original_calibration_internal64',
+        average_snr_db=snr,trial=trial,method=method,feedback_bin=bin_,transmitted_public_id=pid,frozen_candidate_index=p['candidate_index'],
+        public_frame_counter=counter,header_codebook_sha256=digest(table['codebook']),h=[h.real,h.imag],variance_per_real=variance,
+        standard_noise_sha256=array_sha(z),used_standard_noise_sha256=array_sha(noise),waveform_sha256=array_sha(wave),observation_sha256=array_sha(y),
+        total_paid_symbols=32+len(wave),actual_forward_symbols=len(wave),unused_symbols=1024-32-len(wave),
+        forward_energy=float(np.square(wave).sum()),receive=rx,packet_events=events,logical_packet_events=len(events),
+        evaluation_only=dict(header_undetected=wrong_header,body_undetected=wrong),source_reconstruction_complete=False,
+        images_scored=False,new_metric_calls=0,policy_selection=False,coefficients_updated=False)

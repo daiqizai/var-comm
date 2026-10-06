@@ -1,0 +1,48 @@
+"""Explicit C64 evaluation admission; original ConvNeXt prediction code reused.
+
+The old development-only constructor is not called with a false population.
+This adapter keeps its frozen local weight loading, preprocessing and methods.
+"""
+import inspect
+from pathlib import Path
+import c_real_received_adapter_r1 as rx
+from c_real_visual_source_r1 import sha
+
+WEIGHTS='983f1562536e84ff750a1576fb08e54de751dbf2e17c0d8a4a13704341fdcd3d'
+PROTOCOL='0800d41ca5f9721686f1da847f2ce62e547651e653df0bb4165866aea669fc52'
+POLICY='1fc96a63ae0a30815802d6d5287aae8e17325f3c839f0057706b42d9748042e7'
+SOURCES='3e2e213850d54e6b28b6fa5d56fcc80925266b183806431658e59906925fc7f7'
+
+def admission(validation,weights_path,protocol,policy,source64,bound):
+    paths=((str(Path(validation.__file__).absolute()),None),(weights_path,WEIGHTS),(protocol,PROTOCOL),(policy,POLICY),(source64,SOURCES))
+    for path,expected in paths:
+        actual=sha(path);rx.require(bound.get(path)==actual and (expected is None or actual==expected),'C64 independent metric binding differs: '+path)
+    rx.require(validation.WEIGHTS_SHA256==WEIGHTS,'Original independent classifier weight identity changed')
+    return dict(population='original_calibration_internal64',source64_sha256=SOURCES,protocol_sha256=PROTOCOL,
+        policy_sha256=POLICY,used_for_selection=False,original_validation_sha256=sha(validation.__file__))
+
+class C64ConvNeXt:
+    def __init__(self,validation,weights_path,protocol,policy,source64,bound,device='cuda:0'):
+        admitted=admission(validation,weights_path,protocol,policy,source64,bound)
+        import torch
+        import torchvision
+        from torchvision.models import convnext_tiny,ConvNeXt_Tiny_Weights
+        self.validation=validation;self.torch=torch;self.device=torch.device(device)
+        weights=ConvNeXt_Tiny_Weights.IMAGENET1K_V1
+        rx.require(weights.url.endswith('convnext_tiny-983f1562.pth'),'Original classifier weight version changed')
+        self.transform=weights.transforms()
+        with torch.random.fork_rng(devices=[]):self.model=convnext_tiny(weights=None)
+        state=torch.load(weights_path,map_location='cpu',weights_only=True)
+        self.model.load_state_dict(state,strict=True);self.model.to(self.device).eval().requires_grad_(False)
+        self.names=tuple(weights.meta['categories'])
+        self.identity=dict(version='convnext_tiny_IMAGENET1K_V1_C64_frozen_policy_evaluation_r1',architecture='ConvNeXt-Tiny',
+            weights='IMAGENET1K_V1',weights_sha256=WEIGHTS,torch=torch.__version__,torchvision=torchvision.__version__,
+            model_source_sha256=sha(inspect.getfile(type(self.model))),transform=repr(self.transform),
+            official_reference='https://docs.pytorch.org/vision/stable/models/generated/torchvision.models.convnext_tiny.html',
+            pipeline_shared_backbone=False,inference_precision='float32',classification_batch_size=1,**admitted)
+
+    def predict(self,rgb):
+        return self.validation.ConvNeXtValidation.predict(self,rgb)
+
+    def score(self,rgb,*,true_label,source_prediction):
+        return self.validation.ConvNeXtValidation.score(self,rgb,true_label=true_label,source_prediction=source_prediction)

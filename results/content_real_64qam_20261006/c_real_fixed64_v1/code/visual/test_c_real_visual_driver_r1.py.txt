@@ -1,0 +1,117 @@
+"""No model or real CPU/GPU job; explicit injected interfaces only."""
+from contextlib import nullcontext
+from pathlib import Path
+from types import SimpleNamespace
+import importlib.util
+import os
+import tempfile
+import unittest
+from unittest.mock import patch
+import numpy as np
+import c_real_visual_driver_r1 as d
+import c_real_convnext_r1 as v
+
+class ClassifierAdmission(unittest.TestCase):
+    def bindings(self):
+        lib=SimpleNamespace(__file__=str(Path('/original_validation.py').absolute()),WEIGHTS_SHA256=v.WEIGHTS)
+        pins={lib.__file__:'a'*64,'weights':v.WEIGHTS,'protocol':v.PROTOCOL,'policy':v.POLICY,'sources':v.SOURCES}
+        return lib,pins
+    def test_explicit_C64_population_not_fake_development(self):
+        lib,pins=self.bindings()
+        with patch.object(v,'sha',side_effect=lambda p:pins[str(p)]):
+            got=v.admission(lib,'weights','protocol','policy','sources',pins)
+        self.assertEqual(got['population'],'original_calibration_internal64');self.assertFalse(got['used_for_selection'])
+    def test_missing_changed_weight_or_policy_or_population_refuses_before_model(self):
+        lib,pins=self.bindings()
+        for key in pins:
+            changed=dict(pins);changed[key]='e'*64
+            with patch.object(v,'sha',side_effect=lambda p:pins[str(p)]):
+                with self.assertRaisesRegex(ValueError,'binding'):v.admission(lib,'weights','protocol','policy','sources',changed)
+    def test_original_predict_and_score_methods_receive_same_object(self):
+        seen=[];obj=object.__new__(v.C64ConvNeXt)
+        obj.validation=SimpleNamespace(ConvNeXtValidation=SimpleNamespace(predict=lambda self,image:seen.append((self,image)) or 5,
+            score=lambda self,image,**kwargs:seen.append((self,image,kwargs)) or {'original':True}))
+        image=np.zeros((3,256,256),np.float32)
+        self.assertEqual(obj.predict(image),5);self.assertEqual(obj.score(image,true_label=3,source_prediction=4),{'original':True})
+        self.assertIs(seen[0][0],obj);self.assertIs(seen[0][1],image)
+        self.assertEqual(seen[1][2],dict(true_label=3,source_prediction=4))
+    def test_actual_original_score_uses_exact_self_fields_and_returns_false_selection(self):
+        path=Path(os.environ.get('C_RX_ORIGINAL_VALIDATION_SOURCE',str(Path(__file__).resolve().parents[2]/'prior_aware_uep_20261004/runtime/validation_metrics.py')))
+        spec=importlib.util.spec_from_file_location('actual_original_C_validation_fixture',path);old=importlib.util.module_from_spec(spec);spec.loader.exec_module(old)
+        obj=object.__new__(v.C64ConvNeXt);obj.validation=old;obj.names=tuple(f'label{i}' for i in range(1000))
+        obj.identity={'weights_sha256':v.WEIGHTS};obj.predict=lambda rgb:7
+        got=obj.score(np.zeros((3,256,256),np.float32),true_label=4,source_prediction=4)
+        self.assertIs(got['convnext_source_correct_to_wrong'],True);self.assertIs(got['convnext_used_for_selection'],False)
+        self.assertEqual(got['convnext_weight_sha256'],v.WEIGHTS);self.assertEqual(got['convnext_prediction_name'],'label7')
+
+class Worker(unittest.TestCase):
+    def test_disk_exact_float32_worst_case_and_margin(self):
+        with patch.object(d.shutil,'disk_usage',return_value=SimpleNamespace(free=14*1024**3)):
+            self.assertEqual(d.disk_gate('/future/out'),14*1024**3)
+        with patch.object(d.shutil,'disk_usage',return_value=SimpleNamespace(free=14*1024**3-1)):
+            with self.assertRaisesRegex(ValueError,'lossless'):d.disk_gate('/future/out')
+    def test_command_uses_bound_GPU_interpreter_not_LDPC(self):
+        cfg=dict(python='/original/UM/python',driver_module='/new/c_worker.py',_path='/new/config.json')
+        self.assertEqual(d.command(cfg),['/original/UM/python','-B','/new/c_worker.py','--config','/new/config.json'])
+    def test_native_json_identity_and_original_interop_wrapper(self):
+        calls=[];flags={'threads':6};model_id={'models':{'mean':(.1,.2)}};native=SimpleNamespace(loaded={'identity':model_id},flags=flags,
+            driver_bindings={'old':'bound'},torch='fake-torch',receiver='actual-old-receiver')
+        renderer=SimpleNamespace(receiver_identity={'original':'receiver'})
+        quality=SimpleNamespace(build_native=lambda *a:calls.append('native') or native,
+            q=SimpleNamespace(identity=d.rx.digest,ReceivedRenderer=lambda *a:renderer,__file__='/quality/source_quality.py'),
+            verify_repeated_interop=lambda torch:calls.append(('same-interop',torch)) or nullcontext())
+        base=SimpleNamespace(check=lambda:None,metadata={'existing':'suite'},identity='suite-id')
+        suite=(None,None,None,None,None,{'metric':'bound'},flags)
+        sm=SimpleNamespace(load_suite=lambda *a:calls.append('suite') or suite,numeric_flags=lambda _:flags)
+        h=SimpleNamespace(SuiteBackend=lambda *a:base)
+        modules={'quality_driver':quality,'c_real_original_metric_suite':sm,'c_real_original_validation':'validation','c_real_original_H_metric_API':h}
+        cfg=dict(root='/repo',owner_module='/new/owner.py',h_metric_adapter_module='/H/adapter.py')
+        ctx=dict(cfg=cfg,bound={'metric':'bound'},native_identity={'models':{'mean':[.1,.2]}},flags=flags,metric_flags=flags,native_bindings={'old':'bound'},
+            visual_config=dict(uep_runtime='/quality',native_runtime='/native',source_driver_module='/H/source.py'),
+            metric_assets={'paths':dict(suite_module='/metrics/suite.py',replay_module='/metrics/replay.py',validation_module='/quality/validation.py',convnext_weights='/weights')},
+            cpu_closed={'cpu':{'qualification':dict(protocol='/p',frozen_identity='/f',source64='/s')}})
+        with patch.object(d,'module',side_effect=lambda path,name,bound:modules[name]),patch.object(d,'sha',return_value='bound'),\
+                patch.object(d.independent,'C64ConvNeXt',return_value='same-classifier'):
+            got=d.build_models(ctx)
+        self.assertIs(got['renderer'],renderer);self.assertEqual(calls,['native',('same-interop','fake-torch'),'suite'])
+        ctx['native_identity']['models']['mean'][0]=.9
+        with patch.object(d,'module',side_effect=lambda path,name,bound:modules[name]):
+            with self.assertRaisesRegex(ValueError,'model/numerical'):d.build_models(ctx)
+    def _fixture(self,tmp):
+        out=Path(tmp)/'out';cfg=dict(out=str(out),root='/repo',owner_module='/new/owner.py',resources={'max_seconds':3600})
+        before=dict(charged=21495,unresolved=0,phase_charged=dict(qualification=848,development=20647,diagnostic_reserve=0))
+        ctx=dict(cfg=cfg,regsha='a'*64,bound={},before=before,reg={'source_bindings':{},'input_bindings':{}},
+            cpu_closed={'cpu':{'frozen':{'source_ids':[f's{i}' for i in range(64)],'tables':{}}}},
+            entropy={'reg':{'source_bindings':{'/original/c_entropy_core.py':'x'}}})
+        proof={'owner_identity':{'pid':1},'worker_identity':{'pid':2}}
+        owner=SimpleNamespace(admit_worker=lambda c:proof,check_live=lambda *a:None)
+        model=SimpleNamespace(frozen=lambda:None,driver_bindings={},flags={},common=SimpleNamespace(check=lambda:None))
+        metric=SimpleNamespace(identity='same',metadata={},check=lambda:None)
+        models=dict(native=model,quality=SimpleNamespace(boundary=lambda n:False),renderer=None,receiver_identity={'same':True},metric=metric)
+        counts=dict(logical_frames=128,unique_float32_images=1,actual_prior_completions=1,unique_metric_pairs=1)
+        return ctx,owner,models,counts
+    def test_worker_all64_receipts_no_normal_owner_claim_and_stable_budget(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            ctx,owner,models,counts=self._fixture(tmp);seen=[]
+            with patch.object(d,'disk_gate'),patch.object(d,'load_registered',return_value=ctx),patch.object(d,'module',side_effect=lambda p,n,b:owner if 'owner' in n else None),\
+                 patch.object(d,'build_models',return_value=models),patch.object(d,'budget',return_value=ctx['before']),patch.object(d,'sha',return_value='x'),\
+                 patch.object(d,'verify'),patch.object(d,'time',wraps=d.time) as clock,patch.object(d.source,'load_source',side_effect=lambda c,i:dict(source_index=i)),\
+                 patch.object(d.rx,'Receiver',return_value=None),patch.object(d.source,'render_source',return_value={}),\
+                 patch.object(d.source,'score_source',return_value={'counts':counts}),patch.object(d.source,'write_source',side_effect=lambda o,r,s,*a:seen.append(s['source_index']) or {}):
+                clock.time.return_value=d.DEADLINE-100
+                done=d.run('/config')
+            self.assertEqual(seen,list(range(64)));self.assertEqual(done['status'],d.DONE)
+            self.assertEqual(done['frame_count'],8192);self.assertFalse(done['statistical_aggregation_run'])
+            self.assertEqual(done['budget_after'],ctx['before']);self.assertNotIn('normal_owner_success',done)
+            self.assertEqual(d.read(Path(tmp)/'out/completion.json')['new_packet_decodes'],0)
+    def test_software_error_retains_attempt_failure_and_no_completion(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            ctx,owner,models,counts=self._fixture(tmp)
+            with patch.object(d,'disk_gate'),patch.object(d,'load_registered',return_value=ctx),patch.object(d,'module',return_value=owner),\
+                patch.object(d,'build_models',side_effect=RuntimeError('original actual failure')):
+                with self.assertRaisesRegex(RuntimeError,'original actual failure'):d.run('/config')
+            out=Path(tmp)/'out';self.assertTrue((out/'attempt.json').exists());self.assertTrue((out/'failure.json').exists());self.assertFalse((out/'completion.json').exists())
+            with patch.object(d,'load_registered',return_value=ctx):
+                with self.assertRaisesRegex(ValueError,'no retry'):d.run('/config')
+
+if __name__=='__main__':unittest.main()

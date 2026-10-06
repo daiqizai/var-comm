@@ -1,0 +1,228 @@
+"""Prepared C first16 online TX components. No loader, CLI, channel, or ledger.
+
+The caller must bind the original models, source assets, coefficients and code
+before constructing any GPU objects. This adapter never accepts link outcomes.
+Only the source DINO feature is shared inside one frame; candidate images and
+their features are recomputed, including states shared by different candidates.
+"""
+from copy import deepcopy
+import hashlib
+import json
+import time
+import numpy as np
+
+SNRS = (4, 7, 10, 13)
+METHODS = ('QCSI-U', 'QCSI-C8')
+WARMUP, REPEATS = 1, 3
+SIZES = (1, 2, 3, 4, 5, 6, 8, 10, 13, 16)
+
+
+def require(ok, message):
+    if not ok:
+        raise ValueError(message)
+
+
+def digest(value):
+    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()).hexdigest()
+
+
+def array_sha(value):
+    return hashlib.sha256(np.ascontiguousarray(value).tobytes()).hexdigest()
+
+
+def token_sha(value):
+    return hashlib.sha256(b'int64:680\0' + np.asarray(value, dtype='<i8').tobytes()).hexdigest()
+
+
+def design(frozen):
+    p = frozen['protocol']['online_TX']; ids = frozen['source_ids']
+    require(len(ids) == len(set(ids)) == 64 and p['sources'] == 16 and p['source_rule'] == 'first16 registered64'
+        and p['forbid_final_candidate_render_or_DINO_cache'] is True
+        and p['source_DINO_reused_within_frame'] is True and p['isolated_timing'] is True,
+        'Original C first16 timing contract required')
+    return dict(status='LOCAL_PREPARED_REQUIRES_SEPARATE_TIMING_REGISTRATION',
+        source_indices=list(range(16)), source_ids=ids[:16], bins=[i % 8 for i in range(16)],
+        snrs=list(SNRS), methods=list(METHODS), case_count=128, warmup_repetitions=WARMUP,
+        measured_repetitions=REPEATS, total_fresh_encoder_calls=512,
+        repetition_rule='New engineering timing parameter: one warmup plus three measured repeats; matches H component convention',
+        repeated_execution_is_new_quality_sample=False, batch_size=1,
+        source_feature_reuse='Inside one C8 frame only', final_image_cache=False, final_feature_cache=False,
+        shared_candidate_states='Recomputed per candidate; actual completion count is reported',
+        U_content_quality_calls=0, new_packet_decodes=0, new_noise=0,
+        PHY_encoding='NOT_MEASURED; packing is original raw12 source serialization only',
+        end_to_end_latency='NOT_MEASURED', automatic_launch=False)
+
+
+def model_table(frozen, snr, metadata, arrays):
+    """Validate original selected model metadata/coefficients, without source Q."""
+    require(snr in SNRS and metadata['average_snr_db'] == snr, 'Frozen average SNR required')
+    require(set(arrays) == {'candidate_indices', 'coefficients', 'prefix_indices', 'target_indices', 'bin_masses'},
+        'Exact original selected-coefficient archive keys required')
+    ids = np.asarray(arrays['candidate_indices']); c = np.asarray(arrays['coefficients'])
+    prefix, target = (np.asarray(arrays[k]) for k in ('prefix_indices', 'target_indices'))
+    states = metadata['state_ids']
+    require(ids.ndim == 1 and ids.dtype.kind in 'iu' and ids.tolist() == sorted(set(ids.tolist()))
+        and c.shape == (len(ids), 8, 4) and c.dtype == np.float64 and np.isfinite(c).all() and (c >= 0).all()
+        and prefix.shape == target.shape == (len(ids),) and prefix.dtype.kind in 'iu' and target.dtype.kind in 'iu'
+        and len(states) == len(set(states)) and states[0] == 'gray'
+        and ((prefix >= 0) & (prefix < len(states))).all() and ((target >= 0) & (target < len(states))).all(),
+        'Original coefficient geometry/precision differs')
+    masses = np.asarray(arrays['bin_masses'])
+    require(masses.shape == (8,) and masses.dtype == np.float64 and np.isfinite(masses).all()
+        and np.array_equal(masses, np.asarray(metadata['bin_masses'], dtype=np.float64)), 'Original bin masses differ')
+    books = {method: frozen['tables'][snr, method]['codebook'] for method in METHODS}
+    union = sorted({p['candidate_index'] for book in books.values() for p in book.values()})
+    require(ids.tolist() == union and metadata['C8_profile_indices'] == sorted(p['candidate_index'] for p in books[METHODS[1]].values())
+        and len(metadata['C8_profile_indices']) <= 8, 'No dictionary expansion or new candidates')
+    byid = {}
+    for j, cid in enumerate(ids.tolist()):
+        profiles = [p for book in books.values() for p in book.values() if p['candidate_index'] == cid]
+        p = profiles[0]
+        require(all(x == p for x in profiles) and metadata['selected_profiles'][str(cid)] == p,
+            'Original profile aliases changed')
+        require(states[int(prefix[j])] == (p['prefix_state_id'] or 'gray') and states[int(target[j])] == p['full_state_id'],
+            'Original coefficient-to-state mapping changed')
+        byid[cid] = dict(profile=deepcopy(p), coefficients=c[j].copy())
+    u = frozen['tables'][snr, METHODS[0]]
+    expected = metadata['U_profile_indices_by_bin']
+    require(len(expected) == 8 and all([u['codebook'][str(pid)]['candidate_index'] for pid in picks] == expected
+        for picks in u['choices'].values()), 'U must remain the original source-independent bin choice')
+    return dict(snr=snr, candidates=byid, dictionary=metadata['C8_profile_indices'][:],
+        U_profile_indices_by_bin=expected[:])
+
+
+class Meter:
+    def __init__(self, synchronize, clock):
+        self.synchronize, self.clock = synchronize, clock
+        self.seconds, self.calls = {}, {}
+
+    def call(self, name, function):
+        self.synchronize(); start = self.clock()
+        try:
+            return function()
+        finally:
+            self.synchronize(); elapsed = self.clock() - start
+            require(np.isfinite(elapsed) and elapsed >= 0, 'Invalid synchronized duration')
+            self.seconds[name] = self.seconds.get(name, 0.) + float(elapsed)
+            self.calls[name] = self.calls.get(name, 0) + 1
+
+
+def rgb(value):
+    a = np.asarray(value)
+    require(a.dtype == np.float32 and a.shape == (3, 256, 256) and np.isfinite(a).all()
+        and a.min() >= 0 and a.max() <= 1, 'Original float32 RGB required')
+    return a
+
+
+def frame_once(pixels, source_index, snr, method, frozen, model, *, expected_tokens_sha256,
+        encoder, render_fresh, dino_features, dino_cosine, entropy_fresh, pack,
+        score_block, synchronize, guard=lambda: None, clock=time.perf_counter):
+    """Fresh primitives only. Stored choices are checked AFTER the computation.
+
+    render_fresh(flat,state_id) returns image and actual prior/entropy counts.
+    entropy_fresh(flat,[m]) returns original permutation(s) and counters.
+    score_block is the SHA-bound original flat_model.score_block, not a surrogate.
+    """
+    require(type(source_index) is int and 0 <= source_index < 16 and snr in SNRS and method in METHODS,
+        'Only fixed first16 x four SNR x two methods')
+    require(pixels.dtype == np.uint8 and pixels.shape == (3, 256, 256), 'Original source uint8 pixels required')
+    require(model['snr'] == snr, 'Model SNR differs')
+    sid = frozen['source_ids'][source_index]; bin_ = source_index % 8
+    meter = Meter(synchronize, clock); prior_calls = candidate_orders = completions = 0
+    guard(); synchronize(); total_start = clock()
+    flat = np.asarray(meter.call('source_encoding', lambda: encoder(pixels.copy())))
+    require(flat.shape == (680,) and flat.dtype.kind in 'iu' and ((flat >= 0) & (flat < 4096)).all()
+        and token_sha(flat) == expected_tokens_sha256, 'Fresh Encoder/VQ differs from original exact source tokens')
+    scores = []
+    if method == 'QCSI-U':
+        candidate = model['U_profile_indices_by_bin'][bin_]
+    else:
+        source_feature = meter.call('source_DINO', lambda: dino_features(pixels.astype(np.float32) / 255.))
+        for cid in model['dictionary']:
+            guard(); p = model['candidates'][cid]['profile']; values = []
+            # No output/feature cache: even repeated state names across profiles
+            # incur a fresh reconstruction and feature call in this frame.
+            for name in ('gray', p['prefix_state_id'], p['full_state_id']):
+                if name is None:
+                    values.append(values[0]); continue  # G1's absent-prefix term is the same gray scalar.
+                if name == 'gray':
+                    image = np.full((3, 256, 256), .5, dtype=np.float32)
+                else:
+                    result = meter.call('candidate_VAR_and_Dc', lambda name=name: render_fresh(flat.copy(), name))
+                    image = rgb(result['image']); completions += 1
+                    require(type(result['prior_forward_calls']) is int and result['prior_forward_calls'] >= 0
+                        and type(result['entropy_order_computations']) is int and result['entropy_order_computations'] >= 0,
+                        'Actual renderer counts required')
+                    prior_calls += result['prior_forward_calls']; candidate_orders += result['entropy_order_computations']
+                feature = meter.call('candidate_DINO', lambda image=image: dino_features(image))
+                value = float(meter.call('DINO_cosine', lambda feature=feature: dino_cosine(source_feature, feature)))
+                require(np.isfinite(value) and -1.000001 <= value <= 1.000001, 'Invalid original DINO-L cosine')
+                values.append(value)
+            coeff = model['candidates'][cid]['coefficients'][bin_:bin_ + 1][None]
+            value = meter.call('frozen_expected_quality', lambda: score_block(coeff,
+                {'prefix': np.asarray([1]), 'target': np.asarray([2])}, np.asarray(values, dtype=np.float64)[:, None], 0))
+            a = np.asarray(value); require(a.shape == (1, 1, 1) and np.isfinite(a).all(), 'Original score_block result differs')
+            scores.append(float(a[0, 0, 0]))
+        candidate = model['dictionary'][int(np.argmax(np.asarray(scores, dtype=np.float64)))]
+    table = frozen['tables'][snr, method]
+    public = [int(k) for k, p in table['codebook'].items() if p['candidate_index'] == candidate]
+    require(len(public) == 1, 'Unique frozen public profile ID required')
+    # Parity is evaluation after actual selection; never repair a mismatch.
+    require(public[0] == table['choices'][sid][bin_], 'Fresh TX choice differs from frozen original; stop for diagnosis')
+    p = table['codebook'][str(public[0])]; states = [p['full_state_id']] + ([p['prefix_state_id']] if p['G'] == 2 else [])
+    ms = sorted({int(name.split('_')[0][1:]) for name in states if int(name.split('K')[1])})
+    orders, ostats = ({}, {'prior_forward_calls': 0})
+    if ms:
+        orders, ostats = meter.call('selected_payload_entropy', lambda: entropy_fresh(flat.copy(), ms))
+    payloads = meter.call('raw12_packing', lambda: pack(flat.copy(), orders, p))
+    require(len(payloads) == p['G'] and all(np.asarray(b).shape == (g['source_bits'],)
+        and np.asarray(b).dtype.kind in 'iu' and np.isin(b, (0, 1)).all() for b, g in zip(payloads, p['groups'])),
+        'Original source payload geometry differs')
+    synchronize(); total = clock() - total_start
+    require(np.isfinite(total) and total >= 0, 'Invalid total duration')
+    meter.seconds['TX_total'] = float(total)
+    fingerprint = digest(dict(tokens=token_sha(flat), candidate=candidate, public_id=public[0],
+        payloads=[array_sha(np.asarray(b, dtype=np.uint8)) for b in payloads], scores=scores))
+    return dict(source_index=source_index, source_id=sid, average_snr_db=snr, method=method, bin=bin_,
+        public_header_id=public[0], frozen_candidate_index=candidate, choice_parity=True,
+        seconds=meter.seconds, component_calls=meter.calls, actual_candidate_completions=completions,
+        candidate_prior_forward_calls=prior_calls, candidate_entropy_order_computations=candidate_orders,
+        selected_payload_entropy_scales=ms, selected_payload_prior_forward_calls=ostats['prior_forward_calls'],
+        source_DINO_calls=meter.calls.get('source_DINO', 0), candidate_DINO_calls=meter.calls.get('candidate_DINO', 0),
+        payload_bits=[len(b) for b in payloads], fingerprint=fingerprint, new_packet_decodes=0, new_noise=0,
+        final_candidate_cache=False, cross_frame_cache=False, source_features_shared_only_within_frame=True)
+
+
+def repetitions(call, guard=lambda: None):
+    """Execution rule must be registered before any actual measurement."""
+    rows = []; fingerprints = set()
+    for phase, count in (('warmup', WARMUP), ('measured', REPEATS)):
+        for i in range(count):
+            guard(); row = call(); fingerprints.add(row['fingerprint'])
+            require(len(fingerprints) == 1 and row['choice_parity'] is True and row['new_packet_decodes'] == 0,
+                'Fresh repeated computation differs; do not retry or substitute cached data')
+            rows.append(dict(row, repetition_kind=phase, repetition=i))
+    return dict(status='C_ONLINE_TX_COMPONENT_CASE_MEASURED', rows=rows, warmup_excluded=True,
+        measured_repetitions=3, new_quality_samples=0)
+
+
+def original_render(native, quality, flat, state_id):
+    """One unmodified SourceRenderer per request; never returns a cached image."""
+    m, k = map(int, state_id[1:].split('_K')); state = dict(state_id=state_id, m=m, K=k)
+    renderer = quality.SourceRenderer(native.loaded, native.receiver, flat, [state], use_snapshots=False)
+    try:
+        value = renderer.render(state, 'VAR')
+        return dict(image=rgb(value['image']), prior_forward_calls=renderer.prior_forward_calls,
+            entropy_order_computations=len(renderer.orders))
+    finally:
+        renderer.close()
+
+
+def original_dino(torch, metric_models, model, device):
+    """Inject an already admitted original DINO-L model; no model loader here."""
+    def feature(image):
+        with torch.no_grad():
+            return metric_models.dinov2_vitl14_features(model, torch.as_tensor(rgb(image)[None], device=device))
+    def cosine(a, b):
+        return torch.nn.functional.cosine_similarity(a, b, dim=-1)[0].item()
+    return feature, cosine

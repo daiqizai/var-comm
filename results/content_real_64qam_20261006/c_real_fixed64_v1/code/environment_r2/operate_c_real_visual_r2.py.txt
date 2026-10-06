@@ -1,0 +1,237 @@
+"""Independent C environment compatibility preparation and explicit operations.
+
+Only the owner thread predicate is derived. Old11 sources, failed execution,
+local STOP, original8192 CPU outputs and scientific code remain unchanged.
+"""
+from __future__ import annotations
+import argparse
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import re
+import signal
+import subprocess
+import sys
+import traceback
+import original_preflight_environment_r1 as compatibility
+
+SCHEMA='C_REAL_VISUAL_ENVIRONMENT_RECOVERY_MATERIALS_R2'
+ENGINEERING='C_REAL_VISUAL_ENVIRONMENT_RECOVERY_PREPARED_R2'
+ARCHIVE='C_VISUAL_FIRST_ATTEMPT_FAILURE_ORIGINAL_BYTES_PRESERVED_R2'
+SUPPORT=('original_preflight_environment_r1.py','test_original_preflight_environment_r1.py',
+         'qualify_c_visual_environment_r2.py')
+OWNER='c_real_visual_execution_r1.py'
+HELPER_SHA='bb467db2f62f242b639243baaeae8249c5b02301a83b5c66a375bceecab4aedd'
+ORIGINAL_OPS_SHA='42118ee6a9428bd8d6c4713dfc18706ead4eef23ed666323940c30f4e98224bb'
+
+def require(ok,msg):
+    if not ok:raise ValueError(msg)
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def bind(paths):return {str(Path(p).absolute()):sha(p) for p in paths}
+def verify(pins):
+    for p,h in pins.items():require(Path(p).is_absolute() and re.fullmatch('[a-f0-9]{64}',h) and sha(p)==h,'Changed/malformed binding '+p)
+def combine(*maps):
+    result={}
+    for entries in maps:
+        for p,h in entries.items():require(p not in result or result[p]==h,'Conflicting pin '+p);result[p]=h
+    return result
+def save(path,value):
+    p=Path(path);p.parent.mkdir(parents=True,exist_ok=True)
+    with p.open('x',encoding='utf-8',newline='\n')as f:json.dump(value,f,ensure_ascii=False,indent=2,allow_nan=False);f.write('\n');f.flush();os.fsync(f.fileno())
+def module(path,name):
+    spec=importlib.util.spec_from_file_location(name,path);m=importlib.util.module_from_spec(spec);sys.modules[name]=m;spec.loader.exec_module(m);return m
+
+
+def failure_documents(archive,cfg,reg,owner_failure,worker_exit,science_failure,logsha,regsha,absent):
+    require(archive['status']==ARCHIVE and archive['originals_retained'] is True and len(archive['files'])==39
+        and archive['worker_waited_exit_code']==1 and archive['source_checkpoints']==archive['new_packet_decodes']==0,
+        'Exact original39-file pre-source failure archive required')
+    require(worker_exit['identity']==archive['worker_identity'] and worker_exit['pid']==archive['worker_identity']['pid']
+        and worker_exit['exit_code']==1 and worker_exit['reaped'] is True and worker_exit['log_sha256']==logsha,
+        'Original failed worker must be actually waited with closed log')
+    require(owner_failure['status']==science_failure['status']=='FAILED_PRESERVE_NO_RETRY'
+        and owner_failure['owner_identity']==archive['owner_identity'] and owner_failure['worker_pid']==archive['worker_identity']['pid']
+        and science_failure['registration_sha256']==regsha and science_failure['new_packet_decodes']==0
+        and 'Original singleGPU/6threads worker environment required' in science_failure['traceback']
+        and 'models=build_models(ctx)' in science_failure['traceback'],'Original failure is not the known post-construction environment guard')
+    require(absent(archive['owner_identity']) and absent(archive['worker_identity']),'Original processes remain live')
+    require(reg['status']=='C_REAL_VISUAL_REGISTERED_R1' and reg['budget_before']['charged']==21495
+        and reg['budget_before']['unresolved']==0,'Original visual registration or unchanged C budget differs')
+
+
+def materials(path):
+    m=read(path);require(m['schema']==SCHEMA,'Separate C R2 materials required')
+    verify(m['source_bindings']);verify(m['input_bindings'])
+    require(m['source_bindings'].get(str(Path(__file__).absolute()))==sha(__file__)
+        and m['source_bindings'].get(str(Path(compatibility.__file__).absolute()))==HELPER_SHA==sha(compatibility.__file__),
+        'New helper/operations must be exactly sealed')
+    for k in ('original_materials','failure_archive_receipt','diagnosis'):
+        require(m['input_bindings'].get(m[k])==sha(m[k]),'Required recovery input missing '+k)
+    require(m['source_bindings'].get(m['original_ops'])==ORIGINAL_OPS_SHA==sha(m['original_ops']),'Original private ops changed')
+    require(m['source_bindings'].get(m['original_main_owner'])==compatibility.OWNER_SHA['MAIN']==sha(m['original_main_owner']),
+        'Original MAIN owner fixture must have its unchanged exact source pin')
+    diagnosis=read(m['diagnosis'])
+    require(diagnosis['status']=='C_VISUAL_ORIGINAL_LOADER_ENVIRONMENT_CONFLICT_DIAGNOSED'
+        and diagnosis['archive']==dict(path=m['failure_archive_receipt'],sha256=sha(m['failure_archive_receipt']))
+        and diagnosis['producer']['sha256']==compatibility.PREFLIGHT_SHA
+        and diagnosis['original_owner_success'] is False and diagnosis['source_checkpoints']==diagnosis['new_PHY_calls']==0,
+        'Actual original environment diagnosis required')
+    verify({r['path']:r['sha256'] for r in diagnosis['evidence']})
+    old=read(m['original_materials']);root=Path(old['root']);croot=root/'outputs/CONTENT-REAL-64QAM-20261006/C'
+    desired=dict(root=old['root'],runtime=str(croot/'visual_runtime_r2'),execution_dir=str(croot/'visual_execution_r2'),out=str(croot/'visual_r2'),
+        qualification_dir=str(root/'outputs/CONTENT-REAL-64QAM-20261006/prepared_v1/c_visual_cpu_qualification_r2'),
+        operations_dir=str(root/'outputs/CONTENT-REAL-64QAM-20261006/prepared_v1/c_visual_operations_r2'),
+        metric_assets=old['metric_assets'],h_metric_adapter_module=old['h_metric_adapter_module'],max_seconds=old['max_seconds'])
+    require(m['new_materials']==desired,'Only explicit fresh R2 paths may change original operation materials')
+    return m,old
+
+
+def original_evidence(m,old):
+    cfgpath=Path(old['execution_dir'])/'config.json';cfg=read(cfgpath);reg=read(cfg['registration'])
+    require(reg['config_sha256']==sha(cfgpath),'Original failed config changed');verify(reg['source_bindings'])
+    require(reg['input_bindings'].get(m['original_materials'])==sha(m['original_materials']),'Original materials not registered')
+    sys.path.insert(0,old['runtime']);e=module(Path(old['runtime'])/OWNER,'c_recovery_old_owner')
+    a=read(m['failure_archive_receipt']);pins=bind([m['failure_archive_receipt'],cfgpath,cfg['registration']]);seen=set()
+    for row in a['files']:
+        require(row['original'] not in seen,'Duplicate archive original');seen.add(row['original'])
+        for key in ('original','copy'):
+            p=Path(row[key]);require(sha(p)==row['sha256'] and p.stat().st_size==row['bytes'],'Original failure bytes changed '+str(p));pins[str(p)]=row['sha256']
+    ex=Path(cfg['execution_dir']);out=Path(cfg['out'])
+    required=[ex/n for n in ('config.json','execution_registration.json','failure.json','worker_exit.json','worker.log')]+[out/'failure.json',out/'STOP']
+    require(all(str(p) in seen for p in required),'Failure archive missing mandatory original proof')
+    failure_documents(a,cfg,reg,read(ex/'failure.json'),read(ex/'worker_exit.json'),read(out/'failure.json'),sha(ex/'worker.log'),sha(cfg['registration']),e.absent)
+    require(not (ex/'completion.json').exists() and not(out/'completion.json').exists() and
+        not list((out/'source_checkpoints').glob('*.json')),'Do not replay a completed/partly-scored source population')
+    e.validate_budget(reg['budget_before'])
+    oldops=module(m['original_ops'],'c_recovery_original_operations');ctx=oldops.metadata(e,old)
+    current_budget(e,ctx)
+    # Metadata above authenticates original CPU/source proof, without redoing PHY.
+    return dict(e=e,oldops=oldops,metadata=ctx,cfg=cfg,reg=reg,pins=pins)
+
+
+def current_budget(e,meta):
+    cfg=meta['cpu'];owner=cfg['owner_module'];require(meta['prior_sources'].get(owner)==sha(owner),'Original C CPU ledger reader unbound')
+    sys.path.insert(0,str(Path(owner).parent));sup=module(owner,'c_recovery_original_cpu_reader')
+    return e.validate_budget(sup.d.ledger_snapshot(cfg['ledger'],sha(cfg['budget_registration'])))
+
+
+def prepare(path):
+    m,old=materials(path);ctx=original_evidence(m,old);new=m['new_materials'];rt=Path(new['runtime']);op=Path(new['operations_dir'])
+    require(not any(Path(new[k]).exists() for k in ('runtime','operations_dir','qualification_dir','execution_dir','out')),'Fresh R2 paths only; retain earlier attempts')
+    op.mkdir(parents=True);save(op/'prepare_attempt.json',dict(materials_sha256=sha(path),automatic_retry=False))
+    try:
+        rt.mkdir(parents=True);copied={};oldbytes={}
+        for name in ctx['e'].NEW_SOURCES:
+            original=Path(old['runtime'])/name;require(ctx['reg']['source_bindings'].get(str(original))==sha(original),'Original runtime missing '+name)
+            data=original.read_bytes();oldbytes[name]=sha(original)
+            if name==OWNER:data=compatibility.derive_owner(data,'C')
+            with (rt/name).open('xb')as f:f.write(data);f.flush();os.fsync(f.fileno())
+            copied[str(rt/name)]=sha(rt/name)
+        for name in SUPPORT:
+            source=Path(__file__).with_name(name);require(m['source_bindings'].get(str(source.absolute()))==sha(source),'New support source unbound')
+            with (rt/name).open('xb')as f:f.write(source.read_bytes());f.flush();os.fsync(f.fileno())
+            copied[str(rt/name)]=sha(rt/name)
+        eng=dict(status=ENGINEERING,source_bindings=combine(ctx['reg']['source_bindings'],m['source_bindings'],copied),
+            input_bindings=combine(m['input_bindings'],ctx['pins'],bind([path])),copied_original_sha256=oldbytes,
+            new_materials=new,budget_before=ctx['reg']['budget_before'],original_attempt_success=False,
+            original_STOP_preserved=True,source_checkpoints_reused=0,new_packet_decodes=0,automatic_successor=False,
+            change='Only helper import and original all-thread predicate; authenticated legacy OPENBLAS=2 phase, other guards unchanged')
+        save(op/'engineering_registration.json',eng);return eng
+    except BaseException:
+        save(op/'prepare_failure.json',dict(traceback=traceback.format_exc(),automatic_retry=False));raise
+
+
+def context(path):
+    m,old=materials(path);new=m['new_materials'];op=Path(new['operations_dir']);engp=op/'engineering_registration.json';eng=read(engp)
+    require(eng['status']==ENGINEERING and eng['new_materials']==new and not(op/'prepare_failure.json').exists(),'Successful separate R2 preparation required')
+    verify(eng['source_bindings']);verify(eng['input_bindings']);prior=original_evidence(m,old)
+    rt=Path(new['runtime'])
+    for name in prior['e'].NEW_SOURCES:
+        original=(Path(old['runtime'])/name).read_bytes();expected=compatibility.derive_owner(original,'C') if name==OWNER else original
+        require((rt/name).read_bytes()==expected,'R2 runtime differs beyond exact owner predicate '+name)
+    # Each CLI operation is a fresh process. Remove old import aliases created
+    # only by the preceding immutable metadata check before selecting R2 code.
+    for name in ('c_real_received_adapter_r1','c_real_visual_source_r1','c_real_metric_bridge_r1','c_real_convnext_r1','c_real_visual_driver_r1'):
+        sys.modules.pop(name,None)
+    sys.path.insert(0,str(rt));e=module(rt/OWNER,'c_recovery_r2_owner')
+    return dict(m=m,old=old,new=new,op=op,eng=eng,engp=engp,e=e,oldops=prior['oldops'],meta=prior['metadata'])
+
+
+def invoke(ctx,folder,command,env):
+    e=ctx['e'];folder.mkdir(parents=True,exist_ok=False);child=None
+    try:
+        with (folder/'tests.log').open('xb')as log:
+            child=subprocess.Popen(command,cwd=ctx['new']['root'],env=env,stdout=log,stderr=subprocess.STDOUT,
+                stdin=subprocess.DEVNULL,start_new_session=True,preexec_fn=lambda:e.resources([0,1]))
+            save(folder/'pending_pid.json',dict(pid=child.pid,argv=command,identity_verified=False));identity=e.capture(child,command)
+            public_env={k:env[k] for k in ('PYTHONPATH','CUDA_VISIBLE_DEVICES',*e.THREAD_KEYS,
+                'C_ENTROPY_HELPER_SOURCE','C_RX_REVIEW_SOURCE_QUALITY','C_RX_ORIGINAL_VALIDATION_SOURCE','C_VISUAL_TEST_METADATA',
+                'ORIGINAL_PREFLIGHT_TEST_SOURCE','ORIGINAL_C_VISUAL_OWNER_TEST_SOURCE','ORIGINAL_MAIN_VISUAL_OWNER_TEST_SOURCE')}
+            save(folder/'launch.json',dict(identity=identity,argv=command,environment=public_env));code=child.wait();log.flush();os.fsync(log.fileno())
+        save(folder/'exit.json',dict(identity=identity,exit_code=code,process_waited=True,log_sha256=sha(folder/'tests.log')))
+        require(code==0 and e.absent(identity),'Qualification child failed; preserve evidence without retry')
+    except BaseException:
+        if child is not None and child.poll() is None:child.wait()
+        save(folder/'failure.json',dict(traceback=traceback.format_exc(),automatic_retry=False));raise
+
+
+def qualify(ctx,path):
+    e,new,meta=ctx['e'],ctx['new'],ctx['meta'];qdir=Path(new['qualification_dir']);require(not qdir.exists(),'Fresh qualification only')
+    qdir.mkdir();save(qdir/'attempt.json',dict(materials_sha256=sha(path),engineering_registration_sha256=sha(ctx['engp'])))
+    try:
+        manifest=qdir/'fixture_metadata.json';save(manifest,meta['metadata']);fixture=dict(meta['fixtures'],C_VISUAL_TEST_METADATA=str(manifest),
+            ORIGINAL_PREFLIGHT_TEST_SOURCE=str(Path(new['root'])/compatibility.PREFLIGHT),
+            ORIGINAL_C_VISUAL_OWNER_TEST_SOURCE=str(Path(ctx['old']['runtime'])/OWNER),
+            ORIGINAL_MAIN_VISUAL_OWNER_TEST_SOURCE=ctx['m']['original_main_owner'])
+        combined=combine(ctx['eng']['source_bindings'],ctx['eng']['input_bindings'],meta['historical'])
+        require(all(combined.get(p)==sha(p) for p in fixture.values() if p!=str(manifest)),'All actual fixture source bytes must be registered')
+        env=dict(os.environ,PYTHONDONTWRITEBYTECODE='1',CUDA_VISIBLE_DEVICES='',
+            PYTHONPATH=os.pathsep.join([new['runtime'],str(Path(meta['cpu']['owner_module']).parent)]),
+            **{k:'2' for k in e.THREAD_KEYS},**fixture)
+        delta=qdir/'compatibility10';original=qdir/'original39'
+        invoke(ctx,delta,[meta['python'],'-B','-m','unittest','test_original_preflight_environment_r1','-v'],env)
+        invoke(ctx,original,[meta['python'],'-B',str(Path(new['runtime'])/'qualify_c_visual_environment_r2.py')],env)
+        for directory,count in ((delta,10),(original,39)):
+            log=(directory/'tests.log').read_text();require(re.search(r'Ran '+str(count)+r' tests in .*\n\s*OK\s*$',log) and 'skipped' not in log,'Exact qualification count and no skips required')
+        outputs=bind([directory/n for directory in (delta,original) for n in ('tests.log','launch.json','exit.json')]+[manifest])
+        inputs=combine(ctx['eng']['input_bindings'],meta['metadata']['input_bindings'],meta['prior_inputs'],bind([ctx['engp'],*fixture.values(),new['metric_assets'],new['h_metric_adapter_module']]))
+        sources=combine(ctx['eng']['source_bindings'],meta['prior_sources'])
+        q=dict(status=e.QPASS,python=meta['python'],tests_run=39,test_modules=e.TEST_MODULES,exit_code=0,process_waited=True,
+            new_packet_decodes=0,new_GPU_calls=0,source_bindings=sources,input_bindings=inputs,fixture_paths=fixture,
+            log=str(original/'tests.log'),outputs=outputs,compatibility_tests_run=10,
+            original39_assertions_unchanged=True,fixture_adapter_sha256=sha(Path(new['runtime'])/'qualify_c_visual_environment_r2.py'),
+            engineering_registration_sha256=sha(ctx['engp']),original_visual_attempt_success=False)
+        require(current_budget(e,meta)==ctx['eng']['budget_before'],'C ledger changed during pure qualification')
+        verify(sources);verify(inputs);save(qdir/'completion.json',q)
+        request=ctx['oldops'].make_request(e,new,meta,sources,inputs)
+        e.qualification(str(qdir/'completion.json'),meta['python'],combine(request['source_bindings'],request['input_bindings']),request['config'])
+        save(ctx['op']/'request.json',request)
+        done=dict(status='C_VISUAL_R2_QUALIFIED_REQUEST_NOT_REGISTERED',outputs=bind([qdir/'completion.json',ctx['op']/'request.json']),original_failed_attempt_preserved=True)
+        save(ctx['op']/'qualify_completion.json',done);return done
+    except BaseException:
+        save(qdir/'failure.json',dict(traceback=traceback.format_exc(),new_GPU_calls=0,automatic_retry=False));raise
+
+
+def operation(stage,path):
+    if stage=='prepare':return prepare(path)
+    ctx=context(path);e=ctx['e'];op=ctx['op']
+    if stage=='run':signal.signal(signal.SIGTERM,e.stop);signal.signal(signal.SIGINT,e.stop)
+    save(op/(stage+'_entry.json'),dict(materials_sha256=sha(path),automatic_retry=False))
+    try:
+        if stage=='qualify':return qualify(ctx,path)
+        q=read(op/'qualify_completion.json');require(q['status']=='C_VISUAL_R2_QUALIFIED_REQUEST_NOT_REGISTERED','Successful R2 qualification required');verify(q['outputs'])
+        cfg=Path(ctx['new']['execution_dir'])/'config.json'
+        result=e.register(str(op/'request.json')) if stage=='register' else e.run(str(cfg))
+        save(op/(stage+'_completion.json'),dict(status=result['status'],outputs=bind([Path(ctx['new']['execution_dir'])/('registration_completion.json' if stage=='register' else 'completion.json')])))
+        return result
+    except BaseException:
+        save(op/(stage+'_failure.json'),dict(traceback=traceback.format_exc(),GPU_started=None if stage=='run' else False,inspect_preserved_PID=stage=='run'));raise
+
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--materials',required=True);p.add_argument('--stage',choices=('prepare','qualify','register','run'),required=True);a=p.parse_args()
+    require(sys.platform.startswith('linux'),'Actual operations require original Linux process identities')
+    print(operation(a.stage,str(Path(a.materials).absolute()))['status'],flush=True)

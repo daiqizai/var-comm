@@ -1,0 +1,191 @@
+"""One registered C64 actual-RX/metric GPU worker. No launch or new PHY."""
+from __future__ import annotations
+import argparse
+import importlib.util
+import os
+from pathlib import Path
+import signal
+import shutil
+import sys
+import time
+import traceback
+import c_real_received_adapter_r1 as rx
+import c_real_visual_source_r1 as source
+import c_real_metric_bridge_r1 as metrics
+import c_real_convnext_r1 as independent
+
+REG='C_REAL_VISUAL_REGISTERED_R1'
+DONE='C_REAL_ACTUAL_RX_METRICS_COMPLETE_R1'
+DEADLINE=1791564605.9549868
+STOP=False
+require,sha,read,save,bind=rx.require,source.sha,source.read,source.save,source.bind
+RUNTIME=('c_real_received_adapter_r1.py','c_real_visual_source_r1.py','c_real_metric_bridge_r1.py','c_real_convnext_r1.py','c_real_visual_driver_r1.py')
+
+def verify(pins):
+    for p,h in pins.items():require(Path(p).is_absolute() and sha(p)==h,'Changed bound path: '+p)
+def merge(*maps):
+    out={}
+    for pins in maps:
+        for p,h in pins.items():require(p not in out or out[p]==h,'Conflicting binding '+p);out[p]=h
+    return out
+def module(path,name,bound):
+    require(bound.get(str(path))==sha(path),'Executable not SHA-bound before import: '+str(path))
+    spec=importlib.util.spec_from_file_location(name,path);value=importlib.util.module_from_spec(spec);sys.modules[name]=value;spec.loader.exec_module(value);return value
+def stop(*_):
+    global STOP
+    STOP=True
+
+def metric_assets(path,bound):
+    value=read(path);require(value['status']=='H_ORIGINAL_METRIC_ASSETS_BOUND','Original real unified metric asset receipt required')
+    pins=merge(value['source_bindings'],value['input_bindings']);verify(pins)
+    require(all(bound.get(p)==h for p,h in pins.items()) and bound.get(path)==sha(path),'Original metric assets omitted from registration')
+    paths=value['paths']
+    for p in paths.values():require(pins.get(p)==sha(p),'Unsealed original metric path '+p)
+    reg=read(paths['metrics_registration']);q=read(paths['models_qualification']);ind=read(paths['independent_binding'])
+    require(reg['synthetic'] is False and q['status']=='REAL_MODEL_WEIGHTS_QUALIFICATION_PASS'
+        and reg['modelmanifest_sha256']==q['modelmanifest_sha256']==sha(paths['modelmanifest']), 'Original metric qualification differs')
+    require(ind['status']=='FROZEN_IDENTITY_CLARIFICATION_BEFORE_ANY_H_C_VALIDATION' and ind['used_for_selection'] is False
+        and ind['reference_implementation_sha256']==sha(paths['validation_module'])
+        and ind['weights_sha256']==sha(paths['convnext_weights'])==independent.WEIGHTS,'Original H/C independent classifier binding differs')
+    flags=reg['numerical_runtime']
+    require(flags['threads']==6 and flags['interop_threads']==2 and flags['deterministic'] is True and flags['precision']=='highest'
+        and not flags['matmul_tf32'] and not flags['cudnn_tf32'] and not flags['cudnn_benchmark'] and flags['cudnn_deterministic'],
+        'Original B1/FP32 metric flags differ')
+    require('d5383ea8f4877b2472eb973e0fd72d557c7da5d3611bd527ceeb1d7162cbf428' in pins.values(),'Original DINO-L/14 weight binding missing')
+    return value,flags
+
+def inspect(cfg,bound,closed=None):
+    """Pure metadata/closed-CPU gate. The registrar may reuse its one closure."""
+    require(cfg['schema']=='C_REAL_VISUAL_CONFIG_R1','Separate C actual-RX config required');verify(bound)
+    for n in RUNTIME:require(bound.get(str(Path(__file__).with_name(n).absolute()))==sha(Path(__file__).with_name(n)),'New C visual source missing '+n)
+    for k in ('cpu_supervisor_module','metric_assets','h_metric_adapter_module','owner_module','native_source_graph'):
+        require(bound.get(cfg[k])==sha(cfg[k]),'Required C visual dependency not bound '+k)
+    sys.path.insert(0,str(Path(cfg['cpu_supervisor_module']).parent))
+    sup=module(cfg['cpu_supervisor_module'],'c_real_visual_original_cpu_owner',bound)
+    closed=source.closed_cpu_inputs(cfg['cpu_batch'],sup,bound) if closed is None else closed
+    require(closed['original_cpu_proof']==cfg['cpu_batch'] and all(bound.get(p)==h for p,h in closed['bindings'].items()),'Wrong reused CPU context')
+    cpu=closed['cpu'];before=closed['budget_before'];require(before['charged']==21495 and before['unresolved']==0
+        and before['phase_charged']==dict(qualification=848,development=20647,diagnostic_reserve=0),'Actual closed original C budget differs')
+    require(cfg['root']==cpu['cfg']['root'],'C root differs')
+    ecfg_path=cpu['cfg']['entropy_batch']['config'];ecfg=read(ecfg_path);ereg=read(ecfg['registration']);ereq=read(ecfg['request'])
+    escience=read(cpu['cfg']['entropy_manifest']);enormal=read(cpu['cfg']['entropy_batch']['completion'])
+    vpath=ereq['visual_reference']['config'];vc=read(vpath)
+    for p in (ecfg_path,ecfg['registration'],ecfg['request'],vpath):require(bound.get(p)==sha(p),'Actual original C206 config/request omitted')
+    require(escience['status']=='C_REAL_64_SOURCE_206_ENTROPY_ASSETS_COMPLETE_R1' and escience['source_ids']==cpu['frozen']['source_ids'],
+        'Completed C206 exact population required')
+    graph=read(cfg['native_source_graph']);nativepins=graph['source_bindings']
+    require(graph['status']=='EXACT_SOURCE_CLOSURE_MATCH' and all(bound.get(p)==h for p,h in nativepins.items())
+        and all(nativepins.get(p)==h for p,h in escience['visual_source_bindings'].items()),'Sealed original native graph changed or incomplete')
+    for p in [vc[k] for k in ('source_driver_module','static_closure_module','numerical_reference','calibration_registration')]+[str(Path(vc['uep_runtime'])/n) for n in ('quality_driver.py','source_quality.py')]:
+        require(bound.get(p)==sha(p),'Original native input/source missing '+p)
+    q=read(vc['numerical_reference']);cal=read(vc['calibration_registration']);flags=q['numerical_runtime']
+    require(q['status']=='REAL_NATIVE_QUALIFICATION_PASS' and q['synthetic'] is False
+        and q['frozen_identity']==cal['identity']==escience['frozen_visual_identity'] and flags==escience['numerical_runtime'],
+        'Original C206 native identity or FP32 qualification differs')
+    resources=cfg['resources'];require(resources['gpu_device']==0 and resources['threads']==6 and resources['interop_threads']==2
+        and resources['affinity']==[4,5,6,7,8,9] and resources['nice']==15 and 0<resources['max_seconds']<=86400,
+        'Original single-GPU six-host-core envelope required')
+    study=Path(cfg['root'])/'outputs/CONTENT-REAL-64QAM-20261006'
+    require(Path(cfg['out']).parent==Path(cfg['execution_dir']).parent==study/'C' and cfg['out']!=cfg['execution_dir']
+        and cfg['out'] not in (cpu['cfg']['out'],ecfg['out']),'Fresh separate C visual output required')
+    ma,mflags=metric_assets(cfg['metric_assets'],bound)
+    require(all(flags[k]==mflags[k] for k in mflags),'Native and original metric numerical flags conflict')
+    return dict(cfg=cfg,bound=bound,cpu_closed=closed,cpu_supervisor=sup,before=before,
+        entropy=dict(config=ecfg,reg=ereg,science=escience,normal=enormal),visual_config=vc,
+        flags=flags,metric_flags=mflags,native_identity=cal['identity'],native_bindings=nativepins,
+        resources=resources,metric_assets=ma,regsha=None)
+
+def budget(ctx):
+    c=ctx['cpu_closed']['cpu']['cfg']
+    return ctx['cpu_supervisor'].d.ledger_snapshot(c['ledger'],sha(c['budget_registration']))
+
+def command(cfg):return [cfg['python'],'-B',cfg['driver_module'],'--config',cfg['_path']]
+
+def disk_gate(out):
+    # At most8192 independent float32 CHW256 images (6GiB), plus8GiB margin.
+    required=8192*3*256*256*4+8*1024**3
+    require(shutil.disk_usage(Path(out).parent).free>=required,'Insufficient space for lossless C images and original8GiB margin')
+    return required
+
+def load_registered(path):
+    cfg=read(path);reg=read(cfg['registration']);bound=merge(reg['source_bindings'],reg['input_bindings'])
+    require(reg['status']==REG and reg['config_sha256']==sha(path) and reg['source_count']==64 and reg['frame_count']==8192
+        and reg['new_packet_decodes']==0 and reg['policy_selection'] is False,'Exact new C visual registration required')
+    require(bound.get(str(Path(path).absolute()))==sha(path),'Own worker config must be input-bound')
+    ctx=inspect(cfg,bound);require(budget(ctx)==ctx['before']==reg['budget_before'],'Budget changed after registration')
+    ctx.update(reg=reg,regsha=sha(cfg['registration']));cfg['_path']=str(Path(path).absolute());return ctx
+
+def import_paths(ctx):
+    v=ctx['visual_config'];p=ctx['metric_assets']['paths']
+    return list(dict.fromkeys([str(Path(__file__).parent),str(Path(ctx['cfg']['owner_module']).parent),v['uep_runtime'],v['native_runtime'],
+        str(Path(v['source_driver_module']).parent),str(Path(p['suite_module']).parent),str(Path(p['replay_module']).parent),
+        str(Path(p['validation_module']).parent),str(Path(ctx['cfg']['h_metric_adapter_module']).parent),str(Path(ctx['cfg']['root'])/'src')]))
+
+def build_models(ctx):
+    for p in reversed(import_paths(ctx)):sys.path.insert(0,p)
+    v=ctx['visual_config'];paths=ctx['metric_assets']['paths'];bound=ctx['bound'];root=Path(ctx['cfg']['root'])
+    quality=module(Path(v['uep_runtime'])/'quality_driver.py','quality_driver',bound)
+    native=quality.build_native(root,v['native_runtime'],stop)
+    require(quality.q.identity(native.loaded['identity'])==quality.q.identity(ctx['native_identity']) and native.flags==ctx['flags']
+        and native.driver_bindings==ctx['native_bindings'],'Actual native model/numerical/source graph differs')
+    suite_module=module(paths['suite_module'],'c_real_original_metric_suite',bound)
+    with quality.verify_repeated_interop(native.torch):suite=suite_module.load_suite(root,'cuda:0')
+    require(suite[6]==ctx['metric_flags'] and all(bound.get(p)==h for p,h in suite[5].items()),'Loaded original metric flags/source closure differs')
+    validation=module(paths['validation_module'],'c_real_original_validation',bound)
+    qcfg=ctx['cpu_closed']['cpu']['qualification']
+    classifier=independent.C64ConvNeXt(validation,paths['convnext_weights'],qcfg['protocol'],qcfg['frozen_identity'],qcfg['source64'],bound)
+    h=module(ctx['cfg']['h_metric_adapter_module'],'c_real_original_H_metric_API',bound)
+    base=h.SuiteBackend(suite,classifier,native.torch,suite_module.numeric_flags);bridge=metrics.MetricBridge(base)
+    renderer=quality.q.ReceivedRenderer(native.loaded,native.receiver)
+    identity=dict(receiver=renderer.receiver_identity,native=native.loaded['identity'],numerical_runtime=native.flags,
+        source_quality_sha256=sha(quality.q.__file__))
+    return dict(native=native,quality=quality,renderer=renderer,receiver_identity=identity,metric=bridge)
+
+def run(path):
+    ctx=load_registered(path);cfg=ctx['cfg'];out=Path(cfg['out']);require(not out.exists(),'Prior C visual attempt retained; no retry')
+    disk_gate(out);out.mkdir();save(out/'attempt.json',dict(registration_sha256=ctx['regsha'],new_packet_decodes=0));started=time.monotonic()
+    try:
+        owner=module(cfg['owner_module'],'c_real_visual_current_owner',ctx['bound']);proof=owner.admit_worker(ctx)
+        def guard(source_boundary=False):
+            require(not STOP and time.time()<DEADLINE and time.monotonic()-started<cfg['resources']['max_seconds']
+                and not(out/'STOP').exists(),'C visual STOP/deadline/wall limit')
+            owner.check_live(ctx,proof)
+            if 'models' in locals_guard:
+                models=locals_guard['models']
+                if source_boundary:require(not models['quality'].boundary(models['native']),'Original GPU source boundary')
+                else:models['native'].common.check()
+        locals_guard={};guard();models=build_models(ctx);locals_guard['models']=models;guard(True)
+        cpu=ctx['cpu_closed']['cpu']
+        # Resolve the exact C206 helper by its registered basename, not a guessed runtime path.
+        helpers=[p for p in ctx['entropy']['reg']['source_bindings'] if Path(p).name=='c_entropy_core.py']
+        require(len(helpers)==1,'Unique original C206 entropy helper required');entropy=module(helpers[0],'c_real_visual_entropy_helper',ctx['bound'])
+        meta=out/'metric_identity.json';save(meta,dict(metric_identity=models['metric'].identity,metadata=models['metric'].metadata,
+            receiver_identity=models['receiver_identity'],population='original_calibration_internal64',used_for_selection=False));outputs=bind((meta,));counts=[]
+        for index in range(64):
+            guard(True);item=source.load_source(ctx['cpu_closed'],index)
+            receiver=rx.Receiver(models['renderer'],entropy,models['receiver_identity'])
+            result=source.render_source(item,cpu['frozen']['tables'],receiver,guard)
+            result=source.score_source(item,result,models['metric'],metrics.REQUIRED,guard)
+            outputs.update(source.write_source(out,result,item,ctx['regsha'],models['receiver_identity'],models['metric'].identity));counts.append(result['counts'])
+            status=out/'status.json';tmp=out/'status.pending';tmp.write_text(__import__('json').dumps(dict(completed_sources=index+1,frame_count=(index+1)*128))+'\n');os.replace(tmp,status)
+            del result,receiver,item
+        guard(True);models['native'].frozen();models['metric'].check();after=budget(ctx);require(after==ctx['before'],'C ledger changed during RX/metrics')
+        cost=out/'execution_counts.json';save(cost,dict(source_count=64,frame_count=8192,by_source=counts,
+            unique_float32_images=sum(c['unique_float32_images'] for c in counts),actual_prior_completions=sum(c['actual_prior_completions'] for c in counts),
+            unique_metric_pairs=sum(c['unique_metric_pairs'] for c in counts),online_latency_measured=False,new_packet_decodes=0));outputs.update(bind((cost,)))
+        verify(ctx['bound']);verify(outputs)
+        done=dict(status=DONE,registration_sha256=ctx['regsha'],config_sha256=sha(path),source_count=64,frame_count=8192,
+            source_ids=cpu['frozen']['source_ids'],population='original_calibration_internal64',trials=list(range(16)),
+            source_bindings=ctx['reg']['source_bindings'],input_bindings=ctx['reg']['input_bindings'],outputs=outputs,
+            budget_before=ctx['before'],budget_after=after,worker_identity=proof['worker_identity'],
+            receiver_identity=models['receiver_identity'],metric_evaluator_identity=models['metric'].identity,
+            native_source_bindings=models['native'].driver_bindings,numerical_runtime=models['native'].flags,
+            images_scored=True,source_reconstruction_complete=True,new_packet_decodes=0,new_noise=0,
+            policy_selection=False,holdout_used=False,statistical_aggregation_run=False,automatic_successor=False,elapsed_seconds=time.monotonic()-started)
+        save(out/'completion.json',done);return done
+    except BaseException:
+        save(out/'failure.json',dict(status='FAILED_PRESERVE_NO_RETRY',registration_sha256=ctx['regsha'],traceback=traceback.format_exc(),new_packet_decodes=0));raise
+
+if __name__=='__main__':
+    parser=argparse.ArgumentParser();parser.add_argument('--config',required=True);args=parser.parse_args()
+    signal.signal(signal.SIGTERM,stop);signal.signal(signal.SIGINT,stop);print(run(args.config)['status'],flush=True)

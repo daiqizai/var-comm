@@ -1,0 +1,37 @@
+{
+  "status": "C_VISUAL_ORIGINAL_LOADER_ENVIRONMENT_CONFLICT_DIAGNOSED",
+  "created_unix": 1791284546.4229236,
+  "archive": {
+    "path": "REPO/outputs/CONTENT-REAL-64QAM-20261006/C/visual_environment_recovery_r2/failure_archive_receipt.json",
+    "sha256": "9ab16a362da938533d6efafdbe178b8c1a105f8670fe506afca75f4a1ed53c44"
+  },
+  "original_owner_success": false,
+  "original_worker_exit_code": 1,
+  "original_processes_exited": true,
+  "source_checkpoints": 0,
+  "reconstructed_frames": 0,
+  "new_PHY_calls": 0,
+  "producer": {
+    "path": "REPO/experiments/rx-posterior-step1-20260929/run_preflight.py",
+    "sha256": "1aea50854bccc9b7518e04ad6fc39eb5084ea131e18ba2d529ceeb44e650ed16",
+    "effect": "Original imported run_preflight sets OPENBLAS_NUM_THREADS=2"
+  },
+  "cause": "Initial all-six environment admission passes; original Native imports assets -> run_preflight, which sets OPENBLAS to 2; post-construction all-six guard rejects original supported runtime. Model numeric flags passed before this guard. Owner then sees missing science completion, a secondary effect of worker exit.",
+  "evidence": [
+    {
+      "path": "REPO/outputs/CONTENT-REAL-64QAM-20261006/C/visual_r1/failure.json",
+      "sha256": "ce698c1a06fd26f26a018796647c6767e3274f4906caead40ee17006aa077e8d"
+    },
+    {
+      "path": "REPO/outputs/CONTENT-REAL-64QAM-20261006/C/visual_execution_r1/failure.json",
+      "sha256": "0b59ecfdd19a50a86a88e04a27775bff794c16e2e88014ba5797906a099ad2e6"
+    },
+    {
+      "path": "REPO/outputs/CONTENT-REAL-64QAM-20261006/C/visual_execution_r1/worker.log",
+      "sha256": "68dce5c79db89d09535cc5d4afc108165b329cd3b0b8f3a0823579c2355c1d86"
+    }
+  ],
+  "repair_scope": "Separate registered phase-aware compatibility guard: initial environment remains all six, only after exact frozen original producer module identity and bytes are verified require OPENBLAS two; all other resource/numeric guards and scientific source remain unchanged.",
+  "STOP_preserved": true,
+  "restart_authorized_by_this_diagnosis": false
+}

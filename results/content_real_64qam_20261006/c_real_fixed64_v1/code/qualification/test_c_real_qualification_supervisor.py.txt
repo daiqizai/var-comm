@@ -1,0 +1,83 @@
+"""Pure supervisor/receipt fixtures; no process launch or real PHY."""
+from copy import deepcopy
+from contextlib import closing
+import json
+import os
+from pathlib import Path
+import sqlite3
+import tempfile
+import unittest
+from unittest.mock import patch
+import c_real_qualification_supervisor as s
+
+class Supervisor(unittest.TestCase):
+    def setUp(self):
+        self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup);self.root=Path(self.tmp.name)
+    def save(self,name,value):
+        path=self.root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(json.dumps(value));return path
+    def ledger(self):
+        path=self.root/'C.sqlite'
+        with closing(sqlite3.connect(path)) as db,db:
+            db.executescript('CREATE TABLE meta(key TEXT,value TEXT); CREATE TABLE counters(phase TEXT,charged INT); CREATE TABLE events(phase TEXT,kind TEXT,status TEXT,result TEXT,result_sha TEXT);')
+            db.executemany('INSERT INTO meta VALUES (?,?)',[('branch','C'),('registration_sha256','a'*64),('limits',json.dumps(s.c.LIMITS)),('total_cap','100000')])
+            db.executemany('INSERT INTO counters VALUES (?,?)',[('qualification',848),('development',0),('diagnostic_reserve',0)])
+            value={'roundtrip':True};rows=[('qualification','header' if i<16 else 'body','COMPLETE',json.dumps(value),s.c.digest(value)) for i in range(848)]
+            db.executemany('INSERT INTO events VALUES (?,?,?,?,?)',rows)
+        return path
+    def test_exact_actual_snapshot_schema_without_failed_key(self):
+        p=self.ledger();v=s.ledger_closed(p,'a'*64);self.assertEqual(v['charged'],848)
+        with closing(sqlite3.connect(p)) as db,db:db.execute("UPDATE events SET status='RESERVED' WHERE rowid=1")
+        with self.assertRaisesRegex(ValueError,'closed'):s.ledger_closed(p,'a'*64)
+    def test_ledger_result_hash_or_branch_change_rejected(self):
+        p=self.ledger()
+        with closing(sqlite3.connect(p)) as db,db:db.execute("UPDATE events SET result='{}' WHERE rowid=1")
+        with self.assertRaisesRegex(ValueError,'closed'):s.ledger_closed(p,'a'*64)
+        with closing(sqlite3.connect(p)) as db,db:db.execute("UPDATE meta SET value='H' WHERE key='branch'")
+        with self.assertRaisesRegex(ValueError,'identity'):s.ledger_closed(p,'a'*64)
+    def context(self):
+        request=self.save('request.json',{'schema':'fixture'});source=self.save('source.json',{})
+        e=self.root/'execution';cfg=dict(registration=str(e/'execution_registration.json'),out=str(self.root/'worker'),ledger=str(self.root/'ledger.sqlite'))
+        return request,dict(e=e,cfg=cfg,sources={str(source):s.c.sha(source)},inputs={str(request):s.c.sha(request)})
+    def test_registration_no_hash_cycle_or_old_receipt_mutation(self):
+        request,x=self.context();before=request.read_bytes()
+        with patch.object(s,'manifest',return_value=x),patch.object(s.q,'load_registered') as gate:
+            done=s.register(request)
+        gate.assert_called_once();self.assertEqual(done['status'],'C848_REGISTERED_NOT_LAUNCHED');self.assertEqual(request.read_bytes(),before)
+        reg=s.c.read(x['e']/'execution_registration.json')
+        self.assertEqual(reg['config_sha256'],s.c.sha(x['e']/'config.json'))
+        self.assertNotIn(str(x['e']/'execution_registration.json'),reg['input_bindings'])
+        self.assertEqual(reg['maximum_packet_calls'],848);self.assertFalse(reg['automatic_successor'])
+    def test_registration_failure_preserved_and_retry_refused(self):
+        request,x=self.context()
+        with patch.object(s,'manifest',return_value=x),patch.object(s.q,'load_registered',side_effect=ValueError('bad metadata')):
+            with self.assertRaisesRegex(ValueError,'bad metadata'):s.register(request)
+        failure=x['e']/'registration_failure.json';original=failure.read_bytes()
+        with patch.object(s,'manifest',return_value=x):
+            with self.assertRaisesRegex(ValueError,'Fresh'):s.register(request)
+        self.assertEqual(failure.read_bytes(),original)
+    def test_existing_ledger_refuses_before_registration_directory(self):
+        request,x=self.context();Path(x['cfg']['ledger']).write_bytes(b'old evidence')
+        with patch.object(s,'manifest',return_value=x):
+            with self.assertRaisesRegex(ValueError,'Fresh'):s.register(request)
+        self.assertFalse(x['e'].exists())
+    def test_exact_prepared_source_list_is_not_inferred_from_glob(self):
+        cfg=dict(registration=str(self.root/'execution/execution_registration.json'),python='python',argv=['python','-B',
+            str(Path(s.__file__).with_name('c_real_qualification.py').absolute()),'--config',str(self.root/'execution/config.json')])
+        req=self.save('request.json',dict(schema='C848_SUPERVISOR_REQUEST_R1',execution_dir=str(self.root/'execution'),config=cfg,prepared_source_bindings={}))
+        with self.assertRaisesRegex(ValueError,'five prepared'):s.manifest(req)
+    def test_closed_receipt_rejects_failure_and_requires_worker_reaped(self):
+        out=self.root/'worker';out.mkdir();cfg=dict(out=str(out),stop_file=str(self.root/'STOP'),_path=str(self.root/'cfg.json'))
+        self.save('worker/completion.json',{})
+        with self.assertRaisesRegex(ValueError,'reaped'):s.validate_done(dict(cfg=cfg),{'pid':99999999},1,self.root/'log')
+        self.save('worker/failure.json',{'status':'FAILED'})
+        with self.assertRaisesRegex(ValueError,'Failure'):s.validate_done(dict(cfg=cfg),{'pid':99999999},0,self.root/'log')
+    def test_actual_downloaded14_receipt_schema_log_and_exact_sourcepins(self):
+        directory=Path(os.environ.get('C_REAL_TEST_CPU_QUALIFICATION',str(Path(__file__).resolve().parent.parent/'current/c_real_qualification_tests_r1')))
+        done=s.c.read(directory/'completion.json');tested=s.c.read(directory/'request.json');pins={}
+        s.environment_qualification(directory/'completion.json',done['source_bindings'],pins,tested['argv'][0])
+        self.assertEqual(len(pins),4);self.assertNotIn('outputs',done)
+        changed=dict(done['source_bindings']);changed[next(iter(changed))]='0'*64
+        with self.assertRaisesRegex(ValueError,'three C sources'):
+            s.environment_qualification(directory/'completion.json',changed,{},tested['argv'][0])
+
+if __name__=='__main__':unittest.main()

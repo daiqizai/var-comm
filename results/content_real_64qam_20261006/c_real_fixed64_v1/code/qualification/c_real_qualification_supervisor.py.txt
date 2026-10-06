@@ -1,0 +1,174 @@
+"""Register/run one bounded C848 worker; no old owner, retry or successor."""
+from __future__ import annotations
+import argparse
+from contextlib import closing
+import json
+import os
+import re
+from pathlib import Path
+import signal
+import sqlite3
+import subprocess
+import sys
+import time
+import traceback
+import c_real_cpu_core as c
+import c_real_qualification as q
+
+PREPARED=('c_real_cpu_core.py','c_real_qualification.py','test_c_real_cpu_core.py',
+          'c_real_qualification_supervisor.py','test_c_real_qualification_supervisor.py')
+ORIGINAL_LEDGER='8470cbc4723369d28df842b62fec0a5cfe153cdfcab03b727f838422fad1924c'
+ORIGINAL_PHY='a6496a13332ba4812044a6a2f9ce03b045000975f46c62e22ea4d6d5f7c47c52'
+ORIGINAL_CPP='035058221b35df245fe1520a0e14f741528b53d84c0a987359d0df0d226a7b52'
+SNAPSHOT='5bb7264bfc70bd706783bbbe8429ef6acd449e09ed90e5bcd4d936c634c2a74f'
+require=c.require
+
+def bind(target,path,expected=None):
+    path=str(Path(path).absolute());actual=c.sha(path)
+    require(expected is None or actual==expected,'Original bound dependency changed: '+path)
+    require(path not in target or target[path]==actual,'Conflicting binding');target[path]=actual
+
+def environment_qualification(path,sources,inputs,python):
+    bind(inputs,path);pure=c.read(path)
+    require(pure['status']=='C_REAL_ACTUAL_ENVIRONMENT_14_CPU_TESTS_PASS' and pure['exit_code']==0
+        and pure['process_waited'] is True and pure['new_PHY_calls']==pure['new_GPU_calls']==0,'Actual CPU environment14 qualification required')
+    expected={p:h for p,h in sources.items() if Path(p).name in PREPARED[:3]}
+    require(len(expected)==3 and pure['source_bindings']==expected,'Actual CPU qualification does not cover original three C sources')
+    directory=Path(path).parent
+    bind(inputs,directory/'process.log',pure['log_sha256']);bind(inputs,directory/'request.json');bind(inputs,directory/'launch.json')
+    tested=c.read(directory/'request.json');log=(directory/'process.log').read_text(encoding='utf-8')
+    require(tested['expected_tests']==14 and tested['source_bindings']==expected
+        and tested['argv']==[python,'-B','-m','unittest','-v','test_c_real_cpu_core']
+        and re.search(r'Ran 14 tests in [0-9.]+s',log) and log.strip().endswith('OK')
+        and 'FAILED (' not in log,'Actual closed 14-test result differs')
+
+def manifest(request_path):
+    request=c.read(request_path);require(request['schema']=='C848_SUPERVISOR_REQUEST_R1','Separate C848 request required')
+    cfg=dict(request['config']);e=Path(request['execution_dir']).absolute();sources={};inputs={}
+    require(cfg['registration']==str(e/'execution_registration.json') and cfg['argv']==[cfg['python'],'-B',
+        str(Path(__file__).with_name('c_real_qualification.py').absolute()),'--config',str(e/'config.json')],'Exact worker command/config required')
+    wanted={str(Path(__file__).with_name(name).absolute()) for name in PREPARED}
+    require(set(request['prepared_source_bindings'])==wanted,'All five prepared sources/tests required')
+    for p,s in request['prepared_source_bindings'].items():bind(sources,p,s)
+    bind(inputs,request_path);bind(inputs,request['snapshot_manifest'],SNAPSHOT)
+    environment_qualification(request['prepared_qualification'],sources,inputs,cfg['python'])
+    snapshot=c.read(request['snapshot_manifest']);runtime=snapshot['runtime']
+    require(cfg['legacy_runtime']==runtime['uep_code'] and cfg['src']==runtime['src']
+        and cfg['legacy_qualification']==runtime['ldpc_qualification'],'Actual original snapshot runtime required')
+    inventory={row['path']:row['sha256'] for row in snapshot['entries'].values()}
+    for name in ('ldpc_backend.py','uep_phy.py','uep_common.py','profiles.py'):
+        p=str(Path(cfg['legacy_runtime'])/name);require(p in inventory,'Missing original snapshot executable');bind(sources,p,inventory[p])
+    for p in (Path(cfg['src'])/'var_comm').rglob('*'):
+        if p.suffix not in ('.py','.cpp'):continue
+        expected=ORIGINAL_CPP if p.name=='token_trellis.cpp' else inventory.get(str(p))
+        require(expected is not None,'Unregistered physical source appeared: '+str(p));bind(sources,p,expected)
+    bind(sources,Path(cfg['src'])/'var_comm/token_trellis.cpp',ORIGINAL_CPP)
+    bind(sources,cfg['ledger_module'],ORIGINAL_LEDGER);bind(sources,cfg['phy_module'],ORIGINAL_PHY)
+    bind(inputs,cfg['legacy_qualification'],inventory[cfg['legacy_qualification']])
+    for key in ('protocol','frozen_identity','source64','choices','resource_budget','model_registration',
+                'budget_registration','scheduling_amendment'):bind(inputs,cfg[key])
+    identity=c.read(cfg['frozen_identity']);original=c.read(cfg['model_registration'])
+    for p,s in original['source_bindings'].items():bind(inputs,p,s)
+    for old,s in identity['local_input_bindings'].items():
+        path=Path(old);bind(inputs,Path(cfg['model_shards'][path.parent.name.removeprefix('snr')])/path.name,s)
+    q.original_model_provenance(cfg,dict(inputs,**sources));q.scheduling_amendment(cfg,inputs)
+    require(not Path(cfg['stop_file']).exists(),'C STOP exists')
+    return dict(request=request,cfg=cfg,e=e,sources=sources,inputs=inputs)
+
+def register(request_path):
+    x=manifest(request_path);e=x['e'];cfg=x['cfg']
+    require(not e.exists() and not Path(cfg['out']).exists() and not Path(cfg['ledger']).exists(),'Fresh C execution/output/ledger required; no retry')
+    e.mkdir(parents=True);q.save(e/'registration_attempt.json',dict(request_sha256=c.sha(request_path),automatic_retry=False))
+    try:
+        q.save(e/'config.json',cfg);bind(x['inputs'],e/'config.json')
+        reg=dict(status=q.STATUS,scope='C_REAL_LAYOUT_QUALIFICATION_ONLY',phase='qualification',maximum_packet_calls=848,
+            config_sha256=c.sha(e/'config.json'),source_bindings=x['sources'],input_bindings=x['inputs'],engineering_choices=c.ENGINEERING,
+            scheduling_authority='USER_C_REAL_FIRST_PARALLEL_20261006',scientific_policy_changed=False,
+            supervisor_scope='ONE_C848_WORKER_WAIT_AND_CLOSED_LOG',supervisor_request_sha256=c.sha(request_path),automatic_successor=False)
+        q.save(e/'execution_registration.json',reg);q.load_registered(e/'config.json')
+        q.verify(x['sources']);q.verify(x['inputs'])
+        result=dict(status='C848_REGISTERED_NOT_LAUNCHED',registration_sha256=c.sha(e/'execution_registration.json'),
+            outputs={str(e/n):c.sha(e/n) for n in ('config.json','execution_registration.json')},new_packet_calls=0,new_GPU_calls=0)
+        q.save(e/'registration_completion.json',result);return result
+    except BaseException:
+        q.save(e/'registration_failure.json',dict(status='FAILED_PRESERVE_NO_RETRY',traceback=traceback.format_exc()));raise
+
+def identity(pid):
+    proc=Path('/proc')/str(pid);fields=(proc/'stat').read_text().rsplit(')',1)[1].split()
+    return dict(pid=pid,start_ticks=int(fields[19]),uid=proc.stat().st_uid,
+        argv=(proc/'cmdline').read_bytes().decode().rstrip('\0').split('\0'))
+
+def ledger_closed(path,budget_sha):
+    with closing(sqlite3.connect(Path(path).resolve().as_uri()+'?mode=ro',uri=True)) as db:
+        meta=dict(db.execute('SELECT key,value FROM meta'));counts=dict(db.execute('SELECT phase,charged FROM counters'))
+        events=db.execute('SELECT phase,kind,status,result,result_sha FROM events').fetchall()
+    require(meta['branch']=='C' and meta['registration_sha256']==budget_sha and json.loads(meta['limits'])==c.LIMITS
+        and meta['total_cap']=='100000','Independent original C ledger identity differs')
+    require(counts==dict(qualification=848,development=0,diagnostic_reserve=0) and len(events)==848
+        and all(phase=='qualification' and state=='COMPLETE' and c.digest(json.loads(result))==checksum
+                for phase,kind,state,result,checksum in events),'C848 event inventory is not closed')
+    require(sum(kind=='header' for _,kind,*_ in events)==16 and sum(kind=='body' for _,kind,*_ in events)==832,'Exact C848 header/body charges differ')
+    return dict(charged=848,phase_charged=counts,unresolved=0,ledger_sha256=c.sha(path))
+
+def validate_done(ctx,worker,exit_code,log_path):
+    cfg=ctx['cfg'];out=Path(cfg['out']);done=c.read(out/'completion.json')
+    require(exit_code==0 and not Path('/proc',str(worker['pid'])).exists(),'Original child must be reaped and absent')
+    require(not(out/'failure.json').exists() and not(out/'STOP').exists() and not Path(cfg['stop_file']).exists(),'Failure/STOP preserved, no success')
+    require(done['status']=='C_REAL_CPU_848_QUALIFICATION_COMPLETE_R1' and done['registration_sha256']==ctx['regsha']
+        and done['config_sha256']==c.sha(cfg['_path']) and done['worker_identity']==worker and done['packet_calls']==848
+        and done['development_started'] is False and done['entropy_assets_qualified'] is False
+        and done['TX_RX_image_parity_qualified'] is False and done['automatic_successor'] is False,'Exact worker qualification receipt required')
+    require(done['source_bindings']==ctx['reg']['source_bindings'] and done['input_bindings']==ctx['reg']['input_bindings'],'Worker bindings differ')
+    q.verify(done['outputs']);q.verify(done['source_bindings']);q.verify(done['input_bindings'])
+    budget=ledger_closed(cfg['ledger'],c.sha(cfg['budget_registration']))
+    require(done['budget_after']['charged']==budget['charged'] and done['budget_after']['phase_charged']==budget['phase_charged']
+        and done['budget_after']['unresolved']==0,'Worker and actual ledger differ')
+    return dict(status='C848_NORMAL_SUPERVISOR_COMPLETE',registration_sha256=ctx['regsha'],worker_identity=worker,
+        worker_exit_code=0,worker_reaped=True,closed_log_sha256=c.sha(log_path),worker_completion_sha256=c.sha(out/'completion.json'),
+        budget_after=budget,outputs={str(out/'completion.json'):c.sha(out/'completion.json'),str(log_path):c.sha(log_path)},
+        source_bindings=ctx['reg']['source_bindings'],input_bindings=ctx['reg']['input_bindings'],development_started=False,
+        entropy_assets_qualified=False,TX_RX_image_parity_qualified=False,new_GPU_calls=0,automatic_successor=False)
+
+def run(request_path):
+    request=c.read(request_path);e=Path(request['execution_dir']);seal=c.read(e/'registration_completion.json')
+    require(seal['status']=='C848_REGISTERED_NOT_LAUNCHED' and not(e/'registration_failure.json').exists(),'Successful fresh registration required')
+    q.verify(seal['outputs']);ctx=q.load_registered(e/'config.json');cfg=ctx['cfg']
+    require(ctx['reg']['supervisor_request_sha256']==c.sha(request_path),'Supervisor request changed')
+    out=e/'supervision';require(not out.exists(),'Prior supervision evidence retained; no retry');out.mkdir()
+    q.save(out/'attempt.json',dict(registration_sha256=ctx['regsha'],automatic_retry=False));child=None;log=out/'worker.log'
+    try:
+        require(sys.platform.startswith('linux') and not Path(cfg['ledger']).exists(),'Fresh actual Linux qualification required')
+        require(set(cfg['affinity']).issubset(os.sched_getaffinity(0)),'Requested two CPU cores unavailable')
+        q.save(out/'supervisor_identity.json',dict(identity=identity(os.getpid()),registration_sha256=ctx['regsha']))
+        env=dict(os.environ,CUDA_VISIBLE_DEVICES='',PYTHONPATH=str(Path(__file__).parent),**{k:'2' for k in
+            ('OMP_NUM_THREADS','MKL_NUM_THREADS','OPENBLAS_NUM_THREADS','NUMEXPR_NUM_THREADS')})
+        def resources():os.sched_setaffinity(0,set(cfg['affinity']));os.setpriority(os.PRIO_PROCESS,0,15)
+        def stop(*_):raise RuntimeError('Supervisor interrupted; preserve child and charged evidence')
+        signal.signal(signal.SIGTERM,stop);signal.signal(signal.SIGINT,stop)
+        with log.open('xb') as handle:
+            child=subprocess.Popen(cfg['argv'],cwd=cfg['root'],env=env,stdin=subprocess.DEVNULL,stdout=handle,stderr=subprocess.STDOUT,
+                preexec_fn=resources,start_new_session=True)
+            worker=identity(child.pid);require(worker['argv']==cfg['argv'],'Actual child argv differs')
+            q.save(out/'worker_launch.json',dict(identity=worker,argv=cfg['argv'],registration_sha256=ctx['regsha']))
+            started=time.monotonic()
+            while child.poll() is None:
+                require(time.monotonic()-started<cfg['max_seconds']+60 and time.time()<cfg['deadline_unix'],'Supervisor deadline')
+                require(not Path(cfg['stop_file']).exists() and not(Path(cfg['out'])/'STOP').exists(),'Registered STOP')
+                time.sleep(.25)
+            code=child.wait();handle.flush();os.fsync(handle.fileno())
+        q.save(out/'worker_exit.json',dict(identity=worker,exit_code=code,log_sha256=c.sha(log),reaped=True))
+        result=validate_done(ctx,worker,code,log)
+        result['outputs'].update({str(out/name):c.sha(out/name) for name in ('supervisor_identity.json','worker_launch.json','worker_exit.json')})
+        q.save(e/'completion.json',result);return result
+    except BaseException:
+        if child is not None and child.poll() is None:
+            child.terminate()
+            try:child.wait(timeout=30)
+            except subprocess.TimeoutExpired:child.kill();child.wait()
+        q.save(out/'failure.json',dict(status='FAILED_PRESERVE_NO_RETRY',traceback=traceback.format_exc(),
+            worker_pid=None if child is None else child.pid,worker_exit_code=None if child is None else child.returncode,refund=False))
+        raise
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--request',required=True);p.add_argument('--stage',choices=('register','run'),required=True)
+    a=p.parse_args();print((register if a.stage=='register' else run)(a.request)['status'])

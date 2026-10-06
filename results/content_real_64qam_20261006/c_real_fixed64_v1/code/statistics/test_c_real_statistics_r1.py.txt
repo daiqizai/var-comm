@@ -1,0 +1,165 @@
+"""Synthetic full-grid tests; no files, models, pixels, ledger or real results."""
+from copy import deepcopy
+import unittest
+import numpy as np
+import c_real_statistics_r1 as s
+
+
+def fixture():
+    ids=[f'source{i:02d}' for i in range(64)]
+    frozen={'snrs':{}}
+    for snr in s.SNRS:
+        p=dict(candidate_index=17,full_state_id='m4_K1')
+        methods={m:dict(public_codebook={'0':17},source_choices=[dict(source_id=sid,
+            public_header_ids_by_bin=[0]*8,candidate_indices_by_bin=[17]*8) for sid in ids]) for m in s.METHODS}
+        frozen['snrs'][str(snr)]=dict(source_ids=ids,no_reselection=True,methods=methods,frozen_profiles={'17':p})
+    rows=[]
+    for i,sid in enumerate(ids):
+        for snr in s.SNRS:
+            for trial in s.TRIALS:
+                for method in s.METHODS:
+                    identity=dict(source_index=i,source_id=sid,average_snr_db=snr,trial=trial,method=method)
+                    header=dict(header_ok=True,profile_id=0)
+                    receive=dict(header=header,bodies=[dict(crc_accept=True)],accepted_groups=[{}],state_id='m4_K1',gray=False)
+                    c=dict(identity,status='C_REAL_ACTUAL_CPU_TRAJECTORY_R2',population=s.POPULATION,
+                        policy_selection=False,coefficients_updated=False,feedback_bin=trial%8,transmitted_public_id=0,
+                        frozen_candidate_index=17,header_codebook_sha256=s.digest({'0':dict(candidate_index=17,full_state_id='m4_K1')}),
+                        public_frame_counter=(i*4+s.SNRS.index(snr))*16+trial,h=[.4,.2],variance_per_real=.1,
+                        standard_noise_sha256=s.digest([sid,snr,trial]),receive=receive,
+                        logical_packet_events=2,packet_events=[{},{}],evaluation_only=dict(header_undetected=False,
+                            body_payload_equals_transmitted_group=[True],accepted_body_wrong_payload=[False]),
+                        total_paid_symbols=924,actual_forward_symbols=892,unused_symbols=100)
+                    metrics={m:.25 for m in s.METRICS}
+                    metrics.update(label_conditioned=False,convnext_used_for_selection=False,
+                        resnet50_source_prediction=3,convnext_source_prediction=3)
+                    # Exactly zero source mean despite trial-level variation.
+                    metrics[s.PRIMARY]=.5 + (0 if method==s.METHODS[0] else (.1 if trial<8 else -.1))
+                    v=dict(gray=False,actual_received_m=4,actual_received_K=1,accepted_group_count=1,
+                        visual_reconstruction_complete=True,source_truth_used_for_reconstruction=False,
+                        TX_entropy_order_used_for_reconstruction=False,new_packet_decodes=0,new_noise=0,
+                        image_sha256='c'*64,receiver_status='ACTUAL_ACCEPTED_PAYLOAD')
+                    rows.append(dict(identity,cpu=c,visual=v,metrics=metrics,used_for_selection=False,metric_batch_size=1,
+                        reference_sha256=s.digest(sid),reference_preprocessing_sha256=s.digest(['uint8',sid]),class_index=3,
+                        image_sha256='c'*64,metric_evaluator_identity='a'*64))
+    return rows,ids,frozen
+
+
+class FrozenStatistics(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.rows,cls.ids,cls.frozen=fixture()
+        cls.result=s.aggregate(cls.rows,cls.ids,cls.frozen)
+
+    def test_full_grid_source_mean_precedes_pairing_and_fixed_seed(self):
+        out=self.result
+        self.assertEqual((len(out['summary']),len(out['paired']),len(out['source_means'])),(144,72,9216))
+        self.assertEqual(out['comparison_count'],4)
+        for r in out['paired']:
+            self.assertEqual(r['mean_delta'],0)
+            self.assertEqual((r['ci_low'],r['ci_high']),(0,0))
+            self.assertEqual((r['bootstrap_seed'],r['bootstrap_repeats']),(2026100605,10000))
+        self.assertTrue(all(d['metrics'][s.PRIMARY]=='UNRESOLVED' for d in out['decisions']))
+        self.assertFalse(out['C_complete']);self.assertFalse(out['policy_selection'])
+
+    def test_resampling_matches_explicit_numpy_source_bootstrap(self):
+        a=np.linspace(-.2,.3,64);draw=s.bootstrap_indices()
+        expected=np.quantile(a[np.random.default_rng(2026100605).integers(0,64,(10000,64))].mean(axis=1),[.025,.975])
+        actual=s.paired_interval(a,draw)
+        np.testing.assert_array_equal([actual['ci_low'],actual['ci_high']],expected)
+        self.assertAlmostEqual(actual['mean_delta'],.05)
+
+    def test_missing_duplicate_trials_relabelled_source_and_new_method_rejected(self):
+        with self.assertRaisesRegex(ValueError,'All8192'):s.validate(self.rows[:-1],self.ids,self.frozen)
+        for key,value in [('source_id','other'),('trial',16),('method','new-policy')]:
+            rows=list(self.rows);rows[0]=dict(rows[0],**{key:value})
+            with self.assertRaises(ValueError):s.validate(rows,self.ids,self.frozen)
+        rows=list(self.rows);rows[0]=rows[1]
+        with self.assertRaisesRegex(ValueError,'Duplicate'):s.validate(rows,self.ids,self.frozen)
+
+    def test_fixed_action_reselection_reference_or_channel_drift_rejected(self):
+        for block,key,value in [('cpu','transmitted_public_id',1),('cpu','standard_noise_sha256','f'*64),
+                               ('metrics','resnet50_source_prediction',7),('cpu','policy_selection',True)]:
+            rows=list(self.rows);rows[0]=deepcopy(rows[0]);rows[0][block][key]=value
+            with self.assertRaises(ValueError):s.validate(rows,self.ids,self.frozen)
+        rows=list(self.rows);rows[0]=dict(rows[0],reference_sha256='e'*64)
+        with self.assertRaisesRegex(ValueError,'reference'):s.validate(rows,self.ids,self.frozen)
+
+    def test_missing_nonfinite_or_invented_mismatch_metrics_rejected(self):
+        for value in [None,float('nan'),float('inf')]:
+            rows=list(self.rows);rows[0]=deepcopy(rows[0]);rows[0]['metrics'][s.PRIMARY]=value
+            with self.assertRaisesRegex(ValueError,'nonfinite'):s.validate(rows,self.ids,self.frozen)
+        rows=list(self.rows);rows[0]=deepcopy(rows[0]);rows[0]['metrics']['dino_specificity']=0
+        with self.assertRaisesRegex(ValueError,'conditioning'):s.validate(rows,self.ids,self.frozen)
+
+    def test_gray_and_actual_corrupt_accept_remain_in_counts_not_imputed(self):
+        rows=list(self.rows);rows[0]=deepcopy(rows[0]);a=rows[0]
+        a['cpu']['receive'].update(gray=True,state_id='gray',accepted_groups=[])
+        a['cpu']['receive']['bodies'][0]['crc_accept']=False
+        a['visual'].update(gray=True,actual_received_m=0,actual_received_K=0,accepted_group_count=0,receiver_status='BODY_REJECT')
+        a['metrics'][s.PRIMARY]=-.23
+        rows[1]=deepcopy(rows[1]);rows[1]['cpu']['evaluation_only'].update(
+            body_payload_equals_transmitted_group=[False],accepted_body_wrong_payload=[True])
+        grid,tables,_=s.validate(rows,self.ids,self.frozen);d=s.diagnostics(grid,tables)
+        u,c8=d['receive_diagnostics'][:2]
+        self.assertEqual(u['gray_count'],1);self.assertEqual(u['gray_rate'],1/1024)
+        self.assertEqual(c8['header_undetected_count'],0);self.assertEqual(c8['accepted_body_wrong_payload_count'],1)
+        self.assertEqual(grid[0,4,0,s.METHODS[0]]['metrics'][s.PRIMARY],-.23)
+        self.assertEqual(sum(r['count'] for r in d['recovered_scale']),8192)
+        self.assertEqual(sum(r['count'] for r in d['selection_diagnostics']),8192)
+
+    def test_header_wrong_is_not_automatically_body_wrong(self):
+        rows=list(self.rows);rows[0]=deepcopy(rows[0]);rows[0]['cpu']['receive']['header']['profile_id']=1
+        rows[0]['cpu']['evaluation_only']['header_undetected']=True
+        grid,tables,_=s.validate(rows,self.ids,self.frozen);diag=s.diagnostics(grid,tables)['receive_diagnostics'][0]
+        self.assertEqual(diag['header_undetected_count'],1);self.assertEqual(diag['accepted_body_wrong_payload_count'],0)
+        rows[0]['cpu']['evaluation_only']['accepted_body_wrong_payload']=[True]
+        with self.assertRaisesRegex(ValueError,'separate'):s.validate(rows,self.ids,self.frozen)
+
+    def test_actual_receive_scale_cannot_be_changed_to_generated_scale(self):
+        rows=list(self.rows);rows[0]=deepcopy(rows[0]);rows[0]['visual']['actual_received_m']=10
+        with self.assertRaisesRegex(ValueError,'RX scale'):s.validate(rows,self.ids,self.frozen)
+
+    def test_zero_margin_crossing_zero_unresolved_and_dino_only_stop(self):
+        p=deepcopy(self.result['paired'])
+        for r in p:
+            if r['metric']==s.PRIMARY:r.update(ci_low=.01,ci_high=.04)
+            if r['metric']=='clip_image_cosine':r.update(ci_low=-.01,ci_high=.02)
+        d=s.decision(p)
+        self.assertTrue(all(r['conclusion']=='REPRESENTATION_TARGET_ONLY_STOP' and r['unresolved'] for r in d))
+        self.assertTrue(all(r['metrics']['clip_image_cosine']=='UNRESOLVED' for r in d))
+        for r in p:
+            if r['metric']=='clip_image_cosine':r.update(ci_low=0,ci_high=.02)
+        self.assertTrue(all(r['conclusion']=='TARGET_AND_REGISTERED_INDEPENDENT_GATES_SUPPORTED' for r in s.decision(p)))
+        for r in p:
+            if r['metric']=='lpips_alex':r.update(ci_low=.001,ci_high=.02)
+        self.assertTrue(all(r['metrics']['lpips_alex']=='DEGRADATION_EVIDENCE' for r in s.decision(p)))
+
+    def test_signed_quality_loss_includes_all_sources_and_direction(self):
+        values=np.linspace(-.2,.2,64)
+        r=s.paired_interval(values,s.bootstrap_indices())
+        self.assertLess(r['ci_low'],0);self.assertGreater(r['ci_high'],0)
+        self.assertEqual(len(self.result['per_source_win_loss']),4608)
+        self.assertEqual(len(self.result['quality_loss_quantiles']),504)
+        self.assertTrue(all(x['outcome']=='tie' for x in self.result['per_source_win_loss']))
+
+    def test_original_model_512_grid_boundaries_not_zero_filled(self):
+        predictions=[dict(source_index=r['source_index'],source_id=r['source_id'],average_snr_db=r['average_snr_db'],
+            method=r['method'],quality_point=.4,quality_lower=.2,quality_upper=.7,unscored_probability=.2)
+            for r in self.result['source_means'] if r['metric']==s.PRIMARY]
+        got=s.compare_original_model(self.result,predictions)
+        self.assertEqual(len(got['method_points']),512);self.assertAlmostEqual(got['method_points'][0]['actual_minus_model_point'],.1)
+        self.assertEqual((len(got['source_deltas']),len(got['delta_summary'])),(256,4))
+        self.assertTrue(all(r['actual_minus_model_delta']==0 for r in got['source_deltas']))
+        self.assertFalse(got['new_bootstrap']);self.assertFalse(got['policy_selection'])
+        with self.assertRaisesRegex(ValueError,'Exactly'):s.compare_original_model(self.result,predictions[:-1])
+        predictions[0]['source_id']='different'
+        with self.assertRaisesRegex(ValueError,'mapping'):s.compare_original_model(self.result,predictions)
+
+    def test_input_facts_not_modified_and_pending_costs_remain_explicit(self):
+        rows,ids,frozen=fixture();before=s.digest([rows,frozen]);s.validate(rows,ids,frozen)
+        self.assertEqual(s.digest([rows,frozen]),before)
+        self.assertIn('PENDING',self.result['online_TX']['status'])
+        self.assertIn('PENDING',self.result['model_predicted_vs_actual_delta']['status'])
+        self.assertFalse(self.result['normal_input_closure_verified_by_this_pure_module'])
+
+if __name__=='__main__':unittest.main()

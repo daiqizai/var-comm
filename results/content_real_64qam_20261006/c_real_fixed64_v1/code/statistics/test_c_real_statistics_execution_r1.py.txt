@@ -1,0 +1,186 @@
+"""Complete synthetic receipt/row tests; no actual result, model or decoder reads."""
+from contextlib import contextmanager
+from copy import deepcopy
+import csv
+import json
+import os
+from pathlib import Path
+import tempfile
+import types
+import unittest
+from unittest.mock import patch
+import c_real_statistics_execution_r1 as e
+import c_real_statistics_r1 as core
+from test_c_real_statistics_r1 import fixture
+
+
+class Execution(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.rows,cls.ids,cls.identity=fixture()
+        cls.projected=core.aggregate(cls.rows,cls.ids,cls.identity)
+
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
+        self.root=Path(self.temp.name);self.ex=self.root/'execution';self.ex.mkdir();self.out=self.root/'out'
+        self.cfg=dict(root=str(self.root),execution_dir=str(self.ex),out=str(self.out),registration=str(self.ex/'reg.json'),
+            module=str(Path(e.__file__).absolute()),python='original-UM-python',visual_owner_module=str(self.root/'owner.py'),
+            resources=dict(affinity=[0,1],threads=2,nice=15),max_seconds=7200)
+        self.reg=dict(status=e.REGISTERED,budget_before={'branch':'C','charged':21495,'unresolved':0,
+            'phase_charged':dict(qualification=848,development=20647,diagnostic_reserve=0)},source_bindings={},input_bindings={})
+        e.save(self.cfg['registration'],self.reg);self.path=self.ex/'config.json';e.save(self.path,self.cfg)
+
+    def models(self):
+        models={};identity=deepcopy(self.identity)
+        for snr in (4,7,10,13):
+            d=self.root/f'model{snr}';d.mkdir();p=d/'per_source.csv'
+            with p.open('w',newline='',encoding='utf-8') as f:
+                w=csv.DictWriter(f,fieldnames=['source_id','population','method','quality_point','quality_lower','quality_upper','unscored_probability']);w.writeheader()
+                # Unselected rows are never numerically parsed or used for a decision.
+                w.writerow(dict(source_id='other800',population='construction800',method='QCSI-U',quality_point='not-read'))
+                for sid in self.ids:
+                    for method in ('QCSI-U','QCSI-C8'):
+                        w.writerow(dict(source_id=sid,population='internal_verification200',method=method,
+                            quality_point=.4,quality_lower=.2,quality_upper=.7,unscored_probability=.2))
+            c=d/'completion.json';e.save(c,dict(status='COMPLETE',schema='CONTENT_QCSI_MODEL_SCREEN_20261005_V1',average_snr_db=snr,outputs=e.bind([p])))
+            models[str(snr)]=dict(completion=str(c),per_source=str(p));identity['snrs'][str(snr)]['completion_sha256']=e.sha(c)
+        return models,identity,e.bind(p for m in models.values() for p in m.values())
+
+    def visual_rows(self):
+        v=self.root/'visual';(v/'sources').mkdir(parents=True);(v/'source_checkpoints').mkdir()
+        done=dict(outputs={},metric_evaluator_identity='a'*64)
+        for i,sid in enumerate(self.ids):
+            p=v/f'sources/{i:04d}.json';e.save(p,self.rows[i*128:(i+1)*128])
+            c=v/f'source_checkpoints/{i:04d}.json';e.save(c,dict(source_index=i,source_id=sid,frame_count=128,rows=str(p),
+                metric_identity='a'*64,outputs=e.bind([p])))
+            done['outputs'].update(e.bind([p,c]))
+        return dict(frozen={'source_ids':self.ids},visual={'science':done,'ctx':{'cfg':{'out':str(v)}}})
+
+    def helper(self,proof=None):
+        me=dict(pid=10,start_ticks=1,uid=1002,argv=['owner']);worker=dict(pid=11,start_ticks=2,uid=1002,argv=e.command(self.cfg,self.path))
+        if proof is None:proof=dict(owner_identity=me,worker_identity=worker,registration_sha256=e.sha(self.cfg['registration']))
+        held=[]
+        @contextmanager
+        def lock(_):
+            held.append(True)
+            try:yield
+            finally:held.pop()
+        h=types.SimpleNamespace(identity=lambda pid:proof['worker_identity'] if pid==os.getpid() else proof['owner_identity'],
+            absent=lambda old:True,locked=lambda p:True,lock=lock,resources=lambda a:None,capture=lambda c,a:worker)
+        return h,held,me,worker
+
+    def test_visual_own_registration_is_required_before_any_import(self):
+        owner=self.root/'owner.py';owner.write_text('# frozen fixture')
+        vreg=self.root/'visual_reg.json';vc=self.root/'visual_config.json';normal=self.root/'normal.json'
+        e.save(vc,dict(registration=str(vreg),owner_module=str(owner),cpu_supervisor_module=str(self.root/'cpu.py')))
+        e.save(vreg,dict(source_bindings=e.bind([owner]),config_sha256=e.sha(vc)));e.save(normal,{'status':'normal fixture'})
+        cfg=dict(self.cfg,visual_batch=dict(config=str(vc),completion=str(normal)))
+        pins=e.bind([vc,normal]);fake=types.SimpleNamespace(closed_batch=lambda spec:dict(science=dict(source_count=64,frame_count=8192),
+            done=dict(worker_reaped=True,exit_code=0,budget_after=self.reg['budget_before'])),validate_budget=lambda b:b)
+        with patch.object(e,'module',return_value=fake) as imported,patch.object(e,'VISUAL_OWNER_SHA',e.sha(owner)):
+            with self.assertRaisesRegex(ValueError,'self-registration'):e.visual_closed(cfg,pins)
+            imported.assert_not_called();pins.update(e.bind([vreg]));proof,_,before=e.visual_closed(cfg,pins)
+        self.assertEqual(before,self.reg['budget_before']);self.assertEqual(proof['science']['frame_count'],8192)
+
+    def test_model_metadata_checks_original_completion_and_exact_csv_sha(self):
+        models,identity,bound=self.models();e.model_metadata(models,identity,bound)
+        bad=deepcopy(identity);bad['snrs']['4']['completion_sha256']='0'*64
+        with self.assertRaisesRegex(ValueError,'original frozen'):e.model_metadata(models,bad,bound)
+        Path(models['4']['per_source']).write_text('changed')
+        with self.assertRaisesRegex(ValueError,'original frozen'):e.model_metadata(models,identity,bound)
+
+    def test_predictions_copy_only_original64_and_reject_duplicate_or_population(self):
+        models,_,_=self.models();rows=e.predictions(models,self.ids);self.assertEqual(len(rows),512)
+        self.assertEqual({r['source_id'] for r in rows},set(self.ids));self.assertEqual(rows[0]['source_index'],0)
+        path=Path(models['4']['per_source']);original=path.read_text();line=original.splitlines()[2]
+        path.write_text(original+line+'\n')
+        with self.assertRaisesRegex(ValueError,'duplicate'):e.predictions(models,self.ids)
+        path.write_text(original.replace('internal_verification200','construction800',1))
+        with self.assertRaisesRegex(ValueError,'population'):e.predictions(models,self.ids)
+
+    def test_full64_json_rows_and_model_tables_export_without_pixels(self):
+        ctx=self.visual_rows();rows=e.load_rows(ctx);self.assertEqual(rows,self.rows)
+        models,_,_=self.models();model=core.compare_original_model(self.projected,e.predictions(models,self.ids))
+        self.out.mkdir();outputs=e.export(self.out,self.projected,model);e.verify(outputs)
+        self.assertEqual(len(outputs),15);self.assertTrue(all(Path(p).suffix in ('.json','.csv') for p in outputs))
+        self.assertEqual(len(model['source_deltas']),256);self.assertEqual(len(model['delta_summary']),4)
+        path=Path(ctx['visual']['ctx']['cfg']['out'])/'sources/0000.json';path.write_text('[]')
+        with self.assertRaisesRegex(ValueError,'rows/identity'):e.load_rows(ctx)
+
+    def test_real_qualification_consumer_requires_all_four_runtime_sources(self):
+        sources=e.bind(Path(e.__file__).with_name(n) for n in e.SOURCES);log=self.root/'tests.log';log.write_text('Ran 22 tests in 0.1s\n\nOK\n')
+        q=dict(status=e.QUALIFIED,python=self.cfg['python'],tests_run=22,test_modules=e.TESTS,exit_code=0,process_waited=True,
+            new_GPU_calls=0,new_packet_decodes=0,actual_quality_rows_read=0,source_bindings=sources,input_bindings={},outputs=e.bind([log]),log=str(log))
+        qp=self.root/'q.json';e.save(qp,q);e.qualify_receipt(qp,self.cfg,sources,sources)
+        bad=dict(sources);bad.pop(str(Path(e.__file__).absolute()))
+        with self.assertRaisesRegex(ValueError,'source missing'):e.qualify_receipt(qp,self.cfg,bad,sources)
+
+    def test_registration_seal_and_second_attempt_rejection(self):
+        base=self.root/'outputs/CONTENT-REAL-64QAM-20261006/C';base.mkdir(parents=True);cfg=dict(self.cfg,execution_dir=str(base/'stat_e'),out=str(base/'stat_o'),
+            registration=str(base/'stat_e/execution_registration.json'),prepared_qualification=str(self.root/'q.json'))
+        e.save(cfg['prepared_qualification'],{});sources=e.bind(Path(e.__file__).with_name(n) for n in e.SOURCES)
+        request=self.root/'request.json';e.save(request,dict(schema=e.REQUEST,config=cfg,source_bindings=sources,input_bindings={}))
+        ctx=dict(before=self.reg['budget_before'],visual=dict(bindings={},ctx={'cpu_closed':{'cpu':{'cfg':{'ledger':'mutable.sqlite'}}}}))
+        with patch.object(e,'inspect',return_value=ctx),patch.object(e,'qualify_receipt',return_value={'source_bindings':{},'input_bindings':{},'outputs':{}}),patch.object(e,'budget',return_value=self.reg['budget_before']),patch.object(e,'check'):
+            done=e.register(request);self.assertEqual(done['status'],e.SEALED)
+            with self.assertRaisesRegex(ValueError,'Fresh'):e.register(request)
+        got,reg,bound=e.sealed(Path(cfg['execution_dir'])/'config.json');self.assertEqual(got,cfg);self.assertFalse(reg['policy_selection'])
+
+    def test_worker_actual_aggregate_8192_and512_predictions_end_to_end(self):
+        ctx=self.visual_rows();models,identity,_=self.models();self.cfg['models']=models
+        ctx.update(core=core,identity=identity,before=self.reg['budget_before']);ctx['visual']['ctx']['cpu_closed']={'cpu':{'cfg':{'ledger':'c.sqlite'}}}
+        h,_,_,_=self.helper();proof=dict(worker_identity=h.identity(os.getpid()),owner_identity=h.identity(os.getppid()),registration_sha256=e.sha(self.cfg['registration']))
+        e.save(self.ex/'worker_admission.json',proof)
+        with patch.object(e,'sealed',return_value=(self.cfg,self.reg,{})),patch.object(e,'helper',return_value=h),patch.object(e,'inspect',return_value=ctx),patch.object(e,'budget',return_value=self.reg['budget_before']),patch.object(e,'check'),patch.object(e.os,'sched_getaffinity',return_value={0,1},create=True),patch.object(e.os,'getpriority',return_value=15,create=True),patch.object(e.os,'PRIO_PROCESS',0,create=True),patch.dict(os.environ,{'CUDA_VISIBLE_DEVICES':'',**{k:'2' for k in e.THREADS}}):
+            done=e.worker(self.path)
+        self.assertEqual((done['source_count'],done['frame_count'],done['model_prediction_rows']),(64,8192,512));e.verify(done['outputs'])
+        self.assertFalse(done['C_complete']);self.assertFalse(done['online_timing_measured']);self.assertEqual(done['new_packet_decodes'],0)
+
+    def run_fixture(self,fail=False):
+        cpucfg=self.root/'cpu.json';cpuowner=self.root/'cpuowner.json';vc=self.root/'vc.json'
+        e.save(cpucfg,{'ledger':str(self.root/'c.sqlite')});e.save(cpuowner,{'worker_config':str(cpucfg)});e.save(vc,{'cpu_batch':{'owner_config':str(cpuowner)}})
+        self.cfg['visual_batch']={'config':str(vc)};h,held,me,ident=self.helper();h.identity=lambda pid:me
+        class Child:
+            pid=11;returncode=None
+            def poll(child):return None if fail else 0
+            def wait(child,timeout=None):
+                assert held,'Lock released before drain'
+                child.returncode=1 if fail else 0;return child.returncode
+        child=Child()
+        def spawn(*args,**kwargs):
+            if not fail:
+                self.out.mkdir();e.save(self.out/'completion.json',dict(status=e.SCIENCE,registration_sha256=e.sha(self.cfg['registration']),worker_identity=ident,
+                    source_count=64,frame_count=8192,budget_before=self.reg['budget_before'],budget_after=self.reg['budget_before'],outputs={}))
+            return child
+        checks=iter([None,ValueError('stop')])
+        def check(*a,**k):
+            if fail:
+                value=next(checks)
+                if value:raise value
+        patches=[patch.object(e,'sealed',return_value=(self.cfg,self.reg,{})),patch.object(e,'helper',return_value=h),patch.object(e,'check',side_effect=check),patch.object(e.subprocess,'Popen',side_effect=spawn)]
+        return h,held,child,patches
+
+    def test_parent_waits_and_closes_log_before_normal_receipt(self):
+        h,held,child,ps=self.run_fixture()
+        with ps[0],ps[1],ps[2],ps[3]:done=e.run(self.path)
+        self.assertEqual(done['status'],e.DONE);self.assertEqual(child.returncode,0);self.assertEqual(held,[])
+        x=e.read(self.ex/'worker_exit.json');self.assertTrue(x['reaped']);self.assertEqual(x['log_sha256'],e.sha(self.ex/'worker.log'))
+
+    def test_stop_drains_under_lock_preserves_failure_and_disallows_retry(self):
+        h,held,child,ps=self.run_fixture(fail=True)
+        with ps[0],ps[1],ps[2],ps[3],self.assertRaisesRegex(ValueError,'stop'):e.run(self.path)
+        self.assertEqual(child.returncode,1);self.assertEqual(held,[]);self.assertTrue((self.ex/'failure.json').exists())
+        self.assertTrue((self.ex/'STOP').exists());self.assertFalse((self.ex/'completion.json').exists())
+        self.assertEqual(e.read(self.ex/'worker_exit.json')['exit_code'],1)
+
+    def test_normal_closed_batch_requires_actual_exit_and_all_output_sha(self):
+        h,held,child,ps=self.run_fixture()
+        with ps[0],ps[1],ps[2],ps[3]:e.run(self.path)
+        with patch.object(e,'sealed',return_value=(self.cfg,self.reg,{})),patch.object(e,'helper',return_value=h),patch.object(e,'check'):
+            closed=e.closed_batch(dict(config=str(self.path),completion=str(self.ex/'completion.json')))
+            self.assertEqual(closed['done']['frame_count'],8192)
+            h.absent=lambda old:False
+            with self.assertRaisesRegex(ValueError,'wait, exit'):e.closed_batch(dict(config=str(self.path),completion=str(self.ex/'completion.json')))
+
+
+if __name__=='__main__':unittest.main()

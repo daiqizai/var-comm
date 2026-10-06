@@ -1,0 +1,170 @@
+"""Separate fixed C TX timing registration and single-GPU waited supervisor."""
+from __future__ import annotations
+import argparse
+from contextlib import ExitStack
+import os
+from pathlib import Path
+import re
+import signal
+import subprocess
+import sys
+import time
+import traceback
+import c_online_tx_driver_r1 as d
+
+require,read,save,sha,bind,combine,verify,module=d.require,d.read,d.save,d.sha,d.bind,d.combine,d.verify,d.module
+REQUEST='C_REAL_ONLINE_TX_REGISTRATION_REQUEST_R1'
+SEALED='C_REAL_ONLINE_TX_REGISTERED_NOT_LAUNCHED_R1'
+DONE='C_REAL_ONLINE_TX_NORMALLY_COMPLETE_R1'
+QPASS='C_REAL_ONLINE_TX_CPU_QUALIFICATION_PASS_R1'
+TEST_MODULES=['test_c_online_tx_components_r1','test_c_online_tx_driver_r1','test_c_online_tx_execution_r1']
+TEST_COUNT=29
+SOURCES=['c_online_tx_components_r1.py','test_c_online_tx_components_r1.py','c_online_tx_driver_r1.py',
+    'test_c_online_tx_driver_r1.py','c_online_tx_execution_r1.py','test_c_online_tx_execution_r1.py']
+STOP=False
+def stop(*_):
+    global STOP
+    STOP=True
+
+def qualification(path,cfg,pins):
+    q=read(path)
+    require(q['status']==QPASS and q['tests_run']==TEST_COUNT and q['test_modules']==TEST_MODULES
+        and q['python']==cfg['python'] and q['exit_code']==0 and q['process_waited'] is True
+        and q['new_GPU_calls']==q['new_packet_decodes']==0,'Actual pure timing interface qualification required')
+    for key in ('source_bindings','input_bindings','outputs'):verify(q[key])
+    for name in SOURCES:
+        p=str(Path(__file__).with_name(name).absolute());require(q['source_bindings'].get(p)==pins.get(p)==sha(p),'Qualified timing source missing '+name)
+    for p in (cfg['visual_batch']['config'],cfg['visual_batch']['completion'],cfg['encoder_module']):
+        require(q['input_bindings'].get(p)==pins.get(p)==sha(p),'Actual precursor or encoder not qualification-bound')
+    log=q['log'];require(q['outputs'].get(log)==sha(log),'Closed timing test log missing')
+    text=Path(log).read_text(encoding='utf-8');require(re.search(r'Ran '+str(TEST_COUNT)+r' tests in .*\n\s*OK\s*$',text)
+        and not re.search(r'\bskipped\b',text,re.I),'Exact timing test inventory differs')
+    return q
+
+def register(path):
+    request=read(path);require(request['schema']==REQUEST,'Explicit timing request required')
+    cfg=dict(request['config']);verify(request['source_bindings']);verify(request['input_bindings'])
+    sources=dict(request['source_bindings']);inputs=combine(request['input_bindings'],bind([path]))
+    for name in SOURCES:
+        p=str(Path(__file__).with_name(name).absolute());require(sources.get(p)==sha(p),'New timing source omitted '+name)
+    require(cfg['owner_module']==str(Path(__file__).absolute()) and cfg['driver_module']==str(Path(d.__file__).absolute()),'Exact new timing runtime required')
+    bound=combine(sources,inputs);closed,old=d.normal_visual(cfg,bound);prior=closed['ctx'];before=prior['before']
+    cfg.update(python=prior['cfg']['python'],visual_lock=prior['cfg']['visual_lock'],nvidia_smi=prior['cfg']['nvidia_smi'],
+        cpu_supervisor_module=prior['cfg']['cpu_supervisor_module'],timing_design=d.core.design(prior['cpu_closed']['cpu']['frozen']))
+    sources=combine(sources,prior['reg']['source_bindings']);inputs=combine(inputs,closed['bindings'],bind([cfg['encoder_module']]))
+    e=Path(cfg['execution_dir']);out=Path(cfg['out']);study=Path(cfg['root'])/'outputs/CONTENT-REAL-64QAM-20261006/C'
+    require(e.parent==out.parent==study and e!=out and not e.exists() and not out.exists(),'New distinct timing execution/output directories required')
+    require(cfg['registration']==str(e/'execution_registration.json') and cfg['native_source_graph']==str(e/'native_source_graph.json'),'Exact timing output paths required')
+    old.check_stop(cfg);old.validate_resources(cfg)
+    q=qualification(cfg['prepared_qualification'],cfg,combine(sources,inputs));inputs=combine(inputs,q['input_bindings'],q['outputs'],bind([cfg['prepared_qualification']]))
+    require(prior['cpu_closed']['cpu']['cfg']['ledger'] not in inputs,'Mutable C ledger cannot be SHA-bound as static input')
+    vc=prior['visual_config'];closure=module(vc['static_closure_module'],'c_timing_static_source_closure',combine(sources,inputs))
+    native=closure.collect_bindings(cfg['root'],vc['native_runtime'],vc['var_source'],vc['dino_source'],vc['uep_runtime'])
+    require(all(native.get(p)==h for p,h in prior['native_bindings'].items()),'Original qualified native graph changed')
+    sources=combine(sources,native);e.mkdir();save(e/'attempt.json',dict(request_sha256=sha(path),automatic_retry=False))
+    try:
+        save(cfg['native_source_graph'],dict(status='EXACT_SOURCE_CLOSURE_MATCH',source_bindings=native,original_C_visual_registration_sha256=prior['regsha']))
+        save(e/'config.json',cfg);inputs=combine(inputs,bind([cfg['native_source_graph'],e/'config.json']))
+        # Reuse the single normal predecessor proof; no recursive re-open during this seal.
+        ctx=d.inspect(cfg,combine(sources,inputs),closed=closed,prior_owner=old)
+        require(d.budget(ctx)==before,'C ledger changed during timing registration');verify(sources);verify(inputs)
+        reg=dict(status=d.REG,config_sha256=sha(e/'config.json'),source_bindings=sources,input_bindings=inputs,
+            budget_before=before,timing_design=ctx['scope'],source_count=16,case_count=128,new_packet_decodes=0,policy_selection=False)
+        save(cfg['registration'],reg);done=dict(status=SEALED,registration_sha256=sha(cfg['registration']),budget_before=before,budget_after=d.budget(ctx),
+            outputs=bind([e/'config.json',cfg['registration'],cfg['native_source_graph']]),new_GPU_calls=0,new_packet_decodes=0)
+        require(done['budget_after']==before,'C ledger changed before timing seal');save(e/'registration_completion.json',done);return done
+    except BaseException:save(e/'registration_failure.json',dict(traceback=traceback.format_exc(),GPU_started=False));raise
+
+def load(path):
+    ctx=d.load_registered(path);cfg=ctx['cfg'];e=Path(cfg['execution_dir']);ctx['driver']=d
+    seal=read(e/'registration_completion.json');require(seal['status']==SEALED and seal['registration_sha256']==ctx['regsha']
+        and not(e/'registration_failure.json').exists(),'Successful new timing seal required');verify(seal['outputs'])
+    qualification(cfg['prepared_qualification'],cfg,ctx['bound']);return ctx
+
+def check_live(ctx,proof):
+    require(not STOP,'Timing supervisor stop requested')
+    # This is the actual, SHA-bound successful environment-compatible C owner.
+    # It retains original identity, locks, affinity, nice, CUDA and phase-aware env checks.
+    ctx['prior_owner'].check_live(ctx,proof)
+
+def admit_worker(ctx):
+    cfg=ctx['cfg'];e=Path(cfg['execution_dir']);old=ctx['prior_owner'];p=e/'worker_admission.json';until=time.monotonic()+10
+    while not p.exists():require(time.monotonic()<until,'Timing worker admission absent');time.sleep(.02)
+    proof=read(p);launch=read(e/'worker_launch.json');owner=read(e/'owner_identity.json');gpu=read(e/'gpu_admission.json')
+    require(proof['status']=='C_ONLINE_TX_WORKER_ADMITTED_R1' and proof['registration_sha256']==launch['registration_sha256']==owner['registration_sha256']==ctx['regsha']
+        and proof['config_sha256']==sha(cfg['_path']) and proof['worker_identity']==launch['identity'] and proof['owner_identity']==owner['identity']
+        and proof['worker_identity']['argv']==d.command(cfg) and proof['gpu_admission_sha256']==sha(e/'gpu_admission.json')
+        and gpu['status']=='GPU_IDLE_CONFIRMED' and gpu['nvidia_smi_sha256']==sha(cfg['nvidia_smi']),'Exact new timing admission required')
+    check_live(ctx,proof);require(d.budget(ctx)==ctx['before'],'C budget changed before timing');return proof
+
+def validate_done(ctx,exit_receipt):
+    cfg=ctx['cfg'];old=ctx['prior_owner'];done=read(Path(cfg['out'])/'completion.json')
+    require(exit_receipt['exit_code']==0 and exit_receipt['reaped'] is True and old.absent(exit_receipt['identity']), 'Timing worker not reaped normally')
+    require(done['status']==d.DONE and done['worker_identity']==exit_receipt['identity'] and done['registration_sha256']==ctx['regsha']
+        and done['config_sha256']==sha(cfg['_path']) and done['source_count']==16 and done['case_count']==128 and done['fresh_encoder_calls']==512
+        and done['warmup_repetitions']==1 and done['measured_repetitions']==3 and done['timing_design']==ctx['scope']
+        and done['new_packet_decodes']==done['new_noise']==done['new_quality_samples']==0 and done['policy_selection'] is False
+        and done['source_ids']==ctx['frozen']['source_ids'][:16] and done['source_indices']==list(range(16))
+        and done['budget_before']==done['budget_after']==ctx['before'],'Complete exact first16 timing receipt required')
+    require(done['source_bindings']==ctx['reg']['source_bindings'] and done['input_bindings']==ctx['reg']['input_bindings']
+        and done['native_source_bindings']==ctx['native_bindings'],'Timing sources changed')
+    verify(done['outputs']);verify(done['source_bindings']);verify(done['input_bindings'])
+    cases=[]
+    for i in range(16):
+        cp_path=Path(cfg['out'])/f'source_checkpoints/{i:04d}.json';cp=read(cp_path)
+        require(done['outputs'].get(str(cp_path))==sha(cp_path) and cp['status']=='C_FIRST16_ONLINE_TX_SOURCE_COMPLETE_R1'
+            and cp['source_index']==i and cp['source_id']==done['source_ids'][i] and cp['case_count']==8 and cp['fresh_encoder_calls']==32
+            and cp['registration_sha256']==ctx['regsha'] and all(done['outputs'].get(p)==h for p,h in cp['outputs'].items()),'Incomplete timing source checkpoint')
+        cases.extend(read(Path(cfg['out'])/f'sources/{i:04d}.json'))
+    require(cases==read(Path(cfg['out'])/'component_cases.json') and d.summarize(cases)==read(Path(cfg['out'])/'component_summary.json'),
+        'Actual fixed-grid timing rows/summary differ');require(d.budget(ctx)==ctx['before'],'C budget changed');return done
+
+def run(path):
+    ctx=load(path);cfg=ctx['cfg'];old=ctx['prior_owner'];e=Path(cfg['execution_dir']);old.check_stop(cfg)
+    require(not(e/'run_attempt.json').exists() and not(e/'failure.json').exists() and not Path(cfg['out']).exists(),'No retry of timing evidence')
+    save(e/'run_attempt.json',dict(registration_sha256=ctx['regsha'],automatic_retry=False));rec=None;stack=ExitStack();identity=old.identity(os.getpid())
+    try:
+        require(set(cfg['resources']['affinity'])<=os.sched_getaffinity(0),'Original GPU host cores unavailable')
+        for p in old.lock_paths(ctx):stack.enter_context(old.lock(p))
+        require(d.budget(ctx)==ctx['before'],'C ledger changed before timing admission');gpu=old.gpu_idle(cfg['nvidia_smi'])
+        save(e/'owner_identity.json',dict(identity=identity,registration_sha256=ctx['regsha'],config_sha256=sha(path)));save(e/'gpu_admission.json',gpu)
+        cmd=d.command(cfg);h=(e/'worker.log').open('xb')
+        try:child=subprocess.Popen(cmd,cwd=cfg['root'],env=old.environment(ctx),stdout=h,stderr=subprocess.STDOUT,stdin=subprocess.DEVNULL,
+            start_new_session=True,preexec_fn=lambda:old.resources(cfg['resources']['affinity']))
+        except BaseException:h.close();raise
+        rec=dict(child=child,handle=h,closed=False);save(e/'spawn_pending_identity.json',dict(pid=child.pid,argv=cmd,identity_verified=False));rec['identity']=old.capture(child,cmd)
+        save(e/'worker_launch.json',dict(identity=rec['identity'],registration_sha256=ctx['regsha']))
+        save(e/'worker_admission.json',dict(status='C_ONLINE_TX_WORKER_ADMITTED_R1',owner_identity=identity,worker_identity=rec['identity'],
+            registration_sha256=ctx['regsha'],config_sha256=sha(path),gpu_admission_sha256=sha(e/'gpu_admission.json')))
+        start=time.monotonic()
+        while child.poll() is None:
+            try:require(not STOP and time.monotonic()-start<cfg['resources']['max_seconds'],'Timing signal/wall limit');old.check_stop(cfg)
+            except BaseException:old.marker(cfg,'Timing stop/deadline: preserve source boundary and drain')
+            time.sleep(.25)
+        old.finish(rec,e);old.check_stop(cfg);science=validate_done(ctx,rec['exit'])
+        done=dict(status=DONE,registration_sha256=ctx['regsha'],config_sha256=sha(path),owner_identity=identity,worker_identity=rec['identity'],
+            worker_reaped=True,exit_code=0,source_count=16,case_count=128,budget_before=ctx['before'],budget_after=d.budget(ctx),
+            outputs=combine(science['outputs'],bind([Path(cfg['out'])/'completion.json']+[e/n for n in ('owner_identity.json','gpu_admission.json',
+                'spawn_pending_identity.json','worker_launch.json','worker_admission.json','worker_exit.json','worker.log')])),
+            source_bindings=ctx['reg']['source_bindings'],input_bindings=ctx['reg']['input_bindings'],new_packet_decodes=0,new_noise=0,
+            policy_selection=False,automatic_successor=False,overall_C_delivery_complete=False)
+        require(done['budget_before']==done['budget_after'],'C budget changed before normal timing closure');save(e/'completion.json',done);return done
+    except BaseException:
+        error=traceback.format_exc()
+        if rec is not None:old.marker(cfg,'Timing owner failure; drain without releasing either lock');old.finish(rec,e)
+        save(e/'failure.json',dict(status='FAILED_PRESERVE_NO_RETRY',traceback=error,owner_identity=identity,worker_pid=None if rec is None else rec['child'].pid,new_packet_decodes=0));raise
+    finally:stack.close()
+
+def closed_batch(spec):
+    ctx=load(spec['config']);cfg=ctx['cfg'];e=Path(cfg['execution_dir']);old=ctx['prior_owner'];old.check_stop(cfg,historical=True)
+    require(spec['completion']==str(e/'completion.json') and not(e/'failure.json').exists() and not(Path(cfg['out'])/'failure.json').exists(),'Normal timing owner required')
+    done=read(spec['completion']);owner=read(e/'owner_identity.json');launch=read(e/'worker_launch.json');x=read(e/'worker_exit.json')
+    require(done['status']==DONE and done['owner_identity']==owner['identity'] and done['worker_identity']==launch['identity']==x['identity']
+        and done['worker_reaped'] is True and done['exit_code']==0 and x['log_sha256']==sha(e/'worker.log')
+        and old.absent(owner['identity']) and old.absent(x['identity']),'Actual timing owner and child must exit normally')
+    science=validate_done(ctx,x);verify(done['outputs']);return dict(ctx=ctx,done=done,science=science,
+        bindings=combine(ctx['bound'],done['outputs'],bind([spec['config'],spec['completion'],cfg['registration']])))
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--stage',choices=('register','run'),required=True);p.add_argument('--request');p.add_argument('--config');a=p.parse_args()
+    signal.signal(signal.SIGTERM,stop);signal.signal(signal.SIGINT,stop);print((register(a.request)if a.stage=='register'else run(a.config))['status'],flush=True)

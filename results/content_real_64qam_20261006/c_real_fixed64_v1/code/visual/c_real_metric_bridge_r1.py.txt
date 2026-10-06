@@ -1,0 +1,48 @@
+"""Original H batch-one metric API, without its H100 mismatch/population rule.
+
+The caller supplies an already loaded and qualified H SuiteBackend. No models
+are constructed, no new metric definition is fitted, and no RNG is used.
+"""
+from copy import deepcopy
+import numpy as np
+import c_real_received_adapter_r1 as rx
+
+REQUIRED=('psnr_db','lpips_alex','dino_cosine','dinov2_vitl14_cosine','clip_image_cosine','dists','dreamsim','ms_ssim',
+    'resnet50_prediction','resnet50_source_prediction','resnet50_top1_label','resnet50_top1_source_prediction',
+    'resnet50_source_top1_label','resnet50_top1_probability','semantic_error','confidently_wrong',
+    'convnext_prediction','convnext_source_prediction','convnext_top1_label','convnext_top1_source_prediction',
+    'convnext_source_prediction_agreement','convnext_source_correct_to_wrong','convnext_source_wrong_to_correct')
+
+class MetricBridge:
+    def __init__(self,original_suite_backend):
+        self.base=original_suite_backend;self.base.check()
+        self.metadata=dict(original_suite=deepcopy(self.base.metadata),metric_batch_size=1,
+            PSNR_definition='Original native.quality_metrics float32 Torch mean; no float64 replacement',
+            mismatched_DINO='NOT_REGISTERED_FOR_C64',DINO_specificity='NOT_REGISTERED_FOR_C64',
+            source_population='original_calibration_internal64',selection=False)
+        self.identity=rx.digest(self.metadata);self.original_identity=self.base.identity
+    def check(self):
+        self.base.check();rx.require(self.base.identity==self.original_identity and rx.digest(self.metadata)==self.identity
+            and rx.digest(self.base.metadata)==rx.digest(self.metadata['original_suite']),'Original metric identity changed')
+    def prepare(self,reference):self.check();return self.base.prepare(reference)
+    def score(self,reference,reconstruction,label,prepared):
+        self.check();b=self.base;t=b.torch;rx.rgb_sha(reference);rx.rgb_sha(reconstruction)
+        with t.inference_mode(),b.metric.no_network(),t.autocast(device_type=b.evaluator.device.type,enabled=False):
+            legacy,source_feature,_=b.native.quality_metrics(reference,[reconstruction],b.lpips,b.dino,b.evaluator.device)
+            rx.require(len(legacy)==1 and np.array_equal(np.asarray(source_feature),prepared['dino_feature']),
+                'Original batch-one DINO source feature differs')
+            modern=b.evaluator.score(prepared['reference_tensor'],t.from_numpy(reconstruction[None]),[label],
+                label_conditioned=False,prepared=prepared['prepared'])
+            rx.require(len(modern)==1,'Original unified metric batch must remain one')
+            prob,pred=b.evaluator.models['resnet50'](b.metric.preprocess_resnet50(
+                t.from_numpy(reconstruction[None]).to(b.evaluator.device))).float().softmax(-1).max(-1)
+            prob,pred=float(prob.cpu().tolist()[0]),int(pred.cpu().tolist()[0])
+            independent=b.classifier.score(reconstruction,true_label=label,source_prediction=prepared['convnext_prediction'])
+        rx.require(pred==modern[0]['resnet50_prediction'] and modern[0]['resnet50_source_prediction']==prepared['resnet50_prediction'],
+            'Classifier source/prediction identity differs')
+        values=dict(modern[0],**independent)
+        values.update(psnr_db=float(legacy[0]['psnr_db']),lpips_alex=float(legacy[0]['lpips_alex']),dino_cosine=float(legacy[0]['dino_cosine']),
+            resnet50_top1_probability=prob,semantic_error=int(pred!=prepared['resnet50_prediction']),
+            confidently_wrong=int(prob>=.5 and pred!=prepared['resnet50_prediction']),
+            convnext_model_id='torchvision_ConvNeXt_Tiny_IMAGENET1K_V1',label_conditioned=False)
+        self.check();return values

@@ -1,0 +1,145 @@
+"""Synthetic CPU tests only: no Torch import, model, actual pixels or quality."""
+from copy import deepcopy
+from types import SimpleNamespace
+import unittest
+import numpy as np
+import c_online_tx_components_r1 as c
+
+
+def original_formula(coefficients, rows, Q, gray):
+    a = np.asarray(coefficients)
+    score = a[:, :, 0, None] * Q[gray][None, None, :]
+    score += a[:, :, 1, None] * Q[np.asarray(rows['prefix'], dtype=int)][:, None, :]
+    score += a[:, :, 2, None] * Q[np.asarray(rows['target'], dtype=int)][:, None, :]
+    return score
+
+
+def fixture():
+    ids = ['synthetic-' + str(i) for i in range(64)]
+    profiles = {n: dict(candidate_index=n, G=1, prefix_state_id=None, full_state_id='m4_K0',
+        groups=[dict(source_bits=360)]) for n in (10, 20)}
+    books = {'0': profiles[10], '1': profiles[20]}
+    frozen = dict(source_ids=ids, protocol={'online_TX': dict(sources=16, source_rule='first16 registered64',
+        forbid_final_candidate_render_or_DINO_cache=True, source_DINO_reused_within_frame=True, isolated_timing=True)},
+        tables={(s, m): dict(codebook=deepcopy(books), choices={i: [0] * 8 for i in ids}) for s in c.SNRS for m in c.METHODS})
+    a = np.zeros((2, 8, 4), np.float64); a[:, :, 2] = .4; a[:, :, 3] = .6
+    arrays = dict(candidate_indices=np.array([10, 20]), coefficients=a,
+        prefix_indices=np.array([0, 0]), target_indices=np.array([1, 1]), bin_masses=np.full(8, .125, np.float64))
+    meta = dict(average_snr_db=4, state_ids=['gray', 'm4_K0'], selected_profiles={str(k): v for k, v in profiles.items()},
+        U_profile_indices_by_bin=[10] * 8, C8_profile_indices=[10, 20], bin_masses=[.125] * 8)
+    return frozen, c.model_table(frozen, 4, meta, arrays), meta, arrays
+
+
+class Calls:
+    def __init__(self):
+        self.encoder_calls = self.renders = self.features = self.entropy_calls = self.packs = 0
+        self.tokens = np.arange(680, dtype=np.int64)
+        self.time = 0.
+    def clock(self):
+        self.time += .001
+        return self.time
+    def encoder(self, image):
+        self.encoder_calls += 1
+        return self.tokens.copy()
+    def render(self, tokens, state):
+        self.renders += 1
+        return dict(image=np.full((3, 256, 256), .25, np.float32), prior_forward_calls=10,
+            entropy_order_computations=int(state.endswith('K1')))
+    def feature(self, image):
+        self.features += 1
+        return float(image[0, 0, 0])
+    def cosine(self, a, b):
+        return b - .75  # Negative DINO scores must remain negative, not clipped.
+    def entropy(self, tokens, ms):
+        self.entropy_calls += 1
+        return {m: np.arange(c.SIZES[m] ** 2) for m in ms}, {'prior_forward_calls': sum(m + 1 for m in ms)}
+    def pack(self, tokens, orders, profile):
+        self.packs += 1
+        return [np.zeros(g['source_bits'], dtype=np.uint8) for g in profile['groups']]
+    def args(self):
+        return dict(expected_tokens_sha256=c.token_sha(self.tokens), encoder=self.encoder, render_fresh=self.render,
+            dino_features=self.feature, dino_cosine=self.cosine, entropy_fresh=self.entropy, pack=self.pack,
+            score_block=original_formula, synchronize=lambda: None, clock=self.clock)
+
+
+class Timing(unittest.TestCase):
+    def setUp(self):
+        self.f, self.m, self.meta, self.arrays = fixture(); self.calls = Calls()
+        self.pixels = np.zeros((3, 256, 256), dtype=np.uint8)
+    def frame(self, method='QCSI-C8', **kw):
+        args = self.calls.args(); args.update(kw)
+        return c.frame_once(self.pixels, 0, 4, method, self.f, self.m, **args)
+    def test_fixed_design_no_extra_quality_samples(self):
+        d = c.design(self.f)
+        self.assertEqual((d['case_count'], d['total_fresh_encoder_calls']), (128, 512))
+        self.assertEqual(d['bins'], list(range(8)) * 2)
+        self.assertFalse(d['repeated_execution_is_new_quality_sample'])
+    def test_U_has_no_content_quality_work(self):
+        r = self.frame('QCSI-U')
+        self.assertEqual((self.calls.encoder_calls, self.calls.renders, self.calls.features, self.calls.packs), (1, 0, 0, 1))
+        self.assertEqual(r['actual_candidate_completions'], 0)
+        self.assertEqual(r['source_DINO_calls'], 0)
+    def test_C8_fresh_duplicate_states_and_same_frame_source_only(self):
+        r = self.frame()
+        self.assertEqual((self.calls.renders, self.calls.features), (2, 5))
+        self.assertEqual(r['source_DINO_calls'], 1)
+        self.assertEqual(r['actual_candidate_completions'], 2)
+        self.assertEqual(r['candidate_prior_forward_calls'], 20)
+        self.frame()
+        self.assertEqual((self.calls.encoder_calls, self.calls.renders, self.calls.features), (2, 4, 10))
+    def test_exact_first_tie_and_U_probability_contributes_zero(self):
+        self.m['candidates'][20]['coefficients'][:, 3] = 1000.
+        self.assertEqual(self.frame()['frozen_candidate_index'], 10)
+    def test_no_epsilon_tie_changes_tiny_real_difference(self):
+        self.m['candidates'][20]['coefficients'][:, 2] -= 1e-15
+        self.f['tables'][4, 'QCSI-C8']['choices'][self.f['source_ids'][0]][0] = 1
+        self.assertEqual(self.frame()['frozen_candidate_index'], 20)
+    def test_stored_choice_cannot_repair_fresh_mismatch(self):
+        self.f['tables'][4, 'QCSI-C8']['choices'][self.f['source_ids'][0]][0] = 1
+        with self.assertRaisesRegex(ValueError, 'Fresh TX choice differs'):
+            self.frame()
+        self.assertEqual(self.calls.packs, 0)
+    def test_fresh_encoder_mismatch_stops_before_metrics(self):
+        with self.assertRaisesRegex(ValueError, 'Fresh Encoder'):
+            self.frame(expected_tokens_sha256='0' * 64)
+        self.assertEqual(self.calls.features, 0)
+    def test_selected_partial_packing_has_new_entropy(self):
+        p = self.f['tables'][4, 'QCSI-U']['codebook']['0']; p['full_state_id'] = 'm4_K1'
+        p['groups'][0]['source_bits'] = 372
+        r = self.frame('QCSI-U')
+        self.assertEqual(r['selected_payload_entropy_scales'], [4])
+        self.assertEqual((self.calls.entropy_calls, self.calls.features), (1, 0))
+    def test_repeats_execute_four_fresh_frames(self):
+        r = c.repetitions(self.frame)
+        self.assertEqual([x['repetition_kind'] for x in r['rows']], ['warmup', 'measured', 'measured', 'measured'])
+        self.assertEqual((self.calls.encoder_calls, self.calls.renders, self.calls.features), (4, 8, 20))
+    def test_bad_geometry_and_unregistered_source_rejected(self):
+        self.arrays['coefficients'] = self.arrays['coefficients'].astype(np.float32)
+        with self.assertRaisesRegex(ValueError, 'precision'):
+            c.model_table(self.f, 4, self.meta, self.arrays)
+        with self.assertRaisesRegex(ValueError, 'first16'):
+            c.frame_once(self.pixels, 16, 4, 'QCSI-U', self.f, self.m, **self.calls.args())
+    def test_software_exception_preserved_not_synthesized(self):
+        def broken(*a): raise RuntimeError('model failure')
+        with self.assertRaisesRegex(RuntimeError, 'model failure'):
+            self.frame(render_fresh=broken)
+        self.assertEqual(self.calls.packs, 0)
+    def test_original_renderer_fresh_context_closed_each_call(self):
+        instances = []
+        class Renderer:
+            def __init__(self, loaded, receiver, flat, states, *, use_snapshots):
+                self.closed = False; self.orders = {}; self.prior_forward_calls = 10
+                assert use_snapshots is False
+                instances.append(self)
+            def render(self, state, receiver):
+                return {'image': np.zeros((3, 256, 256), np.float32)}
+            def close(self): self.closed = True
+        native = SimpleNamespace(loaded={}, receiver=None)
+        for _ in range(2):
+            c.original_render(native, SimpleNamespace(SourceRenderer=Renderer), self.calls.tokens, 'm4_K0')
+        self.assertEqual(len(instances), 2)
+        self.assertTrue(all(x.closed for x in instances))
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -1,0 +1,118 @@
+"""Private fixed C first16 timing qualify/register/run, each explicitly requested."""
+from __future__ import annotations
+import argparse
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import sys
+import traceback
+
+PINS={
+ 'c_online_tx_components_r1.py':'9bad9d01faa694116f25ba2eec08df9082ce8e483b2f9806342e419e25cd0b4c',
+ 'test_c_online_tx_components_r1.py':'fa3860a2f1ff456e2346f93ffe812c8942c02abc306eb55c317743068fa31886',
+ 'c_online_tx_driver_r1.py':'7059a92c004a6dee29092cc23793fd5950dd87451f91f918a1a7b219931106ce',
+ 'test_c_online_tx_driver_r1.py':'cc22d330412234bdfe8cf708de76e82933d71e3e886ffb82762faa5d718c4edf',
+ 'c_online_tx_execution_r1.py':'5273a7eb156c9d5f969fe9193111aec0a34819f02a6e426f5c83e0e06d736134',
+ 'test_c_online_tx_execution_r1.py':'17c1c1495dda2280774fbd07af988680dcd33afc3039cb3a0bf05ededf2c195e'}
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def require(ok,msg):
+    if not ok:raise ValueError(msg)
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def module(p,name):
+    spec=importlib.util.spec_from_file_location(name,p);m=importlib.util.module_from_spec(spec);sys.modules[name]=m;spec.loader.exec_module(m);return m
+
+def locations(root,runtime,visual_config):
+    root=str(Path(root).absolute());runtime=str(Path(runtime).absolute());o=Path(root)/'outputs/CONTENT-REAL-64QAM-20261006'
+    return dict(root=root,runtime=runtime,visual_config=str(Path(visual_config).absolute()),
+        encoder=str(Path(root)/'experiments/content-real-64qam-20261006/h_online_components.py'),
+        execution=str(o/'C/online_tx_execution_r1'),out=str(o/'C/online_tx_r1'),
+        qualification=str(o/'prepared_v1/c_online_tx_cpu_qualification_r1'),operations=str(o/'prepared_v1/c_online_tx_operations_r1'))
+
+def metric_metadata(paths,science):
+    p=str(Path(paths['out'])/'metric_identity.json')
+    require(science['outputs'].get(p)==sha(p),'Actual C metric identity must be science-output bound')
+    value=read(p);require(value['metric_identity']==science['metric_evaluator_identity'],'Actual C metric identity differs')
+    evaluator=value['metadata']['original_suite']['metric_evaluator']
+    require(evaluator['numerical_backend']['device']=='cuda:0' and evaluator['metrics']['dinov2_vitl14']['status']=='READY',
+        'Original admitted DINO-L on GPU0 required before any new model')
+    return p
+
+def context(loc):
+    rt=Path(loc['runtime']);sources={str(rt/n):h for n,h in PINS.items()}
+    require(all(sha(p)==h for p,h in sources.items()),'Frozen six timing source bytes differ')
+    sys.path.insert(0,str(rt));e=module(rt/'c_online_tx_execution_r1.py','c_online_tx_private_execution')
+    cfg=read(loc['visual_config']);reg=read(cfg['registration']);e.verify(reg['source_bindings']);e.verify(reg['input_bindings'])
+    require(reg['status']=='C_REAL_VISUAL_REGISTERED_R1' and reg['config_sha256']==sha(loc['visual_config'])
+        and reg['source_bindings'].get(cfg['owner_module'])==sha(cfg['owner_module']),'Actual successful C owner source/config required')
+    normalp=Path(cfg['execution_dir'])/'completion.json';sciencep=Path(cfg['out'])/'completion.json';normal,science=read(normalp),read(sciencep)
+    require(normal['status']=='C_REAL_VISUAL_NORMALLY_COMPLETE_R1' and normal['exit_code']==0 and normal['worker_reaped'] is True
+        and science['status']=='C_REAL_ACTUAL_RX_METRICS_COMPLETE_R1' and science['images_scored'] is True
+        and normal['registration_sha256']==science['registration_sha256']==sha(cfg['registration'])
+        and normal['frame_count']==science['frame_count']==8192 and normal['source_count']==science['source_count']==64,
+        'Normal complete C RX/metrics metadata required; full closed_batch is repeated at registration')
+    require(not(Path(cfg['execution_dir'])/'failure.json').exists() and not(Path(cfg['out'])/'failure.json').exists(),'Failed C visual attempt cannot be used')
+    mp=metric_metadata(cfg,science)
+    require(sha(loc['encoder'])==e.d.ENCODER_SHA,'Original fresh Encoder implementation changed')
+    sys.path.insert(0,str(Path(cfg['owner_module']).parent));old=e.module(cfg['owner_module'],'c_online_tx_original_resource_owner',reg['source_bindings'])
+    old.check_stop(cfg,historical=True);require(old.absent(normal['owner_identity']) and old.absent(normal['worker_identity']),'C GPU owner/worker still live')
+    require(normal['budget_before']==normal['budget_after']==science['budget_before']==science['budget_after'],'C visual budget changed');old.validate_budget(normal['budget_after'])
+    sources=e.combine(sources,reg['source_bindings'],e.bind([__file__]))
+    inputs=e.combine(reg['input_bindings'],normal['outputs'],e.bind([loc['visual_config'],cfg['registration'],normalp,sciencep,loc['encoder'],mp]))
+    return dict(e=e,old=old,loc=loc,visual=cfg,normal_path=str(normalp),sources=sources,inputs=inputs)
+
+def make_request(ctx):
+    e=ctx['e'];loc=ctx['loc'];v=ctx['visual'];ex=Path(loc['execution']);rt=Path(loc['runtime'])
+    cfg=dict(schema=e.d.SCHEMA,root=loc['root'],execution_dir=str(ex),out=loc['out'],registration=str(ex/'execution_registration.json'),
+        visual_batch={'config':loc['visual_config'],'completion':ctx['normal_path']},visual_owner_module=v['owner_module'],
+        encoder_module=loc['encoder'],owner_module=str(rt/'c_online_tx_execution_r1.py'),driver_module=str(rt/'c_online_tx_driver_r1.py'),
+        native_source_graph=str(ex/'native_source_graph.json'),prepared_qualification=str(Path(loc['qualification'])/'completion.json'),
+        resources=dict(gpu_device=0,threads=6,interop_threads=2,affinity=[4,5,6,7,8,9],nice=15,max_seconds=86400))
+    return dict(schema=e.REQUEST,config=cfg,source_bindings=ctx['sources'],input_bindings=e.combine(ctx['inputs'],e.bind([cfg['prepared_qualification']])))
+
+def qualify(ctx):
+    e,old,loc=ctx['e'],ctx['old'],ctx['loc'];qdir=Path(loc['qualification']);op=Path(loc['operations'])
+    require(not qdir.exists() and not op.exists(),'Independent fresh timing qualification/operations required')
+    qdir.mkdir(parents=True);op.mkdir(parents=True);cmd=[ctx['visual']['python'],'-B','-m','unittest',*e.TEST_MODULES,'-v']
+    env=dict(os.environ,PYTHONPATH=loc['runtime'],PYTHONDONTWRITEBYTECODE='1',CUDA_VISIBLE_DEVICES='',**{k:'2' for k in old.THREAD_KEYS})
+    e.save(qdir/'attempt.json',dict(argv=cmd,source_bindings=ctx['sources'],new_GPU_calls=0,new_packet_decodes=0));rec=None
+    try:
+        with (qdir/'tests.log').open('xb')as log:
+            child=subprocess.Popen(cmd,cwd=loc['root'],env=env,stdout=log,stderr=subprocess.STDOUT,stdin=subprocess.DEVNULL,start_new_session=True,
+                preexec_fn=lambda:old.resources([0,1]));rec=child
+            e.save(qdir/'pending_pid.json',dict(pid=child.pid,argv=cmd));identity=old.capture(child,cmd);e.save(qdir/'launch.json',dict(identity=identity,argv=cmd))
+            code=child.wait();log.flush();os.fsync(log.fileno())
+        e.save(qdir/'exit.json',dict(identity=identity,exit_code=code,process_waited=True,log_sha256=e.sha(qdir/'tests.log')))
+        require(code==0 and old.absent(identity),'Timing pure tests failed; no retry')
+        q=dict(status=e.QPASS,tests_run=e.TEST_COUNT,test_modules=e.TEST_MODULES,python=ctx['visual']['python'],exit_code=0,process_waited=True,
+            new_GPU_calls=0,new_packet_decodes=0,source_bindings=ctx['sources'],input_bindings=ctx['inputs'],log=str(qdir/'tests.log'),
+            outputs=e.bind(qdir/n for n in ('attempt.json','launch.json','exit.json','tests.log')))
+        e.verify(ctx['sources']);e.verify(ctx['inputs']);e.save(qdir/'completion.json',q)
+        request=make_request(ctx);qcfg=dict(request['config'],python=ctx['visual']['python'])
+        e.qualification(str(qdir/'completion.json'),qcfg,e.combine(request['source_bindings'],request['input_bindings']))
+        e.save(op/'request.json',request);done=dict(status='C_ONLINE_TX_QUALIFIED_REQUEST_NOT_REGISTERED_R1',outputs=e.bind([qdir/'completion.json',op/'request.json']),new_GPU_calls=0)
+        e.save(op/'qualification_completion.json',done);return done
+    except BaseException:
+        if rec is not None and rec.poll()is None:rec.wait()
+        e.save(qdir/'failure.json',dict(traceback=traceback.format_exc(),GPU_started=False,automatic_retry=False));raise
+
+def operation(stage,loc):
+    ctx=context(loc);e=ctx['e'];op=Path(loc['operations'])
+    if stage=='qualify':return qualify(ctx)
+    done=read(op/'qualification_completion.json');require(done['status']=='C_ONLINE_TX_QUALIFIED_REQUEST_NOT_REGISTERED_R1'
+        and not(Path(loc['qualification'])/'failure.json').exists(),'Successful actual timing pure qualification required');e.verify(done['outputs'])
+    e.save(op/(stage+'_attempt.json'),dict(automatic_retry=False))
+    try:
+        if stage=='run':signal.signal(signal.SIGTERM,e.stop);signal.signal(signal.SIGINT,e.stop)
+        result=e.register(str(op/'request.json'))if stage=='register'else e.run(str(Path(loc['execution'])/'config.json'))
+        e.save(op/(stage+'_completion.json'),dict(status=result['status'],outputs=e.bind([Path(loc['execution'])/('registration_completion.json'if stage=='register'else'completion.json')])));return result
+    except BaseException:e.save(op/(stage+'_failure.json'),dict(traceback=traceback.format_exc(),GPU_started=None if stage=='run'else False,inspect_preserved_PID=stage=='run'));raise
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--root',required=True);p.add_argument('--runtime',required=True);p.add_argument('--visual-config',required=True)
+    p.add_argument('--stage',choices=('qualify','register','run'),required=True);a=p.parse_args()
+    require(sys.platform.startswith('linux'),'Actual operations require original Linux identities')
+    print(operation(a.stage,locations(a.root,a.runtime,a.visual_config))['status'],flush=True)

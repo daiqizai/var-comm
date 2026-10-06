@@ -1,0 +1,138 @@
+"""Portable fixtures: actual C schema, no source images or model constructors."""
+from contextlib import nullcontext
+from copy import deepcopy
+from pathlib import Path
+from types import SimpleNamespace
+import tempfile
+import unittest
+from unittest.mock import patch
+import numpy as np
+import c_real_received_adapter_r1 as rx
+import c_real_visual_source_r1 as d
+import c_real_metric_bridge_r1 as m
+from test_c_real_received_adapter_r1 import frame,OriginalAPI,entropy
+
+def source():
+    rows=[];tables={}
+    for index,snr,trial,method in d.grid(0):
+        f,b=frame();f.update(source_index=index,source_id='source0',average_snr_db=snr,trial=trial,method=method,
+            status='C_REAL_ACTUAL_CPU_TRAJECTORY_R2',source_reconstruction_complete=False,images_scored=False,policy_selection=False)
+        f['receive']['gray']=False
+        if trial==0:
+            f['receive']['header'].update(header_crc_accept=False,header_ok=False);f['receive']['bodies']=[];f['receive']['gray']=True
+        rows.append(f);tables[snr,method]={'codebook':b}
+    target=np.zeros((3,256,256),np.float32)
+    return dict(source_index=0,source_id='source0',frames=rows,target=target,class_index=8,reference_sha256=rx.rgb_sha(target),
+        target_preprocessing_sha256='a'*64,input_bindings={}),tables
+
+class Backend:
+    identity='fake-bound-metric';calls=0
+    def check(self):pass
+    def prepare(self,x):return 'only-original-reference'
+    def score(self,target,image,label,prepared):
+        self.calls+=1
+        return dict(psnr_db=20.,clip_image_cosine=.7,convnext_source_prediction_agreement=1,
+            label_conditioned=False,convnext_used_for_selection=False)
+
+class Sources(unittest.TestCase):
+    def test_complete128_float_archive_preserves_actual_cpu_and_failures(self):
+        s,t=source();r=rx.Receiver(OriginalAPI(),entropy,{'bound':'FP32'});got=d.render_source(s,t,r,lambda:None)
+        self.assertEqual(len(got['rows']),128);self.assertEqual(got['counts']['unique_float32_images'],2)
+        self.assertEqual(got['counts']['actual_prior_completions'],1)
+        self.assertEqual(sum(x['visual']['gray'] for x in got['rows']),8)
+        for original,row in zip(s['frames'],got['rows']):self.assertEqual(original,row['cpu'])
+        with tempfile.TemporaryDirectory() as tmp:
+            pins=d.write_source(tmp,got,s,'b'*64,r.identity)
+            cp=d.read(Path(tmp)/'source_checkpoints/0000.json');self.assertFalse(cp['images_scored'])
+            self.assertFalse(cp['normal_GPU_owner_completion']);self.assertEqual(len(pins),3)
+            with np.load(cp['archive'],allow_pickle=False) as z:
+                self.assertEqual(set(z.files),set(got['images']))
+                for key,image in got['images'].items():self.assertTrue(np.array_equal(z[key],image));self.assertEqual(z[key].dtype,np.float32)
+            with self.assertRaisesRegex(ValueError,'Prior source'):d.write_source(tmp,got,s,'b'*64,r.identity)
+    def test_incomplete_grid_wrong_DROP_or_nonfresh_cache_rejects(self):
+        s,t=source();s['frames'].pop();r=rx.Receiver(OriginalAPI(),entropy,{'bound':1})
+        with self.assertRaisesRegex(ValueError,'complete128'):d.render_source(s,t,r,lambda:None)
+        s,t=source();s['frames'][0]['receive']['gray']=False
+        with self.assertRaisesRegex(ValueError,'DROP outcome'):d.render_source(s,t,r,lambda:None)
+        s,t=source()
+        with self.assertRaisesRegex(ValueError,'fresh receiver'):d.render_source(s,t,r,lambda:None)
+    def test_metric_reuse_same_source_exact_RGB_and_no_mismatch(self):
+        s,t=source();r=rx.Receiver(OriginalAPI(),entropy,{'bound':1});got=d.render_source(s,t,r,lambda:None);b=Backend()
+        scored=d.score_source(s,got,b,('psnr_db','clip_image_cosine','convnext_source_prediction_agreement'),lambda:None)
+        self.assertEqual(b.calls,2);self.assertEqual(scored['counts']['metric_cache_hits'],126)
+        self.assertEqual([x['cpu'] for x in scored['rows']],s['frames']);self.assertNotIn('dino_mismatched',scored['rows'][0]['metrics'])
+        s['class_index']=9;d.score_source(s,got,b,('psnr_db',),lambda:None);self.assertEqual(b.calls,4)
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaisesRegex(ValueError,'Metric completion'):d.write_source(tmp,scored,s,'a'*64,r.identity)
+            d.write_source(tmp,scored,s,'a'*64,r.identity,b.identity)
+    def test_missing_metric_or_score_exception_never_gray_or_zero(self):
+        s,t=source();got=d.render_source(s,t,rx.Receiver(OriginalAPI(),entropy,{'bound':1}),lambda:None);b=Backend()
+        with self.assertRaisesRegex(ValueError,'Incomplete metrics'):d.score_source(s,got,b,('missing_metric',),lambda:None)
+        with patch.object(b,'score',side_effect=RuntimeError('software')):
+            with self.assertRaisesRegex(RuntimeError,'software'):d.score_source(s,got,b,('psnr_db',),lambda:None)
+        bad=deepcopy(got);bad['rows'][0]['image_sha256']='0'*64
+        with self.assertRaisesRegex(ValueError,'Scored RGB'):d.score_source(s,bad,b,('psnr_db',),lambda:None)
+    def test_actual_raw_checkpoint_schema_loads_pixels_only(self):
+        s,t=source()
+        with tempfile.TemporaryDirectory() as tmp:
+            p=Path(tmp);arc=p/'raw.npz';pixels=np.zeros((3,256,256),np.uint8);pre=__import__('hashlib').sha256(pixels.tobytes()).hexdigest()
+            # Deliberately wrong-shaped tokens prove this loader never accesses TX tokens.
+            np.savez(arc,pixels=pixels,tokens=np.array([99]))
+            rawp=p/'raw.json';raw=dict(status='H_FULL1000_SOURCE_ASSET_READY',source_index=21,original_calibration_index=21,
+                source_id='source0',registration_sha256='c'*64,archive=str(arc),outputs={str(arc):d.sha(arc)},preprocessing_id=pre,evaluation_class_index=8)
+            d.save(rawp,raw);asset=dict(checkpoint=str(rawp),checkpoint_sha256=d.sha(rawp),archive=str(arc),archive_sha256=d.sha(arc),
+                source_index=21,source_registration_sha256='c'*64,preprocessing_id=pre)
+            ep=p/'entropy.json';d.save(ep,dict(source_index=0,source_id='source0',raw_asset=asset))
+            tp=p/'worker_0/traces/0000.json';cp=p/'worker_0/source_checkpoints/0000.json';d.save(tp,s['frames'])
+            d.save(cp,dict(trace=str(tp),trace_sha256=d.sha(tp),source_index=0,source_id='source0'))
+            ctx=dict(cfg={'out':str(p)},frozen={'source_ids':['source0']},manifest=dict(sources=[dict(checkpoint=str(ep),checkpoint_sha256=d.sha(ep),
+                original_calibration_index=21,preprocessing_id=pre)],outputs=d.bind((ep,))))
+            closed=dict(cpu=ctx,normal={'outputs':d.bind((tp,cp))},bindings=d.bind((rawp,arc)))
+            got=d.load_source(closed,0);self.assertEqual(got['class_index'],8);self.assertEqual(got['target_preprocessing_sha256'],pre)
+            self.assertTrue(np.array_equal(got['target'],s['target']));self.assertNotIn('tokens',got)
+            asset['preprocessing_id']='d'*64;ep.unlink();d.save(ep,dict(source_index=0,source_id='source0',raw_asset=asset))
+            ctx['manifest']['sources'][0]['checkpoint_sha256']=d.sha(ep);ctx['manifest']['outputs']=d.bind((ep,))
+            with self.assertRaisesRegex(ValueError,'provenance'):d.load_source(closed,0)
+    def test_closure_audit_once_exact_budget_and_all_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'owner.py';path.write_text('# frozen fixture\n');bound=d.bind((path,));calls=[]
+            before=dict(charged=21495,unresolved=0);done=dict(budget_after=before,actual_development_packet_calls=20647,outputs={})
+            proof=dict(ctx={},done=done,bindings=dict(bound))
+            sup=SimpleNamespace(__file__=str(path),closed_batch=lambda spec:calls.append('closed') or proof,
+                d=SimpleNamespace(audit_inventory=lambda ctx:calls.append('audit') or dict(frame_count=8192,budget=before,packet_calls=20647,outputs={})))
+            d.closed_cpu_inputs({},sup,bound);self.assertEqual(calls,['closed','audit'])
+            proof['bindings']['missing']='a'*64
+            with self.assertRaisesRegex(ValueError,'omits original'):d.closed_cpu_inputs({},sup,bound)
+
+class Tensor:
+    def __init__(self,a):self.a=np.asarray(a)
+    def to(self,_):return self
+    def float(self):return self
+    def cpu(self):return self
+    def tolist(self):return self.a.tolist()
+    def softmax(self,_):return self
+    def max(self,_):return Tensor([.9]),Tensor([2])
+
+class MetricAPI(unittest.TestCase):
+    def test_original_score_calls_B1_float32_and_classification_types(self):
+        calls=[];prepared=dict(dino_feature=np.array([1,0],np.float32),reference_tensor='reference',prepared='prepared',
+            resnet50_prediction=1,convnext_prediction=1)
+        def score(ref,image,labels,label_conditioned,prepared):
+            calls.append(('score',image.a.shape,labels,label_conditioned,prepared))
+            return [dict(resnet50_prediction=2,resnet50_source_prediction=1,clip_image_cosine=.4)]
+        b=SimpleNamespace(identity='original',metadata={'weights':'same','preprocessing':['unchanged']},check=lambda:None,
+            prepare=lambda _:prepared,torch=SimpleNamespace(from_numpy=Tensor,inference_mode=nullcontext,autocast=lambda **k:nullcontext()),
+            metric=SimpleNamespace(no_network=nullcontext,preprocess_resnet50=lambda x:x),lpips=None,dino=None,
+            evaluator=SimpleNamespace(device=SimpleNamespace(type='cpu'),score=score,models={'resnet50':lambda _:Tensor([[.1,.0,.9]])}),
+            native=SimpleNamespace(quality_metrics=lambda ref,imgs,*_:(calls.append(('native',len(imgs))) or
+                [dict(psnr_db=6.020600318908691,lpips_alex=.2,dino_cosine=.4)],np.array([1,0],np.float32),None)),
+            classifier=SimpleNamespace(score=lambda im,**kw:calls.append(('classifier',im.shape,kw)) or
+                dict(convnext_prediction=2,convnext_source_prediction=1,convnext_source_correct_to_wrong=True,convnext_used_for_selection=False)))
+        bridge=m.MetricBridge(b);x=np.zeros((3,256,256),np.float32);result=bridge.score(x,x+.5,1,bridge.prepare(x))
+        self.assertEqual(result['psnr_db'],6.020600318908691);self.assertEqual(result['semantic_error'],1)
+        self.assertIs(result['convnext_source_correct_to_wrong'],True);self.assertNotIn('dino_specificity',result)
+        self.assertIn(('score',(1,3,256,256),[1],False,'prepared'),calls);self.assertIn(('native',1),calls)
+        b.metadata['weights']='changed'
+        with self.assertRaisesRegex(ValueError,'identity'):bridge.check()
+
+if __name__=='__main__':unittest.main()

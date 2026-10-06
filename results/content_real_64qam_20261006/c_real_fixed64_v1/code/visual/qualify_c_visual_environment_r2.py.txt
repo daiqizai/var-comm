@@ -1,0 +1,43 @@
+"""Run all original39 assertions, adding only newly required fixture evidence.
+
+The original test bytes remain unchanged. The old owner's artificial root has
+no legacy preflight/helper bindings; this adapter adds those two real source
+pins to setUp. It does not change assertions or the production environment.
+"""
+import os
+from pathlib import Path
+import unittest
+import original_preflight_environment_r1 as h
+
+ORIGINAL_TEST_SHA='7eabbfe541e79530d0873a4e5042105ee7359879d4e8754839a3270f0a225d5a'
+MODULES=('test_c_real_received_adapter_r1','test_c_received_entropy_semantics',
+    'test_c_real_visual_source_r1','test_c_real_visual_driver_r1','test_c_real_visual_execution_r1')
+
+
+def fixture_setup(original):
+    def setup(case):
+        original(case)
+        path=Path(os.environ['ORIGINAL_PREFLIGHT_TEST_SOURCE'])
+        h.require(h.sha(path)==h.PREFLIGHT_SHA,'Actual original preflight fixture changed')
+        copy=case.base/h.PREFLIGHT;copy.parent.mkdir(parents=True,exist_ok=False);copy.write_bytes(path.read_bytes())
+        case.ctx['bound'].update({str(copy):h.PREFLIGHT_SHA,str(Path(h.__file__).absolute()):h.sha(h.__file__)})
+    return setup
+
+
+def run(stream=None):
+    import test_c_real_visual_execution_r1 as original
+    h.require(h.sha(original.__file__)==ORIGINAL_TEST_SHA,'Original12 owner assertion bytes changed')
+    before=original.Execution.setUp
+    original.Execution.setUp=fixture_setup(before)
+    try:
+        suite=unittest.defaultTestLoader.loadTestsFromNames(MODULES)
+        h.require(suite.countTestCases()==39,'All original39 assertions required')
+        result=unittest.TextTestRunner(stream=stream,verbosity=2).run(suite)
+        h.require(result.testsRun==39 and not result.skipped,'No missing or skipped original assertions')
+        return result.wasSuccessful()
+    finally:
+        original.Execution.setUp=before
+
+
+if __name__=='__main__':
+    raise SystemExit(0 if run() else 1)

@@ -1,0 +1,174 @@
+"""Pure process/receipt fixtures. No actual decoder, GPU, or scientific data."""
+from contextlib import ExitStack, nullcontext, contextmanager
+from copy import deepcopy
+import os
+from pathlib import Path
+import tempfile
+import unittest
+from unittest.mock import Mock, patch
+import c_real_trace_supervisor_r1 as s
+
+
+class Child:
+    def __init__(self,pid,code=0,polls=None):
+        self.pid=pid;self.code=code;self.returncode=None;self.waits=0;self.polls=list(polls or [code])
+    def poll(self):
+        value=self.polls.pop(0) if self.polls else self.code
+        if value is not None:self.returncode=value
+        return value
+    def wait(self):self.waits+=1;self.returncode=self.code;return self.code
+
+
+class Supervisor(unittest.TestCase):
+    def setUp(self):
+        self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup);self.r=Path(self.tmp.name);self.e=self.r/'execution';self.e.mkdir()
+        self.cfg=dict(root=str(self.r),out=str(self.r/'science'),registration=str(self.e/'execution_registration.json'),_path=str(self.e/'config.json'),
+            owner_config=str(self.e/'owner_config.json'),owner_module=str(Path(s.__file__).absolute()),python='/exact/venv/bin/python',
+            affinities=[[0,1],[2,3]],nice=15,max_seconds=100,deadline_unix=10**12,ledger=str(self.r/'packet_ledger.sqlite'),
+            budget_registration=str(self.r/'budget.json'),stop_file=str(self.r/'STOP'),qualification_config=str(self.r/'qualification_execution_r1/config.json'),
+            legacy_runtime=str(self.r/'legacy'),src=str(self.r/'src'))
+        self.cfg['prepared_qualification']=str(self.r/'qualification/completion.json')
+        self.cfg['entropy_batch']=dict(config=str(self.r/'entropy/config.json'),completion=str(self.r/'entropy/normal.json'))
+        self.cfg['entropy_manifest']=str(self.r/'entropy/science.json');self.cfg['raw_asset_audit']=str(self.r/'raw_audit.json')
+        self.owner=dict(schema=s.SCHEMA,root=self.cfg['root'],execution_dir=str(self.e),registration=self.cfg['registration'],worker_config=self.cfg['_path'],
+            driver_module=str(Path(s.d.__file__).absolute()),python=self.cfg['python'],affinities=self.cfg['affinities'],nice=15,max_seconds=100,deadline_unix=10**12,automatic_successor=False,
+            prepared_qualification=self.cfg['prepared_qualification'])
+        s.save(self.cfg['owner_config'],self.owner);s.save(self.cfg['_path'],self.cfg);s.save(self.cfg['budget_registration'],{'branch':'C'})
+        self.before=dict(branch='C',charged=848,unresolved=0,phase_charged=dict(qualification=848,development=0,diagnostic_reserve=0))
+        self.after=dict(branch='C',charged=908,unresolved=0,phase_charged=dict(qualification=848,development=60,diagnostic_reserve=0))
+        old={k:str(self.r/(k+'.json')) for k in ('protocol','frozen_identity','source64','choices','resource_budget')}
+        oldpaths=list(old.values())+[self.cfg['qualification_config'],self.cfg['entropy_batch']['config'],self.cfg['entropy_batch']['completion'],self.cfg['entropy_manifest'],self.cfg['raw_asset_audit']]
+        for p in oldpaths:s.save(p,{'metadata_only_fixture':True})
+        inputs=s.bind([self.cfg['owner_config'],self.cfg['_path'],self.cfg['budget_registration']]+oldpaths)
+        sources=s.bind([Path(s.__file__).parent/n for n in s.NEW_SOURCES])
+        log=self.r/'qualification/tests.log';log.parent.mkdir();log.write_text('Ran 28 tests in 0.01s\n\nOK\n',encoding='utf-8')
+        q=dict(status=s.QUALIFICATION,python=self.cfg['python'],tests_run=28,test_modules=s.TEST_MODULES,exit_code=0,process_waited=True,new_packet_decodes=0,new_GPU_calls=0,
+            source_bindings=sources,input_bindings=s.bind(oldpaths),outputs=s.bind([log]),log=str(log))
+        s.save(self.cfg['prepared_qualification'],q);inputs.update(s.bind([self.cfg['prepared_qualification']]))
+        self.reg=dict(source_bindings=sources,input_bindings=inputs,budget_before=self.before)
+        s.save(self.cfg['registration'],self.reg);self.regsha=s.sha(self.cfg['registration'])
+        self.ctx=dict(cfg=self.cfg,reg=self.reg,regsha=self.regsha,bound=dict(inputs,**sources),owner_config=self.owner,qualification=old,_active=[])
+        self.me=dict(pid=900,start_ticks=7,uid=1002,argv=['python','supervisor'])
+        self.addCleanup(setattr,s,'STOP',False);s.STOP=False
+    def replace(self,p,v):Path(p).unlink();s.save(p,v)
+    def owner_start(self):s.save(self.e/'owner_identity.json',dict(identity=self.me,registration_sha256=self.regsha,config_sha256=s.sha(self.cfg['owner_config'])))
+    def fake_launch(self,ctx,index,owner,code=0,polls=None):
+        f=s.folder(self.cfg,index);f.mkdir(parents=True);h=(f/'worker.log').open('xb');h.write(b'closed fake CPU log\n')
+        me=dict(pid=1000+(2 if index is None else index),start_ticks=50,uid=1002,argv=s.command(self.cfg,index));child=Child(me['pid'],code,polls)
+        rec=dict(child=child,handle=h,folder=f,index=index,identity=me,closed=False);ctx['_active'].append(rec)
+        s.save(f/'launch.json',dict(identity=me,argv=me['argv'],registration_sha256=self.regsha))
+        s.save(f/'admission.json',dict(status='C8192_CPU_PROCESS_ADMITTED',registration_sha256=self.regsha,config_sha256=s.sha(self.cfg['_path']),
+            owner_identity=owner,worker_identity=me,role='merge' if index is None else 'worker',worker_index=index,
+            affinity=self.cfg['affinities'][0 if index is None else index],source_indices=[] if index is None else list(range(index,64,2))))
+        base=dict(registration_sha256=self.regsha,config_sha256=s.sha(self.cfg['_path']),source_bindings=self.reg['source_bindings'],input_bindings=self.reg['input_bindings'],outputs={})
+        if index is None:
+            base.update(status=s.d.COMPLETE,source_count=64,frame_count=8192,budget_after=self.after,actual_development_packet_calls=60,new_GPU_calls=0,
+                images_scored=False,source_reconstruction_complete=False,policy_selection=False,automatic_successor=False)
+        else:base.update(status=s.d.WORKER,worker_index=index,worker_identity=me,source_indices=list(range(index,64,2)),source_count=32,frame_count=4096)
+        s.save(Path(self.cfg['out'])/('merge' if index is None else f'worker_{index}')/'completion.json',base)
+        return rec
+    def closed_pair(self):
+        self.owner_start();rs=[self.fake_launch(self.ctx,i,self.me) for i in (0,1)]
+        for r in rs:s.finish(self.ctx,r)
+        return rs
+    def test_static_contract_and_source_partition(self):
+        self.assertEqual(s.validate_worker_contract(self.cfg,self.ctx),self.owner)
+        qp=self.cfg['prepared_qualification'];q=s.read(qp);q['python']='/wrong/python';self.replace(qp,q);self.ctx['bound'][qp]=s.sha(qp)
+        with self.assertRaisesRegex(ValueError,'LDPC interpreter'):s.qualified(self.cfg,self.ctx)
+        q['python']=self.cfg['python'];q['source_bindings'].pop(str(Path(s.__file__).parent/'register_c_real_trace_r1.py'));self.replace(qp,q);self.ctx['bound'][qp]=s.sha(qp)
+        with self.assertRaisesRegex(ValueError,'executable'):s.qualified(self.cfg,self.ctx)
+        a,b=[set(range(i,64,2)) for i in (0,1)];self.assertEqual(len(a|b),64);self.assertFalse(a&b)
+        bad=deepcopy(self.owner);bad['affinities'][1]=[1,2];self.replace(self.cfg['owner_config'],bad);self.ctx['bound'][self.cfg['owner_config']]=s.sha(self.cfg['owner_config'])
+        with self.assertRaises(ValueError):s.validate_worker_contract(self.cfg,self.ctx)
+    def test_exact_commands_environment_keep_venv_spelling(self):
+        self.assertEqual(s.command(self.cfg,1)[0],'/exact/venv/bin/python');self.assertEqual(s.command(self.cfg,1)[-4:],['--stage','worker','--worker','1'])
+        self.assertEqual(s.command(self.cfg)[-2:],['--stage','merge'])
+        env=s.environment(self.cfg);self.assertEqual(env['CUDA_VISIBLE_DEVICES'],'');self.assertTrue(all(env[k]=='2' for k in s.THREAD_KEYS))
+        self.assertEqual(env['PYTHONPATH'].split(os.pathsep)[1],str(self.r/'qualification_runtime_r1'))
+    def test_closed_pair_requires_wait0_exact_shards_and_closed_log(self):
+        rs=self.closed_pair()
+        with patch.object(s,'absent',return_value=True):self.assertEqual(s.closed_workers(self.cfg,self.ctx)['exit_codes'],[0,0])
+        self.assertTrue(all(r['child'].waits==1 and r['handle'].closed for r in rs))
+        p=s.folder(self.cfg,0)/'worker.log';p.write_bytes(b'tampered')
+        with patch.object(s,'absent',return_value=True),self.assertRaisesRegex(ValueError,'closed log'):s.closed_workers(self.cfg,self.ctx)
+    def test_live_or_wrong_source_worker_refused(self):
+        self.closed_pair()
+        with patch.object(s,'absent',return_value=False),self.assertRaises(ValueError):s.closed_workers(self.cfg,self.ctx)
+        p=Path(self.cfg['out'])/'worker_0/completion.json';v=s.read(p);v['source_indices'][0]=1;self.replace(p,v)
+        e=s.folder(self.cfg,0)/'exit.json';x=s.read(e);x['completion_sha256']=s.sha(p);self.replace(e,x)
+        with patch.object(s,'absent',return_value=True),self.assertRaisesRegex(ValueError,'32-source'):s.closed_workers(self.cfg,self.ctx)
+    def test_poll_wait_narrow_zombie_window_does_not_query_process(self):
+        r=self.fake_launch(self.ctx,0,self.me,polls=[None,0])
+        with patch.object(s,'identity',side_effect=AssertionError('Do not inspect a just-exited child')),patch.object(s.time,'sleep'):
+            s.wait_group(self.ctx,[r],s.time.monotonic())
+        self.assertEqual(r['child'].waits,1);self.assertTrue(r['handle'].closed)
+    def test_stop_drains_and_keeps_exit_log_without_success(self):
+        rs=[self.fake_launch(self.ctx,i,self.me,polls=[None,0]) for i in (0,1)];s.STOP=True
+        with patch.object(s.time,'sleep'),self.assertRaisesRegex(ValueError,'Failed/STOP'):s.wait_group(self.ctx,rs,s.time.monotonic())
+        self.assertTrue(Path(self.cfg['stop_file']).is_file());self.assertTrue(all(r['child'].waits==1 and r['handle'].closed for r in rs))
+        self.assertFalse((self.e/'completion.json').exists())
+    def test_nonzero_exit_stops_peer_and_no_refund(self):
+        r=self.fake_launch(self.ctx,0,self.me,code=1)
+        with self.assertRaises(ValueError):s.wait_group(self.ctx,[r],s.time.monotonic())
+        self.assertEqual(s.read(s.folder(self.cfg,0)/'exit.json')['exit_code'],1);self.assertTrue(Path(self.cfg['stop_file']).is_file())
+    def test_popen_capture_failure_retains_actual_pid_immediately(self):
+        child=Child(777)
+        with patch.object(s.subprocess,'Popen',return_value=child),patch.object(s,'capture',side_effect=RuntimeError('identity delayed')):
+            with self.assertRaisesRegex(RuntimeError,'delayed'):s.launch(self.ctx,0,self.me)
+        self.assertEqual(len(self.ctx['_active']),1);self.assertEqual(s.read(s.folder(self.cfg,0)/'pending_pid.json')['pid'],777)
+        s.finish(self.ctx,self.ctx['_active'][0]);self.assertTrue(self.ctx['_active'][0]['handle'].closed)
+    def test_merge_admission_checks_own_resources_and_closed_workers(self):
+        value=dict(worker_identity={'pid':5})
+        with patch.object(s,'proof',return_value=value) as proof,patch.object(s,'closed_workers',return_value={}) as closed:
+            self.assertEqual(s.admit_merge(self.cfg,self.ctx),value);proof.assert_called_once_with(self.cfg,self.ctx,None);closed.assert_called_once()
+        with patch.object(s,'proof',return_value=value),patch.object(s,'closed_workers',side_effect=ValueError('live peer')):
+            with self.assertRaises(ValueError):s.admit_merge(self.cfg,self.ctx)
+    def test_live_admission_rejects_GPU_threads_affinity_and_missing_lock(self):
+        v=dict(registration_sha256=self.regsha,worker_identity={'pid':1},owner_identity={'pid':2},affinity=[0,1])
+        with ExitStack() as stack:
+            stack.enter_context(patch.object(s,'identity',side_effect=lambda pid:{'pid':1} if pid==os.getpid() else {'pid':2}))
+            stack.enter_context(patch.object(s.os,'sched_getaffinity',return_value={0,1},create=True));stack.enter_context(patch.object(s.os,'getpriority',return_value=15,create=True));stack.enter_context(patch.object(s.os,'PRIO_PROCESS',0,create=True))
+            stack.enter_context(patch.dict(os.environ,dict(CUDA_VISIBLE_DEVICES='',**{k:'2' for k in s.THREAD_KEYS})))
+            lock=stack.enter_context(patch.object(s,'lock_held',return_value=True));s.check_live_admission(self.ctx,v)
+            with patch.dict(os.environ,CUDA_VISIBLE_DEVICES='0'),self.assertRaises(ValueError):s.check_live_admission(self.ctx,v)
+            lock.return_value=False
+            with self.assertRaisesRegex(ValueError,'lock'):s.check_live_admission(self.ctx,v)
+    def test_normal_two_worker_merge_complete_and_downstream_gate(self):
+        budget=lambda *a,**k: self.after if (Path(self.cfg['out'])/'worker_1/completion.json').exists() else self.before
+        with ExitStack() as stack:
+            stack.enter_context(patch.object(s,'load',return_value=self.ctx));stack.enter_context(patch.object(s.sys,'platform','linux'))
+            stack.enter_context(patch.object(s.os,'sched_getaffinity',return_value={0,1,2,3},create=True));stack.enter_context(patch.object(s,'identity',return_value=self.me))
+            stack.enter_context(patch.object(s,'owner_lock',return_value=nullcontext()));stack.enter_context(patch.object(s.d,'ledger_snapshot',side_effect=budget));stack.enter_context(patch.object(s,'absent',return_value=True))
+            stack.enter_context(patch.object(s,'launch',side_effect=self.fake_launch))
+            done=s.run(self.cfg['owner_config']);self.assertEqual(done['status'],s.COMPLETE);self.assertEqual(done['actual_development_packet_calls'],60)
+            self.assertEqual(len(self.ctx['_active']),3);self.assertTrue(all(r['child'].waits==1 for r in self.ctx['_active']))
+            spec=dict(owner_config=self.cfg['owner_config'],completion=str(self.e/'completion.json'));closed=s.closed_batch(spec)
+            self.assertEqual(closed['bindings'][self.cfg['registration']],self.regsha)
+            s.save(self.e/'owner_failure.json',{'error':'retained'})
+            with self.assertRaisesRegex(ValueError,'failure/STOP'):s.closed_batch(spec)
+    def test_union_affinity_required_before_popen(self):
+        with patch.object(s,'load',return_value=self.ctx),patch.object(s.sys,'platform','linux'),patch.object(s.os,'sched_getaffinity',return_value={0,1},create=True),patch.object(s,'launch') as start:
+            with self.assertRaisesRegex(ValueError,'Both registered'):s.run(self.cfg['owner_config'])
+            start.assert_not_called()
+    def test_exception_drains_live_child_before_releasing_owner_lock(self):
+        held=[];events=[];original_finish=s.finish
+        @contextmanager
+        def lock(cfg):
+            held.append(True);events.append('acquire')
+            try:yield
+            finally:held.pop();events.append('release')
+        def launch(ctx,i,me):
+            if i==1:raise RuntimeError('second launch failed')
+            return self.fake_launch(ctx,i,me)
+        def finish(ctx,r):
+            self.assertTrue(held);events.append('wait');return original_finish(ctx,r)
+        with ExitStack() as stack:
+            stack.enter_context(patch.object(s,'load',return_value=self.ctx));stack.enter_context(patch.object(s.sys,'platform','linux'))
+            stack.enter_context(patch.object(s.os,'sched_getaffinity',return_value={0,1,2,3},create=True));stack.enter_context(patch.object(s,'identity',return_value=self.me))
+            stack.enter_context(patch.object(s,'owner_lock',side_effect=lock));stack.enter_context(patch.object(s.d,'ledger_snapshot',return_value=self.before))
+            stack.enter_context(patch.object(s,'launch',side_effect=launch));stack.enter_context(patch.object(s,'finish',side_effect=finish))
+            with self.assertRaisesRegex(RuntimeError,'second launch'):s.run(self.cfg['owner_config'])
+        self.assertEqual(events,['acquire','wait','release']);self.assertTrue((self.e/'owner_failure.json').exists());self.assertFalse((self.e/'completion.json').exists())
+
+
+if __name__=='__main__':unittest.main()

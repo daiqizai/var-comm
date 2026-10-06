@@ -1,0 +1,51 @@
+from pathlib import Path
+from types import SimpleNamespace as NS
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import unittest
+import operate_c_online_tx_r1 as p
+
+class Operations(unittest.TestCase):
+    def test_isolated_six_runtime_private_emptycwd_actual29(self):
+        here=Path(p.__file__).resolve().parent
+        runtime=Path(os.environ.get('C_ONLINE_TX_TEST_RUNTIME',here))
+        with tempfile.TemporaryDirectory()as td:
+            root=Path(td);rt=root/'runtime';private=root/'private';cwd=root/'empty'
+            for folder in (rt,private,cwd):folder.mkdir()
+            for n,h in p.PINS.items():
+                self.assertEqual(p.sha(runtime/n),h);shutil.copyfile(runtime/n,rt/n)
+            shutil.copyfile(p.__file__,private/Path(p.__file__).name)
+            env=dict(os.environ,PYTHONPATH=str(rt),PYTHONDONTWRITEBYTECODE='1',CUDA_VISIBLE_DEVICES='')
+            result=subprocess.run([sys.executable,'-B','-m','unittest','test_c_online_tx_components_r1','test_c_online_tx_driver_r1','test_c_online_tx_execution_r1','-v'],
+                cwd=cwd,env=env,text=True,capture_output=True,timeout=90)
+            self.assertEqual(result.returncode,0,result.stdout+result.stderr);self.assertIn('Ran 29 tests',result.stderr)
+            self.assertTrue(result.stderr.rstrip().endswith('OK'));self.assertNotIn('skipped',result.stderr)
+
+    def test_metric_device_identity_is_checked_before_models(self):
+        import json
+        with tempfile.TemporaryDirectory()as td:
+            path=Path(td)/'metric_identity.json'
+            value=dict(metric_identity='identity',metadata={'original_suite':{'metric_evaluator':dict(numerical_backend={'device':'cuda:0'},metrics={'dinov2_vitl14':{'status':'READY'}})}})
+            path.write_text(json.dumps(value));science={'outputs':{str(path):p.sha(path)},'metric_evaluator_identity':'identity'}
+            self.assertEqual(p.metric_metadata({'out':td},science),str(path))
+            value['metadata']['original_suite']['metric_evaluator']['numerical_backend']['device']='cuda:1';path.write_text(json.dumps(value));science['outputs'][str(path)]=p.sha(path)
+            with self.assertRaisesRegex(ValueError,'before any new model'):p.metric_metadata({'out':td},science)
+
+    def test_explicit_new_paths_and_no_default_failed_visual(self):
+        loc=p.locations('/repo','EXTERNAL_ASSET/e81710bdc0d0dbbafcfdf1d2','/explicit/successful/config.json')
+        self.assertEqual(Path(loc['execution']).parts[-2:],('C','online_tx_execution_r1'));self.assertEqual(Path(loc['out']).parts[-2:],('C','online_tx_r1'))
+        self.assertIn('successful',loc['visual_config']);self.assertNotEqual(loc['qualification'],loc['operations'])
+
+    def test_request_constructor_keeps_original_visual_and_independent_output(self):
+        import c_online_tx_execution_r1 as e
+        with tempfile.TemporaryDirectory()as td:
+            loc=p.locations(td,td+'/runtime',td+'/visual_config');q=Path(loc['qualification'])/'completion.json';q.parent.mkdir(parents=True);e.save(q,{})
+            ctx=dict(e=e,loc=loc,visual={'owner_module':'/actual/success/owner.py'},normal_path='/actual/success/completion.json',sources={},inputs={})
+            req=p.make_request(ctx);cfg=req['config'];self.assertEqual(cfg['visual_owner_module'],'/actual/success/owner.py')
+            self.assertEqual(cfg['visual_batch']['completion'],'/actual/success/completion.json');self.assertEqual(cfg['resources']['affinity'],list(range(4,10)))
+            self.assertEqual(req['input_bindings'][str(q)],e.sha(q));self.assertNotIn('run',req)
+
+if __name__=='__main__':unittest.main()

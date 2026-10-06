@@ -1,0 +1,45 @@
+"""Seal a C8192 worker/merge contract only after real entropy normal closure."""
+from __future__ import annotations
+import argparse
+from pathlib import Path
+import traceback
+import c_real_trace_driver_r1 as d
+
+def register(request_path):
+    request=d.c.read(request_path);d.require(request['schema']=='C_REAL_CPU_8192_REGISTRATION_REQUEST_R1','Separate explicit C8192 request required')
+    cfg=request['config'];e=Path(request['execution_dir']).absolute()
+    d.require(cfg['registration']==str(e/'execution_registration.json') and not e.exists() and not Path(cfg['out']).exists(),
+        'Fresh distinct C8192 execution/output paths required; no retry')
+    d.verify(request['source_bindings']);d.verify(request['input_bindings'])
+    for p in (str(Path(__file__).absolute()),str(Path(d.__file__).absolute()),str(Path(d.c.__file__).absolute())):
+        d.require(request['source_bindings'].get(p)==d.c.sha(p),'Missing new executable registration binding')
+    before=d.ledger_snapshot(cfg['ledger'],d.c.sha(cfg['budget_registration']))
+    d.require(before['charged']==848 and before['unresolved']==0 and before['phase_charged']==dict(qualification=848,development=0,diagnostic_reserve=0),
+        'Original closed848 and untouched24576 development reserve required')
+    e.mkdir(parents=True);d.save(e/'attempt.json',dict(request_sha256=d.c.sha(request_path),new_packet_decodes=0,automatic_retry=False))
+    try:
+        owner=request['owner_config']
+        d.require(cfg['owner_config']==str(e/'owner_config.json') and owner['worker_config']==str(e/'config.json')
+            and owner['registration']==cfg['registration'] and owner['execution_dir']==str(e),
+            'One new owner/config/registration chain without a hash cycle required')
+        d.save(e/'owner_config.json',owner)
+        d.save(e/'config.json',cfg)
+        inputs=dict(request['input_bindings']);inputs[str(Path(request_path).absolute())]=d.c.sha(request_path)
+        inputs.update({str(e/n):d.c.sha(e/n) for n in ('config.json','owner_config.json')})
+        reg=dict(status=d.REGISTERED,scope='C_REAL_RAYLEIGH_CPU_ONLY',config_sha256=d.c.sha(e/'config.json'),source_bindings=request['source_bindings'],
+            input_bindings=inputs,phase='development',source_count=64,frame_count=8192,maximum_packet_calls=24576,
+            policy_selection=False,workers=2,threads_per_worker=2,channel_and_packet_engineering=d.c.ENGINEERING,budget_before=before,
+            receiver_images_complete=False,automatic_successor=False,
+            diagnostic_change='Header accepted-wrong ID is separate from actual body-payload equality; no real-link or decoder change.')
+        d.save(e/'execution_registration.json',reg);d.load_registered(e/'config.json')
+        d.verify(request['source_bindings']);d.verify(inputs)
+        d.require(d.ledger_snapshot(cfg['ledger'],d.c.sha(cfg['budget_registration']))==before,'Shared C budget changed during registration')
+        result=dict(status='C_REAL_CPU_8192_REGISTERED_NOT_LAUNCHED_R1',registration_sha256=d.c.sha(e/'execution_registration.json'),
+            outputs={str(e/n):d.c.sha(e/n) for n in ('config.json','owner_config.json','execution_registration.json')},budget_before=before,budget_after=before,
+            new_packet_decodes=0,new_GPU_calls=0,automatic_successor=False)
+        d.save(e/'registration_completion.json',result);return result
+    except BaseException:
+        d.save(e/'failure.json',dict(status='FAILED_PRESERVE_NO_RETRY',traceback=traceback.format_exc(),new_packet_decodes=0));raise
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--request',required=True);a=p.parse_args();print(register(a.request)['status'])

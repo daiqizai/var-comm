@@ -1,0 +1,384 @@
+"""Prepared C8192 CPU worker/merge. Entropy and owner gates are mandatory.
+
+This module never starts an owner or GPU job. A separately registered owner
+must admit each worker and certify both reaped workers before merge.
+"""
+from __future__ import annotations
+from contextlib import closing
+import argparse
+import importlib.util
+import json
+import os
+from pathlib import Path
+import signal
+import sqlite3
+import sys
+import time
+import traceback
+import numpy as np
+import c_real_trace_core_r1 as c
+
+REGISTERED='C_REAL_CPU_8192_REGISTERED_R1'
+WORKER='C_REAL_CPU_TRAJECTORY_WORKER_COMPLETE_R1'
+COMPLETE='C_REAL_CPU_8192_RECEIVE_COMPLETE_R1'
+require=c.require
+
+def verify(pins):
+    for p,h in pins.items():require(Path(p).is_absolute() and c.sha(p)==h,'Changed registered path: '+p)
+def save(path,value):
+    path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
+    with path.open('x',encoding='utf-8',newline='\n') as f:
+        f.write(json.dumps(value,indent=2,allow_nan=False)+'\n');f.flush();os.fsync(f.fileno())
+def module(path,name,bound):
+    require(bound.get(str(path))==c.sha(path),'Executable not bound before import: '+str(path))
+    spec=importlib.util.spec_from_file_location(name,path);m=importlib.util.module_from_spec(spec);sys.modules[name]=m;spec.loader.exec_module(m);return m
+def token_sha(value):return __import__('hashlib').sha256(b'int64:680\0'+np.asarray(value,dtype='<i8').tobytes()).hexdigest()
+def claim(path,registration_sha):
+    path=Path(path);path.mkdir(parents=True,exist_ok=True);require(not any(path.iterdir()),'Prior source/worker evidence retained; no retry')
+    save(path/'attempt.json',dict(registration_sha256=registration_sha,automatic_retry=False))
+
+def process_absent(old):
+    """A reused PID is harmless; an unreaped original process is not."""
+    p=Path('/proc')/str(old['pid'])
+    try:
+        fields=(p/'stat').read_text().rsplit(')',1)[1].split()
+        current=(int(fields[19]),p.stat().st_uid)
+    except FileNotFoundError:return True
+    require(current!=(old['start_ticks'],old['uid']),'Original process still present, including zombie')
+    return True
+
+def closed_entropy(spec,bound):
+    """Consume the frozen C206 producer receipts, without importing its loader."""
+    config_path=spec['config'];cfg=c.read(config_path);reg_path=cfg['registration'];reg=c.read(reg_path)
+    e=Path(cfg['execution_dir']);normal_path=e/'completion.json';science_path=Path(cfg['out'])/'completion.json'
+    require(spec['completion']==str(normal_path) and cfg['schema']=='C_ENTROPY_WORKER_CONFIG_R1'
+        and reg['status']=='C_ENTROPY_GPU_REGISTERED_R1' and reg['config_sha256']==c.sha(config_path),
+        'Exact original C206 registration/config required')
+    normal,science=c.read(normal_path),c.read(science_path);regsha=c.sha(reg_path)
+    x=c.read(e/'worker_exit.json');launch=c.read(e/'worker_launch.json');owner=c.read(e/'owner_identity.json')
+    require(normal['status']=='C_ENTROPY_GPU_NORMALLY_COMPLETE_R1'
+        and normal['registration_sha256']==science['registration_sha256']==launch['registration_sha256']==owner['registration_sha256']==regsha
+        and science['config_sha256']==c.sha(config_path) and normal['worker_reaped'] is x['reaped'] is True
+        and normal['exit_code']==x['exit_code']==0 and normal['worker_identity']==x['identity']==launch['identity']==science['worker_identity']
+        and normal['owner_identity']==owner['identity'] and x['log_sha256']==c.sha(e/'worker.log'),
+        'C206 actual parent/worker normal closure differs')
+    require(process_absent(owner['identity']) and process_absent(x['identity']),'C206 processes not closed')
+    require(normal['source_count']==science['source_count']==64 and normal['entropy_pair_count']==science['entropy_pair_count']==206
+        and normal['parity_cases']==91 and normal['new_packet_decodes']==science['new_packet_decodes']==0
+        and reg['budget_before']==science['budget_before']==science['budget_after']==normal['budget_after']
+        and normal['budget_after']['charged']==848 and normal['budget_after']['unresolved']==0
+        and normal['budget_after']['phase_charged']==dict(qualification=848,development=0,diagnostic_reserve=0),
+        'C206 scope/budget differs')
+    require(normal['source_bindings']==science['source_bindings']==reg['source_bindings']
+        and normal['input_bindings']==science['input_bindings']==reg['input_bindings'], 'C206 sealed input/source maps differ')
+    pins={str(p):c.sha(p) for p in (config_path,reg_path,normal_path,science_path,e/'registration_completion.json',e/'worker_exit.json',e/'worker_launch.json',e/'owner_identity.json',e/'worker.log')}
+    seal=c.read(e/'registration_completion.json')
+    require(seal['status']=='C_ENTROPY_REGISTERED_NOT_LAUNCHED_R1' and seal['registration_sha256']==regsha,
+        'C206 original seal differs')
+    for mapping in (reg['source_bindings'],reg['input_bindings'],seal['outputs'],normal['outputs'],science['outputs']):
+        verify(mapping)
+        for p,h in mapping.items():require(p not in pins or pins[p]==h,'C206 conflicting provenance');pins[p]=h
+    for p,h in pins.items():require(bound.get(p)==h,'C206 evidence missing from new registration: '+p)
+    for folder in (e,Path(cfg['out'])):
+        require(not any((folder/n).exists() for n in ('STOP','failure.json','registration_failure.json')),'C206 failed/partial attempt retained')
+    return dict(manifest_path=str(science_path),manifest=science,bindings=pins)
+
+def ledger_snapshot(path,budget_sha,*,events=False):
+    """Read original C tables only. No second quota or ledger is created."""
+    with closing(sqlite3.connect(Path(path).resolve().as_uri()+'?mode=ro',uri=True)) as db:
+        meta=dict(db.execute('SELECT key,value FROM meta'));phase=dict(db.execute('SELECT phase,charged FROM counters'))
+        rows=db.execute('SELECT event_id,phase,kind,status,request_sha,result_sha,result,phy_key FROM events').fetchall()
+    require(meta['branch']=='C' and meta['registration_sha256']==budget_sha and json.loads(meta['limits'])==c.LIMITS
+        and meta['total_cap']=='100000','Original C quota identity differs')
+    observed={p:sum(row[1]==p for row in rows) for p in c.LIMITS}
+    require(phase==observed and phase['qualification']==848 and phase['diagnostic_reserve']==0
+        and 0<=phase['development']<=24576,'Qualification charge changed, reserve spent, or development cap exceeded')
+    require(all(row[3]=='COMPLETE' for row in rows if row[1]=='qualification'),'Original848 qualification not closed')
+    out=dict(branch='C',registration_sha256=budget_sha,charged=sum(phase.values()),phase_charged=phase,
+        unresolved=sum(row[3]!='COMPLETE' for row in rows))
+    if events:out['events']={row[0]:dict(zip(('phase','kind','status','request_sha256','result_sha256','result','phy_key'),row[1:])) for row in rows}
+    return out
+
+def qualification_fields(config,registration,normal,science,exit_receipt):
+    require(registration['status']=='C_REAL_CPU_QUALIFICATION_REGISTERED_R1' and normal['status']=='C848_NORMAL_SUPERVISOR_COMPLETE'
+        and science['status']=='C_REAL_CPU_848_QUALIFICATION_COMPLETE_R1','Original normal848 receipt required')
+    require(normal['registration_sha256']==science['registration_sha256'] and normal['worker_identity']==science['worker_identity']==exit_receipt['identity']
+        and normal['worker_reaped'] is True and exit_receipt['reaped'] is True and normal['worker_exit_code']==exit_receipt['exit_code']==0
+        and normal['closed_log_sha256']==exit_receipt['log_sha256'],'Original qualification wait/identity/log differs')
+    expected=dict(qualification=848,development=0,diagnostic_reserve=0)
+    require(normal['budget_after']['phase_charged']==science['budget_after']['phase_charged']==expected
+        and normal['budget_after']['charged']==science['budget_after']['charged']==848
+        and normal['budget_after']['unresolved']==science['budget_after']['unresolved']==0,'Original848 qualification inventory differs')
+    require(normal['source_bindings']==science['source_bindings']==registration['source_bindings']
+        and normal['input_bindings']==science['input_bindings']==registration['input_bindings'],'Original848 source/input bindings differ')
+    require(science['packet_calls']==848 and science['development_started'] is False and config['workers']==1,'Original848 scope differs')
+
+def qualification_closed(cfg,bound):
+    path=Path(cfg['qualification_config']);old=c.read(path);reg=c.read(old['registration']);directory=Path(old['registration']).parent
+    normal_path=directory/'completion.json';science_path=Path(old['out'])/'completion.json'
+    normal,science=c.read(normal_path),c.read(science_path)
+    exit_paths=[p for p in normal['outputs'] if Path(p).name=='worker_exit.json'];require(len(exit_paths)==1,'Original unique848 exit receipt required')
+    require(bound.get(str(path))==c.sha(path) and bound.get(old['registration'])==c.sha(old['registration'])
+        and reg['config_sha256']==science['config_sha256']==c.sha(path)
+        and normal['registration_sha256']==c.sha(old['registration']),'Original848 config/registration binding differs')
+    for pins in (reg['source_bindings'],reg['input_bindings'],normal['outputs'],science['outputs'],
+                 {str(normal_path):c.sha(normal_path),str(science_path):c.sha(science_path)}):
+        verify(pins)
+        for p,h in pins.items():require(bound.get(p)==h,'Current registration omits original848 evidence: '+p)
+    qualification_fields(old,reg,normal,science,c.read(exit_paths[0]))
+    require(not any((directory/n).exists() for n in ('failure.json','STOP','registration_failure.json'))
+        and not(Path(old['out'])/'failure.json').exists() and not(Path(old['out'])/'STOP').exists(),'Original848 failure retained')
+    process_absent(normal['worker_identity'])
+    supervisor_paths=[p for p in normal['outputs'] if Path(p).name=='supervisor_identity.json']
+    require(len(supervisor_paths)==1,'Original848 supervisor identity required')
+    supervisor=c.read(supervisor_paths[0]);require(supervisor['registration_sha256']==normal['registration_sha256'],'Original848 supervisor registration differs')
+    process_absent(supervisor['identity'])
+    checks=c.read(Path(old['out'])/'roundtrip_checks.json')
+    require(checks['packet_calls']==848 and len(checks['checks'])==848 and all(r['passed'] is True for r in checks['checks']),
+        'Original848 roundtrip evidence incomplete')
+    return old
+
+def validate_parity(parity,frozen):
+    require(parity['status']=='C_REAL_FIRST8_INDEPENDENT_TX_RX_PARITY_PASS_R1' and parity['source_ids']==frozen['source_ids'][:8]
+        and parity['source_indices']==list(range(8)) and parity['cases']==len(parity['rows'])==91
+        and parity['choice_check_count']==len(parity['choice_checks'])==512 and parity['image_tolerance']==1e-6
+        and parity['new_packet_decodes']==0 and parity['policy_selection'] is False,'First8 independent parity is missing/incomplete')
+    expected_choices=[];expected_states=set()
+    for i,sid in enumerate(frozen['source_ids'][:8]):
+        for snr in c.SNRS:
+            for method in c.METHODS:
+                table=frozen['tables'][snr,method]
+                for b,pid in enumerate(table['choices'][sid]):
+                    profile=table['codebook'][str(pid)]
+                    expected_choices.append(dict(source_index=i,source_id=sid,average_snr_db=snr,method=method,bin=b,
+                        public_header_id=pid,profile_id=profile['stable_id'],frozen_candidate_index=profile['candidate_index']))
+                    expected_states.add((i,profile['full_state_id']))
+                    if profile['G']==2:expected_states.add((i,profile['prefix_state_id']))
+    require(parity['choice_checks']==expected_choices and {(r['source_index'],r['state_id']) for r in parity['rows']}==expected_states,
+        'Parity no longer covers original frozen choices/states')
+    for row in parity['rows']:
+        require(row['source_id']==frozen['source_ids'][row['source_index']] and row['exact_tokens'] is True
+            and row['exact_positions'] is True and row['exact_values'] is True and 0<=row['max_abs_image_error']<=1e-6
+            and row['TX_RX_contexts_independent'] is True and row['RX_reads_TX_order'] is False,'Independent TX/RX parity failed')
+
+def entropy_inventory(path,frozen,bound,asset_audit):
+    require(bound.get(str(path))==c.sha(path),'Entropy manifest not sealed');manifest=c.read(path)
+    require(manifest['status']=='C_REAL_64_SOURCE_206_ENTROPY_ASSETS_COMPLETE_R1' and manifest['source_ids']==frozen['source_ids']
+        and manifest['source_count']==len(manifest['sources'])==64 and manifest['entropy_pair_count']==206
+        and manifest['new_packet_decodes']==manifest['new_source_encoding']==0 and manifest['policy_selection'] is False,
+        'Frozen64 entropy manifest required; no fallback')
+    verify(manifest['outputs'])
+    for p,h in manifest['outputs'].items():require(bound.get(p)==h,'Entropy output omitted from registration: '+p)
+    for p,h in frozen['input_bindings'].items():require(manifest['input_bindings'].get(p)==h,'Entropy generation used different C freeze')
+    proof=manifest['parity_completion'];require(manifest['outputs'].get(proof['path'])==proof['sha256']==c.sha(proof['path']),'Parity file changed')
+    validate_parity(c.read(proof['path']),frozen)
+    require(asset_audit['status']=='C64_EXISTING_CP_AND_RAW_ARCHIVE_BYTES_VERIFIED' and asset_audit['source_count']==64,'Original raw64 byte audit required')
+    raw={r['source_id']:r for r in asset_audit['sources']};require(len(raw)==64 and set(raw)==set(frozen['source_ids']),'Original raw64 IDs differ')
+    for i,row in enumerate(manifest['sources']):
+        require(row['source_index']==i and row['source_id']==frozen['source_ids'][i]
+            and row['required_ms']==frozen['required_entropy_orders'][row['source_id']],'Entropy64 order or required scales changed')
+        cp=c.read(row['checkpoint'])
+        require(manifest['outputs'].get(row['checkpoint'])==row['checkpoint_sha256']==c.sha(row['checkpoint'])
+            and manifest['outputs'].get(row['archive'])==row['archive_sha256']==c.sha(row['archive'])
+            and cp['status']=='C_REAL_SOURCE_ENTROPY_READY_R1' and cp['registration_sha256']==manifest['registration_sha256'],
+            'Entropy checkpoint registration/archive differs')
+        for key in ('source_index','source_id','original_calibration_index','tokens_sha256','preprocessing_id','required_ms','archive','archive_sha256'):
+            require(cp[key]==row[key],'Entropy checkpoint source field differs: '+key)
+        original=raw[row['source_id']]
+        require(cp['raw_asset']==original and row['original_calibration_index']==original['source_index']
+            and row['tokens_sha256']==original['tokens_sha256'] and row['preprocessing_id']==original['preprocessing_id'],
+            'Entropy export did not preserve the original audited calibration source')
+        require(cp['outputs']=={row['archive']:row['archive_sha256']},'Entropy checkpoint outputs differ')
+        load_source(row,cp)
+    return manifest
+
+def load_source(row,cp):
+    require(c.sha(row['archive'])==row['archive_sha256'],'Sealed entropy archive changed')
+    with np.load(row['archive'],allow_pickle=False) as z:
+        require(set(z.files)=={'tokens',*[f'entropy_order_m{m}' for m in row['required_ms']]},'TX archive has missing/additional arrays')
+        tokens=z['tokens'].copy();orders={m:z[f'entropy_order_m{m}'].copy() for m in row['required_ms']}
+    require(tokens.dtype==np.dtype('int64') and tokens.shape==(680,) and ((tokens>=0)&(tokens<4096)).all()
+        and token_sha(tokens)==row['tokens_sha256'],'Original raw source tokens changed')
+    require(set(cp['order_metadata'])==set(map(str,row['required_ms'])),'Entropy order metadata incomplete')
+    for m,order in orders.items():
+        require(order.dtype==np.dtype('int64') and np.array_equal(np.sort(order),np.arange(c.SIZES[m]**2))
+            and cp['order_metadata'][str(m)]==dict(length=len(order),sha256=c.array_sha(order.astype('<i8'))),'TX full entropy permutation changed')
+    return tokens,orders
+
+def load_registered(config_path):
+    cfg=c.read(config_path);reg=c.read(cfg['registration']);regsha=c.sha(cfg['registration'])
+    require(reg['status']==REGISTERED and reg['scope']=='C_REAL_RAYLEIGH_CPU_ONLY' and reg['config_sha256']==c.sha(config_path)
+        and reg['phase']=='development' and reg['source_count']==64 and reg['frame_count']==8192
+        and reg['maximum_packet_calls']==24576 and reg['policy_selection'] is False,'Exact C8192 execution registration required')
+    verify(reg['source_bindings']);verify(reg['input_bindings']);bound=dict(reg['input_bindings'])
+    for p,h in reg['source_bindings'].items():require(p not in bound or bound[p]==h,'Conflicting bindings');bound[p]=h
+    for p in (str(Path(__file__).absolute()),str(Path(c.__file__).absolute()),str(Path(config_path).absolute()),cfg['owner_module'],cfg['owner_config'],cfg['raw_asset_audit']):
+        require(bound.get(p)==c.sha(p),'Required execution dependency absent: '+p)
+    old=qualification_closed(cfg,bound)
+    for key in ('python','ledger','ledger_module','budget_registration','legacy_runtime','src','legacy_qualification','phy_module','stop_file','deadline_unix'):
+        require(cfg[key]==old[key],'Original qualified C runtime/quota changed: '+key)
+    require(cfg['workers']==2 and cfg['threads']==2 and cfg['nice']==15 and 0<cfg['max_seconds']<=86400
+        and len(cfg['affinities'])==2 and all(len(set(x))==2 for x in cfg['affinities'])
+        and not(set(cfg['affinities'][0])&set(cfg['affinities'][1])),'Exactly two disjoint two-core CPU workers required')
+    frozen=c.load_frozen(*[old[k] for k in ('protocol','frozen_identity','source64','choices','resource_budget')])
+    require(reg['channel_and_packet_engineering']==c.ENGINEERING,'Original channel/packet execution rules changed')
+    proof=closed_entropy(cfg['entropy_batch'],bound)
+    require(proof['manifest_path']==cfg['entropy_manifest'],'Wrong closed entropy manifest')
+    require(c.read(cfg['entropy_manifest'])['input_bindings'].get(cfg['raw_asset_audit'])==c.sha(cfg['raw_asset_audit']),
+        'Entropy generation does not bind the original raw64 audit')
+    manifest=entropy_inventory(cfg['entropy_manifest'],frozen,bound,c.read(cfg['raw_asset_audit']))
+    cfg['_path']=str(Path(config_path).absolute())
+    ctx=dict(cfg=cfg,reg=reg,regsha=regsha,bound=bound,frozen=frozen,manifest=manifest,qualification=old)
+    owner=module(cfg['owner_module'],'c_real_trace_owner',bound);owner.validate_worker_contract(cfg,ctx);ctx['owner']=owner
+    return ctx
+
+def runtime(ctx):
+    cfg=ctx['cfg'];sys.path.insert(0,cfg['legacy_runtime']);sys.path.insert(0,cfg['src'])
+    ledger_module=module(cfg['ledger_module'],'budget_ledger',ctx['bound'])
+    ledger=ledger_module.BudgetLedger(cfg['ledger'],c.sha(cfg['budget_registration']),'C',c.LIMITS)
+    backend_module=module(str(Path(cfg['legacy_runtime'])/'ldpc_backend.py'),'ldpc_backend',ctx['bound'])
+    old=module(str(Path(cfg['legacy_runtime'])/'uep_phy.py'),'uep_phy',ctx['bound'])
+    profiles=module(str(Path(cfg['legacy_runtime'])/'profiles.py'),'profiles',ctx['bound'])
+    from var_comm import scale_channel
+    require(str(Path(scale_channel.__file__).resolve())==str((Path(cfg['src'])/'var_comm/scale_channel.py').resolve()),'Wrong original header runtime')
+    import torch
+    torch.set_num_threads(2);torch.set_num_interop_threads(2)
+    backend=backend_module.SionnaBackend('cpu',cfg['legacy_qualification'])
+    physical=module(cfg['phy_module'],'c_real_original_phy',ctx['bound'])
+    adapter=c.CAtomicAdapter(ledger,c.sha(cfg['budget_registration']),'development',set(ctx['frozen']['groups'])|{physical.HEADER_KEY})
+    phy=physical.PacketPHY(backend,old,scale_channel,profiles.Planner(backend),adapter);phy.mcs_class=profiles.MCS
+    c.admit_layouts(phy,ctx['frozen']);return phy,ledger_module
+
+def schedule(index):return [(index,snr,trial,method) for snr in c.SNRS for trial in range(16) for method in c.METHODS]
+
+def receiver_from_completed_events(frame,frozen,event_rows):
+    """Reparse charged actual results only. This object has no decoder/backend."""
+    results={e['event_id']:json.loads(event_rows[e['event_id']]['result']) for e in frame['packet_events']}
+    class CompletedResults:
+        def header_receive(self,y,h,v,book,event,phase):return results[event]
+        def body_receive(self,y,h,v,g,counter,j,session,event,phase):return results[event]
+    event=f"C:development:src{frame['source_index']:02d}:snr{frame['average_snr_db']}:trial{frame['trial']:02d}:{frame['method']}"
+    return c.receive_only(CompletedResults(),np.zeros((frame['actual_forward_symbols'],2)),complex(*frame['h']),
+        frame['variance_per_real'],frozen['tables'][frame['average_snr_db'],frame['method']]['codebook'],frame['public_frame_counter'],event)
+
+def execute_source(ctx,phy,index,out,boundary):
+    row=ctx['manifest']['sources'][index];cp=c.read(row['checkpoint']);tokens,orders=load_source(row,cp)
+    frames=[c.trajectory(phy,ctx['frozen'],i,s,t,m,tokens,orders,boundary) for i,s,t,m in schedule(index)]
+    require(len(frames)==128 and all(f['source_id']==row['source_id'] for f in frames),'Frozen source schedule differs')
+    path=Path(out)/'traces'/f'{index:04d}.json';save(path,frames)
+    result=dict(status='C_REAL_CPU_SOURCE_RECEIVE_COMPLETE_R1',registration_sha256=ctx['regsha'],source_index=index,source_id=row['source_id'],
+        frame_count=128,logical_packet_events=sum(f['logical_packet_events'] for f in frames),trace=str(path),trace_sha256=c.sha(path),
+        entropy_checkpoint_sha256=row['checkpoint_sha256'],entropy_archive_sha256=row['archive_sha256'],
+        source_reconstruction_complete=False,images_scored=False,policy_selection=False,outputs={str(path):c.sha(path)})
+    save(Path(out)/'source_checkpoints'/f'{index:04d}.json',result);return result
+
+def worker(config_path,worker_index):
+    require(type(worker_index)is int and worker_index in (0,1),'Only two original source shards')
+    ctx=load_registered(config_path);cfg=ctx['cfg'];out=Path(cfg['out'])/f'worker_{worker_index}';claim(out,ctx['regsha']);started=time.monotonic()
+    try:
+        require(sys.platform.startswith('linux') and os.environ.get('CUDA_VISIBLE_DEVICES')==''
+            and all(os.environ.get(k)=='2' for k in ('OMP_NUM_THREADS','MKL_NUM_THREADS','OPENBLAS_NUM_THREADS','NUMEXPR_NUM_THREADS'))
+            and os.sched_getaffinity(0)==set(cfg['affinities'][worker_index]) and os.getpriority(os.PRIO_PROCESS,0)==15,'Actual two-core CPU admission differs')
+        proof=ctx['owner'].admit_worker(cfg,ctx,worker_index)
+        def boundary():
+            require(time.monotonic()-started<cfg['max_seconds'] and time.time()<cfg['deadline_unix']
+                and not Path(cfg['stop_file']).exists() and not(out/'STOP').exists(),'C8192 source/packet deadline or STOP')
+            ctx['owner'].check_live_admission(ctx,proof)
+        def stop(*_):raise RuntimeError('Preserve interrupted charged worker; no retry')
+        signal.signal(signal.SIGTERM,stop);signal.signal(signal.SIGINT,stop);boundary()
+        phy,ledger_module=runtime(ctx);identity=ledger_module.process_identity(os.getpid());outputs={};sources=[]
+        require(identity==proof['worker_identity'],'Registered actual worker identity differs')
+        for index in range(worker_index,64,2):
+            boundary();cp=execute_source(ctx,phy,index,out,boundary);sources.append(index)
+            p=out/'source_checkpoints'/f'{index:04d}.json';outputs[str(p)]=c.sha(p);outputs.update(cp['outputs'])
+        boundary();verify(ctx['reg']['source_bindings']);verify(ctx['reg']['input_bindings'])
+        value=dict(status=WORKER,registration_sha256=ctx['regsha'],config_sha256=c.sha(config_path),worker_index=worker_index,
+            worker_identity=identity,source_indices=sources,source_count=32,frame_count=4096,outputs=outputs,
+            source_bindings=ctx['reg']['source_bindings'],input_bindings=ctx['reg']['input_bindings'],images_scored=False,
+            source_reconstruction_complete=False,automatic_successor=False,elapsed_seconds=time.monotonic()-started)
+        save(out/'completion.json',value);return value
+    except BaseException:
+        save(out/'failure.json',dict(status='FAILED_PRESERVE_NO_RETRY',traceback=traceback.format_exc(),refund=False));raise
+
+def audit_inventory(ctx):
+    cfg=ctx['cfg'];outputs={};event_map={};total=0;trace_paths=[]
+    budget=ledger_snapshot(cfg['ledger'],c.sha(cfg['budget_registration']),events=True)
+    require(budget['unresolved']==0,'Unresolved C packet calls remain')
+    for worker_index in (0,1):
+        out=Path(cfg['out'])/f'worker_{worker_index}';path=out/'completion.json';done=c.read(path)
+        require(not(out/'failure.json').exists() and not(out/'STOP').exists() and done['status']==WORKER
+            and done['registration_sha256']==ctx['regsha'] and done['source_indices']==list(range(worker_index,64,2))
+            and done['config_sha256']==c.sha(cfg['_path']) and done['source_bindings']==ctx['reg']['source_bindings']
+            and done['input_bindings']==ctx['reg']['input_bindings'] and done['worker_index']==worker_index
+            and done['source_count']==32 and done['frame_count']==4096 and done['images_scored'] is False
+            and done['source_reconstruction_complete'] is False,'Complete original32-source worker required')
+        verify(done['outputs']);outputs[str(path)]=c.sha(path);outputs.update(done['outputs'])
+        require(len(done['outputs'])==64,'Exact32 checkpoints and32 traces per worker required')
+        for index in done['source_indices']:
+            cp_path=out/'source_checkpoints'/f'{index:04d}.json';cp=c.read(cp_path);frames=c.read(cp['trace']);trace_paths.append(cp['trace'])
+            sealed=ctx['manifest']['sources'][index]
+            require(done['outputs'].get(str(cp_path))==c.sha(cp_path) and done['outputs'].get(cp['trace'])==cp['trace_sha256']==c.sha(cp['trace'])
+                and cp['status']=='C_REAL_CPU_SOURCE_RECEIVE_COMPLETE_R1' and cp['entropy_checkpoint_sha256']==sealed['checkpoint_sha256']
+                and cp['entropy_archive_sha256']==sealed['archive_sha256'] and cp['images_scored'] is False
+                and cp['source_reconstruction_complete'] is False and cp['policy_selection'] is False
+                and cp['registration_sha256']==ctx['regsha'] and cp['source_index']==index and cp['source_id']==ctx['frozen']['source_ids'][index]
+                and cp['frame_count']==len(frames)==128,'Source checkpoint/trace binding differs')
+            require(cp['logical_packet_events']==sum(f['logical_packet_events'] for f in frames),'Source logical event count differs')
+            require([(f['source_index'],f['average_snr_db'],f['trial'],f['method']) for f in frames]==schedule(index),'8192 exact source/SNR/fade/method grid differs')
+            for f in frames:
+                require(f['status']=='C_REAL_ACTUAL_CPU_TRAJECTORY_R2' and f['source_id']==cp['source_id']
+                    and f['images_scored'] is False and f['source_reconstruction_complete'] is False
+                    and f['logical_packet_events']==len(f['packet_events'])==1+len(f['receive']['bodies'])<=3,'CPU-only actual RX/event schema differs')
+                base=f"C:development:src{index:02d}:snr{f['average_snr_db']}:trial{f['trial']:02d}:{f['method']}"
+                require([e['event_id'] for e in f['packet_events']]==[base+'/header']+[base+f'/body{j}' for j in range(len(f['receive']['bodies']))],
+                    'Packet event IDs do not match the frozen physical counter')
+                for event in f['packet_events']:
+                    require(event['event_id'] not in event_map,'Physical event reused between distinct trajectories');event_map[event['event_id']]=event
+                    row=budget['events'].get(event['event_id'])
+                    require(row is not None and row['phase']=='development' and row['status']=='COMPLETE'
+                        and row['kind']==event['kind'] and row['phy_key']==event['phy_key']
+                        and row['request_sha256']==event['request_sha256']
+                        and row['result_sha256']==event['result_sha256']==c.digest(json.loads(row['result'])),
+                        'Actual packet result evidence differs')
+                require(receiver_from_completed_events(f,ctx['frozen'],budget['events'])==f['receive'],
+                    'Trace receive facts differ from the actual charged decoder results')
+            total+=len(frames)
+    require(budget['unresolved']==0 and budget['phase_charged']['development']==len(event_map)<=24576,'Unresolved or unaccounted C actual calls')
+    actual={e:r for e,r in budget['events'].items() if r['phase']=='development'};require(set(actual)==set(event_map),'Ledger/trace event coverage differs')
+    for event,row in actual.items():
+        evidence=event_map[event]
+        require(row['status']=='COMPLETE' and row['kind']==evidence['kind'] and row['phy_key']==evidence['phy_key'] and row['request_sha256']==evidence['request_sha256']
+            and row['result_sha256']==evidence['result_sha256']==c.digest(json.loads(row['result'])),'Actual packet result evidence differs')
+    require(total==8192 and len(trace_paths)==64,'Exact8192 trajectory coverage required');budget.pop('events')
+    require(ledger_snapshot(cfg['ledger'],c.sha(cfg['budget_registration']))==budget,'Shared C ledger changed during merge audit')
+    return dict(outputs=outputs,budget=budget,frame_count=total,trace_paths=trace_paths,packet_calls=len(event_map))
+
+def merge(config_path):
+    ctx=load_registered(config_path);cfg=ctx['cfg'];out=Path(cfg['out'])/'merge';claim(out,ctx['regsha'])
+    try:
+        require(sys.platform.startswith('linux') and os.environ.get('CUDA_VISIBLE_DEVICES')==''
+            and all(os.environ.get(k)=='2' for k in ('OMP_NUM_THREADS','MKL_NUM_THREADS','OPENBLAS_NUM_THREADS','NUMEXPR_NUM_THREADS'))
+            and os.sched_getaffinity(0)==set(cfg['affinities'][0]) and os.getpriority(os.PRIO_PROCESS,0)==15,
+            'Actual merge two-core CPU admission differs')
+        proof=ctx['owner'].admit_merge(cfg,ctx)
+        def boundary():
+            require(time.time()<cfg['deadline_unix'] and not Path(cfg['stop_file']).exists() and not(out/'STOP').exists(),'C8192 merge STOP/deadline')
+            ctx['owner'].check_live_admission(ctx,proof)
+        boundary()
+        # Must prove both original worker wait/exit0/closed logs; not merely CP presence.
+        closure=ctx['owner'].closed_workers(cfg,ctx)
+        require(closure['worker_indices']==[0,1] and closure['all_waited'] is True and closure['exit_codes']==[0,0],
+            'Both normal workers must be closed before merge')
+        verify(closure['outputs']);inventory=audit_inventory(ctx);boundary();outputs=dict(inventory['outputs'],**closure['outputs'])
+        value=dict(status=COMPLETE,registration_sha256=ctx['regsha'],config_sha256=c.sha(config_path),source_count=64,
+            source_ids=ctx['frozen']['source_ids'],frame_count=8192,actual_development_packet_calls=inventory['packet_calls'],
+            budget_after=inventory['budget'],trace_paths=inventory['trace_paths'],outputs=outputs,
+            source_bindings=ctx['reg']['source_bindings'],input_bindings=ctx['reg']['input_bindings'],
+            source_reconstruction_complete=False,images_scored=False,policy_selection=False,new_GPU_calls=0,automatic_successor=False)
+        save(out/'completion.json',value);return value
+    except BaseException:
+        save(out/'failure.json',dict(status='FAILED_PRESERVE_NO_RETRY',traceback=traceback.format_exc()));raise
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--config',required=True);p.add_argument('--stage',choices=('worker','merge'),required=True)
+    p.add_argument('--worker',type=int);a=p.parse_args();print((worker(a.config,a.worker) if a.stage=='worker' else merge(a.config))['status'])

@@ -1,0 +1,19 @@
+{
+  "status": "C_VISUAL_R2_FIXTURE_RECEIPT_CONTRACT_DIAGNOSED",
+  "archive": {
+    "path": "REPO/outputs/CONTENT-REAL-64QAM-20261006/C/visual_qualification_recovery_r3/failure_archive_receipt.json",
+    "sha256": "0df2f7acd4b53133c5a752b64aba72b399d726b601b241f1aca13b523b003ea9"
+  },
+  "tests_passed": 49,
+  "qualification_full_operation_success": false,
+  "old_qualification_completion": {
+    "path": "REPO/outputs/CONTENT-REAL-64QAM-20261006/prepared_v1/c_visual_cpu_qualification_r2/completion.json",
+    "sha256": "60287ab605d07f897f07c4c0e4ece723b3b9693d1cacdfe495b65931c94e7861"
+  },
+  "cause": "The actual ten compatibility and original thirty-nine tests pass. The producer puts all seven fixture paths in the old fixture_paths field; the unchanged consumer requires exactly the original four keys. This is receipt metadata, not scientific/test failure.",
+  "remedy": "Independent revision retains original four fixture_paths and binds the three added compatibility paths in a separate field. Original tests and owner consumer remain unchanged. Add a test invoking the actual final receipt consumer.",
+  "original_visual_R1_failure_retained": true,
+  "original_R2_qualification_failure_retained": true,
+  "new_GPU_calls": 0,
+  "new_PHY_calls": 0
+}

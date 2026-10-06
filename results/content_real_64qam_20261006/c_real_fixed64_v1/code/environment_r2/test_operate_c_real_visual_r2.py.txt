@@ -1,0 +1,125 @@
+"""Actual small failure documents and separated runtime; no actual operation."""
+from copy import deepcopy
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tempfile
+import unittest
+from unittest.mock import patch
+import operate_c_real_visual_r2 as p
+import original_preflight_environment_r1 as h
+
+HERE=Path(__file__).resolve().parent
+BASE=HERE.parent
+RUNTIME=Path(os.environ.get('C_R2_ORIGINAL_RUNTIME',BASE/'c_real_rx_prep'))
+FAILURE=Path(os.environ.get('C_R2_FAILED_METADATA',BASE/'current/c_visual_r1'))
+ARCHIVE=Path(os.environ.get('C_R2_ARCHIVE_RECEIPT',BASE/'current/c_visual_environment_recovery_r2/failure_archive_receipt.json'))
+
+
+def failed_paths():
+    if os.environ.get('C_R2_FAILED_EXECUTION'):
+        e=Path(os.environ['C_R2_FAILED_EXECUTION']);cfg=p.read(e/'config.json')
+        return dict(config=e/'config.json',reg=e/'execution_registration.json',owner=e/'failure.json',
+            exit=e/'worker_exit.json',science=Path(cfg['out'])/'failure.json',log=e/'worker.log')
+    return dict(config=FAILURE/'config.json',reg=FAILURE/'execution_registration.json',owner=FAILURE/'owner_failure.json',
+        exit=FAILURE/'worker_exit.json',science=FAILURE/'science_failure.json',log=FAILURE/'worker.log')
+
+
+def documents():
+    paths=failed_paths()
+    return (p.read(ARCHIVE),*[p.read(paths[k]) for k in ('config','reg','owner','exit','science')])
+
+
+class Recovery(unittest.TestCase):
+    def test_actual39_archive_waited_failure_and_preserved_original_schema(self):
+        docs=documents()
+        f=failed_paths();p.failure_documents(*docs,p.sha(f['log']),p.sha(f['reg']),lambda i:True)
+        self.assertEqual(len(docs[0]['files']),39);self.assertEqual(docs[0]['source_checkpoints'],0)
+        self.assertEqual(docs[4]['exit_code'],1)
+
+    def test_unreaped_live_wrong_failure_or_scored_attempt_rejected(self):
+        for case in ('live','unreaped','log','identity','CP','reason'):
+            docs=list(deepcopy(documents()));a,c,r,of,x,sf=docs
+            if case=='unreaped':x['reaped']=False
+            if case=='log':x['log_sha256']='0'*64
+            if case=='identity':x['identity']['start_ticks']+=1
+            if case=='CP':a['source_checkpoints']=1
+            if case=='reason':sf['traceback']='different exception'
+            with self.subTest(case=case),self.assertRaises(ValueError):
+                f=failed_paths();p.failure_documents(*docs,p.sha(f['log']),p.sha(f['reg']),lambda i:case!='live')
+
+    def test_new_prepare_copies_exact11_one_predicate_and_retains_STOP(self):
+        sys.path.insert(0,str(RUNTIME));import c_real_visual_execution_r1 as e
+        with tempfile.TemporaryDirectory()as td:
+            root=Path(td);rt=root/'old';rt.mkdir();new=root/'new';ops=root/'ops';stop=root/'old_STOP';stop.write_bytes(b'original failed STOP')
+            for name in e.NEW_SOURCES:shutil.copyfile(RUNTIME/name,rt/name)
+            old=dict(runtime=str(rt));materials=dict(new_materials=dict(runtime=str(new),operations_dir=str(ops),
+                qualification_dir=str(root/'q'),execution_dir=str(root/'e'),out=str(root/'out')),
+                source_bindings=p.bind([HERE/n for n in p.SUPPORT]),input_bindings=p.bind([stop]))
+            mp=root/'materials.json';p.save(mp,materials)
+            ctx=dict(e=e,reg=dict(source_bindings=p.bind(rt/n for n in e.NEW_SOURCES),budget_before={'charged':21495}),pins=p.bind([stop]))
+            with patch.object(p,'materials',return_value=(materials,old)),patch.object(p,'original_evidence',return_value=ctx):
+                result=p.prepare(mp)
+                with self.assertRaisesRegex(ValueError,'Fresh'):p.prepare(mp)
+            self.assertEqual(stop.read_bytes(),b'original failed STOP')
+            self.assertEqual(result['status'],p.ENGINEERING);self.assertFalse(result['original_attempt_success'])
+            for name in e.NEW_SOURCES:
+                original=(rt/name).read_bytes();actual=(new/name).read_bytes()
+                self.assertEqual(actual,h.derive_owner(original,'C') if name==p.OWNER else original)
+                self.assertEqual(original,(RUNTIME/name).read_bytes())
+            self.assertTrue(all((new/n).is_file() for n in p.SUPPORT))
+
+    def test_prepare_write_failure_preserves_existing_evidence(self):
+        sys.path.insert(0,str(RUNTIME));import c_real_visual_execution_r1 as e
+        with tempfile.TemporaryDirectory()as td:
+            root=Path(td);stop=root/'STOP';stop.write_bytes(b'preserve');old=dict(runtime=str(RUNTIME))
+            m=dict(new_materials=dict(runtime=str(root/'new'),operations_dir=str(root/'ops'),qualification_dir=str(root/'q'),execution_dir=str(root/'e'),out=str(root/'out')),
+                source_bindings={},input_bindings={});mp=root/'m.json';p.save(mp,m)
+            ctx=dict(e=e,reg=dict(source_bindings={},budget_before={}),pins={})
+            with patch.object(p,'materials',return_value=(m,old)),patch.object(p,'original_evidence',return_value=ctx):
+                with self.assertRaisesRegex(ValueError,'Original runtime'):p.prepare(mp)
+            self.assertTrue((root/'ops/prepare_failure.json').exists());self.assertEqual(stop.read_bytes(),b'preserve')
+
+    def test_only_explicit_requested_stage_no_automatic_successor(self):
+        with patch.object(p,'prepare',return_value={'status':'prepared'})as prepare,patch.object(p,'context')as context:
+            self.assertEqual(p.operation('prepare','/request'),{'status':'prepared'});context.assert_not_called();prepare.assert_called_once()
+
+    def test_pins_reject_nonhex_and_sixtyfive_char_before_source_use(self):
+        with tempfile.TemporaryDirectory()as td:
+            path=Path(td)/'source';path.write_bytes(b'original')
+            for invalid in (p.sha(path)+'f','z'*64):
+                with self.assertRaisesRegex(ValueError,'malformed'):p.verify({str(path):invalid})
+
+    def test_isolated_derived_runtime_original39_assertions_and_delta10(self):
+        sys.path.insert(0,str(RUNTIME));import c_real_visual_execution_r1 as e
+        fixturepaths={k:str((BASE/'current'/v).resolve()) for k,v in dict(cpu_config='c8192_r1/config.json',
+            cpu_normal='c8192_r1/normal_completion.json',entropy_config='c_entropy_r1/config.json',
+            entropy_science='c_entropy_r1/science_completion.json',raw_checkpoint='c8192_r1/source0_raw_checkpoint_0190.json',
+            entropy_checkpoint='c8192_r1/source0_entropy_checkpoint.json',cpu_checkpoint='c8192_r1/source0_cpu_checkpoint.json').items()}
+        with tempfile.TemporaryDirectory()as td:
+            root=Path(td);rt=root/'runtime';private=root/'private';cwd=root/'empty'
+            for folder in (rt,private,cwd):folder.mkdir()
+            for name in e.NEW_SOURCES:
+                data=(RUNTIME/name).read_bytes()
+                (rt/name).write_bytes(h.derive_owner(data,'C') if name==p.OWNER else data)
+            for name in p.SUPPORT:shutil.copyfile(HERE/name,rt/name)
+            shutil.copyfile(p.__file__,private/Path(p.__file__).name)
+            meta=os.environ.get('C_VISUAL_TEST_METADATA')
+            if meta is None:
+                meta=str(private/'metadata.json');p.save(meta,dict(paths=fixturepaths,input_bindings=p.bind(fixturepaths.values())))
+            env=dict(os.environ,PYTHONDONTWRITEBYTECODE='1',CUDA_VISIBLE_DEVICES='',PYTHONPATH=str(rt),C_VISUAL_TEST_METADATA=meta,
+                C_ENTROPY_HELPER_SOURCE=os.environ.get('C_ENTROPY_HELPER_SOURCE',str(BASE/'c_real_entropy_prep/c_entropy_core.py')),
+                C_RX_REVIEW_SOURCE_QUALITY=os.environ.get('C_RX_REVIEW_SOURCE_QUALITY',str(BASE.parent/'prior_aware_uep_20261004/runtime/source_quality.py')),
+                C_RX_ORIGINAL_VALIDATION_SOURCE=os.environ.get('C_RX_ORIGINAL_VALIDATION_SOURCE',str(BASE.parent/'prior_aware_uep_20261004/runtime/validation_metrics.py')),
+                ORIGINAL_PREFLIGHT_TEST_SOURCE=os.environ.get('ORIGINAL_PREFLIGHT_TEST_SOURCE',str(BASE.parent/'step1_reference/run_preflight.py')),
+                ORIGINAL_C_VISUAL_OWNER_TEST_SOURCE=str(RUNTIME/p.OWNER),
+                ORIGINAL_MAIN_VISUAL_OWNER_TEST_SOURCE=os.environ.get('ORIGINAL_MAIN_VISUAL_OWNER_TEST_SOURCE',str(BASE/'main1000_prep/main_actual_visual_owner_r1.py')))
+            for command,count in (([str(rt/'qualify_c_visual_environment_r2.py')],39),(['-m','unittest','test_original_preflight_environment_r1','-v'],10)):
+                got=subprocess.run([sys.executable,'-B',*command],cwd=cwd,env=env,capture_output=True,text=True,timeout=90)
+                self.assertEqual(got.returncode,0,got.stdout+got.stderr);self.assertIn('Ran %d tests'%count,got.stderr)
+                self.assertTrue(got.stderr.rstrip().endswith('OK'));self.assertNotIn('skipped',got.stderr)
+
+
+if __name__=='__main__':unittest.main()

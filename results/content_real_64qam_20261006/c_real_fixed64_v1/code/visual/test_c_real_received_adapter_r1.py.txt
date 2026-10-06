@@ -1,0 +1,86 @@
+"""Pure actual-wire fixtures; no prior, neural model, GPU or PHY creation."""
+from copy import deepcopy
+import importlib.util
+import os
+from pathlib import Path
+import unittest
+import numpy as np
+import c_real_received_adapter_r1 as a
+
+p=Path(os.environ.get('C_ENTROPY_HELPER_SOURCE',str(Path(__file__).resolve().parent.parent/'c_real_entropy_prep/c_entropy_core.py')))
+spec=importlib.util.spec_from_file_location('c206_original_helper_for_rx_test',p);entropy=importlib.util.module_from_spec(spec);spec.loader.exec_module(entropy)
+
+def pack(values):
+    v=np.asarray(values,dtype=np.int64);bits=((v[:,None]>>np.arange(11,-1,-1))&1).astype(np.uint8).ravel()
+    return dict(bits=len(bits),hex=np.packbits(bits,bitorder='big').tobytes().hex())
+def book(groups=1):
+    full='m4_K1' if groups==1 else 'm5_K1';lengths=[31] if groups==1 else [30,26]
+    return {'0':dict(G=groups,used_body_symbols=100*groups,full_state_id=full,prefix_state_id='m4_K0',
+        groups=[dict(source_bits=12*n,symbols=100,phy_key=f'key{j}') for j,n in enumerate(lengths)])}
+def frame(groups=1):
+    public=book(groups);bodies=[]
+    for j,g in enumerate(public['0']['groups']):bodies.append(dict(group_index=j,phy_key=g['phy_key'],crc_accept=True,payload=pack(np.arange(g['source_bits']//12)+j*30),decoded_sha256='d'*64))
+    x=dict(receive={'header':dict(profile_id=0,header_crc_accept=True,header_fields_legal=True,header_ok=True),'bodies':bodies},
+        actual_forward_symbols=68+100*groups,header_codebook_sha256=a.digest(public),source_id='truth-only',transmitted_public_id=999,evaluation_only={'source_correct':False})
+    return x,public
+
+class OriginalAPI:
+    def __init__(self):self.calls=[];self.fail=False;self.mutate=False
+    def render_received(self,prefix,values,m,K,receiver,cache=None):
+        if self.fail:raise RuntimeError('software exception must remain failure')
+        self.calls.append((deepcopy(prefix),values.copy(),m,K,receiver,cache))
+        tokens=[np.asarray(x).copy() for x in prefix]+[np.zeros(s*s,dtype=np.int64) for s in entropy.SIZES[m:]]
+        positions=np.arange(K,dtype=np.int64)+1
+        if K:tokens[m][positions]=values
+        if self.mutate:tokens[0][0]^=1
+        image=np.full((3,256,256),float(values[0] if K else prefix[0][0])/4095,dtype=np.float32)
+        return dict(image=image,tokens=tokens,positions=positions,values=values.copy(),receiver=receiver,
+            accepted_payload_key='original-key',known_tokens_fixed=True,label_conditioned=False,generation=a.GENERATION)
+
+class ActualReceived(unittest.TestCase):
+    def test_receiver_view_excludes_source_truth_selected_ID_and_entropy_order(self):
+        f,b=frame();v=a.receiver_view(f)
+        self.assertEqual(set(v),{'header','bodies','actual_forward_symbols','header_codebook_sha256'})
+        self.assertNotIn('source_id',v);self.assertNotIn('transmitted_public_id',v)
+    def test_wrong_accepted_header_and_wrong_actual_values_are_rendered(self):
+        f,b=frame();model=OriginalAPI();r=a.Receiver(model,entropy,{'FP32':'bound','weights':'bound'})
+        x=r.reconstruct(a.receiver_view(f),b);self.assertEqual(x['summary']['actual_profile_id'],0)
+        self.assertEqual(x['summary']['actual_received_K'],1);self.assertEqual(model.calls[0][1].tolist(),[30])
+        f['receive']['bodies'][0]['payload']=pack([*range(30),777]);y=r.reconstruct(a.receiver_view(f),b)
+        self.assertEqual(model.calls[1][1].tolist(),[777]);self.assertNotEqual(x['summary']['image_sha256'],y['summary']['image_sha256'])
+    def test_group2_reject_renders_actual_first_group_complete_prefix(self):
+        f,b=frame(2);f['receive']['bodies'][1]['crc_accept']=False;model=OriginalAPI()
+        r=a.Receiver(model,entropy,{'original':'identity'});x=r.reconstruct(a.receiver_view(f),b)
+        self.assertEqual((x['summary']['actual_received_m'],x['summary']['actual_received_K']),(4,0));self.assertFalse(x['summary']['gray'])
+        self.assertEqual(sum(len(v) for v in model.calls[0][0]),30);self.assertEqual(len(model.calls[0][1]),0)
+    def test_header_or_first_body_reject_is_measured_gray_without_prior(self):
+        f,b=frame();model=OriginalAPI();r=a.Receiver(model,entropy,{'original':'identity'})
+        f['receive']['header'].update(header_crc_accept=False,header_ok=False);f['receive']['bodies']=[]
+        x=r.reconstruct(a.receiver_view(f),b);self.assertTrue(x['summary']['gray']);self.assertTrue(np.all(x['image']==.5));self.assertFalse(model.calls)
+        f,b=frame();f['receive']['bodies'][0]['crc_accept']=False;y=r.reconstruct(a.receiver_view(f),b)
+        self.assertTrue(y['summary']['gray']);self.assertFalse(model.calls)
+    def test_unknown_ID_and_duration_format_reject_never_invent_observations(self):
+        f,b=frame();f['receive']['header'].update(profile_id=18,header_fields_legal=False,header_ok=False);f['receive']['bodies']=[]
+        model=OriginalAPI();r=a.Receiver(model,entropy,{'original':'identity'});self.assertTrue(r.reconstruct(a.receiver_view(f),b)['summary']['gray'])
+        f,b=frame();f['actual_forward_symbols']=68;f['receive']['bodies']=[]
+        self.assertEqual(r.reconstruct(a.receiver_view(f),b)['summary']['receiver_status'],'RECEIVED_PROFILE_EXCEEDS_PUBLIC_DURATION');self.assertFalse(model.calls)
+    def test_software_failure_or_missing_group_is_not_gray(self):
+        f,b=frame();model=OriginalAPI();model.fail=True;r=a.Receiver(model,entropy,{'original':'identity'})
+        with self.assertRaisesRegex(RuntimeError,'software exception'):r.reconstruct(a.receiver_view(f),b)
+        self.assertFalse(r.cache)
+        f,b=frame(2);f['receive']['bodies'].pop()
+        with self.assertRaisesRegex(ValueError,'second group'):a.accepted_state(a.receiver_view(f),b,entropy)
+    def test_cache_uses_actual_payload_model_identity_and_immutable_floatRGB(self):
+        f,b=frame();model=OriginalAPI();r=a.Receiver(model,entropy,{'original':'identity'})
+        x=r.reconstruct(a.receiver_view(f),b);f['source_id']='different truth';f['transmitted_public_id']=0
+        y=r.reconstruct(a.receiver_view(f),b);self.assertTrue(y['summary']['receiver_cache_hit']);self.assertEqual(r.render_calls,1)
+        with self.assertRaises(ValueError):y['image'][0,0,0]=0
+        other=a.Receiver(OriginalAPI(),entropy,{'original':'different identity'}).reconstruct(a.receiver_view(f),b)
+        self.assertNotEqual(other['summary']['receiver_cache_key'],x['summary']['receiver_cache_key'])
+    def test_changed_prefix_or_public_dictionary_refuses(self):
+        f,b=frame();model=OriginalAPI();model.mutate=True;r=a.Receiver(model,entropy,{'original':'identity'})
+        with self.assertRaisesRegex(ValueError,'accepted complete'):r.reconstruct(a.receiver_view(f),b)
+        b['0']['used_body_symbols']+=1
+        with self.assertRaisesRegex(ValueError,'codebook differs'):a.accepted_state(a.receiver_view(f),b,entropy)
+
+if __name__=='__main__':unittest.main()

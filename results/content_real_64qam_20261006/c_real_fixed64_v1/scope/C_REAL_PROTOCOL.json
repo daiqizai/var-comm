@@ -1,0 +1,197 @@
+{
+  "schema": "CONTENT_REAL_64QAM_20261006_C_REAL_PROTOCOL_V1",
+  "status": "FROZEN_SPECIFICATION_AWAITING_EXECUTION_REGISTRATION",
+  "order": "H_FIRST_THEN_C_REAL",
+  "execution_gate": "H completion/decision receipt plus all specified C source/model/cache/metric/runtime hashes bound by root before launch",
+  "population": "Same registered64 of previously exposed calibration internal200",
+  "source_list": "C_SOURCE64.metadata.json",
+  "methods": {
+    "C-U": "Frozen QCSI-U of the 792747-candidate C screen",
+    "C-8": "Frozen QCSI-C8 dictionary and per-source/bin choices of that screen"
+  },
+  "budget": {
+    "N": 1024,
+    "pilot_symbols": 16,
+    "feedback_bits": 3,
+    "feedback_symbols": 16,
+    "header_symbols": 68,
+    "body_symbols_max": 924,
+    "public_header_information_bits": 12,
+    "second_header_symbols": 0,
+    "intermediate_feedback": false,
+    "body_modulations": [
+      "QPSK",
+      "16QAM"
+    ],
+    "mean_Es": 2
+  },
+  "channel": {
+    "kind": "block Rayleigh CN(0,1)",
+    "average_snrs_db": [
+      4,
+      7,
+      10,
+      13
+    ],
+    "h_shared_by_all_groups": true,
+    "h_shared_between_methods": true,
+    "noise_power": "N0=2/10**(average_snr_db/10); per real component variance N0/2",
+    "receive_frame_normalization": false,
+    "ideal_paid_CSI_and_reliable_feedback": true,
+    "finite_pilot_estimation": false,
+    "reverse_link_error_simulation": false
+  },
+  "quantizer": {
+    "thresholds_db": [
+      -5,
+      0,
+      4,
+      7,
+      10,
+      13,
+      19
+    ],
+    "bin_index": "np.searchsorted(thresholds_db, instantaneous_snr_db, side=right)",
+    "dictionary_max": 8,
+    "observes": "source image, average SNR, quantized bin only",
+    "true_h_visible_to_selector": false
+  },
+  "frozen_selection_model": {
+    "primary_metric": "dinov2_vitl14_cosine",
+    "source_Q": "Original calibration VAR/gray DINO-L only",
+    "conditional_packet_probabilities": "C/R/U empirical counts divided by n_blocks; same-h conditional products before integration",
+    "quadrature": "32-point Gauss-Legendre on Rayleigh survival probability; split at all curve knots and seven quantizer edges",
+    "tails": "constant endpoint tails; extreme all-curve tails integrated as exact interval mass times constant value",
+    "interpolation": "np.interp linear in dB, constant outside endpoints",
+    "U_quality_point": 0,
+    "U_quality_bounds": [
+      -1,
+      1
+    ],
+    "baseline_selection": "Frozen population800 U per-bin maxima over all792747 admitted profiles",
+    "dictionary_selection": "Frozen winner of exact stepwise greedy max8 vs deduplicated U-bin-winners dictionary; construction800 only",
+    "ties": "Preserve original code: update_best EPS=1e-14 between candidates/blocks; per-block and per-source np.argmax first exact maximum; dictionaries sorted by catalogue ordinal. Greedy bound EPS=1e-12 is pruning only.",
+    "actual_TX_per_source_bin": "Use frozen dictionary and same coefficients/Q definition, never observed channel outcome; parity against stored1000x8 choices",
+    "sensitivity": "Retain old fixed-choice tail/interpolation diagnostics; never use a stress case to reselect the actual policy"
+  },
+  "receiver": {
+    "generation": "unconditional_class1000_greedy_argmax_no_CFG_no_sampling",
+    "partial_order": "original entropy order",
+    "failure_rule": "consecutive_crc_accepted_prefix_v1_DROP_extension",
+    "CRC_truth": "Protocol acceptance is not known correctness",
+    "rejected_groups": "Discard and stop at continuous accepted prefix",
+    "undetected_or_invalid": "Preserve actual accepted bits and receiver output; no ground-truth substitution or truth-triggered fallback"
+  },
+  "qualification": {
+    "sources": 8,
+    "source_rule": "First8 registered64",
+    "PHY_decode_calls": 0,
+    "exact_tokens_and_positions": true,
+    "exact_profile_choice": true,
+    "max_abs_image_tolerance": 1e-06,
+    "mean_abs_image_error": "Diagnostic only; no additional threshold",
+    "rule": "Independent correct-token TX and RX reconstruction; failure requires diagnosis before actual experiment"
+  },
+  "actual_size": {
+    "sources": 64,
+    "channels_per_source_snr": 16,
+    "snrs": 4,
+    "methods": 2,
+    "nominal_forward_trajectories": 8192,
+    "all_new_packet_decode_cap": 100000,
+    "deduplicated_calls_separately_counted": true
+  },
+  "seeds": {
+    "master": 2026100604,
+    "namespace": "CONTENT-REAL-64QAM-20261006/C/channel",
+    "serialization": "UTF8 json.dumps([namespace,master,source_id,average_snr_db,trial],ensure_ascii=False,separators=(\",\",\":\")); SHA256 first16 bytes as unsigned little-endian PCG64 seed",
+    "trial_indices": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "draw_order": "Draw standard_normal(2) for h, then standard_normal((992,2)) for common forward-frame noise",
+    "h": "(g0+1j*g1)/sqrt(2), shared by both methods and every header/body group",
+    "noise": "sqrt(N0/2)*(z[:,0]+1j*z[:,1]); one common992-complex-symbol array for both methods; slice by physical forward symbol position",
+    "noise_offsets": "header[0:68], then each transmitted body group consecutively; unused suffix is not transmitted; paid16pilot+16feedback CSI ideal overhead has no simulated observations",
+    "independent_h_per_source_snr": 16,
+    "shared_h_between_methods": true,
+    "shared_standard_noise_by_forward_position": true,
+    "different_waveforms_are_not_shared_received_observations": true,
+    "source_ID_is_seed_identity_not_class_condition": true,
+    "only_bin_visible_to_selector": true
+  },
+  "statistics": {
+    "unit": "source",
+    "within_source": "average 16 complete trajectories per method/SNR before paired resampling",
+    "confidence": 0.95,
+    "final_seed_and_repeats_status": "SPECIFIED_BEFORE_EXECUTION",
+    "interval_label": "descriptive source-level paired interval on reused64; not new holdout",
+    "no_adaptive_sample_increase": true,
+    "no_old_point03_admission_gate": true,
+    "bootstrap_repeats": 10000,
+    "bootstrap_seed": 2026100605
+  },
+  "required_diagnostics": [
+    "selection_diagnostics.csv",
+    "per_source_win_loss",
+    "quality_loss_quantiles",
+    "gray_rate",
+    "undetected_accept_rate",
+    "recovered_scale",
+    "source_correct_to_reconstruction_wrong",
+    "model_predicted_vs_actual_delta",
+    "action_and_receive_event_breakdown"
+  ],
+  "online_TX": {
+    "sources": 16,
+    "source_rule": "first16 registered64",
+    "forbid_final_candidate_render_or_DINO_cache": true,
+    "source_DINO_reused_within_frame": true,
+    "includes": [
+      "source encoding",
+      "actual candidate completions",
+      "DINO comparisons",
+      "entropy sorting",
+      "packing"
+    ],
+    "record_actual_completion_count": true,
+    "isolated_timing": true,
+    "schedule": "For source position i=0..15, use fixed bin i%8 at each4/7/10/13 SNR, both frozen methods;64 source-SNR selections per method",
+    "framing": "Balanced registered bin coverage, not Rayleigh-weighted latency; same source features may only be reused among candidates inside the same frame"
+  },
+  "main_system_dependency": "Complete new1000-calibration final digital policy receipt is still required for final H/main claims; S1 alone is not that baseline.",
+  "training_updates": 0,
+  "actual_frames_executed": 0,
+  "GPU_jobs_started": 0,
+  "old_result_mutation": false,
+  "frozen_policy_identity_sha256": "1fc96a63ae0a30815802d6d5287aae8e17325f3c839f0057706b42d9748042e7",
+  "source64_sha256": "3e2e213850d54e6b28b6fa5d56fcc80925266b183806431658e59906925fc7f7",
+  "resource_budget_sha256": "b5c0038088ef1d7a090fb0b7e378e398522d05a06af6f9ee3375e14de52c5915",
+  "decision": {
+    "primary_target": "DINOv2-L C8-U paired source interval lower>0 => positive target evidence; crossing0=>UNRESOLVED",
+    "principal_independent_metrics": [
+      "ConvNeXt source-prediction agreement",
+      "CLIP image cosine"
+    ],
+    "noninferiority_margin": 0,
+    "noninferiority": "For higher-is-better metrics paired interval lower>=0; for LPIPS paired interval upper<=0; any crossing0 is UNRESOLVED",
+    "DINO_only": "Representation-objective result only, report all costs and stop; do not claim less content error",
+    "old_point03_gate_applied": false,
+    "fixed_sample_stop": true,
+    "automatic_C_times_H": false
+  }
+}

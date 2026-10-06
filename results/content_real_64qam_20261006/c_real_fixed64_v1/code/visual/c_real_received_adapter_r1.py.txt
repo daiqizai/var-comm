@@ -1,0 +1,98 @@
+"""Pure C actual-payload visual adapter. No model loader, PHY or selection."""
+from __future__ import annotations
+from copy import deepcopy
+import hashlib
+import json
+import numpy as np
+GENERATION='unconditional_class1000_greedy_argmax_no_CFG_no_sampling'
+
+def require(ok,message):
+    if not ok:raise ValueError(message)
+def digest(value):return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':'),ensure_ascii=True,allow_nan=False).encode()).hexdigest()
+def array_sha(value):
+    a=np.ascontiguousarray(value);return hashlib.sha256(str(a.dtype).encode()+b':'+str(a.shape).encode()+b'\0'+a.tobytes()).hexdigest()
+def rgb_sha(value):
+    a=np.asarray(value)
+    require(a.dtype==np.float32 and a.shape==(3,256,256) and np.isfinite(a).all() and a.min()>=0 and a.max()<=1,'Original float32 CHW01 RGB required')
+    return hashlib.sha256(b'float32:3,256,256:RGB\0'+np.ascontiguousarray(a).tobytes()).hexdigest()
+def unpack(value,length):
+    require(type(value['bits'])is int and value['bits']==length and type(value['hex'])is str,'Actual received payload bit length differs')
+    data=bytes.fromhex(value['hex']);require(len(data)==(length+7)//8,'Actual received payload bytes differ')
+    bits=np.unpackbits(np.frombuffer(data,dtype=np.uint8),bitorder='big')
+    require(not bits[length:].any(),'Noncanonical padding in actual received payload')
+    return bits[:length].copy()
+
+def receiver_view(frame):
+    """TX identity, source, entropy positions and evaluation labels are excluded."""
+    return dict(header=deepcopy(frame['receive']['header']),bodies=deepcopy(frame['receive']['bodies']),
+        actual_forward_symbols=frame['actual_forward_symbols'],header_codebook_sha256=frame['header_codebook_sha256'])
+
+def accepted_state(view,book,entropy):
+    require(view['header_codebook_sha256']==digest(book),'Actual public receiver codebook differs')
+    header=view['header'];pid=header['profile_id'];known=str(pid) in book
+    require(type(pid)is int and 0<=pid<4096 and all(type(header[k])is bool for k in ('header_crc_accept','header_fields_legal','header_ok'))
+        and header['header_fields_legal']==known and header['header_ok']==(header['header_crc_accept'] and known),'Actual header fact consistency failed')
+    bodies=view['bodies'];duration=view['actual_forward_symbols']
+    require(type(duration)is int and 68<=duration<=992,'Actual paid forward duration differs')
+    if not header['header_ok']:
+        require(not bodies,'Rejected header must not have body decoder results')
+        return dict(kind='gray',reason='HEADER_REJECT',actual_profile_id=None,m=0,K=0,accepted_group_count=0)
+    profile=book[str(pid)]
+    if 68+profile['used_body_symbols']>duration:
+        require(not bodies,'Format rejection must not invent extra body observations')
+        return dict(kind='gray',reason='RECEIVED_PROFILE_EXCEEDS_PUBLIC_DURATION',actual_profile_id=pid,m=0,K=0,accepted_group_count=0)
+    require(1<=len(bodies)<=profile['G'],'Missing or excess actual body decode results')
+    payloads=[];rejected=False
+    for j,body in enumerate(bodies):
+        group=profile['groups'][j]
+        require(body['group_index']==j and body['phy_key']==group['phy_key'] and type(body['crc_accept'])is bool and not rejected,
+            'Actual group layout/order or DROP stopping rule differs')
+        bits=unpack(body['payload'],group['source_bits'])
+        if body['crc_accept']:payloads.append(bits)
+        else:rejected=True
+    require(rejected or len(payloads)==profile['G'],'Actual second group decode is missing')
+    state=entropy.actual_accepted_payload(profile,payloads)
+    state.update(actual_profile_id=pid,accepted_group_count=len(payloads),reason='BODY_REJECT' if not payloads else 'ACTUAL_ACCEPTED_PAYLOAD')
+    return state
+
+class Receiver:
+    """Caller supplies the original qualified ReceivedRenderer and C206 helper."""
+    def __init__(self,received_renderer,entropy_helper,numerical_model_identity):
+        require(bool(numerical_model_identity),'Full original model/numerical identity required')
+        self.renderer=received_renderer;self.entropy=entropy_helper;self.identity=deepcopy(numerical_model_identity)
+        self.cache={};self.render_calls=0
+
+    def reconstruct(self,view,public_codebook,guard=lambda:None):
+        state=accepted_state(view,public_codebook,self.entropy)
+        if state['kind']=='gray':payload=dict(kind='gray')
+        else:payload=dict(kind='accepted',m=state['m'],K=state['K'],prefix=[x.tolist() for x in state['prefix_tokens']],partial=state['partial_values'].tolist())
+        key=digest(dict(receiver='VAR',identity=self.identity,actual_received=payload))
+        cache_hit=key in self.cache
+        if cache_hit:image,proof=self.cache[key]
+        elif state['kind']=='gray':
+            image=np.full((3,256,256),.5,dtype=np.float32);proof=dict(known_tokens_fixed=True,label_conditioned=False,completed_tokens_sha256=None,received_positions_sha256=None)
+        else:
+            guard()
+            # No source image/tokens, TX entropy order, TX ID or correctness label enters this call.
+            result=self.renderer.render_received(state['prefix_tokens'],state['partial_values'],state['m'],state['K'],'VAR',cache=None)
+            guard();m,K=state['m'],state['K'];tokens=result['tokens'];positions=np.asarray(result['positions']);values=np.asarray(result['values'])
+            require(result['known_tokens_fixed'] is True and result['label_conditioned'] is False and result['receiver']=='VAR'
+                and result['generation']==GENERATION and len(tokens)==10,'Original received greedy generation contract differs')
+            for j,t in enumerate(tokens):
+                t=np.asarray(t);require(t.dtype.kind in 'iu' and t.shape==(self.entropy.SIZES[j]**2,) and ((t>=0)&(t<4096)).all(),'Invalid actual completed tokens')
+                if j<m:require(np.array_equal(t,state['prefix_tokens'][j]),'Receiver changed accepted complete prefix')
+            require(positions.dtype.kind in 'iu' and positions.shape==(K,) and len(np.unique(positions))==K
+                and (not K or ((positions>=0)&(positions<self.entropy.SIZES[m]**2)).all())
+                and np.array_equal(values,state['partial_values']) and (not K or np.array_equal(np.asarray(tokens[m])[positions],values)),
+                'Receiver changed accepted partial values or its own entropy positions')
+            image=np.asarray(result['image']).copy();rgb_sha(image);self.render_calls+=1
+            proof=dict(known_tokens_fixed=True,label_conditioned=False,generation=result['generation'],
+                completed_tokens_sha256=array_sha(np.concatenate(tokens).astype('<i8')),
+                received_positions_sha256=array_sha(positions.astype('<i8')),original_accepted_payload_key=result['accepted_payload_key'])
+        if not cache_hit:
+            rgb_sha(image);image.setflags(write=False);self.cache[key]=(image,deepcopy(proof))
+        return dict(image=image,summary=dict(actual_profile_id=state['actual_profile_id'],actual_received_m=state['m'],actual_received_K=state['K'],
+            accepted_group_count=state['accepted_group_count'],gray=state['kind']=='gray',receiver_status=state['reason'],
+            receiver_cache_key=key,receiver_cache_hit=cache_hit,image_sha256=rgb_sha(image),
+            visual_reconstruction_complete=True,quality_metrics_run=False,source_truth_used_for_reconstruction=False,
+            TX_entropy_order_used_for_reconstruction=False,new_packet_decodes=0,new_noise=0,**deepcopy(proof)))

@@ -1,0 +1,143 @@
+"""One explicitly registered, two-core C layout qualification. No successor."""
+from __future__ import annotations
+import argparse
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path, PurePosixPath
+import signal
+import sys
+import time
+import traceback
+import c_real_cpu_core as c
+
+STATUS='C_REAL_CPU_QUALIFICATION_REGISTERED_R1'
+REQUIRE=c.require
+
+def save(path,value):
+    path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
+    with path.open('x',encoding='utf-8',newline='\n') as f:
+        f.write(json.dumps(value,indent=2,allow_nan=False)+'\n');f.flush();os.fsync(f.fileno())
+def verify(pins):
+    for path,s in pins.items():REQUIRE(Path(path).is_absolute() and c.sha(path)==s,'Changed/unbound dependency: '+path)
+def module(path,name):
+    spec=importlib.util.spec_from_file_location(name,path);m=importlib.util.module_from_spec(spec);sys.modules[name]=m;spec.loader.exec_module(m);return m
+def claim(out,regsha):
+    out=Path(out);out.mkdir(parents=True,exist_ok=True);REQUIRE(not any(out.iterdir()),'Prior evidence retained; no retry')
+    save(out/'attempt.json',dict(registration_sha256=regsha,new_packet_calls_not_yet_started=True,automatic_retry=False))
+
+def original_model_provenance(cfg,bound):
+    """Verify original 24 selected artifacts and five sources; never rank again."""
+    frozen=c.read(cfg['frozen_identity']);path=cfg['model_registration'];original=c.read(path)
+    REQUIRE(c.sha(path)==frozen['original_registration_sha256'] and bound.get(path)==c.sha(path),'Original model registration differs')
+    expected={str(PurePosixPath(cfg['root'])/entry['original_runtime'].removeprefix('REPO/')):entry['sha256'] for entry in frozen['source_audit']}
+    REQUIRE(original['source_bindings']==expected and len(expected)==5,'Original five executed model sources differ')
+    for p,s in expected.items():REQUIRE(bound.get(p)==s==c.sha(p),'Original executed model source missing: '+p)
+    REQUIRE(set(cfg['model_shards'])==set(map(str,c.SNRS)),'Four original model shards required')
+    files={}
+    for old,s in frozen['local_input_bindings'].items():
+        relative=PurePosixPath(old);snr=relative.parent.name.removeprefix('snr');p=str(PurePosixPath(cfg['model_shards'][snr])/relative.name)
+        REQUIRE(bound.get(p)==s==c.sha(p),'Frozen selected artifact missing: '+p);files[p]=s
+    REQUIRE(len(files)==24,'Exactly24 selected artifacts required')
+    for snr in c.SNRS:
+        directory=PurePosixPath(cfg['model_shards'][str(snr)]);completion=c.read(directory/'completion.json')
+        REQUIRE(completion['status']=='COMPLETE' and completion['input_bindings'].get(path)==c.sha(path)
+            and completion['candidate_count']==792747 and completion['selection_on']=='construction800'
+            and completion['development_read'] is False,'Original model completion differs')
+        for name in ('selected_profiles.json','source_weights.npz','selected_coefficients.npz','split.json','per_source.csv'):
+            p=str(directory/name);REQUIRE(completion['outputs'].get(p)==files[p],'Original selected artifact receipt differs: '+p)
+    return dict(registration_sha256=c.sha(path),source_bindings=expected,selected_artifact_bindings=files)
+
+def scheduling_amendment(cfg,bound):
+    p=cfg['scheduling_amendment'];value=c.read(p)
+    REQUIRE(bound.get(p)==c.sha(p) and value['status']=='C_REAL_PARALLEL_SCHEDULING_AMENDMENT_AUTHORIZED'
+        and value['frozen_science_changed'] is False and value['candidate_dictionary_quantizer_weights_tails_ties_source_ids_unchanged'] is True
+        and value['C_decode_cap']==100000 and value['C_phase_caps']==c.LIMITS and value['reserve_use_automatic'] is False
+        and value['PHY_worker_cap_total']==2 and value['PHY_threads_each']==2 and value['visual_GPU_jobs_max']==1,
+        'Exact scheduling-only amendment required')
+    for key in ('protocol','frozen_identity','source64','choices','resource_budget'):
+        REQUIRE(value['input_bindings'].get(cfg[key])==c.sha(cfg[key]),'Amendment does not bind original C '+key)
+
+def load_registered(config_path):
+    cfg=c.read(config_path);reg=c.read(cfg['registration']);regsha=c.sha(cfg['registration'])
+    REQUIRE(reg['status']==STATUS and reg['scope']=='C_REAL_LAYOUT_QUALIFICATION_ONLY' and reg['config_sha256']==c.sha(config_path)
+        and reg['phase']=='qualification' and reg['maximum_packet_calls']==848 and reg['engineering_choices']==c.ENGINEERING
+        and reg['scheduling_authority']=='USER_C_REAL_FIRST_PARALLEL_20261006' and reg['scientific_policy_changed'] is False,
+        'Separate exact engineering/priority registration required')
+    REQUIRE(cfg['workers']==1 and cfg['threads']==2 and cfg['nice']==15 and len(set(cfg['affinity']))==len(cfg['affinity'])==2
+        and cfg['CUDA_VISIBLE_DEVICES']=='' and 0<cfg['max_seconds']<=3600 and cfg['deadline_unix']<=1791564605.9549868,
+        'One bounded two-core CPU qualification only')
+    verify(reg['source_bindings']);verify(reg['input_bindings']);bound=dict(reg['input_bindings'])
+    for p,s in reg['source_bindings'].items():REQUIRE(p not in bound or bound[p]==s,'Conflicting source binding');bound[p]=s
+    required=[config_path,__file__,c.__file__]+[cfg[k] for k in ('ledger_module','phy_module','legacy_qualification','budget_registration',
+        'protocol','frozen_identity','source64','choices','resource_budget','model_registration','scheduling_amendment')]
+    required += [str(Path(cfg['legacy_runtime'])/n) for n in ('ldpc_backend.py','uep_phy.py','uep_common.py','profiles.py')]
+    required += [str(p) for p in (Path(cfg['src'])/'var_comm').rglob('*') if p.suffix in ('.py','.cpp')]
+    required += [str(Path(cfg['src'])/'var_comm/token_trellis.cpp')]
+    for p in required:REQUIRE(bound.get(str(Path(p).absolute()))==c.sha(p),'Required original executable/asset missing: '+str(p))
+    b=c.read(cfg['budget_registration'])
+    REQUIRE(b['status']=='FROZEN' and b['schema']=='C_PACKET_BUDGET_V1' and b['branch']=='C' and b['total_cap']==100000
+        and b['phase_limits']==c.LIMITS and b['original_resource_budget_sha256']==c.BUDGET_SHA
+        and b['no_automatic_transfers'] is True and b['no_automatic_reserve_spending'] is True,'Original C-only quota required')
+    frozen=c.load_frozen(*[cfg[k] for k in ('protocol','frozen_identity','source64','choices','resource_budget')])
+    provenance=original_model_provenance(cfg,bound);scheduling_amendment(cfg,bound)
+    cfg['_path']=str(Path(config_path).absolute())
+    return dict(cfg=cfg,reg=reg,regsha=regsha,bound=bound,frozen=frozen,model_provenance=provenance)
+
+def runtime(ctx,ledger):
+    cfg=ctx['cfg']
+    # Only original source-bound code. No LDPC constructor is called by load_registered.
+    sys.path.insert(0,cfg['legacy_runtime']);sys.path.insert(0,cfg['src'])
+    old=module(Path(cfg['legacy_runtime'])/'uep_phy.py','uep_phy')
+    backend_module=module(Path(cfg['legacy_runtime'])/'ldpc_backend.py','ldpc_backend')
+    profiles=module(Path(cfg['legacy_runtime'])/'profiles.py','profiles')
+    from var_comm import scale_channel
+    REQUIRE(Path(scale_channel.__file__).resolve()==(Path(cfg['src'])/'var_comm/scale_channel.py').resolve(),'Wrong bound public header implementation')
+    import torch
+    torch.set_num_threads(2);torch.set_num_interop_threads(2)
+    backend=backend_module.SionnaBackend('cpu',cfg['legacy_qualification'])
+    REQUIRE(backend.qualified and backend.identity==c.read(cfg['legacy_qualification'])['backend_identity'],'Original qualified Sionna identity differs')
+    physical=module(cfg['phy_module'],'c_real_original_rayleigh_phy')
+    adapter=c.CAtomicAdapter(ledger,c.sha(cfg['budget_registration']),'qualification',set(ctx['frozen']['groups'])|{physical.HEADER_KEY})
+    phy=physical.PacketPHY(backend,old,scale_channel,profiles.Planner(backend),adapter);phy.mcs_class=profiles.MCS
+    return phy
+
+def run(config_path):
+    ctx=load_registered(config_path);cfg=ctx['cfg'];out=Path(cfg['out']);claim(out,ctx['regsha']);started=time.monotonic()
+    try:
+        REQUIRE(sys.platform.startswith('linux'),'Actual qualification requires registered Linux CPU')
+        REQUIRE(os.sched_getaffinity(0)==set(cfg['affinity']) and os.getpriority(os.PRIO_PROCESS,0)==15
+            and os.environ.get('CUDA_VISIBLE_DEVICES')=='' and all(os.environ.get(k)=='2' for k in
+            ('OMP_NUM_THREADS','MKL_NUM_THREADS','OPENBLAS_NUM_THREADS','NUMEXPR_NUM_THREADS')),'CPU resource admission differs')
+        import fcntl
+        budget=module(cfg['ledger_module'],'budget_ledger');identity=budget.process_identity(os.getpid())
+        REQUIRE(identity['argv']==cfg['argv'] and Path(sys.executable).absolute()==Path(cfg['python']).absolute(),'Exact registered interpreter/argv required')
+        save(out/'identity.json',dict(identity=identity,registration_sha256=ctx['regsha']))
+        def boundary():
+            REQUIRE(time.monotonic()-started<cfg['max_seconds'] and time.time()<cfg['deadline_unix'],'Qualification deadline')
+            REQUIRE(not Path(cfg['stop_file']).exists() and not(out/'STOP').exists(),'STOP before new charged call')
+        def stop(*_):raise RuntimeError('Signal: preserve charged attempt')
+        signal.signal(signal.SIGTERM,stop);signal.signal(signal.SIGINT,stop)
+        lock=Path(cfg['ledger']).with_suffix('.owner.lock');lock.parent.mkdir(parents=True,exist_ok=True)
+        with lock.open('a+') as handle:
+            fcntl.flock(handle.fileno(),fcntl.LOCK_EX|fcntl.LOCK_NB)
+            boundary();ledger=budget.BudgetLedger(cfg['ledger'],c.sha(cfg['budget_registration']),'C',c.LIMITS)
+            before=ledger.snapshot();REQUIRE(before['charged']==before['unresolved']==0,'C qualification requires fresh zero ledger; no re-execution')
+            phy=runtime(ctx,ledger);done=c.qualify(phy,ctx['frozen'],boundary)
+            after=ledger.snapshot();REQUIRE(after['charged']==848 and after['unresolved']==0
+                and after['phase_charged']==dict(qualification=848,development=0,diagnostic_reserve=0),'Exact original848 qualification charges required')
+            save(out/'roundtrip_checks.json',done);verify(ctx['reg']['source_bindings']);verify(ctx['reg']['input_bindings']);boundary()
+            result=dict(status='C_REAL_CPU_848_QUALIFICATION_COMPLETE_R1',registration_sha256=ctx['regsha'],config_sha256=c.sha(config_path),
+                source_bindings=ctx['reg']['source_bindings'],input_bindings=ctx['reg']['input_bindings'],budget_before=before,budget_after=after,
+                source_images_used=0,new_GPU_calls=0,packet_calls=848,scientific_BLER_table=False,development_started=False,
+                entropy_assets_qualified=False,TX_RX_image_parity_qualified=False,original_owner_completion_claimed=False,
+                automatic_successor=False,worker_identity=identity,elapsed_seconds=time.monotonic()-started,
+                outputs={str(out/n):c.sha(out/n) for n in ('roundtrip_checks.json','identity.json')})
+            save(out/'completion.json',result);return result
+    except BaseException as e:
+        if not(out/'failure.json').exists():save(out/'failure.json',dict(status='FAILED_PRESERVE_NO_RETRY',error=repr(e),traceback=traceback.format_exc(),refund=False))
+        raise
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--config',required=True);a=p.parse_args();print(run(a.config)['status'])

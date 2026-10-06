@@ -1,0 +1,349 @@
+"""Explicit C64 visual registration and one supervised GPU worker.
+
+No packet decoder, sampler, candidate selection or automatic successor exists
+in this entry point. The supervisor retains both locks until its child is reaped.
+"""
+from __future__ import annotations
+import original_preflight_environment_r1 as _preflight_environment
+import argparse
+from contextlib import ExitStack, contextmanager
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import re
+import signal
+import subprocess
+import sys
+import time
+import traceback
+
+REQUEST='C_REAL_VISUAL_REGISTRATION_REQUEST_R1'
+REG='C_REAL_VISUAL_REGISTERED_R1'
+SEALED='C_REAL_VISUAL_REGISTERED_NOT_LAUNCHED_R1'
+DONE='C_REAL_VISUAL_NORMALLY_COMPLETE_R1'
+SCIENCE='C_REAL_ACTUAL_RX_METRICS_COMPLETE_R1'
+QPASS='C_REAL_VISUAL_ACTUAL_ENVIRONMENT_CPU_TESTS_PASS_R1'
+DEADLINE=1791564605.9549868
+THREAD_KEYS=('OMP_NUM_THREADS','MKL_NUM_THREADS','OPENBLAS_NUM_THREADS','NUMEXPR_NUM_THREADS')
+STOP=False
+# Final inventory is intentionally explicit: private tests may not silently disappear.
+TEST_MODULES=['test_c_real_received_adapter_r1','test_c_received_entropy_semantics',
+              'test_c_real_visual_source_r1','test_c_real_visual_driver_r1','test_c_real_visual_execution_r1']
+NEW_SOURCES=['c_real_received_adapter_r1.py','test_c_real_received_adapter_r1.py',
+             'test_c_received_entropy_semantics.py','c_real_visual_source_r1.py',
+             'c_real_metric_bridge_r1.py','test_c_real_visual_source_r1.py',
+             'c_real_convnext_r1.py','c_real_visual_driver_r1.py',
+             'test_c_real_visual_driver_r1.py','c_real_visual_execution_r1.py',
+             'test_c_real_visual_execution_r1.py']
+TEST_COUNT=39
+
+def require(ok,message):
+    if not ok:raise ValueError(message)
+def sha(path):
+    h=hashlib.sha256()
+    with Path(path).open('rb') as f:
+        for block in iter(lambda:f.read(1048576),b''):h.update(block)
+    return h.hexdigest()
+def read(path):return json.loads(Path(path).read_text(encoding='utf-8-sig'))
+def save(path,value):
+    p=Path(path);p.parent.mkdir(parents=True,exist_ok=True)
+    with p.open('x',encoding='utf-8',newline='\n') as f:
+        json.dump(value,f,indent=2,allow_nan=False);f.write('\n');f.flush();os.fsync(f.fileno())
+def bind(paths):return {str(Path(p).absolute()):sha(p) for p in paths}
+def combine(*maps):
+    result={}
+    for mapping in maps:
+        for p,h in mapping.items():require(p not in result or result[p]==h,'Conflicting binding '+p);result[p]=h
+    return result
+def verify(pins):
+    for p,h in pins.items():require(Path(p).is_absolute() and sha(p)==h,'Changed bound file '+p)
+def module(path,name,bound):
+    path=str(Path(path).absolute());require(bound.get(path)==sha(path),'Executable must be bound before import '+path)
+    spec=importlib.util.spec_from_file_location(name,path);value=importlib.util.module_from_spec(spec);sys.modules[name]=value;spec.loader.exec_module(value);return value
+def exact_module(mapping,basename):
+    found=[p for p in mapping if Path(p).name==basename];require(len(found)==1,'Unique registered module required '+basename)
+    require(sha(found[0])==mapping[found[0]],'Original module changed');return found[0]
+def identity(pid):
+    p=Path('/proc')/str(pid);fields=(p/'stat').read_text().rsplit(')',1)[1].split()
+    return dict(pid=pid,start_ticks=int(fields[19]),uid=p.stat().st_uid,argv=(p/'cmdline').read_bytes().decode().rstrip('\0').split('\0'))
+def absent(old):
+    try:now=identity(old['pid'])
+    except FileNotFoundError:return True
+    require((now['start_ticks'],now['uid'])!=(old['start_ticks'],old['uid']),'Original process remains, including unreaped zombie');return True
+def capture(child,argv):
+    for _ in range(100):
+        value=identity(child.pid)
+        if value['argv']==argv:return value
+        require(child.poll() is None,'Child exited before identity capture');time.sleep(.02)
+    raise ValueError('Child argv did not settle')
+def stop(*_):
+    global STOP
+    STOP=True
+
+def check_stop(cfg,*,historical=False):
+    study=Path(cfg['root'])/'outputs/CONTENT-REAL-64QAM-20261006'
+    require(not any(p.exists() for p in (study/'STOP',study/'C/STOP',Path(cfg['execution_dir'])/'STOP',Path(cfg['out'])/'STOP')),
+            'C visual STOP; retain evidence')
+    if not historical:require(not STOP and time.time()<DEADLINE,'C visual signal/deadline')
+def marker(cfg,cause):
+    p=Path(cfg['out'])/'STOP';p.parent.mkdir(parents=True,exist_ok=True)
+    if not p.exists():
+        try:save(p,dict(status='C_VISUAL_STOP_PRESERVE_EVIDENCE',cause=cause,new_packet_decodes=0))
+        except FileExistsError:pass
+def validate_budget(value):
+    require(value['branch']=='C' and value['charged']==21495 and value['unresolved']==0
+        and value['phase_charged']==dict(qualification=848,development=20647,diagnostic_reserve=0),
+        'Exact normal C8192 budget21495 required');return value
+def validate_resources(cfg):
+    r=cfg['resources'];require(r['gpu_device']==0 and r['threads']==6 and r['interop_threads']==2
+        and r['affinity']==[4,5,6,7,8,9] and r['nice']==15 and 0<r['max_seconds']<=86400,
+        'One original GPU and six original host cores required')
+
+def original_visual(cpu,combined):
+    ecfg=read(cpu['cfg']['entropy_batch']['config']);ereq=read(ecfg['request']);ereg=read(ecfg['registration'])
+    path=exact_module(ereg['source_bindings'],'c_entropy_execution.py')
+    sys.path.insert(0,str(Path(path).parent));old=module(path,'c_visual_original_entropy_execution',combined)
+    value=old.original_visual_closed(ereq['visual_reference'])
+    return value,ecfg,ereq
+
+def prior(cfg,pins):
+    """One normal CPU closure plus one complete event/trace audit, no models."""
+    path=cfg['cpu_supervisor_module'];sys.path.insert(0,str(Path(path).parent))
+    sup=module(path,'c_visual_original_cpu_supervisor',pins);proof=sup.closed_batch(cfg['cpu_batch'])
+    bound=combine(pins,proof['bindings']);cpu=proof['ctx'];inventory=sup.d.audit_inventory(cpu);done=proof['done']
+    require(inventory['frame_count']==8192 and inventory['budget']==done['budget_after']
+        and inventory['packet_calls']==done['actual_development_packet_calls']
+        and all(done['outputs'].get(p)==h for p,h in inventory['outputs'].items()),'Original actual8192 paid inventory differs')
+    validate_budget(inventory['budget'])
+    closed=dict(cpu=cpu,normal=done,bindings=bound,inventory=inventory,
+                original_cpu_proof=cfg['cpu_batch'],budget_before=inventory['budget'])
+    visual,ecfg,ereq=original_visual(cpu,bound)
+    return closed,visual,combine(bound,visual['bindings']),ecfg,ereq
+
+def qualification(path,python,pins,cfg):
+    q=read(path);require(TEST_COUNT>0 and q['status']==QPASS and q['python']==python and q['tests_run']==TEST_COUNT
+        and q['test_modules']==TEST_MODULES and q['exit_code']==0 and q['process_waited'] is True
+        and q['new_packet_decodes']==0 and q['new_GPU_calls']==0,'Actual original UM CPU interface qualification required')
+    for key in ('source_bindings','input_bindings','outputs'):verify(q[key])
+    for name in NEW_SOURCES:
+        p=str(Path(__file__).with_name(name).absolute())
+        require(q['source_bindings'].get(p)==pins.get(p)==sha(p),'Qualification executable missing '+name)
+    for p in (cfg['metric_assets'],cfg['cpu_batch']['owner_config'],cfg['cpu_batch']['completion']):
+        require(q['input_bindings'].get(p)==pins.get(p)==sha(p),'Qualification actual metadata missing '+p)
+    fixtures=q['fixture_paths']
+    require(set(fixtures)=={'C_ENTROPY_HELPER_SOURCE','C_RX_REVIEW_SOURCE_QUALITY','C_RX_ORIGINAL_VALIDATION_SOURCE','C_VISUAL_TEST_METADATA'},
+        'Four explicit deployed fixture paths required')
+    for name,p in fixtures.items():require(q['input_bindings'].get(p)==sha(p),'Fixture not bound '+name)
+    metadata=read(fixtures['C_VISUAL_TEST_METADATA']);verify(metadata['input_bindings'])
+    require(set(metadata['paths'])=={'cpu_config','cpu_normal','entropy_config','entropy_science','raw_checkpoint','entropy_checkpoint','cpu_checkpoint'}
+        and all(metadata['input_bindings'].get(p)==q['input_bindings'].get(p)==sha(p) for p in metadata['paths'].values()),
+        'Exact actual receipt test metadata must be input-bound')
+    log=Path(q['log']);require(q['outputs'].get(str(log))==sha(log),'Closed qualification log missing')
+    text=log.read_text(encoding='utf-8');require(re.search(r'Ran '+str(TEST_COUNT)+r' tests in .*\n\s*OK\s*$',text)
+        and not re.search(r'\bskipped\b',text,re.I),'Exact closed qualification test inventory required')
+    return q
+
+def register(path):
+    r=read(path);require(r['schema']==REQUEST,'Explicit C visual request required')
+    cfg=dict(r['config']);e=Path(cfg['execution_dir']);out=Path(cfg['out']);check_stop(cfg);validate_resources(cfg)
+    study=Path(cfg['root'])/'outputs/CONTENT-REAL-64QAM-20261006/C'
+    require(e.parent==out.parent==study and e!=out and not e.exists() and not out.exists(),'Fresh distinct C execution/output required')
+    require(cfg['registration']==str(e/'execution_registration.json') and cfg['native_source_graph']==str(e/'native_source_graph.json')
+        and cfg['owner_module']==str(Path(__file__).absolute()) and cfg['driver_module']==str(Path(__file__).with_name('c_real_visual_driver_r1.py').absolute()),
+        'Exact new runtime/registration paths required')
+    verify(r['source_bindings']);verify(r['input_bindings']);sources=dict(r['source_bindings']);inputs=combine(r['input_bindings'],bind([path]))
+    for name in NEW_SOURCES:
+        p=str(Path(__file__).with_name(name).absolute());require(sources.get(p)==sha(p),'New source omitted '+name)
+    closed,visual,pins,ecfg,ereq=prior(cfg,combine(sources,inputs));vc=visual['cfg'];vo=visual['owner']
+    require(cfg['root']==vc['root'] and cfg['out'] not in (closed['cpu']['cfg']['out'],ecfg['out']),'Original C/H root or distinct output differs')
+    expected_python=str(Path(cfg['root'])/'outputs/UNIFIED-METRICS-20261002/environment/bin/python')
+    require(visual['python']==expected_python and vo['gpu_threads']==6 and vo['gpu_affinity']==cfg['resources']['affinity']
+        and vo['gpu_device']==0,'Actual original UM interpreter/resource identity differs')
+    cfg.update(python=visual['python'],visual_lock=vo['visual_lock_path'],nvidia_smi=vo['nvidia_smi'])
+    require(cfg['visual_lock']==str(study.parent/'shared_visual.lock'),'Original shared visual lock required')
+    assets=read(cfg['metric_assets']);sources=combine(sources,assets['source_bindings']);inputs=combine(inputs,assets['input_bindings'],pins,
+        bind([cfg['metric_assets'],cfg['h_metric_adapter_module'],vo['nvidia_smi']]))
+    # Every prior executable keeps its original path and SHA; the closed CPU pin-map includes its own registration explicitly.
+    sources=combine(sources,closed['cpu']['reg']['source_bindings'])
+    closure=module(vc['static_closure_module'],'c_visual_original_static_closure',combine(sources,inputs))
+    native=closure.collect_bindings(cfg['root'],vc['native_runtime'],vc['var_source'],vc['dino_source'],vc['uep_runtime'])
+    oldscience=read(closed['cpu']['cfg']['entropy_manifest'])
+    require(all(native.get(p)==h for p,h in oldscience['visual_source_bindings'].items()),'Original C206 native sources changed')
+    sources=combine(sources,native)
+    q=qualification(cfg['prepared_qualification'],cfg['python'],combine(sources,inputs),cfg)
+    inputs=combine(inputs,q['source_bindings'],q['input_bindings'],q['outputs'],bind([cfg['prepared_qualification']]))
+    require(closed['cpu']['cfg']['ledger'] not in inputs,'Mutable ledger must never become an immutable input pin')
+    e.mkdir();save(e/'registration_attempt.json',dict(request_sha256=sha(path),automatic_retry=False,new_packet_decodes=0))
+    try:
+        save(cfg['native_source_graph'],dict(status='EXACT_SOURCE_CLOSURE_MATCH',source_bindings=native,
+            historical_native_sources_unchanged=True,original_entropy_completion=closed['cpu']['cfg']['entropy_manifest'],
+            original_entropy_completion_sha256=sha(closed['cpu']['cfg']['entropy_manifest'])))
+        save(e/'config.json',cfg);inputs=combine(inputs,bind([cfg['native_source_graph'],e/'config.json']))
+        bound=combine(sources,inputs);closed['bindings']=bound
+        sys.path.insert(0,str(Path(__file__).parent));driver=module(cfg['driver_module'],'c_visual_registered_driver',bound)
+        ctx=driver.inspect(dict(cfg),bound,closed=closed);require(driver.budget(ctx)==closed['budget_before'],'C budget changed during registration')
+        verify(sources);verify(inputs)
+        reg=dict(status=REG,config_sha256=sha(e/'config.json'),source_bindings=sources,input_bindings=inputs,
+            native_source_bindings=native,budget_before=closed['budget_before'],source_count=64,frame_count=8192,
+            new_packet_decodes=0,new_noise=0,policy_selection=False,automatic_successor=False)
+        save(cfg['registration'],reg)
+        result=dict(status=SEALED,registration_sha256=sha(cfg['registration']),outputs=bind([e/'config.json',cfg['registration'],cfg['native_source_graph']]),
+            budget_before=closed['budget_before'],budget_after=driver.budget(ctx),new_packet_decodes=0,new_GPU_calls=0,automatic_successor=False)
+        require(result['budget_after']==result['budget_before'],'C budget changed before seal');save(e/'registration_completion.json',result);return result
+    except BaseException:save(e/'registration_failure.json',dict(status='FAILED_PRESERVE_NO_RETRY',traceback=traceback.format_exc(),GPU_started=False));raise
+
+def load(path,*,seal=True):
+    cfg=read(path);reg=read(cfg['registration']);bound=combine(reg['source_bindings'],reg['input_bindings'])
+    require(reg['status']==REG and reg['config_sha256']==sha(path) and bound.get(str(Path(path).absolute()))==sha(path),'Exact worker config/registration required')
+    require(cfg['owner_module']==str(Path(__file__).absolute()) and bound.get(cfg['owner_module'])==sha(__file__),'Owner source changed')
+    sys.path.insert(0,str(Path(cfg['driver_module']).parent));driver=module(cfg['driver_module'],'c_visual_current_driver',bound)
+    ctx=driver.load_registered(path);ctx['driver']=driver;validate_resources(cfg)
+    require(ctx['before']==reg['budget_before'],'Sealed C budget differs')
+    visual,_,_=original_visual(ctx['cpu_closed']['cpu'],bound);vo=visual['owner']
+    require(cfg['python']==visual['python'] and cfg['visual_lock']==vo['visual_lock_path'] and cfg['nvidia_smi']==vo['nvidia_smi'],
+        'Original visual interpreter/lock/NVML executable differs')
+    qualification(cfg['prepared_qualification'],cfg['python'],bound,cfg)
+    if seal:
+        e=Path(cfg['execution_dir']);s=read(e/'registration_completion.json')
+        require(s['status']==SEALED and s['registration_sha256']==ctx['regsha'] and not(e/'registration_failure.json').exists(),'Successful visual seal required')
+        verify(s['outputs'])
+    return ctx
+
+@contextmanager
+def lock(path):
+    import fcntl
+    with Path(path).open('a+') as f:
+        fcntl.flock(f,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        try:yield
+        finally:fcntl.flock(f,fcntl.LOCK_UN)
+def locked(path):
+    import fcntl
+    with Path(path).open('r+') as f:
+        try:fcntl.flock(f,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        except BlockingIOError:return True
+        fcntl.flock(f,fcntl.LOCK_UN);return False
+def lock_paths(ctx):return [ctx['cfg']['visual_lock'],str(Path(ctx['cpu_closed']['cpu']['cfg']['ledger']).with_suffix('.owner.lock'))]
+def gpu_idle(executable,runner=subprocess.run):
+    def q(fields,kind='gpu'):return runner([executable,'--query-'+kind+'='+fields,'--format=csv,noheader,nounits'],check=True,capture_output=True,text=True,timeout=15).stdout.strip()
+    rows=q('index,uuid').splitlines();require(len(rows)==1 and rows[0].split(',')[0].strip()=='0','Exactly one GPU0 required')
+    require(not q('pid','compute-apps'),'Foreign/live/unproven GPU process present')
+    return dict(status='GPU_IDLE_CONFIRMED',device=0,uuid=rows[0].split(',')[1].strip(),observed_unix=time.time(),nvidia_smi_sha256=sha(executable))
+def environment(ctx):
+    cfg=ctx['cfg'];v=ctx['visual_config'];paths=ctx['driver'].import_paths(ctx)
+    paths += [str(Path(cfg['cpu_supervisor_module']).parent),str(Path(ctx['cpu_closed']['cpu']['cfg']['qualification_config']).parent.parent/'qualification_runtime_r1')]
+    return dict(os.environ,PYTHONPATH=os.pathsep.join(dict.fromkeys(paths)),PYTHONDONTWRITEBYTECODE='1',CUDA_VISIBLE_DEVICES='0',
+        **{k:'6' for k in THREAD_KEYS})
+def resources(affinity):os.sched_setaffinity(0,set(affinity));os.setpriority(os.PRIO_PROCESS,0,15)
+def command(cfg):return [cfg['python'],'-B',cfg['driver_module'],'--config',cfg['_path']]
+
+def check_live(ctx,proof):
+    cfg=ctx['cfg'];check_stop(cfg)
+    require(identity(os.getpid())==proof['worker_identity'] and identity(os.getppid())==proof['owner_identity'],
+        'Registered parent/worker identity changed')
+    require(all(locked(p) for p in lock_paths(ctx)),'GPU and read-only C ledger ownership required')
+    require(os.sched_getaffinity(0)==set(cfg['resources']['affinity']) and os.environ.get('CUDA_VISIBLE_DEVICES')=='0'
+        and _preflight_environment.check(ctx['bound'],cfg['root']) and os.getpriority(os.PRIO_PROCESS,0)==15,'Original singleGPU/6threads worker environment required')
+def admit_worker(ctx):
+    cfg=ctx['cfg'];e=Path(cfg['execution_dir']);p=e/'worker_admission.json';until=time.monotonic()+10
+    while not p.exists():require(time.monotonic()<until,'Owner admission missing');time.sleep(.02)
+    proof=read(p);launch=read(e/'worker_launch.json');owner=read(e/'owner_identity.json');gpu=read(e/'gpu_admission.json')
+    require(proof['status']=='C_REAL_VISUAL_WORKER_ADMITTED_R1' and proof['registration_sha256']==launch['registration_sha256']==owner['registration_sha256']==ctx['regsha']
+        and proof['config_sha256']==sha(cfg['_path']) and proof['worker_identity']==launch['identity']
+        and proof['owner_identity']==owner['identity'] and proof['worker_identity']['argv']==command(cfg)
+        and proof['gpu_admission_sha256']==sha(e/'gpu_admission.json') and gpu['status']=='GPU_IDLE_CONFIRMED'
+        and gpu['device']==0 and gpu['nvidia_smi_sha256']==sha(cfg['nvidia_smi']),'Exact current GPU admission required')
+    check_live(ctx,proof)
+    require(ctx['cpu_supervisor'].d.ledger_snapshot(ctx['cpu_closed']['cpu']['cfg']['ledger'],sha(ctx['cpu_closed']['cpu']['cfg']['budget_registration']))==ctx['before'],
+        'C ledger changed before first model');return proof
+
+def finish(rec,e):
+    if rec.get('closed'):return rec['exit']
+    code=rec['child'].wait();h=rec['handle'];h.flush();os.fsync(h.fileno());h.close()
+    value=dict(identity=rec.get('identity'),pid=rec['child'].pid,exit_code=code,reaped=True,log_sha256=sha(e/'worker.log'))
+    save(e/'worker_exit.json',value);rec.update(closed=True,exit=value);return value
+def validate_done(ctx,rec):
+    cfg=ctx['cfg'];e=Path(cfg['execution_dir']);x=rec['exit'];science=Path(cfg['out'])/'completion.json';done=read(science)
+    require(x['reaped'] is True and x['exit_code']==0 and x['identity'] is not None and absent(x['identity']),'Worker must be actually reaped with exit0')
+    require(done['status']==SCIENCE and done['registration_sha256']==ctx['regsha'] and done['config_sha256']==sha(cfg['_path'])
+        and done['worker_identity']==x['identity'] and done['source_count']==64 and done['frame_count']==8192
+        and done['images_scored'] is done['source_reconstruction_complete'] is True
+        and done['new_packet_decodes']==done['new_noise']==0 and done['policy_selection'] is done['holdout_used'] is done['automatic_successor'] is False
+        and done['population']=='original_calibration_internal64' and done['budget_before']==done['budget_after']==ctx['before'],
+        'Complete actual64/8192 RX and metrics receipt required')
+    require(done['source_ids']==ctx['cpu_closed']['cpu']['frozen']['source_ids'] and done['trials']==list(range(16)),
+        'Exact original C64 ordering and all16 trials required')
+    require(done['source_bindings']==ctx['reg']['source_bindings'] and done['input_bindings']==ctx['reg']['input_bindings']
+        and done['native_source_bindings']==ctx['native_bindings'],'Worker source/input/native closure differs')
+    cps=[p for p in done['outputs'] if Path(p).parent==Path(cfg['out'])/'source_checkpoints'];require(len(cps)==64,'All64 source checkpoints required')
+    for i in range(64):
+        cp_path=Path(cfg['out'])/f'source_checkpoints/{i:04d}.json';cp=read(cp_path)
+        require(done['outputs'].get(str(cp_path))==sha(cp_path) and cp['source_index']==i and cp['source_id']==done['source_ids'][i]
+            and cp['status']=='C_REAL_ACTUAL_RX_SOURCE_COMPLETE_R1' and cp['registration_sha256']==ctx['regsha'] and cp['frame_count']==128
+            and cp['images_scored'] is cp['source_reconstruction_complete'] is True and cp['new_packet_decodes']==cp['new_noise']==0
+            and cp['metric_identity']==done['metric_evaluator_identity'] and cp['receiver_identity']==done['receiver_identity']
+            and all(done['outputs'].get(p)==h for p,h in cp['outputs'].items()),'Incomplete/mixed C source checkpoint')
+    verify(done['outputs']);verify(done['source_bindings']);verify(done['input_bindings'])
+    require(ctx['driver'].budget(ctx)==ctx['before'],'C ledger changed during visual worker');return done
+
+def run(path):
+    ctx=load(path);cfg=ctx['cfg'];e=Path(cfg['execution_dir']);check_stop(cfg)
+    require(not(e/'run_attempt.json').exists() and not(e/'failure.json').exists() and not Path(cfg['out']).exists(),'No retry of visual evidence')
+    save(e/'run_attempt.json',dict(registration_sha256=ctx['regsha'],automatic_retry=False));rec=None;stack=ExitStack();me=identity(os.getpid())
+    try:
+        require(set(cfg['resources']['affinity'])<=os.sched_getaffinity(0),'Original six GPU host cores unavailable')
+        for p in lock_paths(ctx):stack.enter_context(lock(p))
+        check_stop(cfg);require(ctx['driver'].budget(ctx)==ctx['before'],'C ledger changed before GPU admission');gpu=gpu_idle(cfg['nvidia_smi'])
+        save(e/'owner_identity.json',dict(identity=me,registration_sha256=ctx['regsha'],config_sha256=sha(path)))
+        save(e/'gpu_admission.json',gpu);cmd=command(cfg);h=(e/'worker.log').open('xb')
+        try:
+            child=subprocess.Popen(cmd,cwd=cfg['root'],env=environment(ctx),stdout=h,stderr=subprocess.STDOUT,stdin=subprocess.DEVNULL,
+                start_new_session=True,preexec_fn=lambda:resources(cfg['resources']['affinity']))
+        except BaseException:h.close();raise
+        rec=dict(child=child,handle=h,closed=False)
+        save(e/'spawn_pending_identity.json',dict(pid=child.pid,argv=cmd,identity_verified=False))
+        rec['identity']=capture(child,cmd)
+        save(e/'worker_launch.json',dict(identity=rec['identity'],registration_sha256=ctx['regsha']))
+        save(e/'worker_admission.json',dict(status='C_REAL_VISUAL_WORKER_ADMITTED_R1',owner_identity=me,worker_identity=rec['identity'],
+            registration_sha256=ctx['regsha'],config_sha256=sha(path),gpu_admission_sha256=sha(e/'gpu_admission.json')))
+        started=time.monotonic()
+        while child.poll() is None:
+            try:check_stop(cfg);require(time.monotonic()-started<cfg['resources']['max_seconds'],'Registered visual wall limit')
+            except BaseException:marker(cfg,'Supervisor signal/deadline/STOP; finish current boundary then exit')
+            time.sleep(.25)
+        finish(rec,e);check_stop(cfg);done=validate_done(ctx,rec)
+        result=dict(status=DONE,registration_sha256=ctx['regsha'],config_sha256=sha(path),owner_identity=me,worker_identity=rec['identity'],
+            worker_reaped=True,exit_code=0,source_count=64,frame_count=8192,budget_before=ctx['before'],budget_after=ctx['driver'].budget(ctx),
+            source_bindings=ctx['reg']['source_bindings'],input_bindings=ctx['reg']['input_bindings'],
+            outputs=combine(done['outputs'],bind([Path(cfg['out'])/'completion.json']+[e/n for n in
+                ('owner_identity.json','gpu_admission.json','spawn_pending_identity.json','worker_launch.json','worker_admission.json','worker_exit.json','worker.log')])),
+            images_scored=True,new_packet_decodes=0,new_noise=0,policy_selection=False,automatic_successor=False)
+        require(result['budget_before']==result['budget_after'],'C ledger changed at normal closure');save(e/'completion.json',result);return result
+    except BaseException:
+        error=traceback.format_exc()
+        if rec is not None:
+            marker(cfg,'Owner failure; retain child evidence and drain safely')
+            finish(rec,e)  # Both shared locks remain held until wait and closed-log sealing finish.
+        save(e/'failure.json',dict(status='FAILED_PRESERVE_NO_RETRY',traceback=error,owner_identity=me,
+            worker_pid=None if rec is None else rec['child'].pid,new_packet_decodes=0));raise
+    finally:stack.close()
+
+def closed_batch(spec):
+    ctx=load(spec['config']);cfg=ctx['cfg'];e=Path(cfg['execution_dir']);check_stop(cfg,historical=True)
+    require(spec['completion']==str(e/'completion.json') and not(e/'failure.json').exists() and not(Path(cfg['out'])/'failure.json').exists(),'Normal visual owner required')
+    done=read(spec['completion']);owner=read(e/'owner_identity.json');launch=read(e/'worker_launch.json');x=read(e/'worker_exit.json')
+    require(done['status']==DONE and done['registration_sha256']==ctx['regsha'] and done['config_sha256']==sha(spec['config'])
+        and done['owner_identity']==owner['identity'] and done['worker_identity']==launch['identity']==x['identity']
+        and done['worker_reaped'] is x['reaped'] is True and done['exit_code']==x['exit_code']==0
+        and x['log_sha256']==sha(e/'worker.log') and absent(owner['identity']) and absent(x['identity']),'Actual normal owner/worker exit/log required')
+    science=validate_done(ctx,dict(exit=x));verify(done['outputs'])
+    require(done['budget_after']==done['budget_before']==ctx['before'] and done['source_bindings']==ctx['reg']['source_bindings']
+        and done['input_bindings']==ctx['reg']['input_bindings'] and all(done['outputs'].get(p)==h for p,h in science['outputs'].items()),'Normal output map/budget differs')
+    return dict(ctx=ctx,done=done,science=science,bindings=combine(ctx['bound'],done['outputs'],bind([spec['config'],spec['completion'],cfg['registration']])))
+
+def main():
+    p=argparse.ArgumentParser();p.add_argument('--stage',choices=('register','run'),required=True);p.add_argument('--request');p.add_argument('--config');a=p.parse_args()
+    signal.signal(signal.SIGTERM,stop);signal.signal(signal.SIGINT,stop)
+    print((register(a.request) if a.stage=='register' else run(a.config))['status'],flush=True)
+if __name__=='__main__':main()

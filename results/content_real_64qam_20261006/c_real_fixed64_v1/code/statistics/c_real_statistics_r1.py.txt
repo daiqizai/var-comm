@@ -1,0 +1,321 @@
+"""Frozen C64 source-paired descriptive statistics. Pure CPU, no file reads.
+
+The future caller must first verify normal visual/CPU closure and every input
+SHA. This module accepts all 8192 scored facts and the original frozen policy;
+it does not reconstruct, choose policies, launch work, or replace missing data.
+"""
+from collections import Counter
+import hashlib
+import json
+import math
+import re
+import numpy as np
+
+SNRS = (4, 7, 10, 13)
+METHODS = ('QCSI-U', 'QCSI-C8')
+TRIALS = tuple(range(16))
+SOURCES = 64
+REPLICATES = 10000
+BOOTSTRAP_SEED = 2026100605
+POPULATION = 'original_calibration_internal64'
+# Class indices are identity evidence, not scalar quality scores. These fixed
+# observable fields are declared before reading actual C visual results.
+METRICS = ('psnr_db', 'lpips_alex', 'dino_cosine', 'dinov2_vitl14_cosine',
+    'clip_image_cosine', 'dists', 'dreamsim', 'ms_ssim',
+    'resnet50_top1_label', 'resnet50_top1_source_prediction',
+    'resnet50_source_top1_label', 'resnet50_top1_probability',
+    'semantic_error', 'confidently_wrong', 'convnext_top1_label',
+    'convnext_source_prediction_agreement', 'convnext_source_correct_to_wrong',
+    'convnext_source_wrong_to_correct')
+LOWER_BETTER = frozenset(('lpips_alex', 'dists', 'dreamsim', 'semantic_error',
+    'confidently_wrong', 'convnext_source_correct_to_wrong'))
+PRIMARY = 'dinov2_vitl14_cosine'
+QUANTILES = (0, .05, .25, .5, .75, .95, 1)
+
+
+def require(ok, message):
+    if not ok:
+        raise ValueError(message)
+
+
+def digest(value):
+    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':'),
+        ensure_ascii=True, allow_nan=False).encode()).hexdigest()
+
+
+def is_sha(value):
+    return isinstance(value, str) and re.fullmatch('[0-9a-f]{64}', value) is not None
+
+
+def state(value):
+    match = re.fullmatch(r'm(\d+)_K(\d+)', value)
+    require(match is not None, 'Original state identifier required')
+    m, k = map(int, match.groups())
+    sizes = (1, 2, 3, 4, 5, 6, 8, 10, 13, 16)
+    require(0 <= m <= 10 and k >= 0 and (k == 0 if m == 10 else k < sizes[m] ** 2),
+        'Noncanonical original state')
+    return m, k
+
+
+def policy_view(frozen_identity, source_ids):
+    """Project only frozen metadata; no quality values or policy ranking."""
+    require(len(source_ids) == len(set(source_ids)) == SOURCES and
+        all(isinstance(s, str) and s for s in source_ids), 'Original64 source order required')
+    tables = {}
+    for snr in SNRS:
+        block = frozen_identity['snrs'][str(snr)]
+        require(block['source_ids'] == source_ids and block['no_reselection'] is True,
+            'Frozen original source order/selection required')
+        for method in METHODS:
+            spec = block['methods'][method]
+            require([r['source_id'] for r in spec['source_choices']] == source_ids,
+                'Frozen source choices reordered')
+            book = {str(pid): block['frozen_profiles'][str(candidate)]
+                    for pid, candidate in spec['public_codebook'].items()}
+            require(set(book) == {str(i) for i in range(len(book))} and 1 <= len(book) <= 8,
+                'Frozen public dictionary differs')
+            choices = {}
+            for row in spec['source_choices']:
+                picks = row['public_header_ids_by_bin']
+                require(len(picks) == 8 and all(type(p) is int and str(p) in book for p in picks),
+                    'Exactly eight original bin choices required')
+                require([book[str(p)]['candidate_index'] for p in picks] == row['candidate_indices_by_bin'],
+                    'Candidate and public-ID decisions differ')
+                choices[row['source_id']] = tuple(picks)
+            tables[snr, method] = dict(book=book, choices=choices)
+    return tables
+
+
+def validate(rows, source_ids, frozen_identity):
+    tables = policy_view(frozen_identity, source_ids)
+    require(len(rows) == 8192, 'All8192 trajectories including failures are required')
+    grid, source_identity, channel_identity = {}, {}, {}
+    evaluator = None
+    for row in rows:
+        i, sid, snr, trial, method = (row[k] for k in
+            ('source_index', 'source_id', 'average_snr_db', 'trial', 'method'))
+        key = (i, snr, trial, method)
+        require(type(i) is int and 0 <= i < SOURCES and sid == source_ids[i]
+            and type(snr) is int and snr in SNRS and type(trial) is int and trial in TRIALS
+            and method in METHODS and key not in grid, 'Duplicate/unregistered source-SNR-trial-method')
+        c, v, metrics = row['cpu'], row['visual'], row['metrics']
+        require(all(c[k] == row[k] for k in ('source_index', 'source_id', 'average_snr_db', 'trial', 'method'))
+            and c['status'] == 'C_REAL_ACTUAL_CPU_TRAJECTORY_R2' and c['population'] == POPULATION
+            and c['policy_selection'] is False and c['coefficients_updated'] is False
+            and row['used_for_selection'] is False and row['metric_batch_size'] == 1,
+            'Original CPU facts or fixed C64 metric population changed')
+        require(metrics['label_conditioned'] is False and metrics['convnext_used_for_selection'] is False
+            and not {'dino_mismatched', 'dino_specificity'} & metrics.keys(), 'Unregistered C64 metric conditioning')
+        for metric in METRICS:
+            require(metric in metrics and isinstance(metrics[metric], (bool, int, float, np.number))
+                and math.isfinite(float(metrics[metric])), 'Missing/nonfinite scored metric: ' + metric)
+        for name in ('reference_sha256', 'reference_preprocessing_sha256', 'image_sha256', 'metric_evaluator_identity'):
+            require(is_sha(row[name]), 'Exact scored/reference/evaluator SHA required')
+        current = (row['reference_sha256'], row['reference_preprocessing_sha256'], row['class_index'],
+            metrics['resnet50_source_prediction'], metrics['convnext_source_prediction'])
+        require(i not in source_identity or source_identity[i] == current,
+            'Original reference/label/source predictions changed across paired rows')
+        source_identity[i] = current
+        if evaluator is None:
+            evaluator = row['metric_evaluator_identity']
+        require(evaluator == row['metric_evaluator_identity'], 'Scorer identity changed across rows')
+        table = tables[snr, method]
+        bin_ = c['feedback_bin']
+        require(type(bin_) is int and 0 <= bin_ < 8, 'Only original three-bit feedback bins allowed')
+        pid = table['choices'][sid][bin_]
+        tx = table['book'][str(pid)]
+        require(c['transmitted_public_id'] == pid and c['frozen_candidate_index'] == tx['candidate_index']
+            and c['header_codebook_sha256'] == digest(table['book']), 'Observed TX action is not the frozen choice')
+        require(c['public_frame_counter'] == (i * 4 + SNRS.index(snr)) * 16 + trial,
+            'Registered channel counter differs')
+        common = (tuple(c['h']), c['variance_per_real'], c['standard_noise_sha256'], bin_)
+        require(is_sha(common[2]) and len(common[0]) == 2 and all(math.isfinite(float(x)) for x in common[0])
+            and math.isfinite(common[1]) and common[1] > 0, 'Invalid shared Rayleigh/noise evidence')
+        chkey = (i, snr, trial)
+        require(chkey not in channel_identity or channel_identity[chkey] == common,
+            'Methods do not share the original channel/noise draw')
+        channel_identity[chkey] = common
+        rx = c['receive']
+        require(type(v['gray']) is bool and v['gray'] == rx['gray']
+            and v['visual_reconstruction_complete'] is True and v['source_truth_used_for_reconstruction'] is False
+            and v['TX_entropy_order_used_for_reconstruction'] is False
+            and v['new_packet_decodes'] == v['new_noise'] == 0
+            and v['image_sha256'] == row['image_sha256'], 'RX evidence or scored RGB changed')
+        received_state = 'gray' if v['gray'] else f"m{v['actual_received_m']}_K{v['actual_received_K']}"
+        require(received_state == rx['state_id'] and (not v['gray'] or
+            v['actual_received_m'] == v['actual_received_K'] == 0), 'Actual RX scale differs from CPU accepted prefix')
+        if not v['gray']:
+            state(received_state)
+        require(v['accepted_group_count'] == len(rx['accepted_groups']), 'Actual accepted group count differs')
+        bodies, truth = rx['bodies'], c['evaluation_only']
+        require(c['logical_packet_events'] == len(c['packet_events']) == 1 + len(bodies)
+            and 1 <= c['logical_packet_events'] <= 3, 'Paid header/body event count differs')
+        equal, wrong = truth['body_payload_equals_transmitted_group'], truth['accepted_body_wrong_payload']
+        require(len(equal) == len(wrong) == len(bodies) and all(type(x) is bool for x in equal + wrong)
+            and all(w == (b['crc_accept'] and not same) for b, same, w in zip(bodies, equal, wrong)),
+            'Body wrong-payload and header-error diagnostics must remain separate')
+        require(type(truth['header_undetected']) is bool and truth['header_undetected'] ==
+            bool(rx['header']['header_ok'] and rx['header']['profile_id'] != pid), 'Header error diagnostic differs')
+        require(c['total_paid_symbols'] == c['actual_forward_symbols'] + 32
+            and c['total_paid_symbols'] + c['unused_symbols'] == 1024, 'Paid resource accounting differs')
+        grid[key] = row
+    expected = {(i, s, t, m) for i in range(SOURCES) for s in SNRS for t in TRIALS for m in METHODS}
+    require(set(grid) == expected, 'Complete original paired grid required; no row dropping')
+    return grid, tables, evaluator
+
+
+def bootstrap_indices():
+    return np.random.default_rng(BOOTSTRAP_SEED).integers(0, SOURCES, (REPLICATES, SOURCES))
+
+
+def paired_interval(values, indices):
+    a = np.asarray(values, dtype=np.float64)
+    require(a.shape == (SOURCES,) and np.isfinite(a).all(), '64 finite source differences required')
+    require(indices.shape == (REPLICATES, SOURCES), 'Frozen resampling shape required')
+    lo, hi = np.quantile(a[indices].mean(axis=1), [.025, .975], method='linear')
+    return dict(mean_delta=float(a.mean()), ci_low=float(lo), ci_high=float(hi),
+        source_count=64, trials_per_source=16, bootstrap_repeats=REPLICATES,
+        bootstrap_seed=BOOTSTRAP_SEED, confidence=.95,
+        interval_label='descriptive source-paired interval on reused calibration64; not new holdout')
+
+
+def decision(paired):
+    require(len(paired) == len(METRICS) * 4 and
+        {(r['average_snr_db'], r['metric']) for r in paired} == {(s, m) for s in SNRS for m in METRICS},
+        'Fixed four C8-minus-U comparisons and all declared metrics required')
+    result = []
+    for snr in SNRS:
+        by = {r['metric']: r for r in paired if r['average_snr_db'] == snr}
+        states = {}
+        for metric, rule in ((PRIMARY, 'positive'), ('clip_image_cosine', 'nonnegative'),
+                ('convnext_source_prediction_agreement', 'nonnegative'), ('lpips_alex', 'nonpositive')):
+            r = by[metric]; lo, hi = r['ci_low'], r['ci_high']
+            require(math.isfinite(lo) and math.isfinite(hi) and lo <= hi, 'Invalid confidence interval')
+            if rule == 'positive':
+                value = 'POSITIVE_TARGET_EVIDENCE' if lo > 0 else ('NONPOSITIVE_TARGET_EVIDENCE' if hi < 0 else 'UNRESOLVED')
+            elif rule == 'nonnegative':
+                value = 'NONINFERIOR' if lo >= 0 else ('DEGRADATION_EVIDENCE' if hi < 0 else 'UNRESOLVED')
+            else:
+                value = 'NONINFERIOR' if hi <= 0 else ('DEGRADATION_EVIDENCE' if lo > 0 else 'UNRESOLVED')
+            states[metric] = value
+        positive = states[PRIMARY] == 'POSITIVE_TARGET_EVIDENCE'
+        independent = all(states[m] == 'NONINFERIOR' for m in ('clip_image_cosine', 'convnext_source_prediction_agreement', 'lpips_alex'))
+        result.append(dict(average_snr_db=snr, metrics=states, noninferiority_margin=0,
+            conclusion=('TARGET_AND_REGISTERED_INDEPENDENT_GATES_SUPPORTED' if positive and independent else
+                'REPRESENTATION_TARGET_ONLY_STOP' if positive else 'TARGET_BENEFIT_NOT_ESTABLISHED'),
+            unresolved=any(v == 'UNRESOLVED' for v in states.values()),
+            content_correctness_claim=False, fixed_sample_stop=True, new_selection=False))
+    return result
+
+
+def diagnostics(grid, tables):
+    counts, selections, recovered, events = [], Counter(), Counter(), Counter()
+    for snr in SNRS:
+        for method in METHODS:
+            group = [grid[i, snr, t, method] for i in range(SOURCES) for t in TRIALS]
+            n = len(group); body_attempts = body_accepts = header_accepts = header_wrong = body_wrong = gray = 0
+            for row in group:
+                c, v = row['cpu'], row['visual']; rx, ev = c['receive'], c['evaluation_only']
+                tx = tables[snr, method]['book'][str(c['transmitted_public_id'])]
+                txm, txk = state(tx['full_state_id'])
+                selections[snr, method, c['feedback_bin'], c['transmitted_public_id'], c['frozen_candidate_index'], txm, txk] += 1
+                recovered[snr, method, v['gray'], v['actual_received_m'], v['actual_received_K']] += 1
+                events[snr, method, tx['full_state_id'], rx['state_id'], v['receiver_status'],
+                    ev['header_undetected'], any(ev['accepted_body_wrong_payload'])] += 1
+                gray += int(v['gray']); header_accepts += int(rx['header']['header_ok']); header_wrong += int(ev['header_undetected'])
+                body_attempts += len(rx['bodies']); body_accepts += sum(int(b['crc_accept']) for b in rx['bodies'])
+                body_wrong += sum(ev['accepted_body_wrong_payload'])
+            counts.append(dict(average_snr_db=snr, method=method, trajectory_count=n,
+                gray_count=gray, gray_rate=gray/n, header_accepted_count=header_accepts,
+                header_undetected_count=header_wrong, header_undetected_per_frame=header_wrong/n,
+                header_undetected_given_accepted=None if not header_accepts else header_wrong/header_accepts,
+                body_decode_attempts=body_attempts, body_accepted_count=body_accepts,
+                accepted_body_wrong_payload_count=body_wrong,
+                body_wrong_per_attempt=None if not body_attempts else body_wrong/body_attempts,
+                body_wrong_given_accepted=None if not body_accepts else body_wrong/body_accepts,
+                body_comparison_scope='actual accepted plaintext vs TX at same physical group; independent of header correctness',
+                actual_packet_event_count=n+body_attempts))
+    def table(counter, fields):
+        return [dict(zip(fields, key), count=count, denominator=1024) for key, count in sorted(counter.items())]
+    return dict(receive_diagnostics=counts,
+        selection_diagnostics=table(selections, ('average_snr_db','method','feedback_bin','public_id','candidate_index','TX_target_m','TX_target_K')),
+        recovered_scale=table(recovered, ('average_snr_db','method','gray','RX_actual_m','RX_actual_K')),
+        action_and_receive_event_breakdown=table(events, ('average_snr_db','method','TX_state','RX_state','receiver_status','header_undetected','accepted_body_wrong_payload')),
+        selection_unit='actual Rayleigh trajectories; 1024 per method/SNR, not64 source-only choices',
+        RX_scale_definition='accepted prefix m/K, including gray; not ten generated VAR scales',
+        TX_fallback='NOT_APPLICABLE: frozen bin action selection; no source-length fallback was registered for C')
+
+
+def aggregate(rows, source_ids, frozen_identity):
+    grid, tables, evaluator = validate(rows, source_ids, frozen_identity)
+    boot = bootstrap_indices(); means = {}; summaries = []; source_rows = []; paired = []; wins = []; quantiles = []
+    for snr in SNRS:
+        for method in METHODS:
+            for metric in METRICS:
+                a = np.array([np.mean([grid[i,snr,t,method]['metrics'][metric] for t in TRIALS], dtype=np.float64)
+                              for i in range(SOURCES)], dtype=np.float64)
+                means[snr,method,metric] = a
+                summaries.append(dict(average_snr_db=snr, method=method, metric=metric, mean=float(a.mean()), source_count=64, trajectory_count=1024))
+                source_rows.extend(dict(average_snr_db=snr, method=method, metric=metric, source_index=i, source_id=source_ids[i], mean=float(x), trials=16)
+                                   for i,x in enumerate(a))
+        for metric in METRICS:
+            delta = means[snr,METHODS[1],metric] - means[snr,METHODS[0],metric]
+            paired.append(dict(average_snr_db=snr, method=METHODS[1], reference=METHODS[0], metric=metric,
+                delta_definition='QCSI-C8 minus QCSI-U; source means over16 trials', **paired_interval(delta, boot)))
+            benefit = -delta if metric in LOWER_BETTER else delta
+            wins.extend(dict(average_snr_db=snr, metric=metric, source_index=i, source_id=source_ids[i],
+                raw_delta=float(delta[i]), benefit_oriented_delta=float(x), outcome='win' if x>0 else 'loss' if x<0 else 'tie') for i,x in enumerate(benefit))
+            # Negative benefit is a signed loss; favorable sources remain in all quantiles.
+            quantiles.extend(dict(average_snr_db=snr,metric=metric,quantile=q,value=float(x),
+                definition='signed source quality loss = negative benefit-oriented C8-minus-U; no censoring')
+                for q,x in zip(QUANTILES,np.quantile(-benefit,QUANTILES,method='linear')))
+    return dict(status='C_REAL_DESCRIPTIVE_STATISTICS_PROJECTED_R1',population=POPULATION,
+        source_count=64,trajectory_count=8192,comparison_count=4,metric_count=len(METRICS),
+        summary=summaries,paired=paired,source_means=source_rows,per_source_win_loss=wins,quality_loss_quantiles=quantiles,
+        decisions=decision(paired),**diagnostics(grid,tables),metric_evaluator_identity=evaluator,
+        source_correct_to_reconstruction_wrong='convnext_source_correct_to_wrong is included unconditionally as a paired rate over all64 sources',
+        model_predicted_vs_actual_delta={'status':'PENDING_BOUND_ORIGINAL_MODEL_PREDICTIONS','quality_point_U':0,'actual_U':'scored received image; never replaced by zero'},
+        online_TX={'status':'PENDING_FIRST16_FRESH_ISOLATED_MEASUREMENT','cache_counts_are_online_latency':False},
+        statistical_unit='source mean of16 complete trials',bootstrap_seed=BOOTSTRAP_SEED,bootstrap_repeats=REPLICATES,
+        policy_selection=False,holdout_used=False,missing_values_imputed=False,new_PHY_calls=0,new_GPU_calls=0,
+        normal_input_closure_verified_by_this_pure_module=False,C_complete=False)
+
+
+def compare_original_model(projected, model_rows):
+    """Optional future caller: original SHA-bound DINO-L expectations, all512.
+
+    model_rows are only the original64 extraction, with source_index/id,SNR,
+    original method, quality_point/lower/upper and unscored_probability. This
+    diagnostic never changes decisions. No new bootstrap or model fitting.
+    """
+    actual = {(r['source_index'],r['average_snr_db'],r['method']):r for r in projected['source_means'] if r['metric']==PRIMARY}
+    require(len(model_rows)==512,'Exactly original64x4x2 model predictions required')
+    found = {}; out = []
+    for r in model_rows:
+        key=(r['source_index'],r['average_snr_db'],r['method'])
+        require(key in actual and key not in found and r['source_id']==actual[key]['source_id'],'Original model/source mapping differs')
+        point,lo,hi,u=(float(r[k]) for k in ('quality_point','quality_lower','quality_upper','unscored_probability'))
+        require(all(math.isfinite(x) for x in (point,lo,hi,u)) and -1<=lo<=point<=hi<=1 and 0<=u<=1,
+            'Original point/unknown-quality bounds required')
+        found[key]=r
+        out.append(dict(source_index=key[0],average_snr_db=key[1],method=key[2],source_id=r['source_id'],
+            actual=actual[key]['mean'],model_point=point,model_lower=lo,model_upper=hi,model_unscored_probability=u,
+            actual_minus_model_point=actual[key]['mean']-point,
+            note='Original U point0 and bounds[-1,1] retained; actual accepted wrong payload is scored, not assigned0'))
+    require(set(found)==set(actual),'Original model prediction grid incomplete')
+    pairs=[]
+    for snr in SNRS:
+        for i in range(SOURCES):
+            u,c8=(found[i,snr,m] for m in METHODS)
+            observed=actual[i,snr,METHODS[1]]['mean']-actual[i,snr,METHODS[0]]['mean']
+            predicted=float(c8['quality_point'])-float(u['quality_point'])
+            pairs.append(dict(source_index=i,source_id=u['source_id'],average_snr_db=snr,
+                method=METHODS[1],reference=METHODS[0],actual_delta=observed,model_delta=predicted,
+                actual_minus_model_delta=observed-predicted,
+                model_delta_lower=float(c8['quality_lower'])-float(u['quality_upper']),
+                model_delta_upper=float(c8['quality_upper'])-float(u['quality_lower'])))
+    summaries=[dict(average_snr_db=snr,source_count=64,**{k:float(np.mean([r[k] for r in pairs if r['average_snr_db']==snr]))
+        for k in ('actual_delta','model_delta','actual_minus_model_delta','model_delta_lower','model_delta_upper')}) for snr in SNRS]
+    return dict(method_points=out,source_deltas=pairs,delta_summary=summaries,
+        new_bootstrap=False,policy_selection=False,
+        bounds_note='Conservative original U quality bounds, not confidence intervals; paired policy unknown events need not coincide')

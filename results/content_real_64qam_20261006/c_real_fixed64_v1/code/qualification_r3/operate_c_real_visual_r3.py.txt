@@ -1,0 +1,148 @@
+"""Repair only a closed qualification receipt; reuse unchanged qualified R2 runtime."""
+from __future__ import annotations
+import argparse
+from copy import deepcopy
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import re
+import signal
+import sys
+import traceback
+
+SCHEMA='C_REAL_VISUAL_QUALIFICATION_RECOVERY_MATERIALS_R3'
+READY='C_REAL_VISUAL_QUALIFICATION_RECOVERY_PREPARED_R3'
+ARCHIVE='C_VISUAL_R2_POST_TEST_QUALIFICATION_CONTRACT_FAILURE_PRESERVED'
+R2_SHA='73c8bacd922cdcb1b06852ed4de6d8928788cc67d52e1abd21ebb5c2a94e29ba'
+FIXTURES=('C_ENTROPY_HELPER_SOURCE','C_RX_REVIEW_SOURCE_QUALITY','C_RX_ORIGINAL_VALIDATION_SOURCE','C_VISUAL_TEST_METADATA')
+COMPAT=('ORIGINAL_PREFLIGHT_TEST_SOURCE','ORIGINAL_C_VISUAL_OWNER_TEST_SOURCE','ORIGINAL_MAIN_VISUAL_OWNER_TEST_SOURCE')
+
+def require(ok,msg):
+    if not ok:raise ValueError(msg)
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def bind(paths):return {str(Path(p).absolute()):sha(p) for p in paths}
+def verify(pins):
+    for p,h in pins.items():require(Path(p).is_absolute() and re.fullmatch('[a-f0-9]{64}',h) and sha(p)==h,'Changed binding '+p)
+def combine(*maps):
+    result={}
+    for entries in maps:
+        for p,h in entries.items():require(p not in result or result[p]==h,'Conflicting binding '+p);result[p]=h
+    return result
+def save(p,value):
+    p=Path(p);p.parent.mkdir(parents=True,exist_ok=True)
+    with p.open('x',encoding='utf-8',newline='\n')as f:json.dump(value,f,ensure_ascii=False,indent=2,allow_nan=False);f.write('\n');f.flush();os.fsync(f.fileno())
+def module(path,name):
+    spec=importlib.util.spec_from_file_location(name,path);m=importlib.util.module_from_spec(spec);sys.modules[name]=m;spec.loader.exec_module(m);return m
+
+def archive_pins(archive):
+    require(archive['status']==ARCHIVE and archive['originals_retained'] is True and len(archive['files'])==25
+        and archive['new_GPU_calls']==archive['new_PHY_calls']==0,'Exact existing25-file post-test failure archive required')
+    pins={};seen=set()
+    for row in archive['files']:
+        require(row['original'] not in seen,'Duplicate original archive path');seen.add(row['original'])
+        for k in ('original','copy'):
+            p=Path(row[k]);require(p.is_absolute() and sha(p)==row['sha256'] and p.stat().st_size==row['bytes'],'Changed original/preserved failure bytes')
+            pins[str(p)]=row['sha256']
+    return pins
+
+def closed_tests(q,e):
+    require(q['status']==e.QPASS and q['tests_run']==39 and q['test_modules']==e.TEST_MODULES
+        and q['compatibility_tests_run']==10 and q['original39_assertions_unchanged'] is True
+        and q['exit_code']==0 and q['process_waited'] is True and q['new_GPU_calls']==q['new_packet_decodes']==0,
+        'Original10+39 passed tests required; whole R2 operation did not succeed')
+    for k in ('source_bindings','input_bindings','outputs'):verify(q[k])
+    parent=Path(q['log']).parent.parent
+    for directory,count in ((parent/'original39',39),(parent/'compatibility10',10)):
+        log=directory/'tests.log';launch=read(directory/'launch.json');done=read(directory/'exit.json')
+        require(all(q['outputs'].get(str(directory/n))==sha(directory/n) for n in ('tests.log','launch.json','exit.json')),'Closed test receipts not output-bound')
+        require(done['identity']==launch['identity'] and done['exit_code']==0 and done['process_waited'] is True
+            and done['log_sha256']==sha(log) and e.absent(done['identity']),'Qualification process not normally reaped/exited')
+        require(launch['argv'][0]==q['python'] and re.search(r'Ran '+str(count)+r' tests in .*\n\s*OK\s*$',log.read_text(encoding='utf-8'))
+            and not re.search(r'\bskipped\b',log.read_text(encoding='utf-8'),re.I),'Actual closed test count/log differs')
+    failure=read(parent/'failure.json')
+    require('Four explicit deployed fixture paths required' in failure['traceback'] and failure['new_GPU_calls']==0,
+        'Only known post-test fixture-contract failure can be repaired')
+
+def corrected_receipt(old,sources,inputs,original_path,engineering_path):
+    require(set(old['fixture_paths'])==set(FIXTURES+COMPAT),'Exact original seven fixture keys required')
+    q=deepcopy(old)
+    q['fixture_paths']={k:old['fixture_paths'][k] for k in FIXTURES}
+    q['compatibility_fixture_paths']={k:old['fixture_paths'][k] for k in COMPAT}
+    q['source_bindings']=combine(old['source_bindings'],sources)
+    q['input_bindings']=combine(old['input_bindings'],inputs,bind([original_path,engineering_path]))
+    for p in old['fixture_paths'].values():require(q['input_bindings'].get(p)==sha(p),'All seven fixture bytes remain bound')
+    q.update(original_qualification=dict(path=str(original_path),sha256=sha(original_path)),
+        receipt_recovery_registration_sha256=sha(engineering_path),qualification_tests_reused=True,
+        qualification_tests_rerun=0,original_R2_operation_success=False,
+        repair_scope='Receipt keys only: four original fixture_paths; three compatibility_fixture_paths; all seven retain SHA pins')
+    return q
+
+def context(path):
+    m=read(path);require(m['schema']==SCHEMA,'Explicit R3 materials required');verify(m['source_bindings']);verify(m['input_bindings'])
+    require(m['source_bindings'].get(str(Path(__file__).absolute()))==sha(__file__)
+        and m['source_bindings'].get(m['r2_ops'])==R2_SHA==sha(m['r2_ops']),'Exact frozen R2 and new R3 source required')
+    for k in ('r2_materials','failure_archive_receipt','diagnosis'):
+        require(m['input_bindings'].get(m[k])==sha(m[k]),'Missing recovery input '+k)
+    # Authenticate imported helper before the unchanged R2 module imports it.
+    r2m=read(m['r2_materials']);verify(r2m['source_bindings'])
+    sys.path.insert(0,str(Path(m['r2_ops']).parent));r2=module(m['r2_ops'],'c_visual_receipt_r2_context')
+    ctx=r2.context(m['r2_materials']);e=ctx['e'];prior=ctx['new'];root=Path(prior['root']);study=root/'outputs/CONTENT-REAL-64QAM-20261006'
+    new=dict(prior,execution_dir=str(study/'C/visual_execution_r3'),out=str(study/'C/visual_r3'),
+        qualification_dir=str(study/'prepared_v1/c_visual_cpu_qualification_r3'),operations_dir=str(study/'prepared_v1/c_visual_operations_r3'))
+    require(m['new_materials']==new,'R3 must reuse exact qualified R2 runtime and change only four attempt paths')
+    pins=archive_pins(read(m['failure_archive_receipt']));diag=read(m['diagnosis'])
+    qp=Path(prior['qualification_dir'])/'completion.json';q=read(qp)
+    require(diag['status']=='C_VISUAL_R2_FIXTURE_RECEIPT_CONTRACT_DIAGNOSED' and diag['tests_passed']==49
+        and diag['qualification_full_operation_success'] is False and diag['new_GPU_calls']==diag['new_PHY_calls']==0
+        and diag['archive']==dict(path=m['failure_archive_receipt'],sha256=sha(m['failure_archive_receipt']))
+        and diag['old_qualification_completion']==dict(path=str(qp),sha256=sha(qp)),'Actual diagnosis/old receipt differs')
+    required=[qp,Path(prior['qualification_dir'])/'failure.json',ctx['engp'],Path(m['r2_ops']),Path(m['r2_materials'])]
+    require(all(pins.get(str(p))==sha(p) for p in required),'Archive omits original failed chain')
+    require(not Path(prior['execution_dir']).exists() and not Path(prior['out']).exists()
+        and not(ctx['op']/'request.json').exists(),'R2 must have stopped before registration/worker')
+    closed_tests(q,e)
+    require(r2.current_budget(e,ctx['meta'])==ctx['eng']['budget_before'],'C budget changed from21495')
+    return dict(m=m,r2=r2,old=ctx,new=new,e=e,q=q,qp=qp,pins=pins)
+
+def prepare(path):
+    c=context(path);new=c['new'];op=Path(new['operations_dir']);qd=Path(new['qualification_dir']);e=c['e'];ctx=c['old']
+    require(not any(Path(new[k]).exists() for k in ('operations_dir','qualification_dir','execution_dir','out')),'Fresh independent R3 attempt required')
+    op.mkdir(parents=True);save(op/'attempt.json',dict(materials_sha256=sha(path),automatic_retry=False))
+    try:
+        sources=combine(c['q']['source_bindings'],c['m']['source_bindings'])
+        inputs=combine(c['q']['input_bindings'],c['m']['input_bindings'],c['pins'],bind([path,ctx['engp']]))
+        eng=op/'engineering_registration.json'
+        save(eng,dict(status=READY,source_bindings=sources,input_bindings=inputs,new_materials=new,
+            budget_before=ctx['eng']['budget_before'],tests_reused=49,tests_rerun=0,original_R2_operation_success=False,
+            runtime_unchanged=True,original_failures_and_STOP_preserved=True,new_GPU_calls=0,new_packet_decodes=0))
+        qd.mkdir();q=corrected_receipt(c['q'],sources,inputs,c['qp'],eng);save(qd/'completion.json',q)
+        request=ctx['oldops'].make_request(e,new,ctx['meta'],q['source_bindings'],q['input_bindings'])
+        # Mandatory real, unchanged consumer. This was missing from the R2 regression test.
+        e.qualification(str(qd/'completion.json'),ctx['meta']['python'],combine(request['source_bindings'],request['input_bindings']),request['config'])
+        require(c['r2'].current_budget(e,ctx['meta'])==ctx['eng']['budget_before'],'C budget changed during receipt recovery')
+        verify(q['source_bindings']);verify(q['input_bindings']);save(op/'request.json',request)
+        done=dict(status=READY,outputs=bind([eng,qd/'completion.json',op/'request.json']),tests_reused=49,tests_rerun=0,
+            original_consumer_validation_passed=True,new_GPU_calls=0,new_packet_decodes=0)
+        save(op/'completion.json',done);return done
+    except BaseException:save(op/'failure.json',dict(traceback=traceback.format_exc(),automatic_retry=False,new_GPU_calls=0));raise
+
+def operation(stage,path):
+    if stage=='prepare':return prepare(path)
+    c=context(path);op=Path(c['new']['operations_dir']);done=read(op/'completion.json')
+    require(done['status']==READY and done['original_consumer_validation_passed'] is True and not(op/'failure.json').exists(),'Successful R3 repair required');verify(done['outputs'])
+    e=c['e'];eng=read(op/'engineering_registration.json');verify(eng['source_bindings']);verify(eng['input_bindings'])
+    save(op/(stage+'_attempt.json'),dict(materials_sha256=sha(path),automatic_retry=False))
+    try:
+        if stage=='run':signal.signal(signal.SIGTERM,e.stop);signal.signal(signal.SIGINT,e.stop)
+        cfg=Path(c['new']['execution_dir'])/'config.json'
+        result=e.register(str(op/'request.json')) if stage=='register' else e.run(str(cfg))
+        save(op/(stage+'_completion.json'),dict(status=result['status'],outputs=bind([Path(c['new']['execution_dir'])/('registration_completion.json' if stage=='register' else 'completion.json')])));return result
+    except BaseException:save(op/(stage+'_failure.json'),dict(traceback=traceback.format_exc(),GPU_started=None if stage=='run' else False,inspect_preserved_PID=stage=='run'));raise
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--materials',required=True);p.add_argument('--stage',choices=('prepare','register','run'),required=True);a=p.parse_args()
+    require(sys.platform.startswith('linux'),'Actual operations require Linux process identity')
+    print(operation(a.stage,str(Path(a.materials).absolute()))['status'],flush=True)

@@ -1,0 +1,191 @@
+"""Synthetic PHY callbacks and original frozen metadata only; no neural calls."""
+from copy import deepcopy
+import hashlib
+import importlib.util
+import inspect
+import json
+import os
+from pathlib import Path
+import sqlite3
+import sys
+import tempfile
+import unittest
+from unittest.mock import patch
+import numpy as np
+import c_real_cpu_core as c
+import c_real_qualification as q
+
+HERE=Path(__file__).resolve().parent
+ASSETS=Path(os.environ.get('C_REAL_TEST_FROZEN_DIR',str(HERE.parent/'delivery')))
+LEDGER=Path(os.environ.get('C_REAL_TEST_LEDGER',str(HERE.parent/'runner/budget_ledger.py')))
+WORKSPACE=Path(os.environ.get('C_REAL_TEST_WORKSPACE',str(HERE.parents[2])))
+MODEL_ROOT=os.environ.get('C_REAL_TEST_REMOTE_MODEL_ROOT')
+require_files=('C_REAL_PROTOCOL.json','frozen_policy_identity.json','C_SOURCE64.metadata.json','choices64_by_bin.csv','C_resource_budget.json')
+if not LEDGER.is_file() or not all((ASSETS/n).is_file() for n in require_files):raise RuntimeError('Explicit frozen C test assets/ledger required')
+spec=importlib.util.spec_from_file_location('_c_real_test_original_ledger',LEDGER);bl=importlib.util.module_from_spec(spec);spec.loader.exec_module(bl)
+
+def pack(bits):return dict(bits=len(bits),hex=np.packbits(bits,bitorder='big').tobytes().hex())
+
+class FakePHY:
+    def __init__(self,ledger):
+        self.ledger=ledger;self.last_header=0;self.tx={};self.wrong_header=None;self.reject_header=False;self.reject_body=None;self.exception=False
+        ledger.register_configuration('header',{})
+    def admit(self,g,new):self.ledger.register_configuration(g['phy_key'],{'layout':g['layout']})
+    def header_wave(self,i):self.last_header=i;return np.ones((68,2))
+    def body_wave(self,bits,g,counter,j,session):
+        self.tx[g['phy_key'],counter,j,session]=bits.copy();return np.ones((g['symbols'],2))
+    def header_receive(self,y,h,v,book,event,phase):
+        def decode():
+            pid=self.last_header if self.wrong_header is None else self.wrong_header
+            return dict(profile_id=pid,header_crc_accept=not self.reject_header,header_fields_legal=str(pid) in book,
+                header_ok=not self.reject_header and str(pid) in book,decoded=pack(np.zeros(34,dtype=np.uint8)))
+        return self.ledger.decode_once(phase,event,'header','header',dict(y=c.array_sha(y),book=c.digest(book)),decode)
+    def body_receive(self,y,h,v,g,counter,j,session,event,phase):
+        def decode():
+            if self.exception:raise RuntimeError('fake actual decoder exception')
+            bits=self.tx.get((g['phy_key'],counter,j,session),np.ones(g['source_bits'],dtype=np.uint8))
+            return dict(payload=pack(bits),crc_accept=j!=self.reject_body,decoded_sha256=c.array_sha(bits))
+        return self.ledger.decode_once(phase,event,'body',g['phy_key'],dict(y=c.array_sha(y),counter=counter,j=j,session=session),decode)
+
+
+class Core(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):cls.ctx=c.load_frozen(*[ASSETS/n for n in require_files])
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.path=Path(self.temp.name)
+        self.who=dict(pid=1,start_ticks=2,uid=1002,argv=['synthetic'])
+        self.raw=bl.BudgetLedger(self.path/'C.sqlite','a'*64,'C',c.LIMITS,self.who,lambda pid:self.who)
+    def phy(self,phase='development'):
+        adapter=c.CAtomicAdapter(self.raw,'a'*64,phase,set(self.ctx['groups'])|{'header'})
+        phy=FakePHY(adapter);c.admit_layouts(phy,self.ctx);return phy
+    def trajectory(self,phy,**kwargs):
+        args=dict(source_index=0,snr=4,trial=0,method='QCSI-U',tokens=np.arange(680)%4096,
+            orders={m:np.arange(c.SIZES[m]**2)[::-1] for m in range(4,8)})
+        args.update(kwargs);return c.trajectory(phy,self.ctx,**args)
+
+    def test_actual_frozen4096_choices26layouts16profiles_no_reselection(self):
+        self.assertEqual((len(self.ctx['source_ids']),len(self.ctx['groups']),len(self.ctx['profiles'])),(64,26,16))
+        self.assertEqual(sum(len(x['choices'])*8 for x in self.ctx['tables'].values()),4096)
+        self.assertEqual(sum(map(len,self.ctx['required_entropy_orders'].values())),206)
+        for table in self.ctx['tables'].values():
+            for p in table['codebook'].values():c.validate_profile(p)
+        copy=self.path/'protocol.json';copy.write_bytes((ASSETS/'C_REAL_PROTOCOL.json').read_bytes()+b' ')
+        with self.assertRaisesRegex(ValueError,'changed'):c.load_frozen(copy,*[ASSETS/n for n in require_files[1:]])
+
+    def test_seed_exact_draw_order_and_shared_full992_noise(self):
+        sid=self.ctx['source_ids'][0];h,z,v=c.standard_channel(sid,7,3)
+        key=json.dumps(['CONTENT-REAL-64QAM-20261006/C/channel',2026100604,sid,7,3],ensure_ascii=False,separators=(',',':')).encode()
+        g=np.random.Generator(np.random.PCG64(int.from_bytes(hashlib.sha256(key).digest()[:16],'little')))
+        self.assertEqual(h,complex(*g.standard_normal(2))/np.sqrt(2));np.testing.assert_array_equal(z,g.standard_normal((992,2)))
+        self.assertEqual(v,10**(-.7));self.assertEqual(len({c.public_counter(i,s,r) for i in range(64) for s in c.SNRS for r in range(16)}),4096)
+        for snr,trial in ((7.,3),(7,16),(1,0)):
+            with self.assertRaises(ValueError):c.standard_channel(sid,snr,trial)
+
+    def test_exact848_fake_callbacks_real_atomic_ledger_and_no_reserve(self):
+        phy=self.phy('qualification');done=c.qualify(phy,self.ctx)
+        self.assertEqual(done['packet_calls'],848);snapshot=self.raw.snapshot()
+        self.assertEqual(snapshot['phase_charged'],dict(qualification=848,development=0,diagnostic_reserve=0))
+        self.assertEqual(len(phy.ledger.observed),848);self.assertFalse(done['scientific_BLER_table'])
+        with self.assertRaises(ValueError):c.CAtomicAdapter(self.raw,'a'*64,'diagnostic_reserve',{'header'})
+        with self.assertRaises(bl.BudgetError):self.raw.decode_once('qualification','over','header','header',{},lambda:{})
+        self.assertEqual(self.raw.snapshot()['charged'],848)
+
+    def test_two_methods_share_h_gaussian_but_waveform_observations_not_claimed_equal(self):
+        phy=self.phy();a=self.trajectory(phy,method='QCSI-U');b=self.trajectory(phy,method='QCSI-C8')
+        self.assertEqual(a['h'],b['h']);self.assertEqual(a['standard_noise_sha256'],b['standard_noise_sha256'])
+        self.assertEqual(a['public_frame_counter'],b['public_frame_counter']);self.assertNotEqual(a['packet_events'][0]['event_id'],b['packet_events'][0]['event_id'])
+        self.assertLessEqual(a['total_paid_symbols'],1024);self.assertEqual(a['total_paid_symbols']+a['unused_symbols'],1024)
+        self.assertFalse(a['images_scored']);self.assertNotIn('quality',a)
+
+    def test_missing_source_entropy_blocks_before_any_decoder(self):
+        phy=self.phy()
+        # Pick a deterministic channel whose registered U choice is partial.
+        for trial in range(16):
+            h,_,_=c.standard_channel(self.ctx['source_ids'][0],4,trial);bin_=int(np.searchsorted(c.THRESHOLDS,4+10*np.log10(abs(h)**2),side='right'))
+            table=self.ctx['tables'][4,'QCSI-U'];p=table['codebook'][str(table['choices'][self.ctx['source_ids'][0]][bin_])]
+            if c.parse_state(p['full_state_id'])[1]:break
+        with self.assertRaisesRegex(ValueError,'MISSING_ENTROPY'):self.trajectory(phy,orders={},trial=trial)
+        self.assertEqual(self.raw.snapshot()['charged'],0)
+
+    def test_wrong_accepted_header_and_actual_partial_bits_are_pending_not_gray(self):
+        phy=self.phy();book=self.ctx['tables'][4,'QCSI-U']['codebook']
+        pid=next(int(k) for k,p in book.items() if p['G']==2 and c.parse_state(p['full_state_id'])[1])
+        phy.wrong_header=pid;phy.last_header=0
+        # RX has only received samples and the public book. No true source.
+        rx=c.receive_only(phy,np.ones((992,2)),.3+.2j,.1,book,0,'C:development:fixture')
+        self.assertFalse(rx['gray']);self.assertTrue(rx['actual_entropy_mapping_pending'])
+        self.assertTrue(all(t==4095 for g in rx['accepted_groups'] for t in g['received_token_values']))
+        self.assertFalse(rx['source_reconstruction_complete'])
+        for forbidden in ('source_id','tokens','true_profile','orders'):self.assertNotIn(forbidden,inspect.signature(c.receive_only).parameters)
+
+    def test_drop_reject_preserves_prefix_and_software_failure_retains_charge(self):
+        phy=self.phy();book=self.ctx['tables'][4,'QCSI-U']['codebook'];pid=next(int(k) for k,p in book.items() if p['G']==2)
+        phy.wrong_header=pid;phy.reject_body=1
+        rx=c.receive_only(phy,np.ones((992,2)),1j,.1,book,0,'C:development:first')
+        self.assertEqual(rx['state_id'],book[str(pid)]['prefix_state_id']);self.assertFalse(rx['gray']);self.assertEqual(len(rx['accepted_groups']),1)
+        phy.exception=True
+        with self.assertRaisesRegex(RuntimeError,'decoder'):c.receive_only(phy,np.ones((992,2)),1j,.1,book,1,'C:development:failure')
+        self.assertEqual(self.raw.snapshot()['charged'],5);self.assertEqual(self.raw.snapshot()['unresolved'],1)
+        with self.assertRaises(bl.BudgetError):c.receive_only(phy,np.ones((992,2)),1j,.1,book,2,'C:development:another')
+        self.assertEqual(self.raw.snapshot()['charged'],5)
+
+    def test_wrong_longer_format_rejected_without_fabricated_extra_samples(self):
+        phy=self.phy();book=self.ctx['tables'][4,'QCSI-U']['codebook'];phy.wrong_header=0
+        rx=c.receive_only(phy,np.ones((70,2)),0j,1.,book,0,'C:development:short')
+        self.assertTrue(rx['format_rejected']);self.assertTrue(rx['gray']);self.assertEqual(self.raw.snapshot()['charged'],1)
+
+    def test_completed_callback_reuse_is_only_logical_count(self):
+        phy=self.phy();a=self.trajectory(phy);before=self.raw.snapshot()['charged'];b=self.trajectory(phy)
+        self.assertEqual(a,b);self.assertEqual(self.raw.snapshot()['charged'],before)
+        self.assertEqual(a['logical_packet_events'],before);self.assertNotIn('new_packet_decodes',a)
+
+    def test_qualification_empty_owner_directory_allowed_but_prior_attempt_refused(self):
+        out=self.path/'precreated';out.mkdir();q.claim(out,'a'*64)
+        with self.assertRaisesRegex(ValueError,'Prior evidence'):q.claim(out,'a'*64)
+        self.assertTrue((out/'attempt.json').is_file())
+
+    def test_registration_dependency_change_refuses_before_runtime_import(self):
+        p=self.path/'dependency.py';p.write_text('raise AssertionError("must not import")')
+        with self.assertRaisesRegex(ValueError,'Changed'):q.verify({str(p):'a'*64})
+
+    def test_real24_original_completion_schema_and_five_model_sources(self):
+        root='REPO';original=(Path(MODEL_ROOT)/'outputs/PAPER-CONSOLIDATION-20261005/C_execution_registration.json'
+            if MODEL_ROOT else WORKSPACE/'.research/paper_consolidation_20261005/C_execution_registration.json')
+        frozen=c.read(ASSETS/'frozen_policy_identity.json');regpath=root+'/outputs/PAPER-CONSOLIDATION-20261005/C_execution_registration.json'
+        paths={regpath:original,str(ASSETS/'frozen_policy_identity.json'):ASSETS/'frozen_policy_identity.json'}
+        for entry in frozen['source_audit']:
+            paths[root+'/'+entry['original_runtime'].removeprefix('REPO/')]=(Path(MODEL_ROOT)/entry['original_runtime'].removeprefix('REPO/')
+                if MODEL_ROOT else WORKSPACE/entry['local_evidence'])
+        dirs={str(s):root+'/outputs/PAPER-CONSOLIDATION-20261005/C/model/snr'+str(s) for s in c.SNRS}
+        for old in frozen['local_input_bindings']:
+            p=Path(old);paths[dirs[p.parent.name.removeprefix('snr')]+'/'+p.name]=(Path(MODEL_ROOT)/'outputs/PAPER-CONSOLIDATION-20261005/C/model'/p.parent.name/p.name
+                if MODEL_ROOT else ASSETS/'frozen_model'/p.parent.name/p.name)
+        bound={p:c.sha(local) for p,local in paths.items()};reader=c.read;hasher=c.sha
+        cfg=dict(root=root,model_registration=regpath,frozen_identity=str(ASSETS/'frozen_policy_identity.json'),model_shards=dirs)
+        with patch.object(c,'read',side_effect=lambda p:reader(paths[str(p)])),patch.object(c,'sha',side_effect=lambda p:hasher(paths[str(p)])):
+            result=q.original_model_provenance(cfg,bound)
+            self.assertEqual(len(result['source_bindings']),5);self.assertEqual(len(result['selected_artifact_bindings']),24)
+            changed=dict(bound);changed[dirs['13']+'/selected_coefficients.npz']='0'*64
+            with self.assertRaisesRegex(ValueError,'artifact'):q.original_model_provenance(cfg,changed)
+            changed=dict(bound);changed[next(iter(result['source_bindings']))]='0'*64
+            with self.assertRaisesRegex(ValueError,'model source'):q.original_model_provenance(cfg,changed)
+
+    def test_scheduling_only_amendment_rejects_reserve_or_policy_change(self):
+        amendment=dict(status='C_REAL_PARALLEL_SCHEDULING_AMENDMENT_AUTHORIZED',frozen_science_changed=False,
+            candidate_dictionary_quantizer_weights_tails_ties_source_ids_unchanged=True,C_decode_cap=100000,
+            C_phase_caps=c.LIMITS,reserve_use_automatic=False,PHY_worker_cap_total=2,PHY_threads_each=2,visual_GPU_jobs_max=1,
+            input_bindings={str(ASSETS/n):c.sha(ASSETS/n) for n in require_files})
+        path=self.path/'amendment.json';path.write_text(json.dumps(amendment))
+        cfg=dict(scheduling_amendment=str(path),**dict(zip(('protocol','frozen_identity','source64','choices','resource_budget'),map(lambda n:str(ASSETS/n),require_files))))
+        q.scheduling_amendment(cfg,{str(path):c.sha(path)})
+        amendment['reserve_use_automatic']=True;path.write_text(json.dumps(amendment))
+        with self.assertRaisesRegex(ValueError,'amendment'):q.scheduling_amendment(cfg,{str(path):c.sha(path)})
+
+    def test_unsupported_platform_failure_preserved_before_any_runtime(self):
+        out=self.path/'qualification';ctx=dict(cfg=dict(out=str(out)),regsha='a'*64)
+        with patch.object(q,'load_registered',return_value=ctx),patch.object(q.sys,'platform','synthetic'),patch.object(q,'runtime') as runtime:
+            with self.assertRaisesRegex(ValueError,'Linux'):q.run('synthetic.json')
+            runtime.assert_not_called()
+        self.assertTrue((out/'failure.json').is_file())
+
+if __name__=='__main__':unittest.main()

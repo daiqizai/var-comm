@@ -1,0 +1,355 @@
+"""Explicit C64 CPU statistics register/run/worker; no model or PHY entry.
+
+Registration and the worker each verify the successful visual closure once.
+The parent run only reads the sealed registration, then waits for its CPU child.
+No failed visual attempt or incomplete science receipt is an admissible input.
+"""
+from __future__ import annotations
+import argparse
+import csv
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import re
+import signal
+import subprocess
+import sys
+import time
+import traceback
+
+REQUEST = 'C_REAL_STATISTICS_REQUEST_R1'
+REGISTERED = 'C_REAL_STATISTICS_REGISTERED_R1'
+SEALED = 'C_REAL_STATISTICS_REGISTERED_NOT_RUN_R1'
+SCIENCE = 'C_REAL_STATISTICS_OUTPUTS_COMPLETE_R1'
+DONE = 'C_REAL_STATISTICS_NORMALLY_COMPLETE_R1'
+QUALIFIED = 'C_REAL_STATISTICS_CPU_INTERFACE_QUALIFICATION_PASS_R1'
+TESTS = ['test_c_real_statistics_r1', 'test_c_real_statistics_execution_r1']
+SOURCES = ['c_real_statistics_r1.py', 'test_c_real_statistics_r1.py',
+           'c_real_statistics_execution_r1.py', 'test_c_real_statistics_execution_r1.py']
+CORE_SHA = '8dead8e9025a0c1ae307ffcc16cf1a2b092c4d70fac62dbe4925ab4177249d90'
+VISUAL_OWNER_SHA = 'e73c4a5a67531d931209349ea65c70da96cae430a9775d98bf7767cf1c55f56e'
+DEADLINE = 1791564605.9549868
+STOP = False
+THREADS = ('OMP_NUM_THREADS', 'MKL_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'NUMEXPR_NUM_THREADS')
+
+
+def require(ok, message):
+    if not ok: raise ValueError(message)
+
+
+def sha(path):
+    h = hashlib.sha256()
+    with Path(path).open('rb') as f:
+        for block in iter(lambda: f.read(1048576), b''): h.update(block)
+    return h.hexdigest()
+
+
+def read(path): return json.loads(Path(path).read_text(encoding='utf-8-sig'))
+
+
+def save(path, value):
+    p = Path(path); p.parent.mkdir(parents=True, exist_ok=True)
+    with p.open('x', encoding='utf-8', newline='\n') as f:
+        json.dump(value, f, indent=2, allow_nan=False); f.write('\n'); f.flush(); os.fsync(f.fileno())
+
+
+def bind(paths): return {str(Path(p).absolute()): sha(p) for p in paths}
+
+
+def combine(*maps):
+    result = {}
+    for entries in maps:
+        for p, h in entries.items():
+            require(p not in result or result[p] == h, 'Conflicting SHA ' + p); result[p] = h
+    return result
+
+
+def verify(pins):
+    for p, h in pins.items():
+        require(Path(p).is_absolute() and re.fullmatch('[a-f0-9]{64}', h) and sha(p) == h, 'Bound file changed ' + p)
+
+
+def module(path, name, bound):
+    p = str(Path(path).absolute()); require(bound.get(p) == sha(p), 'Executable must be bound before import ' + p)
+    spec = importlib.util.spec_from_file_location(name, p); m = importlib.util.module_from_spec(spec)
+    sys.modules[name] = m; spec.loader.exec_module(m); return m
+
+
+def stop(*_):
+    global STOP
+    STOP = True
+
+
+def check(cfg, historical=False):
+    study = Path(cfg['root']) / 'outputs/CONTENT-REAL-64QAM-20261006'
+    require(not any(p.exists() for p in (study/'STOP', study/'C/STOP', Path(cfg['execution_dir'])/'STOP', Path(cfg['out'])/'STOP')),
+        'STOP retained; no automatic retry')
+    if not historical: require(not STOP and time.time() < DEADLINE, 'Original deadline/signal stop')
+
+
+def budget(ctx): return ctx['visual']['ctx']['driver'].budget(ctx['visual']['ctx'])
+
+
+def visual_closed(cfg, pins):
+    """Original normal owner check, explicit own-registration pin before import."""
+    spec = cfg['visual_batch']; vc = read(spec['config']); vr = vc['registration']
+    require(pins.get(vr) == sha(vr) and pins.get(spec['config']) == sha(spec['config'])
+        and pins.get(spec['completion']) == sha(spec['completion']), 'Visual self-registration/config/completion must be explicitly bound')
+    require(cfg['visual_owner_module'] == vc['owner_module'] and sha(vc['owner_module']) == VISUAL_OWNER_SHA,
+        'Exact separately derived original C visual owner required')
+    reg = read(vr); require(reg['source_bindings'].get(vc['owner_module']) == VISUAL_OWNER_SHA
+        and reg['config_sha256'] == sha(spec['config']), 'Original visual owner/config binding differs')
+    verify(reg['source_bindings'])
+    for p in (Path(vc['owner_module']).parent, Path(vc['cpu_supervisor_module']).parent): sys.path.insert(0, str(p))
+    owner = module(vc['owner_module'], 'c_statistics_original_visual_owner', combine(pins, reg['source_bindings']))
+    proof = owner.closed_batch(spec); before = owner.validate_budget(proof['done']['budget_after'])
+    require(proof['science']['source_count'] == 64 and proof['science']['frame_count'] == 8192
+        and proof['done']['worker_reaped'] is True and proof['done']['exit_code'] == 0, 'Successful full64 visual batch required')
+    return proof, owner, before
+
+
+def model_metadata(models, identity, bound):
+    """Verify exact historical CSV bytes now; parse predictions only in worker."""
+    require(set(models) == {'4', '7', '10', '13'}, 'Exactly four original model outputs required')
+    for snr, spec in models.items():
+        require(set(spec) == {'completion', 'per_source'}, 'Exact original model paths required')
+        p, c = spec['per_source'], spec['completion']; done = read(c)
+        require(bound.get(c) == sha(c) == identity['snrs'][snr]['completion_sha256']
+            and done['status'] == 'COMPLETE' and done['schema'] == 'CONTENT_QCSI_MODEL_SCREEN_20261005_V1'
+            and done['average_snr_db'] == int(snr) and done['outputs'].get(p) == bound.get(p) == sha(p),
+            'Model CSV does not belong to original frozen completion')
+
+
+def qualify_receipt(path, cfg, sources, bound):
+    q = read(path)
+    require(q['status'] == QUALIFIED and q['python'] == cfg['python'] and q['test_modules'] == TESTS
+        and q['tests_run'] == 22 and q['exit_code'] == 0 and q['process_waited'] is True
+        and q['new_GPU_calls'] == q['new_packet_decodes'] == q['actual_quality_rows_read'] == 0,
+        'Actual22 pure CPU qualification required')
+    for key in ('source_bindings', 'input_bindings', 'outputs'): verify(q[key])
+    for name in SOURCES:
+        p = str(Path(__file__).with_name(name).absolute())
+        require(q['source_bindings'].get(p) == sources.get(p) == sha(p), 'Qualified runtime source missing ' + name)
+    log = q['log']; require(q['outputs'].get(log) == sha(log), 'Closed qualification log missing')
+    text = Path(log).read_text(encoding='utf-8')
+    require(re.search(r'Ran 22 tests in .*\n\s*OK\s*$', text) and 'skipped' not in text, 'Exact22 tests/no skips required')
+    return q
+
+
+def inspect(cfg, bound):
+    proof, owner, before = visual_closed(cfg, bound); frozen = proof['ctx']['cpu_closed']['cpu']['frozen']
+    identity_path = proof['ctx']['cpu_closed']['cpu']['qualification']['frozen_identity']
+    require(proof['bindings'].get(identity_path) == sha(identity_path), 'Original frozen policy identity missing')
+    identity = read(identity_path); model_metadata(cfg['models'], identity, bound)
+    require(cfg['python'] == proof['ctx']['cfg']['python'] and cfg['resources'] == dict(affinity=[0, 1], threads=2, nice=15),
+        'Original UM interpreter and two CPU cores required')
+    return dict(cfg=cfg, visual=proof, owner=owner, before=before, frozen=frozen, identity=identity,
+        bound=combine(bound, proof['bindings']), core=module(Path(__file__).with_name('c_real_statistics_r1.py'), 'c_statistics_core', bound))
+
+
+def register(request_path):
+    r = read(request_path); require(r['schema'] == REQUEST, 'Separate statistics request required')
+    cfg = dict(r['config']); check(cfg); e = Path(cfg['execution_dir']); out = Path(cfg['out'])
+    base = Path(cfg['root'])/'outputs/CONTENT-REAL-64QAM-20261006/C'
+    require(e.parent == out.parent == base and e != out and not e.exists() and not out.exists(), 'Fresh independent C statistics directories required')
+    require(cfg['registration'] == str(e/'execution_registration.json') and cfg['module'] == str(Path(__file__).absolute())
+        and 0 < cfg['max_seconds'] <= 7200, 'Registered CPU entry/deadline differs')
+    sources = r['source_bindings']; inputs = combine(r['input_bindings'], bind([request_path])); verify(sources); verify(inputs)
+    for name in SOURCES:
+        p = str(Path(__file__).with_name(name).absolute()); require(sources.get(p) == sha(p), 'Source missing ' + name)
+    require(sha(Path(__file__).with_name('c_real_statistics_r1.py')) == CORE_SHA, 'Frozen statistical core changed')
+    q = qualify_receipt(cfg['prepared_qualification'], cfg, sources, combine(sources, inputs))
+    ctx = inspect(cfg, combine(sources, inputs)); inputs = combine(inputs, ctx['visual']['bindings'],
+        q['source_bindings'], q['input_bindings'], q['outputs'], bind([cfg['prepared_qualification']]))
+    require(ctx['visual']['ctx']['cpu_closed']['cpu']['cfg']['ledger'] not in inputs, 'Mutable C ledger cannot be SHA-bound')
+    e.mkdir(); save(e/'registration_attempt.json', dict(request_sha256=sha(request_path), new_packet_decodes=0))
+    try:
+        save(e/'config.json', cfg); inputs = combine(inputs, bind([e/'config.json']))
+        require(budget(ctx) == ctx['before'], 'C budget changed during metadata registration')
+        reg = dict(status=REGISTERED, config_sha256=sha(e/'config.json'), source_bindings=sources, input_bindings=inputs,
+            budget_before=ctx['before'], source_count=64, frame_count=8192, actual_quality_rows_read=False,
+            comparison_count=4, policy_selection=False, new_packet_decodes=0, new_GPU_calls=0, automatic_successor=False)
+        save(cfg['registration'], reg)
+        seal = dict(status=SEALED, registration_sha256=sha(cfg['registration']), outputs=bind([e/'config.json', cfg['registration']]))
+        save(e/'registration_completion.json', seal); return seal
+    except BaseException:
+        save(e/'registration_failure.json', dict(traceback=traceback.format_exc(), automatic_retry=False)); raise
+
+
+def sealed(path):
+    cfg = read(path); e = Path(cfg['execution_dir']); reg = read(cfg['registration']); seal = read(e/'registration_completion.json')
+    bound = combine(reg['source_bindings'], reg['input_bindings'])
+    require(reg['status'] == REGISTERED and reg['config_sha256'] == sha(path) == bound.get(str(Path(path).absolute()))
+        and seal['status'] == SEALED and seal['registration_sha256'] == sha(cfg['registration'])
+        and not(e/'registration_failure.json').exists(), 'Successful exact registration seal required')
+    verify(seal['outputs']); verify(reg['source_bindings'])
+    require(cfg['module'] == str(Path(__file__).absolute()) and bound.get(cfg['module']) == sha(__file__), 'Statistics entry changed')
+    return cfg, reg, bound
+
+
+def load_rows(ctx):
+    done = ctx['visual']['science']; out = Path(ctx['visual']['ctx']['cfg']['out']); rows = []
+    for i, sid in enumerate(ctx['frozen']['source_ids']):
+        cp_path = out/f'source_checkpoints/{i:04d}.json'; cp = read(cp_path); path = out/f'sources/{i:04d}.json'
+        require(done['outputs'].get(str(cp_path)) == sha(cp_path) and cp['rows'] == str(path)
+            and done['outputs'].get(str(path)) == cp['outputs'].get(str(path)) == sha(path)
+            and cp['source_index'] == i and cp['source_id'] == sid and cp['frame_count'] == 128
+            and cp['metric_identity'] == done['metric_evaluator_identity'], 'Actual visual source rows/identity changed')
+        values = read(path); require(len(values) == 128 and all(r['source_index'] == i and r['source_id'] == sid for r in values),
+            'Complete ordered64 source tables required'); rows.extend(values)
+    require(len(rows) == 8192, 'Exactly8192 rows required'); return rows
+
+
+def predictions(models, source_ids):
+    """Copy only original internal64 records; never recompute or select weights."""
+    ids = {sid: i for i, sid in enumerate(source_ids)}; result = []
+    for snr in (4, 7, 10, 13):
+        found = set()
+        with Path(models[str(snr)]['per_source']).open(encoding='utf-8', newline='') as f:
+            for row in csv.DictReader(f):
+                if row['source_id'] not in ids or row['method'] not in ('QCSI-U', 'QCSI-C8'): continue
+                key = (row['source_id'], row['method'])
+                require(row['population'] == 'internal_verification200' and key not in found, 'Original internal64 prediction duplicate/population differs')
+                found.add(key); result.append(dict(source_index=ids[row['source_id']], source_id=row['source_id'],
+                    average_snr_db=snr, method=row['method'], **{k: float(row[k]) for k in
+                    ('quality_point', 'quality_lower', 'quality_upper', 'unscored_probability')}))
+        require(found == {(sid, m) for sid in source_ids for m in ('QCSI-U', 'QCSI-C8')}, 'All128 original predictions per SNR required')
+    return result
+
+
+def csv_save(path, rows):
+    require(rows and all(set(r) == set(rows[0]) for r in rows), 'Uniform nonempty output table required')
+    with Path(path).open('x', encoding='utf-8', newline='') as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0]), lineterminator='\n'); w.writeheader(); w.writerows(rows); f.flush(); os.fsync(f.fileno())
+
+
+def export(out, result, model):
+    out = Path(out); paths = []
+    save(out/'statistics.json', result); paths.append(out/'statistics.json')
+    save(out/'original_model_comparison.json', model); paths.append(out/'original_model_comparison.json')
+    for name in ('summary', 'paired', 'source_means', 'per_source_win_loss', 'quality_loss_quantiles',
+                 'receive_diagnostics', 'selection_diagnostics', 'recovered_scale', 'action_and_receive_event_breakdown'):
+        path = out/(name+'.csv'); csv_save(path, result[name]); paths.append(path)
+    for name in ('method_points', 'source_deltas', 'delta_summary'):
+        path = out/('model_'+name+'.csv'); csv_save(path, model[name]); paths.append(path)
+    save(out/'decisions.json', result['decisions']); paths.append(out/'decisions.json')
+    return bind(paths)
+
+
+def helper(cfg, bound):
+    sys.path.insert(0, str(Path(cfg['visual_owner_module']).parent))
+    return module(cfg['visual_owner_module'], 'c_statistics_process_helpers', bound)
+
+
+def command(cfg, path): return [cfg['python'], '-B', cfg['module'], '--stage', 'worker', '--config', str(path)]
+
+
+def worker(path):
+    cfg, reg, bound = sealed(path); e = Path(cfg['execution_dir']); out = Path(cfg['out']); h = helper(cfg, bound)
+    until = time.monotonic()+15
+    while not(e/'worker_admission.json').exists(): require(time.monotonic()<until, 'CPU owner admission missing'); time.sleep(.02)
+    proof = read(e/'worker_admission.json')
+    require(proof['registration_sha256'] == sha(cfg['registration']) and proof['worker_identity'] == h.identity(os.getpid())
+        and proof['owner_identity'] == h.identity(os.getppid()) and proof['worker_identity']['argv'] == command(cfg, path),
+        'Exact current CPU parent/worker identity required')
+    require(os.sched_getaffinity(0) == {0, 1} and os.getpriority(os.PRIO_PROCESS, 0) == 15
+        and os.environ.get('CUDA_VISIBLE_DEVICES') == '' and all(os.environ.get(k) == '2' for k in THREADS), 'CPU-only two-thread admission required')
+    require(not out.exists(), 'No statistics retry'); out.mkdir(); save(out/'attempt.json', proof); started = time.monotonic()
+    try:
+        check(cfg); verify(bound); ctx = inspect(cfg, bound); require(ctx['before'] == reg['budget_before'], 'C budget changed since registration')
+        ledger = ctx['visual']['ctx']['cpu_closed']['cpu']['cfg']['ledger']
+        require(h.locked(str(Path(ledger).with_suffix('.owner.lock'))), 'CPU owner must hold read-only C ledger lock')
+        rows = load_rows(ctx); core = ctx['core']; check(cfg)
+        result = core.aggregate(rows, ctx['frozen']['source_ids'], ctx['identity'])
+        model = core.compare_original_model(result, predictions(cfg['models'], ctx['frozen']['source_ids']))
+        result['model_predicted_vs_actual_delta'] = dict(status='ORIGINAL512_PREDICTIONS_COMPARED_WITH_ACTUAL', output='original_model_comparison.json')
+        outputs = export(out, result, model); check(cfg)
+        require(time.monotonic()-started < cfg['max_seconds'] and budget(ctx) == reg['budget_before'], 'Statistics wall limit or C budget changed')
+        done = dict(status=SCIENCE, registration_sha256=sha(cfg['registration']), config_sha256=sha(path),
+            worker_identity=proof['worker_identity'], source_count=64, frame_count=8192, comparisons=4,
+            model_prediction_rows=512, bootstrap_seed=2026100605, bootstrap_repeats=10000,
+            budget_before=reg['budget_before'], budget_after=budget(ctx), outputs=outputs,
+            source_bindings=reg['source_bindings'], input_bindings=reg['input_bindings'],
+            new_packet_decodes=0, new_GPU_calls=0, new_noise=0, policy_selection=False,
+            online_timing_measured=False, C_complete=False, automatic_successor=False)
+        save(out/'completion.json', done); return done
+    except BaseException:
+        save(out/'failure.json', dict(traceback=traceback.format_exc(), new_packet_decodes=0, automatic_retry=False)); raise
+
+
+def run(path):
+    cfg, reg, bound = sealed(path); check(cfg); e = Path(cfg['execution_dir']); h = helper(cfg, bound)
+    require(not(e/'run_attempt.json').exists() and not Path(cfg['out']).exists(), 'Fresh statistics run only')
+    save(e/'run_attempt.json', dict(registration_sha256=sha(cfg['registration']))); child = None; log = None
+    vc = read(cfg['visual_batch']['config']); cpucfg = read(read(vc['cpu_batch']['owner_config'])['worker_config'])
+    lockpath = str(Path(cpucfg['ledger']).with_suffix('.owner.lock')); me = h.identity(os.getpid())
+    with h.lock(lockpath):
+        try:
+            save(e/'owner_identity.json', dict(identity=me)); argv = command(cfg, path)
+            env = dict(os.environ, PYTHONDONTWRITEBYTECODE='1', CUDA_VISIBLE_DEVICES='',
+                PYTHONPATH=os.pathsep.join([str(Path(__file__).parent), str(Path(cfg['visual_owner_module']).parent)]), **{k:'2' for k in THREADS})
+            log = (e/'worker.log').open('xb')
+            child = subprocess.Popen(argv, cwd=cfg['root'], env=env, stdout=log, stderr=subprocess.STDOUT,
+                stdin=subprocess.DEVNULL, start_new_session=True, preexec_fn=lambda:h.resources([0, 1]))
+            save(e/'pending_pid.json', dict(pid=child.pid, argv=argv, identity_verified=False)); ident = h.capture(child, argv)
+            proof = dict(worker_identity=ident, owner_identity=me, registration_sha256=sha(cfg['registration']))
+            save(e/'worker_launch.json', proof); save(e/'worker_admission.json', proof); started = time.monotonic()
+            while child.poll() is None:
+                check(cfg); require(time.monotonic()-started < cfg['max_seconds'], 'CPU statistics wall limit')
+                time.sleep(.25)
+            code = child.wait(); log.flush(); os.fsync(log.fileno()); log.close(); log = None
+            save(e/'worker_exit.json', dict(identity=ident, exit_code=code, reaped=True, log_sha256=sha(e/'worker.log')))
+            require(code == 0 and h.absent(ident), 'CPU worker did not normally exit'); check(cfg)
+            done = read(Path(cfg['out'])/'completion.json'); verify(done['outputs'])
+            require(done['status'] == SCIENCE and done['registration_sha256'] == sha(cfg['registration'])
+                and done['worker_identity'] == ident and done['budget_before'] == done['budget_after'] == reg['budget_before'], 'Exact statistical completion required')
+            normal = dict(status=DONE, owner_identity=me, worker_identity=ident, worker_reaped=True, exit_code=0,
+                registration_sha256=sha(cfg['registration']), source_count=64, frame_count=8192,
+                budget_before=done['budget_before'], budget_after=done['budget_after'],
+                outputs=combine(done['outputs'], bind([Path(cfg['out'])/'completion.json']+[e/n for n in
+                    ('owner_identity.json','pending_pid.json','worker_launch.json','worker_admission.json','worker_exit.json','worker.log')])),
+                new_packet_decodes=0, new_GPU_calls=0, C_complete=False, automatic_successor=False)
+            save(e/'completion.json', normal); return normal
+        except BaseException:
+            error = traceback.format_exc()
+            if child is not None and child.poll() is None:
+                if not(e/'STOP').exists(): save(e/'STOP', dict(reason='Owner failure; drain child with evidence intact'))
+                try: child.wait(timeout=30)
+                except subprocess.TimeoutExpired:
+                    os.killpg(child.pid,signal.SIGTERM)
+                    try: child.wait(timeout=10)
+                    except subprocess.TimeoutExpired: os.killpg(child.pid,signal.SIGKILL);child.wait()
+            if log is not None: log.flush(); os.fsync(log.fileno()); log.close()
+            if child is not None and not(e/'worker_exit.json').exists():
+                save(e/'worker_exit.json',dict(pid=child.pid,identity=locals().get('ident'),exit_code=child.returncode,
+                    reaped=True,log_sha256=sha(e/'worker.log')))
+            save(e/'failure.json', dict(traceback=error, owner_identity=me, worker_pid=None if child is None else child.pid, automatic_retry=False)); raise
+
+
+def closed_batch(spec):
+    cfg,reg,bound=sealed(spec['config']);e=Path(cfg['execution_dir']);check(cfg,historical=True)
+    require(spec['completion']==str(e/'completion.json') and not(e/'failure.json').exists()
+        and not(Path(cfg['out'])/'failure.json').exists(),'Only normal statistics owner accepted')
+    h=helper(cfg,bound);done=read(spec['completion']);launch=read(e/'worker_launch.json');x=read(e/'worker_exit.json')
+    me=read(e/'owner_identity.json')['identity'];science=read(Path(cfg['out'])/'completion.json')
+    require(done['status']==DONE and done['registration_sha256']==sha(cfg['registration'])
+        and done['owner_identity']==me and done['worker_identity']==launch['worker_identity']==x['identity']
+        and done['worker_reaped'] is x['reaped'] is True and done['exit_code']==x['exit_code']==0
+        and x['log_sha256']==sha(e/'worker.log') and h.absent(me) and h.absent(x['identity']),
+        'Normal statistics owner/worker wait, exit and closed log required')
+    verify(bound);verify(done['outputs']);verify(science['outputs'])
+    require(science['status']==SCIENCE and science['registration_sha256']==sha(cfg['registration'])
+        and science['worker_identity']==x['identity'] and science['frame_count']==8192 and science['source_count']==64
+        and done['budget_before']==done['budget_after']==science['budget_before']==science['budget_after']==reg['budget_before']
+        and all(done['outputs'].get(p)==hsh for p,hsh in science['outputs'].items()),'Statistics science closure/budget differs')
+    return dict(cfg=cfg,reg=reg,done=done,science=science,bindings=combine(bound,done['outputs'],bind([spec['completion'],cfg['registration']])))
+
+
+if __name__ == '__main__':
+    p=argparse.ArgumentParser(); p.add_argument('--stage', choices=('register','run','worker'), required=True)
+    p.add_argument('--request'); p.add_argument('--config'); a=p.parse_args()
+    require(sys.platform.startswith('linux'), 'Actual registered CPU process requires original Linux identity')
+    signal.signal(signal.SIGTERM, stop); signal.signal(signal.SIGINT, stop)
+    print((register(a.request) if a.stage=='register' else run(a.config) if a.stage=='run' else worker(a.config))['status'], flush=True)

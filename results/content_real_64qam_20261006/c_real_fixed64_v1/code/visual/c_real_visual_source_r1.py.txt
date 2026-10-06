@@ -1,0 +1,145 @@
+"""C64 source worker functions; callers own registration and GPU admission.
+
+No CLI, model constructor, packet backend, sampler or policy selection exists
+here. This is an executable source-processing adapter, not a GPU supervisor.
+"""
+from __future__ import annotations
+from copy import deepcopy
+import hashlib
+import json
+import math
+import os
+from pathlib import Path
+import numpy as np
+import c_real_received_adapter_r1 as rx
+
+SNRS=(4,7,10,13)
+METHODS=('QCSI-U','QCSI-C8')
+require=rx.require
+
+def sha(path):
+    h=hashlib.sha256()
+    with Path(path).open('rb') as f:
+        for block in iter(lambda:f.read(1048576),b''):h.update(block)
+    return h.hexdigest()
+def read(path):return json.loads(Path(path).read_text(encoding='utf-8-sig'))
+def save(path,value):
+    p=Path(path);p.parent.mkdir(parents=True,exist_ok=True)
+    with p.open('x',encoding='utf-8',newline='\n') as f:
+        json.dump(value,f,indent=2,allow_nan=False);f.write('\n');f.flush();os.fsync(f.fileno())
+def bind(paths):return {str(p):sha(p) for p in paths}
+def grid(index):return [(index,snr,trial,method) for snr in SNRS for trial in range(16) for method in METHODS]
+
+def closed_cpu_inputs(spec,supervisor,bound):
+    """Call the frozen normal C8192 gate and charged-event audit exactly once."""
+    require(bound.get(str(Path(supervisor.__file__).absolute()))==sha(supervisor.__file__),'Unbound original CPU supervisor')
+    proof=supervisor.closed_batch(spec);ctx=proof['ctx'];done=proof['done']
+    require(all(bound.get(p)==h for p,h in proof['bindings'].items()),'New visual registration omits original CPU evidence')
+    inventory=supervisor.d.audit_inventory(ctx)
+    require(inventory['frame_count']==8192 and inventory['budget']==done['budget_after']
+        and inventory['packet_calls']==done['actual_development_packet_calls']
+        and all(done['outputs'].get(p)==h for p,h in inventory['outputs'].items()),'Actual trace/ledger closure differs')
+    return dict(cpu=ctx,normal=done,bindings=dict(bound),inventory=inventory,
+        original_cpu_proof=deepcopy(spec),budget_before=deepcopy(inventory['budget']))
+
+def load_source(closed,index):
+    """Original pixels and evaluation label never enter receiver_view()."""
+    require(type(index)is int and 0<=index<64,'Only frozen C64 population is admitted')
+    ctx=closed['cpu'];sid=ctx['frozen']['source_ids'][index];base=Path(ctx['cfg']['out'])/f'worker_{index%2}'
+    tp=base/'traces'/f'{index:04d}.json';cp_path=base/'source_checkpoints'/f'{index:04d}.json';cp=read(cp_path)
+    require(closed['normal']['outputs'].get(str(tp))==sha(tp)==cp['trace_sha256']
+        and closed['normal']['outputs'].get(str(cp_path))==sha(cp_path)
+        and cp['trace']==str(tp) and cp['source_index']==index and cp['source_id']==sid,'Sealed CPU source mapping changed')
+    frames=read(tp);validate_frames(frames,index,sid)
+    ent=ctx['manifest']['sources'][index];ep=ent['checkpoint'];ecp=read(ep)
+    require(sha(ep)==ent['checkpoint_sha256'] and ctx['manifest']['outputs'].get(ep)==sha(ep)
+        and ecp['source_index']==index and ecp['source_id']==sid,'Original entropy checkpoint changed')
+    asset=ecp['raw_asset'];ap=asset['checkpoint'];archive=asset['archive'];raw=read(ap)
+    require(closed['bindings'].get(ap)==sha(ap)==asset['checkpoint_sha256']
+        and closed['bindings'].get(archive)==sha(archive)==asset['archive_sha256']
+        and raw['status']=='H_FULL1000_SOURCE_ASSET_READY' and raw['source_id']==sid
+        and raw['source_index']==raw['original_calibration_index']==asset['source_index']==ent['original_calibration_index']
+        and raw['registration_sha256']==asset['source_registration_sha256']
+        and raw['archive']==archive and raw['outputs'].get(archive)==asset['archive_sha256']
+        and raw['preprocessing_id']==asset['preprocessing_id']==ent['preprocessing_id'],'Original target source provenance differs')
+    label=raw['evaluation_class_index'];require(type(label)is int and 0<=label<1000,'Original evaluation class required')
+    with np.load(archive,allow_pickle=False) as z:
+        require(set(z.files)=={'tokens','pixels'},'Original source archive schema differs')
+        pixels=z['pixels'].copy()  # Tokens and TX entropy orders are not read by this visual adapter.
+    require(pixels.dtype==np.uint8 and pixels.shape==(3,256,256)
+        and hashlib.sha256(pixels.tobytes()).hexdigest()==asset['preprocessing_id'],'Original source pixels changed')
+    target=np.ascontiguousarray(pixels,dtype=np.float32)/np.float32(255)
+    return dict(source_index=index,source_id=sid,frames=frames,target=target,class_index=label,
+        target_preprocessing_sha256=asset['preprocessing_id'],reference_sha256=rx.rgb_sha(target),
+        input_bindings=bind((tp,cp_path,ep,ap,archive)))
+
+def validate_frames(frames,index,sid):
+    require(len(frames)==128 and [(f['source_index'],f['average_snr_db'],f['trial'],f['method']) for f in frames]==grid(index)
+        and all(f['source_id']==sid and f['status']=='C_REAL_ACTUAL_CPU_TRAJECTORY_R2'
+        and f['source_reconstruction_complete'] is False and f['images_scored'] is False
+        and f['policy_selection'] is False for f in frames),'Frozen complete128 actual CPU frames required')
+
+def render_source(source,public_tables,receiver,guard):
+    """All128 RX records are retained, including every rejected/accepted error."""
+    index,sid=source['source_index'],source['source_id'];validate_frames(source['frames'],index,sid)
+    require(not receiver.cache and receiver.render_calls==0,'Use a fresh receiver cache per source to bound memory')
+    rows=[];images={};image_keys={};guard()
+    for frame in source['frames']:
+        guard();book=public_tables[frame['average_snr_db'],frame['method']]['codebook']
+        result=receiver.reconstruct(rx.receiver_view(frame),book,guard);summary=result['summary'];h=rx.rgb_sha(result['image'])
+        require(h==summary['image_sha256'] and summary['gray']==frame['receive']['gray'],'Actual RGB or original DROP outcome differs')
+        if h not in image_keys:
+            key=f'image_{len(images):03d}';image_keys[h]=key;images[key]=result['image']
+        key=image_keys[h]
+        require(np.array_equal(images[key],result['image']),'Equal image hash with unequal bytes')
+        rows.append(dict(source_index=index,source_id=sid,average_snr_db=frame['average_snr_db'],trial=frame['trial'],method=frame['method'],
+            cpu=deepcopy(frame),visual=deepcopy(summary),image_key=key,image_sha256=h))
+    guard()
+    return dict(source_index=index,source_id=sid,rows=rows,images=images,
+        counts=dict(logical_frames=128,unique_float32_images=len(images),actual_prior_completions=receiver.render_calls,
+            exact_RX_cache_hits=sum(r['visual']['receiver_cache_hit'] for r in rows),new_packet_decodes=0,new_noise=0))
+
+def score_source(source,rendered,backend,required_fields,guard):
+    """Exact same-source RGB/reference/identity reuse, without C64 mismatches."""
+    require(rendered['source_index']==source['source_index'] and rendered['source_id']==source['source_id']
+        and len(rendered['rows'])==128,'Metric source mapping differs')
+    target=source['target'];require(rx.rgb_sha(target)==source['reference_sha256'],'Original target changed')
+    label=source['class_index'];require(type(label)is int and 0<=label<1000,'Original evaluation label required')
+    guard();backend.check();prepared=backend.prepare(target);cache={};rows=[]
+    for row in rendered['rows']:
+        guard();image=rendered['images'][row['image_key']];require(rx.rgb_sha(image)==row['image_sha256'],'Scored RGB differs')
+        key=rx.digest(dict(source_id=source['source_id'],reference=source['reference_sha256'],image=row['image_sha256'],
+            label=label,metric_identity=backend.identity))
+        reused=key in cache
+        if not reused:
+            values=backend.score(target,image,label,prepared)
+            require(all(k in values and values[k] is not None and math.isfinite(float(values[k])) for k in required_fields),
+                'Incomplete metrics must not be replaced with clean or zero values')
+            require(values['label_conditioned'] is False and values['convnext_used_for_selection'] is False,'Metric conditioning or selection differs')
+            cache[key]=deepcopy(values)
+        values=deepcopy(cache[key])
+        require(not set(values)&{'dino_mismatched','dino_specificity'},'C64 mismatch permutation is not registered')
+        rows.append(dict(row,metrics=values,metric_cache_key=key,metric_cache_hit=reused,
+            reference_sha256=source['reference_sha256'],reference_preprocessing_sha256=source['target_preprocessing_sha256'],
+            class_index=label,metric_evaluator_identity=backend.identity,metric_batch_size=1,used_for_selection=False))
+    backend.check();guard()
+    return dict(rendered,rows=rows,counts=dict(rendered['counts'],unique_metric_pairs=len(cache),metric_cache_hits=128-len(cache)))
+
+def write_source(out,result,source,registration_sha256,model_identity,metric_identity=None):
+    """Lossless private artifacts; never publish NPZ/images or actual payloads."""
+    index=result['source_index'];require(len(result['rows'])==128 and result['source_id']==source['source_id'],'Incomplete source output')
+    require(bool(registration_sha256) and bool(model_identity),'New registration and model identity are required')
+    require(all(('metrics' in r)==(metric_identity is not None) for r in result['rows']),'Metric completion cannot precede actual scores')
+    for row in result['rows']:
+        require(rx.rgb_sha(result['images'][row['image_key']])==row['image_sha256'],'Output RGB fingerprint differs')
+    out=Path(out);ap=out/'sources'/f'{index:04d}.npz';rp=out/'sources'/f'{index:04d}.json';cp=out/'source_checkpoints'/f'{index:04d}.json'
+    require(not any(p.exists() for p in (ap,rp,cp)),'Prior source evidence retained; no automatic retry')
+    ap.parent.mkdir(parents=True,exist_ok=True)
+    with ap.open('xb') as f:np.savez(f,**result['images']);f.flush();os.fsync(f.fileno())
+    save(rp,result['rows']);outputs=bind((ap,rp))
+    save(cp,dict(status='C_REAL_ACTUAL_RX_SOURCE_COMPLETE_R1',source_index=index,source_id=source['source_id'],frame_count=128,
+        registration_sha256=registration_sha256,receiver_identity=model_identity,metric_identity=metric_identity,
+        images_scored=metric_identity is not None,source_reconstruction_complete=True,archive=str(ap),rows=str(rp),
+        outputs=outputs,input_bindings=source['input_bindings'],counts=result['counts'],new_packet_decodes=0,new_noise=0,
+        policy_selection=False,statistical_aggregation_run=False,normal_GPU_owner_completion=False))
+    outputs[str(cp)]=sha(cp);return outputs

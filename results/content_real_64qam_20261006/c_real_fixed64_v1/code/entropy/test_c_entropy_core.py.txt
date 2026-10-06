@@ -1,0 +1,160 @@
+"""Original metadata and synthetic priors only; no Torch/models/real pixels."""
+from contextlib import nullcontext
+from copy import deepcopy
+import importlib.util
+import inspect
+import json
+import os
+from pathlib import Path
+import sys
+import tempfile
+from types import SimpleNamespace
+import unittest
+import numpy as np
+import c_entropy_core as e
+
+HERE=Path(__file__).resolve().parent
+CORE=Path(os.environ.get('C_ENTROPY_TEST_CPU_CORE',str(HERE.parent/'c_real_prep/c_real_cpu_core.py')))
+ASSETS=Path(os.environ.get('C_REAL_TEST_FROZEN_DIR',str(HERE.parent/'delivery')))
+AUDIT=Path(os.environ.get('C_ENTROPY_TEST_ASSET_AUDIT',str(HERE.parent/'delivery/C64_REMOTE_ASSET_BYTES_VERIFIED.json')))
+QUALITY=Path(os.environ.get('C_ENTROPY_TEST_SOURCE_QUALITY',str(HERE.parents[1]/'prior_aware_uep_20261004/runtime/source_quality.py')))
+def module(p,name):
+    spec=importlib.util.spec_from_file_location(name,p);m=importlib.util.module_from_spec(spec);sys.modules[name]=m;spec.loader.exec_module(m);return m
+c=module(CORE,'_c_entropy_test_cpu')
+
+def order_from_prefix(prefix,m):return np.roll(np.arange(e.SIZES[m]**2),sum(int(a.sum()) for a in prefix)%(e.SIZES[m]**2))
+class Tensor:
+    def __init__(self,a):self.a=np.asarray(a)
+    def __getitem__(self,i):return Tensor(self.a[i])
+    def float(self):return self
+    def cpu(self):return self
+    def numpy(self):return self.a
+def completed(prefix,values,m,k):
+    positions=order_from_prefix(prefix,m)[:k] if k else np.empty(0,dtype=np.int64)
+    result=[x.copy() for x in prefix]
+    for s in range(m,10):
+        chosen=(np.arange(e.SIZES[s]**2)+sum(int(x.sum()) for x in result)+s)%4096
+        if s==m and k:chosen[positions]=values
+        result.append(chosen)
+    image=np.full((3,256,256),(sum(int(x.sum()) for x in result)%1000)/1000,np.float32)
+    return dict(positions=positions,values=np.asarray(values,dtype=np.int64),tokens=result,image=image,
+        known_tokens_fixed=True,label_conditioned=False)
+class FakeTX:
+    instances=[]
+    def __init__(self,loaded,rx,flat,states,*,use_snapshots=False):
+        if use_snapshots:raise AssertionError('Fresh qualification only')
+        self.flat=flat.copy();self.prior_forward_calls=0;self.closed=False;self.instances.append(self)
+    def _open(self,m):
+        self.prior_forward_calls+=m+1
+        prefix=[self.flat[e.PREFIX[s]:e.PREFIX[s+1]] for s in range(m)]
+        return SimpleNamespace(close=lambda:None),Tensor(order_from_prefix(prefix,m)[None])
+    def render(self,state,receiver):
+        m,k=state['m'],state['K'];prefix=[self.flat[e.PREFIX[s]:e.PREFIX[s+1]] for s in range(m)]
+        values=self.flat[e.PREFIX[m]+order_from_prefix(prefix,m)[:k]] if k else np.empty(0,dtype=np.int64)
+        return completed(prefix,values,m,k)
+    def close(self):self.closed=True
+class FakeRX:
+    calls=[]
+    def __init__(self,loaded,rx):pass
+    def render_received(self,prefix_tokens,partial_values,m,K,receiver='VAR',cache=None):
+        if cache is not None:raise AssertionError('No final image cache')
+        self.calls.append((m,K));return completed(prefix_tokens,partial_values,m,K)
+
+class Entropy(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.frozen=c.load_frozen(*[ASSETS/n for n in ('C_REAL_PROTOCOL.json','frozen_policy_identity.json',
+            'C_SOURCE64.metadata.json','choices64_by_bin.csv','C_resource_budget.json')])
+        cls.audit=e.read(AUDIT);cls.plan=e.build_plan(cls.frozen,cls.audit)
+    def setUp(self):
+        self.flat=np.arange(680,dtype=np.int64)%4096
+        self.native=SimpleNamespace(loaded={},receiver=None,torch=SimpleNamespace(no_grad=nullcontext,cuda=SimpleNamespace(synchronize=lambda:None)))
+        self.quality=SimpleNamespace(SourceRenderer=FakeTX,ReceivedRenderer=FakeRX,entropy_order=lambda rx,x:x)
+    def orders(self,i):return e.entropy_orders(self.native,self.quality,self.flat,self.plan['sources'][i]['required_ms'])[0]
+    def test_actual64_mapping206_and_91_reachable_cases(self):
+        p=self.plan
+        self.assertEqual((p['source_count'],p['entropy_pair_count'],p['parity_case_count'],p['choice_check_count']),(64,206,91,512))
+        self.assertNotEqual(self.audit['sources'][0]['source_id'],p['source_ids'][0])
+        self.assertEqual(p['sources'][0]['original_calibration_index'],190)
+        self.assertEqual([r['source_id'] for r in p['sources']],self.frozen['source_ids'])
+        for r in p['parity_cases']:
+            self.assertTrue(r['references']);self.assertIn(r['profile']['stable_id'],self.frozen['profiles'])
+    def test_missing_duplicate_or_bad_original_source_mapping_rejected(self):
+        for mutate in (lambda x:x['sources'].pop(),lambda x:x['sources'].__setitem__(1,x['sources'][0]),
+                       lambda x:x['sources'][0].__setitem__('source_index',1000)):
+            a=deepcopy(self.audit);mutate(a)
+            with self.assertRaises(ValueError):e.build_plan(self.frozen,a)
+    def test_full_permutations_fresh_prior_and_guards(self):
+        calls=[];ms=[4,5,6,7]
+        orders,stats=e.entropy_orders(self.native,self.quality,self.flat,ms,lambda:calls.append(True))
+        self.assertEqual(len(calls),4);self.assertEqual(stats['prior_forward_calls'],sum(m+1 for m in ms))
+        self.assertTrue(FakeTX.instances[-1].closed);self.assertFalse(stats['use_snapshots'])
+        for m,a in orders.items():np.testing.assert_array_equal(np.sort(a),np.arange(e.SIZES[m]**2))
+    def test_actual_received_payload_has_no_truth_or_positions(self):
+        p=next(p for p in self.frozen['profiles'].values() if p['G']==2 and c.parse_state(p['full_state_id'])[1])
+        m,k=c.parse_state(p['full_state_id']);orders={m:order_from_prefix([self.flat[e.PREFIX[s]:e.PREFIX[s+1]] for s in range(m)],m)}
+        payload=c.source_payloads(self.flat,orders,p);rx=e.actual_accepted_payload(p,payload)
+        self.assertEqual((rx['m'],rx['K']),(m,k))
+        np.testing.assert_array_equal(np.concatenate(rx['prefix_tokens']),self.flat[:e.PREFIX[m]])
+        self.assertEqual(set(inspect.signature(e.actual_accepted_payload).parameters),{'profile','accepted_payloads'})
+        changed=[a.copy() for a in payload];changed[0][0]^=1
+        wrong=e.actual_accepted_payload(p,changed)
+        self.assertNotEqual(wrong['prefix_tokens'][0][0],rx['prefix_tokens'][0][0])
+        self.assertFalse(np.array_equal(order_from_prefix(wrong['prefix_tokens'],m),order_from_prefix(rx['prefix_tokens'],m)))
+        self.assertEqual(e.actual_accepted_payload(p,[])['kind'],'gray')
+    def test_rejected_second_group_keeps_only_actual_prefix(self):
+        p=next(p for p in self.frozen['profiles'].values() if p['G']==2)
+        m,k=c.parse_state(p['full_state_id']);orders={m:order_from_prefix([self.flat[e.PREFIX[s]:e.PREFIX[s+1]] for s in range(m)],m)} if k else {}
+        payload=c.source_payloads(self.flat,orders,p);rx=e.actual_accepted_payload(p,payload[:1])
+        self.assertEqual((rx['m'],rx['K']),c.parse_state(p['prefix_state_id']))
+        self.assertEqual(len(rx['partial_values']),0)
+    def test_full_first8_fake_independent_paths_and_original91_denominator(self):
+        rows=[];start=len(FakeRX.calls)
+        for i in range(8):rows+=e.parity_source(self.native,self.quality,c,self.plan,i,self.flat,self.orders(i))
+        done=e.finish_parity(self.plan,rows)
+        self.assertEqual(done['status'],e.PARITY_STATUS);self.assertEqual(len(FakeRX.calls)-start,91)
+        self.assertEqual(done['choice_check_count'],512);self.assertEqual(done['maximum_image_error'],0.)
+        self.assertFalse(done['actual_channel_performance_claimed']);self.assertEqual(done['new_packet_decodes'],0)
+        with self.assertRaises(ValueError):e.finish_parity(self.plan,rows[:-1]+[rows[0]])
+    def test_failure_does_not_repair_mismatched_rx_and_closes_tx(self):
+        class BrokenRX(FakeRX):
+            def render_received(self,*args,**kwargs):
+                result=super().render_received(*args,**kwargs);result['positions']=result['positions'][::-1];result['image']+=np.float32(.01);return result
+        bad=SimpleNamespace(SourceRenderer=FakeTX,ReceivedRenderer=BrokenRX,entropy_order=self.quality.entropy_order)
+        with self.assertRaises(ValueError):e.parity_source(self.native,bad,c,self.plan,0,self.flat,self.orders(0))
+        self.assertTrue(FakeTX.instances[-1].closed)
+    def test_rgb_tolerance_is_not_requirement_of_equal_rgb_hash(self):
+        tx=completed([self.flat[e.PREFIX[s]:e.PREFIX[s+1]] for s in range(8)],[],8,0);rx=deepcopy(tx)
+        rx['image'][0,0,0]+=np.float32(5e-7);proof=e.compare_rendered(tx,rx)
+        self.assertFalse(proof['exact_RGB_bytes']);self.assertLessEqual(proof['max_abs_image_error'],1e-6)
+        rx['image'][0,0,0]+=np.float32(2e-6)
+        with self.assertRaisesRegex(ValueError,'tolerance'):e.compare_rendered(tx,rx)
+    def test_archive_source_tokens_and_exact_order_keys_required(self):
+        ms=self.plan['sources'][0]['required_ms'];arrays=dict(tokens=self.flat,**{f'entropy_order_m{m}':a for m,a in self.orders(0).items()})
+        self.assertTrue(e.validate_export_arrays(arrays,ms,e.token_sha(self.flat)))
+        bad=dict(arrays);bad['free_label']=np.zeros(1)
+        with self.assertRaises(ValueError):e.validate_export_arrays(bad,ms,e.token_sha(self.flat))
+        bad=deepcopy(arrays);bad['entropy_order_m5'][0]=bad['entropy_order_m5'][1]
+        with self.assertRaises(ValueError):e.validate_export_arrays(bad,ms,e.token_sha(self.flat))
+    def test_raw_loader_uses_id_and_reads_only_tokens_array(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);archive=root/'raw.npz';cp=root/'cp.json'
+            # Object-array pixels cannot be loaded with allow_pickle=False.
+            # This verifies the source-only path never materializes pixels.
+            np.savez(archive,tokens=self.flat,pixels=np.array({'must_not_read':True},dtype=object))
+            r=deepcopy(self.plan['sources'][0]);a=r['raw_asset'];a.update(archive=str(archive),archive_sha256=e.sha(archive),checkpoint=str(cp),tokens_sha256=e.token_sha(self.flat))
+            value=dict(status='H_FULL1000_SOURCE_ASSET_READY',source_id=r['source_id'],source_index=r['original_calibration_index'],
+                original_calibration_index=r['original_calibration_index'],registration_sha256=a['source_registration_sha256'],archive=str(archive),
+                outputs={str(archive):e.sha(archive)},tokens_sha256=a['tokens_sha256'],preprocessing_id=a['preprocessing_id'])
+            cp.write_text(json.dumps(value));a['checkpoint_sha256']=e.sha(cp)
+            np.testing.assert_array_equal(e.load_raw_tokens(r,bound={str(cp):e.sha(cp),str(archive):e.sha(archive)}),self.flat)
+    def test_original_received_renderer_signature_excludes_source_and_TX_order(self):
+        import ast
+        tree=ast.parse(QUALITY.read_text(encoding='utf-8-sig'))
+        klass=next(n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=='ReceivedRenderer')
+        fn=next(n for n in klass.body if isinstance(n,ast.FunctionDef) and n.name=='render_received')
+        self.assertEqual([a.arg for a in fn.args.args],['self','prefix_tokens','partial_values','m','K','receiver','cache'])
+        code=ast.unparse(fn);self.assertIn('entropy_order(self.rx, logits[0].float().cpu().numpy())',code)
+        self.assertIn('prior.advance(prefix[scale], scale)',code)
+
+if __name__=='__main__':unittest.main()
