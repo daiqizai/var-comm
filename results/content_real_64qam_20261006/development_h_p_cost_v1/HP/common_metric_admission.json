@@ -1,0 +1,989 @@
+{
+  "actual_classifier_identities": {
+    "H": {
+      "architecture": "ConvNeXt-Tiny",
+      "classification_batch_size": 1,
+      "inference_precision": "float32",
+      "model_source_sha256": "5c00c412bc79e5c650f887dfe0d21aa8028903a3bbeae1a95c3b0fdfbdaf55c2",
+      "official_reference": "https://docs.pytorch.org/vision/stable/models/generated/torchvision.models.convnext_tiny.html",
+      "pipeline_shared_backbone": false,
+      "policy_sha256": "e87db74ca5f2529d2caa9786c6c337ba0d433110b60ebc75afc5a52e1fffb676",
+      "population": "development",
+      "torch": "2.11.0+cu128",
+      "torchvision": "0.26.0+cu128",
+      "transform": "ImageClassification(\n    crop_size=[224]\n    resize_size=[236]\n    mean=[0.485, 0.456, 0.406]\n    std=[0.229, 0.224, 0.225]\n    interpolation=InterpolationMode.BILINEAR\n)",
+      "used_for_selection": false,
+      "version": "convnext_tiny_IMAGENET1K_V1_independent_development_v1",
+      "weights": "IMAGENET1K_V1",
+      "weights_sha256": "983f1562536e84ff750a1576fb08e54de751dbf2e17c0d8a4a13704341fdcd3d"
+    },
+    "P": {
+      "architecture": "ConvNeXt-Tiny",
+      "classification_batch_size": 1,
+      "inference_precision": "float32",
+      "model_source_sha256": "5c00c412bc79e5c650f887dfe0d21aa8028903a3bbeae1a95c3b0fdfbdaf55c2",
+      "official_reference": "https://docs.pytorch.org/vision/stable/models/generated/torchvision.models.convnext_tiny.html",
+      "pipeline_shared_backbone": false,
+      "policy_sha256": "db5d4153596389f3f5dae7819bb85ddf7308f4f414c8a8271ae20de2248c9333",
+      "population": "development",
+      "torch": "2.11.0+cu128",
+      "torchvision": "0.26.0+cu128",
+      "transform": "ImageClassification(\n    crop_size=[224]\n    resize_size=[236]\n    mean=[0.485, 0.456, 0.406]\n    std=[0.229, 0.224, 0.225]\n    interpolation=InterpolationMode.BILINEAR\n)",
+      "used_for_selection": false,
+      "version": "convnext_tiny_IMAGENET1K_V1_independent_development_v1",
+      "weights": "IMAGENET1K_V1",
+      "weights_sha256": "983f1562536e84ff750a1576fb08e54de751dbf2e17c0d8a4a13704341fdcd3d"
+    }
+  },
+  "generated_from_identity_only": true,
+  "input_bindings": {
+    "REPO/experiments/content-real-64qam-20261006/h_development_metric_adapter.py": "3de72dd7ef596704e9fc20d8e78e46985b4d035ae5d832e8d59e97ae63d40d83",
+    "REPO/experiments/content-real-64qam-20261006/p600_received_replay_core.py": "8b7ce8d1b609c02b9b96dc6b69684c995ff3b20f3c02eeb1282b2fe20b82f037",
+    "REPO/experiments/extreme-bandwidth-20261001-N1024/plugin.py": "6de26919ce698bd6dfe6250f7ae740843bfb24dbe9e5125524deac1081b10254",
+    "REPO/experiments/prior-aware-grouped-mcs-v1/validation_metrics.py": "05f1b82cd5186ce047fe377ccc79975f5986cfe6097e4670d312b7a65f3dc6dc",
+    "REPO/experiments/unified-metrics-20261002/metric_models.py": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066",
+    "REPO/experiments/unified-metrics-20261002/replay.py": "9582ce2f89c430369b7b19fd7810d1f90e56240f6d7b9845506fc57ded00bcbd",
+    "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/development_metrics_r1/completion.json": "25272d0fd9bd45b1bb3d4694615cfe775e8550f6d43751c75200aeb47606b55d",
+    "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/p600_replay_v1/completion.json": "46d039d2138be51ec72163070a02b0cdc4a4e40a57639303d5c2c2703db8c6d0",
+    "REPO/outputs/CONTENT-REAL-64QAM-20261006/INDEPENDENT_METRIC_BINDING.json": "2e861fe8c1d8b030481effa77e10e399bc7ce7795a7a40d2ebb19020be212da1",
+    "REPO/outputs/UNIFIED-METRICS-20261002/assets/sources/ms_ssim/pytorch_msssim/ssim.py": "57f554515d97d2bdde2f51fa27ee05bd8264107cddcd7997f502cd7aeb6d1bee",
+    "REPO/results/unified_metrics_20261002/metrics_registration.json": "61b6b89f3bf0c0886025d57bfb415f7a880bc1ab6e7e0b68d111ce02ea0ab004",
+    "REPO/src/var_comm/quality.py": "589d43a9dede2327c67d363f3b8b879cfb184e40e6a58b1aa2ae9b675d63a1a5"
+  },
+  "metrics": {
+    "clip_image_cosine": {
+      "branches": {
+        "H": {
+          "batch_execution": "H_B1",
+          "evidence": {
+            "REPO/experiments/content-real-64qam-20261006/h_development_metric_adapter.py": "3de72dd7ef596704e9fc20d8e78e46985b4d035ae5d832e8d59e97ae63d40d83",
+            "REPO/experiments/unified-metrics-20261002/metric_models.py": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066",
+            "REPO/experiments/unified-metrics-20261002/replay.py": "9582ce2f89c430369b7b19fd7810d1f90e56240f6d7b9845506fc57ded00bcbd",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/development_metrics_r1/completion.json": "25272d0fd9bd45b1bb3d4694615cfe775e8550f6d43751c75200aeb47606b55d",
+            "REPO/src/var_comm/quality.py": "589d43a9dede2327c67d363f3b8b879cfb184e40e6a58b1aa2ae9b675d63a1a5"
+          },
+          "identity": {
+            "definition": "cosine(CLIP encode_image reconstruction,CLIP encode_image source)",
+            "models": {
+              "weights": "b8cca3fd41ae0c99ba7e8951adf17d267cdb84cd88be6f7c2e0eca1737a03836"
+            },
+            "preprocessing": "{\"antialias\":true,\"crop\":224,\"interpolation\":\"bicubic\",\"mean\":[0.48145466,0.4578275,0.40821073],\"resize\":224,\"std\":[0.26862954,0.26130258,0.27577711],\"tensor_vs_PIL\":\"same geometry/constants, floating tensor interpolation; no claim of bitwise PIL equivalence\"}"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        },
+        "P": {
+          "batch_execution": "P_original_unified_scalar_cache_B1_or_qualified_uncached_B16; rowwise batch provenance not rewritten",
+          "evidence": {
+            "REPO/experiments/unified-metrics-20261002/metric_models.py": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066",
+            "REPO/experiments/unified-metrics-20261002/replay.py": "9582ce2f89c430369b7b19fd7810d1f90e56240f6d7b9845506fc57ded00bcbd",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/p600_replay_v1/completion.json": "46d039d2138be51ec72163070a02b0cdc4a4e40a57639303d5c2c2703db8c6d0",
+            "REPO/results/unified_metrics_20261002/metrics_registration.json": "61b6b89f3bf0c0886025d57bfb415f7a880bc1ab6e7e0b68d111ce02ea0ab004",
+            "REPO/src/var_comm/quality.py": "589d43a9dede2327c67d363f3b8b879cfb184e40e6a58b1aa2ae9b675d63a1a5"
+          },
+          "identity": {
+            "definition": "cosine(CLIP encode_image reconstruction,CLIP encode_image source)",
+            "models": {
+              "weights": "b8cca3fd41ae0c99ba7e8951adf17d267cdb84cd88be6f7c2e0eca1737a03836"
+            },
+            "preprocessing": "{\"antialias\":true,\"crop\":224,\"interpolation\":\"bicubic\",\"mean\":[0.48145466,0.4578275,0.40821073],\"resize\":224,\"std\":[0.26862954,0.26130258,0.27577711],\"tensor_vs_PIL\":\"same geometry/constants, floating tensor interpolation; no claim of bitwise PIL equivalence\"}"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        }
+      },
+      "definition_reviewed_before_comparison": true,
+      "derivation": null,
+      "family": "clip",
+      "metadata_audit_status": "MATCHED_FROZEN_METADATA_WAIT_ACTUAL_GATES",
+      "model_id": "OpenAI CLIP ViT-L/14 (224px), image-image cosine",
+      "numerical_difference_admitted": true,
+      "numerical_difference_note": "Descriptive comparison preserves H float64 PSNR, P original float32 PSNR; H B1, original P legacy quality B3 and unified cached B1/qualified B16, P new ConvNeXt B1. No bitwise-equivalence claim.",
+      "reason": "Identity verified from sealed original metadata; actual normal closure and exact pixel bridge remain mandatory execution gates",
+      "status": "ADMITTED",
+      "value_origin_P": "RETAINED_ORIGINAL_SCALAR"
+    },
+    "confidently_wrong": {
+      "reason": "Absent from original600 scalar records; do not infer MSE/probability or fill zero",
+      "status": "MISSING_IN_P"
+    },
+    "convnext_source_correct_to_wrong": {
+      "branches": {
+        "H": {
+          "batch_execution": "H_B1",
+          "evidence": {
+            "REPO/experiments/content-real-64qam-20261006/h_development_metric_adapter.py": "3de72dd7ef596704e9fc20d8e78e46985b4d035ae5d832e8d59e97ae63d40d83",
+            "REPO/experiments/prior-aware-grouped-mcs-v1/validation_metrics.py": "05f1b82cd5186ce047fe377ccc79975f5986cfe6097e4670d312b7a65f3dc6dc",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/development_metrics_r1/completion.json": "25272d0fd9bd45b1bb3d4694615cfe775e8550f6d43751c75200aeb47606b55d",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/INDEPENDENT_METRIC_BINDING.json": "2e861fe8c1d8b030481effa77e10e399bc7ce7795a7a40d2ebb19020be212da1"
+          },
+          "identity": {
+            "definition": "int(ConvNeXt original correct and reconstruction wrong), unconditional binary value; not conditional-rate denominator",
+            "models": {
+              "convnext_tiny": "983f1562536e84ff750a1576fb08e54de751dbf2e17c0d8a4a13704341fdcd3d"
+            },
+            "preprocessing": "{\"input\":\"float32 CHW RGB [0,1]\",\"official_transform\":\"ImageClassification(\\n    crop_size=[224]\\n    resize_size=[236]\\n    mean=[0.485, 0.456, 0.406]\\n    std=[0.229, 0.224, 0.225]\\n    interpolation=InterpolationMode.BILINEAR\\n)\",\"source\":\"official weights.transforms()\"}"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        },
+        "P": {
+          "batch_execution": "P_new_ConvNeXt_B1_source100_reconstruction600",
+          "evidence": {
+            "REPO/experiments/content-real-64qam-20261006/p600_received_replay_core.py": "8b7ce8d1b609c02b9b96dc6b69684c995ff3b20f3c02eeb1282b2fe20b82f037",
+            "REPO/experiments/prior-aware-grouped-mcs-v1/validation_metrics.py": "05f1b82cd5186ce047fe377ccc79975f5986cfe6097e4670d312b7a65f3dc6dc",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/p600_replay_v1/completion.json": "46d039d2138be51ec72163070a02b0cdc4a4e40a57639303d5c2c2703db8c6d0",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/INDEPENDENT_METRIC_BINDING.json": "2e861fe8c1d8b030481effa77e10e399bc7ce7795a7a40d2ebb19020be212da1",
+            "REPO/results/unified_metrics_20261002/metrics_registration.json": "61b6b89f3bf0c0886025d57bfb415f7a880bc1ab6e7e0b68d111ce02ea0ab004"
+          },
+          "identity": {
+            "definition": "int(ConvNeXt original correct and reconstruction wrong), unconditional binary value; not conditional-rate denominator",
+            "models": {
+              "convnext_tiny": "983f1562536e84ff750a1576fb08e54de751dbf2e17c0d8a4a13704341fdcd3d"
+            },
+            "preprocessing": "{\"input\":\"float32 CHW RGB [0,1]\",\"official_transform\":\"ImageClassification(\\n    crop_size=[224]\\n    resize_size=[236]\\n    mean=[0.485, 0.456, 0.406]\\n    std=[0.229, 0.224, 0.225]\\n    interpolation=InterpolationMode.BILINEAR\\n)\",\"source\":\"official weights.transforms()\"}"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        }
+      },
+      "definition_reviewed_before_comparison": true,
+      "derivation": null,
+      "family": "convnext",
+      "metadata_audit_status": "MATCHED_FROZEN_METADATA_WAIT_ACTUAL_GATES",
+      "model_id": "torchvision ConvNeXt-Tiny IMAGENET1K_V1",
+      "numerical_difference_admitted": true,
+      "numerical_difference_note": "Descriptive comparison preserves H float64 PSNR, P original float32 PSNR; H B1, original P legacy quality B3 and unified cached B1/qualified B16, P new ConvNeXt B1. No bitwise-equivalence claim.",
+      "reason": "Identity verified from sealed original metadata; actual normal closure and exact pixel bridge remain mandatory execution gates",
+      "status": "ADMITTED",
+      "value_origin_P": "FUTURE_REPLAY_CONVNEXT"
+    },
+    "convnext_source_prediction_agreement": {
+      "branches": {
+        "H": {
+          "batch_execution": "H_B1",
+          "evidence": {
+            "REPO/experiments/content-real-64qam-20261006/h_development_metric_adapter.py": "3de72dd7ef596704e9fc20d8e78e46985b4d035ae5d832e8d59e97ae63d40d83",
+            "REPO/experiments/prior-aware-grouped-mcs-v1/validation_metrics.py": "05f1b82cd5186ce047fe377ccc79975f5986cfe6097e4670d312b7a65f3dc6dc",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/development_metrics_r1/completion.json": "25272d0fd9bd45b1bb3d4694615cfe775e8550f6d43751c75200aeb47606b55d",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/INDEPENDENT_METRIC_BINDING.json": "2e861fe8c1d8b030481effa77e10e399bc7ce7795a7a40d2ebb19020be212da1"
+          },
+          "identity": {
+            "definition": "int(ConvNeXt reconstructed argmax==ConvNeXt original argmax)",
+            "models": {
+              "convnext_tiny": "983f1562536e84ff750a1576fb08e54de751dbf2e17c0d8a4a13704341fdcd3d"
+            },
+            "preprocessing": "{\"input\":\"float32 CHW RGB [0,1]\",\"official_transform\":\"ImageClassification(\\n    crop_size=[224]\\n    resize_size=[236]\\n    mean=[0.485, 0.456, 0.406]\\n    std=[0.229, 0.224, 0.225]\\n    interpolation=InterpolationMode.BILINEAR\\n)\",\"source\":\"official weights.transforms()\"}"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        },
+        "P": {
+          "batch_execution": "P_new_ConvNeXt_B1_source100_reconstruction600",
+          "evidence": {
+            "REPO/experiments/content-real-64qam-20261006/p600_received_replay_core.py": "8b7ce8d1b609c02b9b96dc6b69684c995ff3b20f3c02eeb1282b2fe20b82f037",
+            "REPO/experiments/prior-aware-grouped-mcs-v1/validation_metrics.py": "05f1b82cd5186ce047fe377ccc79975f5986cfe6097e4670d312b7a65f3dc6dc",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/p600_replay_v1/completion.json": "46d039d2138be51ec72163070a02b0cdc4a4e40a57639303d5c2c2703db8c6d0",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/INDEPENDENT_METRIC_BINDING.json": "2e861fe8c1d8b030481effa77e10e399bc7ce7795a7a40d2ebb19020be212da1",
+            "REPO/results/unified_metrics_20261002/metrics_registration.json": "61b6b89f3bf0c0886025d57bfb415f7a880bc1ab6e7e0b68d111ce02ea0ab004"
+          },
+          "identity": {
+            "definition": "int(ConvNeXt reconstructed argmax==ConvNeXt original argmax)",
+            "models": {
+              "convnext_tiny": "983f1562536e84ff750a1576fb08e54de751dbf2e17c0d8a4a13704341fdcd3d"
+            },
+            "preprocessing": "{\"input\":\"float32 CHW RGB [0,1]\",\"official_transform\":\"ImageClassification(\\n    crop_size=[224]\\n    resize_size=[236]\\n    mean=[0.485, 0.456, 0.406]\\n    std=[0.229, 0.224, 0.225]\\n    interpolation=InterpolationMode.BILINEAR\\n)\",\"source\":\"official weights.transforms()\"}"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        }
+      },
+      "definition_reviewed_before_comparison": true,
+      "derivation": null,
+      "family": "convnext",
+      "metadata_audit_status": "MATCHED_FROZEN_METADATA_WAIT_ACTUAL_GATES",
+      "model_id": "torchvision ConvNeXt-Tiny IMAGENET1K_V1",
+      "numerical_difference_admitted": true,
+      "numerical_difference_note": "Descriptive comparison preserves H float64 PSNR, P original float32 PSNR; H B1, original P legacy quality B3 and unified cached B1/qualified B16, P new ConvNeXt B1. No bitwise-equivalence claim.",
+      "reason": "Identity verified from sealed original metadata; actual normal closure and exact pixel bridge remain mandatory execution gates",
+      "status": "ADMITTED",
+      "value_origin_P": "FUTURE_REPLAY_CONVNEXT"
+    },
+    "convnext_source_wrong_to_correct": {
+      "branches": {
+        "H": {
+          "batch_execution": "H_B1",
+          "evidence": {
+            "REPO/experiments/content-real-64qam-20261006/h_development_metric_adapter.py": "3de72dd7ef596704e9fc20d8e78e46985b4d035ae5d832e8d59e97ae63d40d83",
+            "REPO/experiments/prior-aware-grouped-mcs-v1/validation_metrics.py": "05f1b82cd5186ce047fe377ccc79975f5986cfe6097e4670d312b7a65f3dc6dc",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/development_metrics_r1/completion.json": "25272d0fd9bd45b1bb3d4694615cfe775e8550f6d43751c75200aeb47606b55d",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/INDEPENDENT_METRIC_BINDING.json": "2e861fe8c1d8b030481effa77e10e399bc7ce7795a7a40d2ebb19020be212da1"
+          },
+          "identity": {
+            "definition": "int(ConvNeXt original wrong and reconstruction correct), unconditional binary value; not conditional-rate denominator",
+            "models": {
+              "convnext_tiny": "983f1562536e84ff750a1576fb08e54de751dbf2e17c0d8a4a13704341fdcd3d"
+            },
+            "preprocessing": "{\"input\":\"float32 CHW RGB [0,1]\",\"official_transform\":\"ImageClassification(\\n    crop_size=[224]\\n    resize_size=[236]\\n    mean=[0.485, 0.456, 0.406]\\n    std=[0.229, 0.224, 0.225]\\n    interpolation=InterpolationMode.BILINEAR\\n)\",\"source\":\"official weights.transforms()\"}"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        },
+        "P": {
+          "batch_execution": "P_new_ConvNeXt_B1_source100_reconstruction600",
+          "evidence": {
+            "REPO/experiments/content-real-64qam-20261006/p600_received_replay_core.py": "8b7ce8d1b609c02b9b96dc6b69684c995ff3b20f3c02eeb1282b2fe20b82f037",
+            "REPO/experiments/prior-aware-grouped-mcs-v1/validation_metrics.py": "05f1b82cd5186ce047fe377ccc79975f5986cfe6097e4670d312b7a65f3dc6dc",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/p600_replay_v1/completion.json": "46d039d2138be51ec72163070a02b0cdc4a4e40a57639303d5c2c2703db8c6d0",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/INDEPENDENT_METRIC_BINDING.json": "2e861fe8c1d8b030481effa77e10e399bc7ce7795a7a40d2ebb19020be212da1",
+            "REPO/results/unified_metrics_20261002/metrics_registration.json": "61b6b89f3bf0c0886025d57bfb415f7a880bc1ab6e7e0b68d111ce02ea0ab004"
+          },
+          "identity": {
+            "definition": "int(ConvNeXt original wrong and reconstruction correct), unconditional binary value; not conditional-rate denominator",
+            "models": {
+              "convnext_tiny": "983f1562536e84ff750a1576fb08e54de751dbf2e17c0d8a4a13704341fdcd3d"
+            },
+            "preprocessing": "{\"input\":\"float32 CHW RGB [0,1]\",\"official_transform\":\"ImageClassification(\\n    crop_size=[224]\\n    resize_size=[236]\\n    mean=[0.485, 0.456, 0.406]\\n    std=[0.229, 0.224, 0.225]\\n    interpolation=InterpolationMode.BILINEAR\\n)\",\"source\":\"official weights.transforms()\"}"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        }
+      },
+      "definition_reviewed_before_comparison": true,
+      "derivation": null,
+      "family": "convnext",
+      "metadata_audit_status": "MATCHED_FROZEN_METADATA_WAIT_ACTUAL_GATES",
+      "model_id": "torchvision ConvNeXt-Tiny IMAGENET1K_V1",
+      "numerical_difference_admitted": true,
+      "numerical_difference_note": "Descriptive comparison preserves H float64 PSNR, P original float32 PSNR; H B1, original P legacy quality B3 and unified cached B1/qualified B16, P new ConvNeXt B1. No bitwise-equivalence claim.",
+      "reason": "Identity verified from sealed original metadata; actual normal closure and exact pixel bridge remain mandatory execution gates",
+      "status": "ADMITTED",
+      "value_origin_P": "FUTURE_REPLAY_CONVNEXT"
+    },
+    "convnext_top1_label": {
+      "branches": {
+        "H": {
+          "batch_execution": "H_B1",
+          "evidence": {
+            "REPO/experiments/content-real-64qam-20261006/h_development_metric_adapter.py": "3de72dd7ef596704e9fc20d8e78e46985b4d035ae5d832e8d59e97ae63d40d83",
+            "REPO/experiments/prior-aware-grouped-mcs-v1/validation_metrics.py": "05f1b82cd5186ce047fe377ccc79975f5986cfe6097e4670d312b7a65f3dc6dc",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/development_metrics_r1/completion.json": "25272d0fd9bd45b1bb3d4694615cfe775e8550f6d43751c75200aeb47606b55d",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/INDEPENDENT_METRIC_BINDING.json": "2e861fe8c1d8b030481effa77e10e399bc7ce7795a7a40d2ebb19020be212da1"
+          },
+          "identity": {
+            "definition": "int(ConvNeXt reconstructed argmax==original ImageNet class index)",
+            "models": {
+              "convnext_tiny": "983f1562536e84ff750a1576fb08e54de751dbf2e17c0d8a4a13704341fdcd3d"
+            },
+            "preprocessing": "{\"input\":\"float32 CHW RGB [0,1]\",\"official_transform\":\"ImageClassification(\\n    crop_size=[224]\\n    resize_size=[236]\\n    mean=[0.485, 0.456, 0.406]\\n    std=[0.229, 0.224, 0.225]\\n    interpolation=InterpolationMode.BILINEAR\\n)\",\"source\":\"official weights.transforms()\"}"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        },
+        "P": {
+          "batch_execution": "P_new_ConvNeXt_B1_source100_reconstruction600",
+          "evidence": {
+            "REPO/experiments/content-real-64qam-20261006/p600_received_replay_core.py": "8b7ce8d1b609c02b9b96dc6b69684c995ff3b20f3c02eeb1282b2fe20b82f037",
+            "REPO/experiments/prior-aware-grouped-mcs-v1/validation_metrics.py": "05f1b82cd5186ce047fe377ccc79975f5986cfe6097e4670d312b7a65f3dc6dc",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/p600_replay_v1/completion.json": "46d039d2138be51ec72163070a02b0cdc4a4e40a57639303d5c2c2703db8c6d0",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/INDEPENDENT_METRIC_BINDING.json": "2e861fe8c1d8b030481effa77e10e399bc7ce7795a7a40d2ebb19020be212da1",
+            "REPO/results/unified_metrics_20261002/metrics_registration.json": "61b6b89f3bf0c0886025d57bfb415f7a880bc1ab6e7e0b68d111ce02ea0ab004"
+          },
+          "identity": {
+            "definition": "int(ConvNeXt reconstructed argmax==original ImageNet class index)",
+            "models": {
+              "convnext_tiny": "983f1562536e84ff750a1576fb08e54de751dbf2e17c0d8a4a13704341fdcd3d"
+            },
+            "preprocessing": "{\"input\":\"float32 CHW RGB [0,1]\",\"official_transform\":\"ImageClassification(\\n    crop_size=[224]\\n    resize_size=[236]\\n    mean=[0.485, 0.456, 0.406]\\n    std=[0.229, 0.224, 0.225]\\n    interpolation=InterpolationMode.BILINEAR\\n)\",\"source\":\"official weights.transforms()\"}"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        }
+      },
+      "definition_reviewed_before_comparison": true,
+      "derivation": null,
+      "family": "convnext",
+      "metadata_audit_status": "MATCHED_FROZEN_METADATA_WAIT_ACTUAL_GATES",
+      "model_id": "torchvision ConvNeXt-Tiny IMAGENET1K_V1",
+      "numerical_difference_admitted": true,
+      "numerical_difference_note": "Descriptive comparison preserves H float64 PSNR, P original float32 PSNR; H B1, original P legacy quality B3 and unified cached B1/qualified B16, P new ConvNeXt B1. No bitwise-equivalence claim.",
+      "reason": "Identity verified from sealed original metadata; actual normal closure and exact pixel bridge remain mandatory execution gates",
+      "status": "ADMITTED",
+      "value_origin_P": "FUTURE_REPLAY_CONVNEXT"
+    },
+    "convnext_top1_source_prediction": {
+      "branches": {
+        "H": {
+          "batch_execution": "H_B1",
+          "evidence": {
+            "REPO/experiments/content-real-64qam-20261006/h_development_metric_adapter.py": "3de72dd7ef596704e9fc20d8e78e46985b4d035ae5d832e8d59e97ae63d40d83",
+            "REPO/experiments/prior-aware-grouped-mcs-v1/validation_metrics.py": "05f1b82cd5186ce047fe377ccc79975f5986cfe6097e4670d312b7a65f3dc6dc",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/development_metrics_r1/completion.json": "25272d0fd9bd45b1bb3d4694615cfe775e8550f6d43751c75200aeb47606b55d",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/INDEPENDENT_METRIC_BINDING.json": "2e861fe8c1d8b030481effa77e10e399bc7ce7795a7a40d2ebb19020be212da1"
+          },
+          "identity": {
+            "definition": "bool(ConvNeXt reconstructed argmax==ConvNeXt original argmax)",
+            "models": {
+              "convnext_tiny": "983f1562536e84ff750a1576fb08e54de751dbf2e17c0d8a4a13704341fdcd3d"
+            },
+            "preprocessing": "{\"input\":\"float32 CHW RGB [0,1]\",\"official_transform\":\"ImageClassification(\\n    crop_size=[224]\\n    resize_size=[236]\\n    mean=[0.485, 0.456, 0.406]\\n    std=[0.229, 0.224, 0.225]\\n    interpolation=InterpolationMode.BILINEAR\\n)\",\"source\":\"official weights.transforms()\"}"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        },
+        "P": {
+          "batch_execution": "P_new_ConvNeXt_B1_source100_reconstruction600",
+          "evidence": {
+            "REPO/experiments/content-real-64qam-20261006/p600_received_replay_core.py": "8b7ce8d1b609c02b9b96dc6b69684c995ff3b20f3c02eeb1282b2fe20b82f037",
+            "REPO/experiments/prior-aware-grouped-mcs-v1/validation_metrics.py": "05f1b82cd5186ce047fe377ccc79975f5986cfe6097e4670d312b7a65f3dc6dc",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/p600_replay_v1/completion.json": "46d039d2138be51ec72163070a02b0cdc4a4e40a57639303d5c2c2703db8c6d0",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/INDEPENDENT_METRIC_BINDING.json": "2e861fe8c1d8b030481effa77e10e399bc7ce7795a7a40d2ebb19020be212da1",
+            "REPO/results/unified_metrics_20261002/metrics_registration.json": "61b6b89f3bf0c0886025d57bfb415f7a880bc1ab6e7e0b68d111ce02ea0ab004"
+          },
+          "identity": {
+            "definition": "bool(ConvNeXt reconstructed argmax==ConvNeXt original argmax)",
+            "models": {
+              "convnext_tiny": "983f1562536e84ff750a1576fb08e54de751dbf2e17c0d8a4a13704341fdcd3d"
+            },
+            "preprocessing": "{\"input\":\"float32 CHW RGB [0,1]\",\"official_transform\":\"ImageClassification(\\n    crop_size=[224]\\n    resize_size=[236]\\n    mean=[0.485, 0.456, 0.406]\\n    std=[0.229, 0.224, 0.225]\\n    interpolation=InterpolationMode.BILINEAR\\n)\",\"source\":\"official weights.transforms()\"}"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        }
+      },
+      "definition_reviewed_before_comparison": true,
+      "derivation": null,
+      "family": "convnext",
+      "metadata_audit_status": "MATCHED_FROZEN_METADATA_WAIT_ACTUAL_GATES",
+      "model_id": "torchvision ConvNeXt-Tiny IMAGENET1K_V1",
+      "numerical_difference_admitted": true,
+      "numerical_difference_note": "Descriptive comparison preserves H float64 PSNR, P original float32 PSNR; H B1, original P legacy quality B3 and unified cached B1/qualified B16, P new ConvNeXt B1. No bitwise-equivalence claim.",
+      "reason": "Identity verified from sealed original metadata; actual normal closure and exact pixel bridge remain mandatory execution gates",
+      "status": "ADMITTED",
+      "value_origin_P": "FUTURE_REPLAY_CONVNEXT"
+    },
+    "dino_cosine": {
+      "branches": {
+        "H": {
+          "batch_execution": "H_B1",
+          "evidence": {
+            "REPO/experiments/content-real-64qam-20261006/h_development_metric_adapter.py": "3de72dd7ef596704e9fc20d8e78e46985b4d035ae5d832e8d59e97ae63d40d83",
+            "REPO/experiments/extreme-bandwidth-20261001-N1024/plugin.py": "6de26919ce698bd6dfe6250f7ae740843bfb24dbe9e5125524deac1081b10254",
+            "REPO/experiments/unified-metrics-20261002/metric_models.py": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066",
+            "REPO/experiments/unified-metrics-20261002/replay.py": "9582ce2f89c430369b7b19fd7810d1f90e56240f6d7b9845506fc57ded00bcbd",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/development_metrics_r1/completion.json": "25272d0fd9bd45b1bb3d4694615cfe775e8550f6d43751c75200aeb47606b55d",
+            "REPO/src/var_comm/quality.py": "589d43a9dede2327c67d363f3b8b879cfb184e40e6a58b1aa2ae9b675d63a1a5"
+          },
+          "identity": {
+            "definition": "cosine(reconstructed DINOv2-S/14 class embedding,source class embedding)",
+            "models": {
+              "dinov2_vits14": "b938bf1bc15cd2ec0feacfe3a1bb553fe8ea9ca46a7e1d8d00217f29aef60cd9"
+            },
+            "preprocessing": "{\"align_corners\":false,\"antialias\":false,\"embedding\":\"forward_features(x)[x_norm_clstoken]\",\"input\":\"float32 RGB\",\"mean\":[0.485,0.456,0.406],\"mode\":\"bicubic\",\"resize\":[224,224],\"std\":[0.229,0.224,0.225]}"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        },
+        "P": {
+          "batch_execution": "P_retained_legacy_quality_B3_three_original_noises_per_source_and_SNR",
+          "evidence": {
+            "REPO/experiments/extreme-bandwidth-20261001-N1024/plugin.py": "6de26919ce698bd6dfe6250f7ae740843bfb24dbe9e5125524deac1081b10254",
+            "REPO/experiments/unified-metrics-20261002/metric_models.py": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066",
+            "REPO/experiments/unified-metrics-20261002/replay.py": "9582ce2f89c430369b7b19fd7810d1f90e56240f6d7b9845506fc57ded00bcbd",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/p600_replay_v1/completion.json": "46d039d2138be51ec72163070a02b0cdc4a4e40a57639303d5c2c2703db8c6d0",
+            "REPO/results/unified_metrics_20261002/metrics_registration.json": "61b6b89f3bf0c0886025d57bfb415f7a880bc1ab6e7e0b68d111ce02ea0ab004",
+            "REPO/src/var_comm/quality.py": "589d43a9dede2327c67d363f3b8b879cfb184e40e6a58b1aa2ae9b675d63a1a5"
+          },
+          "identity": {
+            "definition": "cosine(reconstructed DINOv2-S/14 class embedding,source class embedding)",
+            "models": {
+              "dinov2_vits14": "b938bf1bc15cd2ec0feacfe3a1bb553fe8ea9ca46a7e1d8d00217f29aef60cd9"
+            },
+            "preprocessing": "{\"align_corners\":false,\"antialias\":false,\"embedding\":\"forward_features(x)[x_norm_clstoken]\",\"input\":\"float32 RGB\",\"mean\":[0.485,0.456,0.406],\"mode\":\"bicubic\",\"resize\":[224,224],\"std\":[0.229,0.224,0.225]}"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        }
+      },
+      "definition_reviewed_before_comparison": true,
+      "derivation": null,
+      "family": "dino_cosine",
+      "metadata_audit_status": "MATCHED_FROZEN_METADATA_WAIT_ACTUAL_GATES",
+      "model_id": "DINOv2 ViT-S/14 x_norm_clstoken cosine",
+      "numerical_difference_admitted": true,
+      "numerical_difference_note": "Descriptive comparison preserves H float64 PSNR, P original float32 PSNR; H B1, original P legacy quality B3 and unified cached B1/qualified B16, P new ConvNeXt B1. No bitwise-equivalence claim.",
+      "reason": "Identity verified from sealed original metadata; actual normal closure and exact pixel bridge remain mandatory execution gates",
+      "status": "ADMITTED",
+      "value_origin_P": "RETAINED_ORIGINAL_SCALAR"
+    },
+    "dino_mismatched": {
+      "branches": {
+        "H": {
+          "batch_execution": "H_B1",
+          "evidence": {
+            "REPO/experiments/content-real-64qam-20261006/h_development_metric_adapter.py": "3de72dd7ef596704e9fc20d8e78e46985b4d035ae5d832e8d59e97ae63d40d83",
+            "REPO/experiments/extreme-bandwidth-20261001-N1024/plugin.py": "6de26919ce698bd6dfe6250f7ae740843bfb24dbe9e5125524deac1081b10254",
+            "REPO/experiments/unified-metrics-20261002/metric_models.py": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066",
+            "REPO/experiments/unified-metrics-20261002/replay.py": "9582ce2f89c430369b7b19fd7810d1f90e56240f6d7b9845506fc57ded00bcbd",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/development_metrics_r1/completion.json": "25272d0fd9bd45b1bb3d4694615cfe775e8550f6d43751c75200aeb47606b55d",
+            "REPO/src/var_comm/quality.py": "589d43a9dede2327c67d363f3b8b879cfb184e40e6a58b1aa2ae9b675d63a1a5"
+          },
+          "identity": {
+            "definition": "cosine(reconstructed DINOv2-S/14 embedding,original fixed-derangement negative-source embedding)",
+            "models": {
+              "dinov2_vits14": "b938bf1bc15cd2ec0feacfe3a1bb553fe8ea9ca46a7e1d8d00217f29aef60cd9"
+            },
+            "preprocessing": "{\"align_corners\":false,\"antialias\":false,\"embedding\":\"forward_features(x)[x_norm_clstoken]\",\"input\":\"float32 RGB\",\"mean\":[0.485,0.456,0.406],\"mode\":\"bicubic\",\"resize\":[224,224],\"std\":[0.229,0.224,0.225]}"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        },
+        "P": {
+          "batch_execution": "P_retained_legacy_quality_B3_three_original_noises_per_source_and_SNR",
+          "evidence": {
+            "REPO/experiments/extreme-bandwidth-20261001-N1024/plugin.py": "6de26919ce698bd6dfe6250f7ae740843bfb24dbe9e5125524deac1081b10254",
+            "REPO/experiments/unified-metrics-20261002/metric_models.py": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066",
+            "REPO/experiments/unified-metrics-20261002/replay.py": "9582ce2f89c430369b7b19fd7810d1f90e56240f6d7b9845506fc57ded00bcbd",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/p600_replay_v1/completion.json": "46d039d2138be51ec72163070a02b0cdc4a4e40a57639303d5c2c2703db8c6d0",
+            "REPO/results/unified_metrics_20261002/metrics_registration.json": "61b6b89f3bf0c0886025d57bfb415f7a880bc1ab6e7e0b68d111ce02ea0ab004",
+            "REPO/src/var_comm/quality.py": "589d43a9dede2327c67d363f3b8b879cfb184e40e6a58b1aa2ae9b675d63a1a5"
+          },
+          "identity": {
+            "definition": "cosine(reconstructed DINOv2-S/14 embedding,original fixed-derangement negative-source embedding)",
+            "models": {
+              "dinov2_vits14": "b938bf1bc15cd2ec0feacfe3a1bb553fe8ea9ca46a7e1d8d00217f29aef60cd9"
+            },
+            "preprocessing": "{\"align_corners\":false,\"antialias\":false,\"embedding\":\"forward_features(x)[x_norm_clstoken]\",\"input\":\"float32 RGB\",\"mean\":[0.485,0.456,0.406],\"mode\":\"bicubic\",\"resize\":[224,224],\"std\":[0.229,0.224,0.225]}"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        }
+      },
+      "definition_reviewed_before_comparison": true,
+      "derivation": null,
+      "family": "dino_cosine",
+      "metadata_audit_status": "MATCHED_FROZEN_METADATA_WAIT_ACTUAL_GATES",
+      "model_id": "DINOv2 ViT-S/14 x_norm_clstoken cosine",
+      "numerical_difference_admitted": true,
+      "numerical_difference_note": "Descriptive comparison preserves H float64 PSNR, P original float32 PSNR; H B1, original P legacy quality B3 and unified cached B1/qualified B16, P new ConvNeXt B1. No bitwise-equivalence claim.",
+      "reason": "Identity verified from sealed original metadata; actual normal closure and exact pixel bridge remain mandatory execution gates",
+      "status": "ADMITTED",
+      "value_origin_P": "RETAINED_ORIGINAL_SCALAR"
+    },
+    "dino_specificity": {
+      "branches": {
+        "H": {
+          "batch_execution": "H_B1",
+          "evidence": {
+            "REPO/experiments/content-real-64qam-20261006/h_development_metric_adapter.py": "3de72dd7ef596704e9fc20d8e78e46985b4d035ae5d832e8d59e97ae63d40d83",
+            "REPO/experiments/extreme-bandwidth-20261001-N1024/plugin.py": "6de26919ce698bd6dfe6250f7ae740843bfb24dbe9e5125524deac1081b10254",
+            "REPO/experiments/unified-metrics-20261002/metric_models.py": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066",
+            "REPO/experiments/unified-metrics-20261002/replay.py": "9582ce2f89c430369b7b19fd7810d1f90e56240f6d7b9845506fc57ded00bcbd",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/development_metrics_r1/completion.json": "25272d0fd9bd45b1bb3d4694615cfe775e8550f6d43751c75200aeb47606b55d",
+            "REPO/src/var_comm/quality.py": "589d43a9dede2327c67d363f3b8b879cfb184e40e6a58b1aa2ae9b675d63a1a5"
+          },
+          "identity": {
+            "definition": "dino_cosine-dino_mismatched with unchanged source derangement",
+            "models": {
+              "dinov2_vits14": "b938bf1bc15cd2ec0feacfe3a1bb553fe8ea9ca46a7e1d8d00217f29aef60cd9"
+            },
+            "preprocessing": "{\"align_corners\":false,\"antialias\":false,\"embedding\":\"forward_features(x)[x_norm_clstoken]\",\"input\":\"float32 RGB\",\"mean\":[0.485,0.456,0.406],\"mode\":\"bicubic\",\"resize\":[224,224],\"std\":[0.229,0.224,0.225]}"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        },
+        "P": {
+          "batch_execution": "P_retained_legacy_quality_B3_three_original_noises_per_source_and_SNR",
+          "evidence": {
+            "REPO/experiments/extreme-bandwidth-20261001-N1024/plugin.py": "6de26919ce698bd6dfe6250f7ae740843bfb24dbe9e5125524deac1081b10254",
+            "REPO/experiments/unified-metrics-20261002/metric_models.py": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066",
+            "REPO/experiments/unified-metrics-20261002/replay.py": "9582ce2f89c430369b7b19fd7810d1f90e56240f6d7b9845506fc57ded00bcbd",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/p600_replay_v1/completion.json": "46d039d2138be51ec72163070a02b0cdc4a4e40a57639303d5c2c2703db8c6d0",
+            "REPO/results/unified_metrics_20261002/metrics_registration.json": "61b6b89f3bf0c0886025d57bfb415f7a880bc1ab6e7e0b68d111ce02ea0ab004",
+            "REPO/src/var_comm/quality.py": "589d43a9dede2327c67d363f3b8b879cfb184e40e6a58b1aa2ae9b675d63a1a5"
+          },
+          "identity": {
+            "definition": "dino_cosine-dino_mismatched with unchanged source derangement",
+            "models": {
+              "dinov2_vits14": "b938bf1bc15cd2ec0feacfe3a1bb553fe8ea9ca46a7e1d8d00217f29aef60cd9"
+            },
+            "preprocessing": "{\"align_corners\":false,\"antialias\":false,\"embedding\":\"forward_features(x)[x_norm_clstoken]\",\"input\":\"float32 RGB\",\"mean\":[0.485,0.456,0.406],\"mode\":\"bicubic\",\"resize\":[224,224],\"std\":[0.229,0.224,0.225]}"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        }
+      },
+      "definition_reviewed_before_comparison": true,
+      "derivation": "float(dino_cosine) - float(dino_mismatched)",
+      "family": "dino_cosine",
+      "metadata_audit_status": "MATCHED_FROZEN_METADATA_WAIT_ACTUAL_GATES",
+      "model_id": "DINOv2 ViT-S/14 x_norm_clstoken cosine",
+      "numerical_difference_admitted": true,
+      "numerical_difference_note": "Descriptive comparison preserves H float64 PSNR, P original float32 PSNR; H B1, original P legacy quality B3 and unified cached B1/qualified B16, P new ConvNeXt B1. No bitwise-equivalence claim.",
+      "reason": "Identity verified from sealed original metadata; actual normal closure and exact pixel bridge remain mandatory execution gates",
+      "status": "ADMITTED",
+      "value_origin_P": "DERIVED_FROM_RETAINED_SCALARS"
+    },
+    "dinov2_vitl14_cosine": {
+      "branches": {
+        "H": {
+          "batch_execution": "H_B1",
+          "evidence": {
+            "REPO/experiments/content-real-64qam-20261006/h_development_metric_adapter.py": "3de72dd7ef596704e9fc20d8e78e46985b4d035ae5d832e8d59e97ae63d40d83",
+            "REPO/experiments/unified-metrics-20261002/metric_models.py": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066",
+            "REPO/experiments/unified-metrics-20261002/replay.py": "9582ce2f89c430369b7b19fd7810d1f90e56240f6d7b9845506fc57ded00bcbd",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/development_metrics_r1/completion.json": "25272d0fd9bd45b1bb3d4694615cfe775e8550f6d43751c75200aeb47606b55d",
+            "REPO/src/var_comm/quality.py": "589d43a9dede2327c67d363f3b8b879cfb184e40e6a58b1aa2ae9b675d63a1a5"
+          },
+          "identity": {
+            "definition": "cosine(reconstructed DINOv2-L/14 class embedding,source class embedding)",
+            "models": {
+              "weights": "d5383ea8f4877b2472eb973e0fd72d557c7da5d3611bd527ceeb1d7162cbf428"
+            },
+            "preprocessing": "{\"align_corners\":false,\"antialias\":false,\"crop\":null,\"dimensions\":1024,\"embedding\":\"forward_features()['x_norm_clstoken']\",\"interpolation\":\"torch.nn.functional.interpolate bicubic\",\"matches_retained_S14_preprocessing\":true,\"mean\":[0.485,0.456,0.406],\"num_register_tokens\":0,\"resize\":[224,224],\"std\":[0.229,0.224,0.225]}"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        },
+        "P": {
+          "batch_execution": "P_original_unified_scalar_cache_B1_or_qualified_uncached_B16; rowwise batch provenance not rewritten",
+          "evidence": {
+            "REPO/experiments/unified-metrics-20261002/metric_models.py": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066",
+            "REPO/experiments/unified-metrics-20261002/replay.py": "9582ce2f89c430369b7b19fd7810d1f90e56240f6d7b9845506fc57ded00bcbd",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/p600_replay_v1/completion.json": "46d039d2138be51ec72163070a02b0cdc4a4e40a57639303d5c2c2703db8c6d0",
+            "REPO/results/unified_metrics_20261002/metrics_registration.json": "61b6b89f3bf0c0886025d57bfb415f7a880bc1ab6e7e0b68d111ce02ea0ab004",
+            "REPO/src/var_comm/quality.py": "589d43a9dede2327c67d363f3b8b879cfb184e40e6a58b1aa2ae9b675d63a1a5"
+          },
+          "identity": {
+            "definition": "cosine(reconstructed DINOv2-L/14 class embedding,source class embedding)",
+            "models": {
+              "weights": "d5383ea8f4877b2472eb973e0fd72d557c7da5d3611bd527ceeb1d7162cbf428"
+            },
+            "preprocessing": "{\"align_corners\":false,\"antialias\":false,\"crop\":null,\"dimensions\":1024,\"embedding\":\"forward_features()['x_norm_clstoken']\",\"interpolation\":\"torch.nn.functional.interpolate bicubic\",\"matches_retained_S14_preprocessing\":true,\"mean\":[0.485,0.456,0.406],\"num_register_tokens\":0,\"resize\":[224,224],\"std\":[0.229,0.224,0.225]}"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        }
+      },
+      "definition_reviewed_before_comparison": true,
+      "derivation": null,
+      "family": "dinov2_vitl14",
+      "metadata_audit_status": "MATCHED_FROZEN_METADATA_WAIT_ACTUAL_GATES",
+      "model_id": "Meta DINOv2 ViT-L/14 standard LVD-142M backbone, no registers, 1024-d x_norm_clstoken cosine",
+      "numerical_difference_admitted": true,
+      "numerical_difference_note": "Descriptive comparison preserves H float64 PSNR, P original float32 PSNR; H B1, original P legacy quality B3 and unified cached B1/qualified B16, P new ConvNeXt B1. No bitwise-equivalence claim.",
+      "reason": "Identity verified from sealed original metadata; actual normal closure and exact pixel bridge remain mandatory execution gates",
+      "status": "ADMITTED",
+      "value_origin_P": "RETAINED_ORIGINAL_SCALAR"
+    },
+    "dists": {
+      "branches": {
+        "H": {
+          "batch_execution": "H_B1",
+          "evidence": {
+            "REPO/experiments/content-real-64qam-20261006/h_development_metric_adapter.py": "3de72dd7ef596704e9fc20d8e78e46985b4d035ae5d832e8d59e97ae63d40d83",
+            "REPO/experiments/unified-metrics-20261002/metric_models.py": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066",
+            "REPO/experiments/unified-metrics-20261002/replay.py": "9582ce2f89c430369b7b19fd7810d1f90e56240f6d7b9845506fc57ded00bcbd",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/development_metrics_r1/completion.json": "25272d0fd9bd45b1bb3d4694615cfe775e8550f6d43751c75200aeb47606b55d",
+            "REPO/src/var_comm/quality.py": "589d43a9dede2327c67d363f3b8b879cfb184e40e6a58b1aa2ae9b675d63a1a5"
+          },
+          "identity": {
+            "definition": "DISTS(source,reconstruction,require_grad=False,batch_average=False)",
+            "models": {
+              "vgg16_weights": "397923af8e79cdbb6a7127f12361acd7a2f83e06b05044ddf496e83de57a5bf0",
+              "weights": "f5e65c96230b7f6ca995691647d482237e4cab8a50c5c4a5784f219ef0748218"
+            },
+            "preprocessing": "{\"batch_average\":false,\"input_size\":[256,256],\"normalization\":\"official forward internal ImageNet mean/std\",\"resize\":null}"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        },
+        "P": {
+          "batch_execution": "P_original_unified_scalar_cache_B1_or_qualified_uncached_B16; rowwise batch provenance not rewritten",
+          "evidence": {
+            "REPO/experiments/unified-metrics-20261002/metric_models.py": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066",
+            "REPO/experiments/unified-metrics-20261002/replay.py": "9582ce2f89c430369b7b19fd7810d1f90e56240f6d7b9845506fc57ded00bcbd",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/p600_replay_v1/completion.json": "46d039d2138be51ec72163070a02b0cdc4a4e40a57639303d5c2c2703db8c6d0",
+            "REPO/results/unified_metrics_20261002/metrics_registration.json": "61b6b89f3bf0c0886025d57bfb415f7a880bc1ab6e7e0b68d111ce02ea0ab004",
+            "REPO/src/var_comm/quality.py": "589d43a9dede2327c67d363f3b8b879cfb184e40e6a58b1aa2ae9b675d63a1a5"
+          },
+          "identity": {
+            "definition": "DISTS(source,reconstruction,require_grad=False,batch_average=False)",
+            "models": {
+              "vgg16_weights": "397923af8e79cdbb6a7127f12361acd7a2f83e06b05044ddf496e83de57a5bf0",
+              "weights": "f5e65c96230b7f6ca995691647d482237e4cab8a50c5c4a5784f219ef0748218"
+            },
+            "preprocessing": "{\"batch_average\":false,\"input_size\":[256,256],\"normalization\":\"official forward internal ImageNet mean/std\",\"resize\":null}"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        }
+      },
+      "definition_reviewed_before_comparison": true,
+      "derivation": null,
+      "family": "dists",
+      "metadata_audit_status": "MATCHED_FROZEN_METADATA_WAIT_ACTUAL_GATES",
+      "model_id": "DISTS official learned alpha/beta; torchvision VGG16 IMAGENET1K_V1",
+      "numerical_difference_admitted": true,
+      "numerical_difference_note": "Descriptive comparison preserves H float64 PSNR, P original float32 PSNR; H B1, original P legacy quality B3 and unified cached B1/qualified B16, P new ConvNeXt B1. No bitwise-equivalence claim.",
+      "reason": "Identity verified from sealed original metadata; actual normal closure and exact pixel bridge remain mandatory execution gates",
+      "status": "ADMITTED",
+      "value_origin_P": "RETAINED_ORIGINAL_SCALAR"
+    },
+    "dreamsim": {
+      "branches": {
+        "H": {
+          "batch_execution": "H_B1",
+          "evidence": {
+            "REPO/experiments/content-real-64qam-20261006/h_development_metric_adapter.py": "3de72dd7ef596704e9fc20d8e78e46985b4d035ae5d832e8d59e97ae63d40d83",
+            "REPO/experiments/unified-metrics-20261002/metric_models.py": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066",
+            "REPO/experiments/unified-metrics-20261002/replay.py": "9582ce2f89c430369b7b19fd7810d1f90e56240f6d7b9845506fc57ded00bcbd",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/development_metrics_r1/completion.json": "25272d0fd9bd45b1bb3d4694615cfe775e8550f6d43751c75200aeb47606b55d",
+            "REPO/src/var_comm/quality.py": "589d43a9dede2327c67d363f3b8b879cfb184e40e6a58b1aa2ae9b675d63a1a5"
+          },
+          "identity": {
+            "definition": "1-cosine(official DreamSim ensemble.embed source,ensemble.embed reconstruction)",
+            "models": {
+              "clip_vitb16_pretrain.pth.tar": "21bb58dddc9747d635638eaef19a50404fa71ef62b837c4181c92568a5d78779",
+              "dino_vitb16_pretrain.pth": "491ec6200b350dd7d532cea1b040846cbc1b4ae038299331168fdd3e0361e262",
+              "dino_weights": "bf34ad0f424b9029b593e8dc3ed553bf26e88bcba0d32bf3e62a6209cb64c85e",
+              "ensemble_lora/adapter_model.safetensors": "a33ba2cbfc52a96f1fa220d7d036fd17e00d5fc9b467be2f97a5482e8a2b09c1",
+              "open_clip_vitb16_pretrain.pth.tar": "963c665c8ba6edd6ef7a7549f3f72fe20586494223300030f5b2efbe36f04319"
+            },
+            "preprocessing": "{\"antialias\":true,\"crop\":null,\"interpolation\":\"bicubic\",\"normalization\":\"official per-backbone internal normalization and normalize_embeds=True\",\"resize\":[224,224]}"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        },
+        "P": {
+          "batch_execution": "P_original_unified_scalar_cache_B1_or_qualified_uncached_B16; rowwise batch provenance not rewritten",
+          "evidence": {
+            "REPO/experiments/unified-metrics-20261002/metric_models.py": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066",
+            "REPO/experiments/unified-metrics-20261002/replay.py": "9582ce2f89c430369b7b19fd7810d1f90e56240f6d7b9845506fc57ded00bcbd",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/p600_replay_v1/completion.json": "46d039d2138be51ec72163070a02b0cdc4a4e40a57639303d5c2c2703db8c6d0",
+            "REPO/results/unified_metrics_20261002/metrics_registration.json": "61b6b89f3bf0c0886025d57bfb415f7a880bc1ab6e7e0b68d111ce02ea0ab004",
+            "REPO/src/var_comm/quality.py": "589d43a9dede2327c67d363f3b8b879cfb184e40e6a58b1aa2ae9b675d63a1a5"
+          },
+          "identity": {
+            "definition": "1-cosine(official DreamSim ensemble.embed source,ensemble.embed reconstruction)",
+            "models": {
+              "clip_vitb16_pretrain.pth.tar": "21bb58dddc9747d635638eaef19a50404fa71ef62b837c4181c92568a5d78779",
+              "dino_vitb16_pretrain.pth": "491ec6200b350dd7d532cea1b040846cbc1b4ae038299331168fdd3e0361e262",
+              "dino_weights": "bf34ad0f424b9029b593e8dc3ed553bf26e88bcba0d32bf3e62a6209cb64c85e",
+              "ensemble_lora/adapter_model.safetensors": "a33ba2cbfc52a96f1fa220d7d036fd17e00d5fc9b467be2f97a5482e8a2b09c1",
+              "open_clip_vitb16_pretrain.pth.tar": "963c665c8ba6edd6ef7a7549f3f72fe20586494223300030f5b2efbe36f04319"
+            },
+            "preprocessing": "{\"antialias\":true,\"crop\":null,\"interpolation\":\"bicubic\",\"normalization\":\"official per-backbone internal normalization and normalize_embeds=True\",\"resize\":[224,224]}"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        }
+      },
+      "definition_reviewed_before_comparison": true,
+      "derivation": null,
+      "family": "dreamsim",
+      "metadata_audit_status": "MATCHED_FROZEN_METADATA_WAIT_ACTUAL_GATES",
+      "model_id": "DreamSim ensemble v0.2.0-checkpoints: dino_vitb16,clip_vitb16,open_clip_vitb16 + LoRA",
+      "numerical_difference_admitted": true,
+      "numerical_difference_note": "Descriptive comparison preserves H float64 PSNR, P original float32 PSNR; H B1, original P legacy quality B3 and unified cached B1/qualified B16, P new ConvNeXt B1. No bitwise-equivalence claim.",
+      "reason": "Identity verified from sealed original metadata; actual normal closure and exact pixel bridge remain mandatory execution gates",
+      "status": "ADMITTED",
+      "value_origin_P": "RETAINED_ORIGINAL_SCALAR"
+    },
+    "lpips_alex": {
+      "branches": {
+        "H": {
+          "batch_execution": "H_B1",
+          "evidence": {
+            "REPO/experiments/content-real-64qam-20261006/h_development_metric_adapter.py": "3de72dd7ef596704e9fc20d8e78e46985b4d035ae5d832e8d59e97ae63d40d83",
+            "REPO/experiments/extreme-bandwidth-20261001-N1024/plugin.py": "6de26919ce698bd6dfe6250f7ae740843bfb24dbe9e5125524deac1081b10254",
+            "REPO/experiments/unified-metrics-20261002/metric_models.py": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066",
+            "REPO/experiments/unified-metrics-20261002/replay.py": "9582ce2f89c430369b7b19fd7810d1f90e56240f6d7b9845506fc57ded00bcbd",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/development_metrics_r1/completion.json": "25272d0fd9bd45b1bb3d4694615cfe775e8550f6d43751c75200aeb47606b55d",
+            "REPO/src/var_comm/quality.py": "589d43a9dede2327c67d363f3b8b879cfb184e40e6a58b1aa2ae9b675d63a1a5"
+          },
+          "identity": {
+            "definition": "Original symmetric LPIPS AlexNet v0.1 perceptual distance; lower is better",
+            "models": {
+              "alexnet": "7be5be791159472b1fbf3c69796f7cb30dca7ad8466c2df70058c37116cdee02",
+              "linear_v0_1": "df73285e35b22355a2df87cdb6b70b343713b667eddbda73e1977e0c860835c0"
+            },
+            "preprocessing": "{\"input\":\"float32 RGB256x256 [0,1] mapped by2*x-1\",\"symmetric_arguments\":\"H reconstruction/reference; P reference/reconstruction\"}"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        },
+        "P": {
+          "batch_execution": "P_retained_legacy_quality_B3_three_original_noises_per_source_and_SNR",
+          "evidence": {
+            "REPO/experiments/extreme-bandwidth-20261001-N1024/plugin.py": "6de26919ce698bd6dfe6250f7ae740843bfb24dbe9e5125524deac1081b10254",
+            "REPO/experiments/unified-metrics-20261002/metric_models.py": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066",
+            "REPO/experiments/unified-metrics-20261002/replay.py": "9582ce2f89c430369b7b19fd7810d1f90e56240f6d7b9845506fc57ded00bcbd",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/p600_replay_v1/completion.json": "46d039d2138be51ec72163070a02b0cdc4a4e40a57639303d5c2c2703db8c6d0",
+            "REPO/results/unified_metrics_20261002/metrics_registration.json": "61b6b89f3bf0c0886025d57bfb415f7a880bc1ab6e7e0b68d111ce02ea0ab004",
+            "REPO/src/var_comm/quality.py": "589d43a9dede2327c67d363f3b8b879cfb184e40e6a58b1aa2ae9b675d63a1a5"
+          },
+          "identity": {
+            "definition": "Original symmetric LPIPS AlexNet v0.1 perceptual distance; lower is better",
+            "models": {
+              "alexnet": "7be5be791159472b1fbf3c69796f7cb30dca7ad8466c2df70058c37116cdee02",
+              "linear_v0_1": "df73285e35b22355a2df87cdb6b70b343713b667eddbda73e1977e0c860835c0"
+            },
+            "preprocessing": "{\"input\":\"float32 RGB256x256 [0,1] mapped by2*x-1\",\"symmetric_arguments\":\"H reconstruction/reference; P reference/reconstruction\"}"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        }
+      },
+      "definition_reviewed_before_comparison": true,
+      "derivation": null,
+      "family": "lpips_alex",
+      "metadata_audit_status": "MATCHED_FROZEN_METADATA_WAIT_ACTUAL_GATES",
+      "model_id": "LPIPS v0.1 AlexNet; original local pretrained AlexNet and linear weights",
+      "numerical_difference_admitted": true,
+      "numerical_difference_note": "Descriptive comparison preserves H float64 PSNR, P original float32 PSNR; H B1, original P legacy quality B3 and unified cached B1/qualified B16, P new ConvNeXt B1. No bitwise-equivalence claim.",
+      "reason": "Identity verified from sealed original metadata; actual normal closure and exact pixel bridge remain mandatory execution gates",
+      "status": "ADMITTED",
+      "value_origin_P": "RETAINED_ORIGINAL_SCALAR"
+    },
+    "ms_ssim": {
+      "branches": {
+        "H": {
+          "batch_execution": "H_B1",
+          "evidence": {
+            "REPO/experiments/content-real-64qam-20261006/h_development_metric_adapter.py": "3de72dd7ef596704e9fc20d8e78e46985b4d035ae5d832e8d59e97ae63d40d83",
+            "REPO/experiments/unified-metrics-20261002/metric_models.py": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066",
+            "REPO/experiments/unified-metrics-20261002/replay.py": "9582ce2f89c430369b7b19fd7810d1f90e56240f6d7b9845506fc57ded00bcbd",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/development_metrics_r1/completion.json": "25272d0fd9bd45b1bb3d4694615cfe775e8550f6d43751c75200aeb47606b55d",
+            "REPO/outputs/UNIFIED-METRICS-20261002/assets/sources/ms_ssim/pytorch_msssim/ssim.py": "57f554515d97d2bdde2f51fa27ee05bd8264107cddcd7997f502cd7aeb6d1bee",
+            "REPO/src/var_comm/quality.py": "589d43a9dede2327c67d363f3b8b879cfb184e40e6a58b1aa2ae9b675d63a1a5"
+          },
+          "identity": {
+            "definition": "Five-scale RGB MS-SSIM,data_range1,win11,sigma1.5,weights[.0448,.2856,.3001,.2363,.1333],K[.01,.03],size_averageFalse",
+            "models": {},
+            "preprocessing": "{\"K\":[0.01,0.03],\"data_range\":1.0,\"resize\":null,\"size_average\":false,\"weights\":[0.0448,0.2856,0.3001,0.2363,0.1333],\"win_sigma\":1.5,\"win_size\":11}"
+          },
+          "implementation": {
+            "REPO/outputs/UNIFIED-METRICS-20261002/assets/sources/ms_ssim/pytorch_msssim/ssim.py": "57f554515d97d2bdde2f51fa27ee05bd8264107cddcd7997f502cd7aeb6d1bee"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        },
+        "P": {
+          "batch_execution": "P_original_unified_scalar_cache_B1_or_qualified_uncached_B16; rowwise batch provenance not rewritten",
+          "evidence": {
+            "REPO/experiments/unified-metrics-20261002/metric_models.py": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066",
+            "REPO/experiments/unified-metrics-20261002/replay.py": "9582ce2f89c430369b7b19fd7810d1f90e56240f6d7b9845506fc57ded00bcbd",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/p600_replay_v1/completion.json": "46d039d2138be51ec72163070a02b0cdc4a4e40a57639303d5c2c2703db8c6d0",
+            "REPO/outputs/UNIFIED-METRICS-20261002/assets/sources/ms_ssim/pytorch_msssim/ssim.py": "57f554515d97d2bdde2f51fa27ee05bd8264107cddcd7997f502cd7aeb6d1bee",
+            "REPO/results/unified_metrics_20261002/metrics_registration.json": "61b6b89f3bf0c0886025d57bfb415f7a880bc1ab6e7e0b68d111ce02ea0ab004",
+            "REPO/src/var_comm/quality.py": "589d43a9dede2327c67d363f3b8b879cfb184e40e6a58b1aa2ae9b675d63a1a5"
+          },
+          "identity": {
+            "definition": "Five-scale RGB MS-SSIM,data_range1,win11,sigma1.5,weights[.0448,.2856,.3001,.2363,.1333],K[.01,.03],size_averageFalse",
+            "models": {},
+            "preprocessing": "{\"K\":[0.01,0.03],\"data_range\":1.0,\"resize\":null,\"size_average\":false,\"weights\":[0.0448,0.2856,0.3001,0.2363,0.1333],\"win_sigma\":1.5,\"win_size\":11}"
+          },
+          "implementation": {
+            "REPO/outputs/UNIFIED-METRICS-20261002/assets/sources/ms_ssim/pytorch_msssim/ssim.py": "57f554515d97d2bdde2f51fa27ee05bd8264107cddcd7997f502cd7aeb6d1bee"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        }
+      },
+      "definition_reviewed_before_comparison": true,
+      "derivation": null,
+      "family": "ms_ssim",
+      "metadata_audit_status": "MATCHED_FROZEN_METADATA_WAIT_ACTUAL_GATES",
+      "model_id": "VainF/pytorch-msssim MS-SSIM, RGB, data_range=1, five scales",
+      "numerical_difference_admitted": true,
+      "numerical_difference_note": "Descriptive comparison preserves H float64 PSNR, P original float32 PSNR; H B1, original P legacy quality B3 and unified cached B1/qualified B16, P new ConvNeXt B1. No bitwise-equivalence claim.",
+      "reason": "Identity verified from sealed original metadata; actual normal closure and exact pixel bridge remain mandatory execution gates",
+      "status": "ADMITTED",
+      "value_origin_P": "RETAINED_ORIGINAL_SCALAR"
+    },
+    "mse": {
+      "reason": "Absent from original600 scalar records; do not infer MSE/probability or fill zero",
+      "status": "MISSING_IN_P"
+    },
+    "psnr_db": {
+      "branches": {
+        "H": {
+          "batch_execution": "H_B1",
+          "evidence": {
+            "REPO/experiments/content-real-64qam-20261006/h_development_metric_adapter.py": "3de72dd7ef596704e9fc20d8e78e46985b4d035ae5d832e8d59e97ae63d40d83",
+            "REPO/experiments/extreme-bandwidth-20261001-N1024/plugin.py": "6de26919ce698bd6dfe6250f7ae740843bfb24dbe9e5125524deac1081b10254",
+            "REPO/experiments/unified-metrics-20261002/metric_models.py": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066",
+            "REPO/experiments/unified-metrics-20261002/replay.py": "9582ce2f89c430369b7b19fd7810d1f90e56240f6d7b9845506fc57ded00bcbd",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/development_metrics_r1/completion.json": "25272d0fd9bd45b1bb3d4694615cfe775e8550f6d43751c75200aeb47606b55d",
+            "REPO/src/var_comm/quality.py": "589d43a9dede2327c67d363f3b8b879cfb184e40e6a58b1aa2ae9b675d63a1a5"
+          },
+          "identity": {
+            "definition": "-10*log10(mean((reconstruction-reference)^2)); RGB data_range1; original scalar precision retained",
+            "models": {},
+            "preprocessing": "\"RGB CHW float32 [0,1],256x256; original uint8/255; no reconstruction quantization\""
+          },
+          "precision": "H_float64_MSE_then_minus10_log10"
+        },
+        "P": {
+          "batch_execution": "P_retained_legacy_quality_B3_three_original_noises_per_source_and_SNR",
+          "evidence": {
+            "REPO/experiments/extreme-bandwidth-20261001-N1024/plugin.py": "6de26919ce698bd6dfe6250f7ae740843bfb24dbe9e5125524deac1081b10254",
+            "REPO/experiments/unified-metrics-20261002/metric_models.py": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066",
+            "REPO/experiments/unified-metrics-20261002/replay.py": "9582ce2f89c430369b7b19fd7810d1f90e56240f6d7b9845506fc57ded00bcbd",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/p600_replay_v1/completion.json": "46d039d2138be51ec72163070a02b0cdc4a4e40a57639303d5c2c2703db8c6d0",
+            "REPO/results/unified_metrics_20261002/metrics_registration.json": "61b6b89f3bf0c0886025d57bfb415f7a880bc1ab6e7e0b68d111ce02ea0ab004",
+            "REPO/src/var_comm/quality.py": "589d43a9dede2327c67d363f3b8b879cfb184e40e6a58b1aa2ae9b675d63a1a5"
+          },
+          "identity": {
+            "definition": "-10*log10(mean((reconstruction-reference)^2)); RGB data_range1; original scalar precision retained",
+            "models": {},
+            "preprocessing": "\"RGB CHW float32 [0,1],256x256; original uint8/255; no reconstruction quantization\""
+          },
+          "precision": "P_retained_original_float32_Torch_PSNR_scalar"
+        }
+      },
+      "definition_reviewed_before_comparison": true,
+      "derivation": null,
+      "family": "psnr_db",
+      "metadata_audit_status": "MATCHED_FROZEN_METADATA_WAIT_ACTUAL_GATES",
+      "model_id": "No learned model",
+      "numerical_difference_admitted": true,
+      "numerical_difference_note": "Descriptive comparison preserves H float64 PSNR, P original float32 PSNR; H B1, original P legacy quality B3 and unified cached B1/qualified B16, P new ConvNeXt B1. No bitwise-equivalence claim.",
+      "reason": "Identity verified from sealed original metadata; actual normal closure and exact pixel bridge remain mandatory execution gates",
+      "status": "ADMITTED",
+      "value_origin_P": "RETAINED_ORIGINAL_SCALAR"
+    },
+    "resnet50_top1_label": {
+      "branches": {
+        "H": {
+          "batch_execution": "H_B1",
+          "evidence": {
+            "REPO/experiments/content-real-64qam-20261006/h_development_metric_adapter.py": "3de72dd7ef596704e9fc20d8e78e46985b4d035ae5d832e8d59e97ae63d40d83",
+            "REPO/experiments/unified-metrics-20261002/metric_models.py": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066",
+            "REPO/experiments/unified-metrics-20261002/replay.py": "9582ce2f89c430369b7b19fd7810d1f90e56240f6d7b9845506fc57ded00bcbd",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/development_metrics_r1/completion.json": "25272d0fd9bd45b1bb3d4694615cfe775e8550f6d43751c75200aeb47606b55d",
+            "REPO/src/var_comm/quality.py": "589d43a9dede2327c67d363f3b8b879cfb184e40e6a58b1aa2ae9b675d63a1a5"
+          },
+          "identity": {
+            "definition": "int(ResNet reconstructed argmax==original ImageNet class index)",
+            "models": {
+              "weights": "11ad3fa62ca79e40addfd354a8ec4b7c75143b3038b8d2a807fbc68deab379ca"
+            },
+            "preprocessing": "{\"antialias\":true,\"crop\":224,\"interpolation\":\"bilinear\",\"normalization\":\"official torchvision IMAGENET1K_V2 transforms\",\"resize\":232}"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        },
+        "P": {
+          "batch_execution": "P_original_unified_scalar_cache_B1_or_qualified_uncached_B16; rowwise batch provenance not rewritten",
+          "evidence": {
+            "REPO/experiments/unified-metrics-20261002/metric_models.py": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066",
+            "REPO/experiments/unified-metrics-20261002/replay.py": "9582ce2f89c430369b7b19fd7810d1f90e56240f6d7b9845506fc57ded00bcbd",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/p600_replay_v1/completion.json": "46d039d2138be51ec72163070a02b0cdc4a4e40a57639303d5c2c2703db8c6d0",
+            "REPO/results/unified_metrics_20261002/metrics_registration.json": "61b6b89f3bf0c0886025d57bfb415f7a880bc1ab6e7e0b68d111ce02ea0ab004",
+            "REPO/src/var_comm/quality.py": "589d43a9dede2327c67d363f3b8b879cfb184e40e6a58b1aa2ae9b675d63a1a5"
+          },
+          "identity": {
+            "definition": "int(ResNet reconstructed argmax==original ImageNet class index)",
+            "models": {
+              "weights": "11ad3fa62ca79e40addfd354a8ec4b7c75143b3038b8d2a807fbc68deab379ca"
+            },
+            "preprocessing": "{\"antialias\":true,\"crop\":224,\"interpolation\":\"bilinear\",\"normalization\":\"official torchvision IMAGENET1K_V2 transforms\",\"resize\":232}"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        }
+      },
+      "definition_reviewed_before_comparison": true,
+      "derivation": null,
+      "family": "resnet50",
+      "metadata_audit_status": "MATCHED_FROZEN_METADATA_WAIT_ACTUAL_GATES",
+      "model_id": "torchvision ResNet50_Weights.IMAGENET1K_V2",
+      "numerical_difference_admitted": true,
+      "numerical_difference_note": "Descriptive comparison preserves H float64 PSNR, P original float32 PSNR; H B1, original P legacy quality B3 and unified cached B1/qualified B16, P new ConvNeXt B1. No bitwise-equivalence claim.",
+      "reason": "Identity verified from sealed original metadata; actual normal closure and exact pixel bridge remain mandatory execution gates",
+      "status": "ADMITTED",
+      "value_origin_P": "RETAINED_ORIGINAL_SCALAR"
+    },
+    "resnet50_top1_probability": {
+      "reason": "Absent from original600 scalar records; do not infer MSE/probability or fill zero",
+      "status": "MISSING_IN_P"
+    },
+    "resnet50_top1_source_prediction": {
+      "branches": {
+        "H": {
+          "batch_execution": "H_B1",
+          "evidence": {
+            "REPO/experiments/content-real-64qam-20261006/h_development_metric_adapter.py": "3de72dd7ef596704e9fc20d8e78e46985b4d035ae5d832e8d59e97ae63d40d83",
+            "REPO/experiments/unified-metrics-20261002/metric_models.py": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066",
+            "REPO/experiments/unified-metrics-20261002/replay.py": "9582ce2f89c430369b7b19fd7810d1f90e56240f6d7b9845506fc57ded00bcbd",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/development_metrics_r1/completion.json": "25272d0fd9bd45b1bb3d4694615cfe775e8550f6d43751c75200aeb47606b55d",
+            "REPO/src/var_comm/quality.py": "589d43a9dede2327c67d363f3b8b879cfb184e40e6a58b1aa2ae9b675d63a1a5"
+          },
+          "identity": {
+            "definition": "int(ResNet reconstructed argmax==ResNet original argmax)",
+            "models": {
+              "weights": "11ad3fa62ca79e40addfd354a8ec4b7c75143b3038b8d2a807fbc68deab379ca"
+            },
+            "preprocessing": "{\"antialias\":true,\"crop\":224,\"interpolation\":\"bilinear\",\"normalization\":\"official torchvision IMAGENET1K_V2 transforms\",\"resize\":232}"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        },
+        "P": {
+          "batch_execution": "P_original_unified_scalar_cache_B1_or_qualified_uncached_B16; rowwise batch provenance not rewritten",
+          "evidence": {
+            "REPO/experiments/unified-metrics-20261002/metric_models.py": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066",
+            "REPO/experiments/unified-metrics-20261002/replay.py": "9582ce2f89c430369b7b19fd7810d1f90e56240f6d7b9845506fc57ded00bcbd",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/p600_replay_v1/completion.json": "46d039d2138be51ec72163070a02b0cdc4a4e40a57639303d5c2c2703db8c6d0",
+            "REPO/results/unified_metrics_20261002/metrics_registration.json": "61b6b89f3bf0c0886025d57bfb415f7a880bc1ab6e7e0b68d111ce02ea0ab004",
+            "REPO/src/var_comm/quality.py": "589d43a9dede2327c67d363f3b8b879cfb184e40e6a58b1aa2ae9b675d63a1a5"
+          },
+          "identity": {
+            "definition": "int(ResNet reconstructed argmax==ResNet original argmax)",
+            "models": {
+              "weights": "11ad3fa62ca79e40addfd354a8ec4b7c75143b3038b8d2a807fbc68deab379ca"
+            },
+            "preprocessing": "{\"antialias\":true,\"crop\":224,\"interpolation\":\"bilinear\",\"normalization\":\"official torchvision IMAGENET1K_V2 transforms\",\"resize\":232}"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        }
+      },
+      "definition_reviewed_before_comparison": true,
+      "derivation": null,
+      "family": "resnet50",
+      "metadata_audit_status": "MATCHED_FROZEN_METADATA_WAIT_ACTUAL_GATES",
+      "model_id": "torchvision ResNet50_Weights.IMAGENET1K_V2",
+      "numerical_difference_admitted": true,
+      "numerical_difference_note": "Descriptive comparison preserves H float64 PSNR, P original float32 PSNR; H B1, original P legacy quality B3 and unified cached B1/qualified B16, P new ConvNeXt B1. No bitwise-equivalence claim.",
+      "reason": "Identity verified from sealed original metadata; actual normal closure and exact pixel bridge remain mandatory execution gates",
+      "status": "ADMITTED",
+      "value_origin_P": "RETAINED_ORIGINAL_SCALAR"
+    },
+    "semantic_error": {
+      "branches": {
+        "H": {
+          "batch_execution": "H_B1",
+          "evidence": {
+            "REPO/experiments/content-real-64qam-20261006/h_development_metric_adapter.py": "3de72dd7ef596704e9fc20d8e78e46985b4d035ae5d832e8d59e97ae63d40d83",
+            "REPO/experiments/unified-metrics-20261002/metric_models.py": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066",
+            "REPO/experiments/unified-metrics-20261002/replay.py": "9582ce2f89c430369b7b19fd7810d1f90e56240f6d7b9845506fc57ded00bcbd",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/development_metrics_r1/completion.json": "25272d0fd9bd45b1bb3d4694615cfe775e8550f6d43751c75200aeb47606b55d",
+            "REPO/src/var_comm/quality.py": "589d43a9dede2327c67d363f3b8b879cfb184e40e6a58b1aa2ae9b675d63a1a5"
+          },
+          "identity": {
+            "definition": "int(ResNet reconstructed argmax!=ResNet original argmax)",
+            "models": {
+              "weights": "11ad3fa62ca79e40addfd354a8ec4b7c75143b3038b8d2a807fbc68deab379ca"
+            },
+            "preprocessing": "{\"antialias\":true,\"crop\":224,\"interpolation\":\"bilinear\",\"normalization\":\"official torchvision IMAGENET1K_V2 transforms\",\"resize\":232}"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        },
+        "P": {
+          "batch_execution": "P_original_unified_scalar_cache_B1_or_qualified_uncached_B16; rowwise batch provenance not rewritten",
+          "evidence": {
+            "REPO/experiments/unified-metrics-20261002/metric_models.py": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066",
+            "REPO/experiments/unified-metrics-20261002/replay.py": "9582ce2f89c430369b7b19fd7810d1f90e56240f6d7b9845506fc57ded00bcbd",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/p600_replay_v1/completion.json": "46d039d2138be51ec72163070a02b0cdc4a4e40a57639303d5c2c2703db8c6d0",
+            "REPO/results/unified_metrics_20261002/metrics_registration.json": "61b6b89f3bf0c0886025d57bfb415f7a880bc1ab6e7e0b68d111ce02ea0ab004",
+            "REPO/src/var_comm/quality.py": "589d43a9dede2327c67d363f3b8b879cfb184e40e6a58b1aa2ae9b675d63a1a5"
+          },
+          "identity": {
+            "definition": "int(ResNet reconstructed argmax!=ResNet original argmax)",
+            "models": {
+              "weights": "11ad3fa62ca79e40addfd354a8ec4b7c75143b3038b8d2a807fbc68deab379ca"
+            },
+            "preprocessing": "{\"antialias\":true,\"crop\":224,\"interpolation\":\"bilinear\",\"normalization\":\"official torchvision IMAGENET1K_V2 transforms\",\"resize\":232}"
+          },
+          "precision": "float32 inference; FP32 deterministic, no AMP/TF32"
+        }
+      },
+      "definition_reviewed_before_comparison": true,
+      "derivation": "int(resnet50_prediction != resnet50_source_prediction)",
+      "family": "resnet50",
+      "metadata_audit_status": "MATCHED_FROZEN_METADATA_WAIT_ACTUAL_GATES",
+      "model_id": "torchvision ResNet50_Weights.IMAGENET1K_V2",
+      "numerical_difference_admitted": true,
+      "numerical_difference_note": "Descriptive comparison preserves H float64 PSNR, P original float32 PSNR; H B1, original P legacy quality B3 and unified cached B1/qualified B16, P new ConvNeXt B1. No bitwise-equivalence claim.",
+      "reason": "Identity verified from sealed original metadata; actual normal closure and exact pixel bridge remain mandatory execution gates",
+      "status": "ADMITTED",
+      "value_origin_P": "DERIVED_FROM_RETAINED_SCALARS"
+    }
+  },
+  "prepared_template_sha256": "5a298cc15fbc8d53efb46d9e655666941d81682e6301eb13d52b317889fae944",
+  "quality_rows_used_for_admission": false,
+  "scope": "Exact definitions/weights/preprocessing; documented numerical methods retained without bitwise-equivalence claim",
+  "status": "FROZEN_H_P_COMMON_METRIC_ADMISSION",
+  "used_for_selection": false
+}

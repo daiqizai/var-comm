@@ -1,0 +1,61 @@
+{
+  "status": "OWNER_AFFINITY_START_FAILURE_DIAGNOSED_AWAIT_INDEPENDENT_ENGINEERING_RECOVERY",
+  "archive_receipt_sha256": "00c3d5575f050b3f6de5022f0ea382a1d348ff9f97696609faa0592373c3e51f",
+  "original_registration_sha256": "c1fda1eec215ded4c6c7aefe2b077d1ec1166ca4e0fd4ac02ae425a5c4a5c233",
+  "original_owner_config_sha256": "9a723a460a6010b79d7d41f00ce09af4b31b860f7c88ec84a4115fb8d74e4efc",
+  "owner_log_sha256": "efc9146722a48109f21b5887f30f0c74478fca89745ee3d79c05ee185cf1db6b",
+  "original_owner_identity": {
+    "argv": [
+      "REPO/outputs/UNIFIED-METRICS-20261002/environment/bin/python",
+      "-B",
+      "REPO/experiments/content-real-64qam-20261006/stage_owner.py",
+      "--config",
+      "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/h_p_component_report_execution_v1/owner_config.json"
+    ],
+    "pid": 994897,
+    "start_ticks": 191756034,
+    "uid": 1002
+  },
+  "original_owner_success": false,
+  "process_exited": true,
+  "worker_started": false,
+  "cause": "Private launcher narrowed owner affinity to original worker pair[0,1] before stage_owner.main required the registered union[0..9].",
+  "required_owner_affinity": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "worker_affinity_unchanged": [
+    0,
+    1
+  ],
+  "worker_threads_unchanged": 2,
+  "GPU_jobs": 0,
+  "proposed_recovery": "Independent execution and output directories, retain original eight source bytes and original registration/config/log. Only new launcher parent affinity uses registered union; no new scientific calculation.",
+  "budget": {
+    "created": true,
+    "charged": 164760,
+    "phase_charged": {
+      "qualification": 1608,
+      "coarse": 49152,
+      "refine": 0,
+      "initial_true200": 19200,
+      "whole_calibration": 48000,
+      "partial_calibration": 36000,
+      "development": 10800,
+      "engineering_reserve": 0
+    },
+    "unresolved": 0,
+    "failed": 0,
+    "development_remaining": 2400
+  },
+  "old_outputs_and_failures_deleted": false,
+  "STOP_files_present": []
+}

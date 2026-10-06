@@ -1,0 +1,120 @@
+{
+  "S1_gate": {
+    "path": "REPO/outputs/PAPER-CONSOLIDATION-20261005/S1/completion.json",
+    "sha256": "4fb30b92b97825b52a16db63dc0316736b8de19f1cd7d50dd42226afc721ec70",
+    "status": "S1_BRIDGE_COMPLETE_AWAIT_NEXT_DECISION"
+  },
+  "branch": "H",
+  "budget_path": "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/packet_budget.sqlite",
+  "budget_registration": "REPO/outputs/CONTENT-REAL-64QAM-20261006/resource_budget.json",
+  "budget_registration_sha256": "f3107e48b13f94815d68ffa9c6f750dec1c3342603fd70790c83130017c558d2",
+  "cpu_affinities": [
+    [
+      0,
+      1
+    ],
+    [
+      2,
+      3
+    ]
+  ],
+  "gpu_affinity": [
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "gpu_device": 0,
+  "gpu_threads": 6,
+  "nvidia_smi": "/usr/bin/nvidia-smi",
+  "out": "REPO/outputs/CONTENT-REAL-64QAM-20261006/H",
+  "overall_deadline_unix": 1791564605.9549868,
+  "owner_out": "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/h_p_component_report_execution_r1",
+  "phase_limits": {
+    "coarse": 49152,
+    "development": 13200,
+    "engineering_reserve": 19360,
+    "initial_true200": 20000,
+    "partial_calibration": 36000,
+    "qualification": 2000,
+    "refine": 12288,
+    "whole_calibration": 48000
+  },
+  "prior_qualification_gate": {
+    "accepted_statuses": [
+      "H_PHY_QUALIFICATION_PASS"
+    ],
+    "path": "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/qualification/completion.json",
+    "receipt_registration": "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/execution_v1/execution_registration.json",
+    "sha256": "7f92e6e3c6d78f6a5bd09aa71b7d35c5df78bcdab215861e91b4450b1b619dc0"
+  },
+  "qualification_deadline_unix": 1791564605.9549868,
+  "qualification_started_unix": 1791219005.9549868,
+  "registration": "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/h_p_component_report_execution_r1/execution_registration.json",
+  "root": "REPO",
+  "stages": [
+    {
+      "id": "report",
+      "jobs": [
+        {
+          "accepted_statuses": [
+            "H_P_COMPONENT_REPORT_COMPLETE_MAIN_PENDING"
+          ],
+          "argv": [
+            "REPO/outputs/UNIFIED-METRICS-20261002/environment/bin/python",
+            "-B",
+            "REPO/experiments/content-real-64qam-20261006/h_p_cost_report_driver.py",
+            "--config",
+            "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/h_p_component_report_execution_r1/report_config.json"
+          ],
+          "completion": "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/h_p_component_report_r1/completion.json",
+          "cwd": "REPO",
+          "environment": {
+            "CUDA_VISIBLE_DEVICES": "",
+            "MKL_NUM_THREADS": "2",
+            "NUMEXPR_NUM_THREADS": "2",
+            "OMP_NUM_THREADS": "2",
+            "OPENBLAS_NUM_THREADS": "2",
+            "PYTHONDONTWRITEBYTECODE": "1",
+            "PYTHONPATH": "REPO/experiments/content-real-64qam-20261006"
+          },
+          "id": "h_p_component_report",
+          "out": "REPO/outputs/CONTENT-REAL-64QAM-20261006/H/h_p_component_report_r1",
+          "receipt_expect": {
+            "GPU_used": false,
+            "H_P_comparisons": 18,
+            "H_frames": 5400,
+            "H_full_delivery_claimed": false,
+            "H_internal_comparisons": 26,
+            "H_points": 18,
+            "H_success_evaluated": false,
+            "MAIN_complete": false,
+            "P_frames": 600,
+            "P_points": 2,
+            "common_metrics": 18,
+            "development_used": true,
+            "holdout_used": false,
+            "missing_P_metrics": 3,
+            "new_bootstrap_replicates": 0,
+            "new_comparisons": 0,
+            "new_metric_calls": 0,
+            "new_model_calls": 0,
+            "new_noise_draws": 0,
+            "new_packet_decodes": 0,
+            "overall_development_complete": false,
+            "policy_selection": false,
+            "source_count": 100,
+            "timing_cases": 288,
+            "timing_sources": 16
+          }
+        }
+      ],
+      "max_seconds": 3600,
+      "requires": [],
+      "resource": "cpu"
+    }
+  ],
+  "visual_lock_path": "REPO/outputs/CONTENT-REAL-64QAM-20261006/shared_visual.lock"
+}
