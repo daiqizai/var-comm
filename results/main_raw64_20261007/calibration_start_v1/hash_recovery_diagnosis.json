@@ -1,0 +1,30 @@
+{
+  "actual_calibration_calls": 0,
+  "actual_calibration_registered": false,
+  "archive_sha256": "b9b1e7a511029038b735e39f588fa50c6d8988e63985b5296b00997d2eca0236",
+  "automatic_retry": false,
+  "budget_snapshot": {
+    "actual_calibration": 0,
+    "development": 0,
+    "online_PHY": 0,
+    "optional_H_holdout": 0,
+    "proxy": 319957,
+    "qualification": 1312,
+    "raw_holdout": 0
+  },
+  "cause": "file_sha memoizes by path/dev/inode/size/mtime_ns/ctime_ns; these stat fields can collide for rapid rewrites on this filesystem.",
+  "development_calls": 0,
+  "failed_test": "test_hash_cache_revalidates_changed_file",
+  "failure_sha256": "f867c72119276ce1e913d4c96f826e6401932f3b333369ab9e575cde57035dc5",
+  "holdout_calls": 0,
+  "observed": "Immediate same-length one-to-two rewrite returned cached one SHA; stat-key cache missed changed bytes.",
+  "observed_unix": 1791311551.2607386,
+  "original_scientific_protocol_changed": false,
+  "proxy_uninterrupted": true,
+  "qualification_exit_sha256": "8c8aae467d8e7ee79fd8b1b534adc78bf4a9fb49d7245767f0c8ee6edd19f939",
+  "repair_rule": "Independent R2 removes checkpoint file hash memoization entirely. Every call reads bytes; retain assertion, no added test sleep. Original source-archive admission already hashes freshly.",
+  "status": "ACTUALCAL_PRESTART_HASH_CACHE_FAILURE_DIAGNOSED",
+  "tests_failed": 1,
+  "tests_passed": 30,
+  "tests_run": 31
+}
