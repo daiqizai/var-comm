@@ -1,0 +1,366 @@
+"""Registered MAIN calibration actual-KEEP reconstruction and original L/14 scoring.
+
+This worker consumes already paid CPU traces. It neither selects a policy nor
+creates a channel observation. A separate exclusive GPU owner must admit it.
+"""
+from __future__ import annotations
+import argparse
+from copy import deepcopy
+import hashlib
+import importlib.util
+import json
+import math
+import os
+from pathlib import Path
+import shutil
+import signal
+import sys
+import time
+import traceback
+import numpy as np
+
+SCHEMA='MAIN_ACTUAL_VISUAL_CONFIG_R1'
+REG='MAIN_ACTUAL_VISUAL_EXECUTION_REGISTERED_R1'
+DONE='MAIN_ACTUAL_CALIBRATION_VISUAL_COMPLETE'
+SOURCE_DONE='MAIN_ACTUAL_CALIBRATION_VISUAL_SOURCE_COMPLETE'
+NOISE_SEEDS=(4101,4102,4103)
+PRIMARY='dinov2_vitl14_cosine'
+MAX_ARCHIVE_BYTES=24*1024**3
+STORAGE_RESERVE_BYTES=8*1024**3
+STOP=False
+
+
+def require(ok,message):
+    if not ok:raise RuntimeError(message)
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p):
+    h=hashlib.sha256()
+    with Path(p).open('rb') as f:
+        for b in iter(lambda:f.read(1048576),b''):h.update(b)
+    return h.hexdigest()
+def save(p,value):
+    p=Path(p);p.parent.mkdir(parents=True,exist_ok=True)
+    with p.open('x',encoding='utf-8',newline='\n') as f:json.dump(value,f,indent=2,ensure_ascii=False,allow_nan=False);f.write('\n')
+def verify(pins):
+    for p,s in pins.items():require(Path(p).is_file() and sha(p)==s,'Changed/unbound file: '+p)
+def combine(*maps):
+    result={}
+    for pins in maps:
+        for p,s in pins.items():require(p not in result or result[p]==s,'Conflicting SHA: '+p);result[p]=s
+    return result
+def module(path,name):
+    spec=importlib.util.spec_from_file_location(name,path);m=importlib.util.module_from_spec(spec);sys.modules[name]=m;spec.loader.exec_module(m);return m
+def progress(p,value):
+    p=Path(p);tmp=p.with_suffix('.pending');tmp.write_text(json.dumps(value,allow_nan=False)+'\n',encoding='utf-8');os.replace(tmp,p)
+def stop(*_):
+    global STOP
+    STOP=True
+def command(cfg):return [cfg['python'],'-B',cfg['worker_module'],'--config',cfg['_path']]
+
+
+def budget_snapshot(ctx):
+    cfg=ctx['cpu_ctx']['cfg']
+    require(Path(cfg['ledger']).is_file(),'Existing independent MAIN ledger required')
+    value=ctx['readonly_budget'](cfg['ledger'],sha(cfg['budget_registration']))
+    ctx['cpu_owner'].require_budget(value,ctx['cpu_closed']['done']['packet_calls'])
+    return value
+
+
+def metric_asset_bindings(value):
+    """Original manifest assets include weights absent from the old code map."""
+    result={}
+    if isinstance(value,dict):
+        if isinstance(value.get('path'),str) and isinstance(value.get('sha256'),str):
+            result[value['path']]=value['sha256']
+        if isinstance(value.get('path'),str) and isinstance(value.get('files'),dict):
+            for name,digest in value['files'].items():
+                p=Path(name);require(not p.is_absolute() and '..' not in p.parts,'Unsafe metric asset relative path')
+                result[str(Path(value['path'])/p)]=digest
+        for child in value.values():result=combine(result,metric_asset_bindings(child))
+    elif isinstance(value,list):
+        for child in value:result=combine(result,metric_asset_bindings(child))
+    return result
+
+
+def original_metric_identity(metric_registration,batch,quality_path,batch_path,flags,*,registered_bindings=None):
+    """Admit old identity before reading new quality; no synthetic rerun fallback."""
+    identity=metric_registration['score_identity'];b=batch['binding']
+    require(identity['primary_objective']==PRIMARY and identity['batch_size']==8
+        and identity['qualified_batch_sizes']==[1,2,4,8]
+        and identity['driver_sha256']==sha(quality_path)
+        and identity['batch_qualification_sha256']==sha(batch_path), 'Exact original L/14/batch8 scorer qualification required')
+    require(batch['status']=='FIXED_BATCH8_QUALIFICATION_PASS' and batch['chosen_batch_size']==8
+        and batch['qualified_batch_sizes']==[1,2,4,8] and batch['real_model_weights'] is True
+        and batch['synthetic_images'] is True and batch['scientific_result'] is False
+        and [r['batch_size'] for r in batch['checks']]==[1,2,4,8]
+        and all(r['comparison']['passed'] and r['comparison']['classification_exact'] for r in batch['checks']),
+        'Original scalar/batch/tail qualification is incomplete')
+    require(b['evaluator']==identity['metric_evaluator_identity']
+        and b['modelmanifest_sha256']==identity['modelmanifest_sha256']
+        and b['driver_sha256']==identity['driver_sha256']
+        and b['context']['flags']==identity['numerical_runtime']
+        and all(flags[k]==v for k,v in identity['numerical_runtime'].items()),'Metric model, preprocessing or numeric identity differs')
+    model=identity['model_metadata']['metrics']['dinov2_vitl14']
+    require(model['status']=='READY' and 'ViT-L/14' in model['model_id']
+        and '1024' in model['model_id'],'DINO-S/14 cannot substitute for DINO-L/14')
+    for p,s in identity['source_bindings'].items():require(Path(p).is_file() and sha(p)==s,'Original metric dependency changed: '+p)
+    manifests=[p for p,s in identity['source_bindings'].items() if Path(p).name=='modelmanifest.json' and s==identity['modelmanifest_sha256']]
+    require(len(manifests)==1 and read(manifests[0])['dinov2_vitl14']==model['assets'], 'L/14 modelmanifest/weight/preprocessing identity is not connected')
+    # Preserve the original score identity exactly. Its source map contains
+    # legacy weights and evaluator code, while modelmanifest binds new weights.
+    bound=identity['source_bindings'] if registered_bindings is None else registered_bindings
+    assets=metric_asset_bindings(read(manifests[0]))
+    require(assets and all(bound.get(p)==s for p,s in assets.items()),'Complete original metric manifest assets must be explicit immutable inputs')
+    verify(assets)
+    weight=model['assets']['weights'];require(bound.get(weight['path'])==weight['sha256'], 'L/14 weights must be an explicit immutable input')
+    for field,name in (('metric_source_sha256','metric_models.py'),('original_batch_helper_sha256','batch_speed.py')):
+        require(any(Path(p).name==name and s==b[field] for p,s in identity['source_bindings'].items()), 'Original batch evaluator/helper code differs')
+    return identity
+
+
+def load_registered(config_path):
+    config_path=str(Path(config_path).resolve());cfg=read(config_path);reg=read(cfg['registration']);regsha=sha(cfg['registration'])
+    require(cfg['schema']==SCHEMA and reg['status']==REG and reg['owner_scope']=='MAIN_ACTUAL_VISUAL_ONLY','Independent MAIN visual registration required')
+    bound=combine(reg['source_bindings'],reg['input_bindings']);verify(bound)
+    require(reg['config_sha256']==sha(config_path) and reg['owner_config_sha256']==sha(cfg['visual_owner_config']), 'Visual configuration differs')
+    cfg['_path']=config_path
+    keys=('worker_module','visual_owner_module','visual_owner_config','cpu_owner_module','source_driver_module',
+          'quality_driver_module','static_closure_module','native_qualification','metric_registration','metric_batch_qualification','legacy_phy_module')
+    for p in [config_path,*[cfg[k] for k in keys]]:require(bound.get(p)==sha(p),'Required registered visual dependency missing: '+p)
+    require(cfg['worker_module']==str(Path(__file__).resolve()),'Wrong MAIN visual entry')
+    for p in cfg['cpu_batch'].values():require(bound.get(p)==sha(p),'CPU owner/completion must be bound before reading')
+    priorcfg=read(cfg['cpu_batch']['owner_config'])
+    require(bound.get(priorcfg['registration'])==sha(priorcfg['registration']),'CPU registration must be bound before import')
+    priorreg=read(priorcfg['registration'])
+    for p,s in priorreg['source_bindings'].items():require(bound.get(p)==s==sha(p),'CPU closure source is not bound before import')
+    sys.path.insert(0,cfg['runtime_dir'])
+    cpu_owner=module(cfg['cpu_owner_module'],'main_visual_cpu_predecessor')
+    closed=cpu_owner.closed_phase(cfg['cpu_batch']);cpu=cpu_owner.w;cc=closed['ctx']
+    require(all(bound.get(p)==s for p,s in closed['bindings'].items()),'Full normal CPU predecessor chain must be inherited')
+    inventory=cpu.audit_inventory(cc,read(cc['cfg']['merge_admission']))
+    require(inventory['frame_count']==closed['done']['frame_count']
+        and inventory['packet_calls']==closed['done']['packet_calls']
+        and inventory['budget']==closed['done']['budget'],'Paid trace/event inventory differs from normal CPU completion')
+    from register_main_cpu_phase_r2 import readonly_budget
+    import main_visual_keep_adapter as adapter
+    for loaded in (adapter,adapter.wire,cpu,cpu_owner):
+        p=str(Path(loaded.__file__).resolve());require(bound.get(p)==sha(p),'Executed receiver/CPU source missing')
+    before=closed['done']['budget'];require(reg['budget_before']==before,'Visual registration must use actual closed MAIN budget')
+    root=Path(cfg['root']).resolve();main=root/'outputs/CONTENT-REAL-64QAM-20261006/MAIN';out=Path(cfg['out'])
+    require(out.is_absolute() and main in out.parents and cfg['stop_file']==str(main/'STOP'), 'Independent MAIN visual output/STOP required')
+    require(out!=Path(cc['cfg']['out']) and out not in Path(cc['cfg']['out']).parents
+        and Path(cc['cfg']['out']) not in out.parents,'Visual output overlaps CPU evidence')
+    require(cfg['deadline_unix']==cc['cfg']['deadline_unix'] and 0<cfg['max_seconds']<=86400
+        and cfg['gpu_device']==0 and cfg['gpu_threads']==6 and len(set(cfg['gpu_affinity']))==len(cfg['gpu_affinity'])==6
+        and cfg['nice']==15 and 0<cfg['max_archive_bytes']<=MAX_ARCHIVE_BYTES,'Original bounded visual resources required')
+    flags=read(cfg['native_qualification'])['numerical_runtime']
+    calibration=read(cc['cfg']['calibration_registration']);metricreg=read(cfg['metric_registration'])
+    batch=read(cfg['metric_batch_qualification'])
+    metricid=original_metric_identity(metricreg,batch,cfg['quality_driver_module'],cfg['metric_batch_qualification'],flags,registered_bindings=bound)
+    require(all(bound.get(p)==s for p,s in metricid['source_bindings'].items()),'Original metric dependency closure omitted')
+    require(batch['binding']['context']['visual_identity']==calibration['identity'],'Metric qualification visual model differs')
+    static=reg['native_source_bindings'];require(static and all(bound.get(p)==s for p,s in static.items()),'Complete frozen native closure required')
+    ctx=dict(cfg=cfg,reg=reg,regsha=regsha,bound=bound,cpu_owner=cpu_owner,cpu=cpu,cpu_ctx=cc,cpu_closed=closed,
+        before=before,readonly_budget=readonly_budget,adapter=adapter,static_bindings=static,expected_flags=flags,
+        calibration=calibration,metric_identity=metricid,metric_batch=batch,inventory=inventory)
+    require(budget_snapshot(ctx)==before,'Independent MAIN budget changed after CPU closure')
+    return ctx
+
+
+def validate_native(native,ctx):
+    require(native.loaded['identity']==ctx['calibration']['identity'] and native.flags==ctx['expected_flags'], 'Original visual model/FP32 flags changed')
+    require(native.driver_bindings==ctx['static_bindings'],'Actual complete native source closure changed')
+    require(all(ctx['bound'].get(p)==s for p,s in native.driver_bindings.items()),'Loaded native dependency not registered')
+
+
+def health_check(native,quality,*,source_boundary=False):
+    # Same original qualified five-second HealthyPolling within a source;
+    # force the original full boundary check once for every complete source.
+    if source_boundary:require(not quality.boundary(native),'Original GPU safety stop')
+    else:native.common.check()
+
+
+def source_inputs(ctx,index):
+    """Read actual RX trace and original pixels. Never materialize TX tokens."""
+    cc=ctx['cpu_ctx'];record=cc['records'][index];base=Path(cc['cfg']['out'])
+    cp=base/'source_checkpoints'/f'{index:04d}.json';tp=base/'traces'/f'{index:04d}.json'
+    science=ctx['cpu_closed']['done'];pins={str(p):sha(p) for p in (cp,tp,Path(record['checkpoint']),Path(record['archive']))}
+    require(all(science['outputs'].get(str(p))==pins[str(p)] for p in (cp,tp)), 'CPU source trace changed')
+    require(all(ctx['bound'].get(p)==s for p,s in pins.items()),'Source assets/trace not bound')
+    c=read(cp);asset=read(record['checkpoint']);rows=read(tp)
+    require(c['source_index']==index and c['source_id']==record['source_id'] and c['outputs']=={str(tp):sha(tp)},'Wrong source trace checkpoint')
+    require(asset['source_index']==asset['original_calibration_index']==index and asset['source_id']==record['source_id']
+        and asset['preprocessing_id']==record['preprocessing_id'] and asset['archive']==record['archive']
+        and asset['outputs'][record['archive']]==sha(record['archive']),'Original exact pixel checkpoint differs')
+    with np.load(record['archive'],allow_pickle=False) as z:
+        require(set(z.files)=={'tokens','pixels'},'Original pixel/token archive schema required');target=z['pixels']
+    require(target.dtype==np.uint8 and target.shape==(3,256,256)
+        and hashlib.sha256(target.tobytes()).hexdigest()==record['preprocessing_id'],'Original target preprocessing hash differs')
+    require(type(asset['evaluation_class_index'])is int and 0<=asset['evaluation_class_index']<1000,'Original label required only for scoring')
+    return dict(record,class_index=asset['evaluation_class_index']),rows,target,pins
+
+
+def validate_grid(rows,index,sid,schedule):
+    wanted=[(p,s) for p in schedule for s in NOISE_SEEDS]
+    require(2<=len(schedule)<=10 and {p['snr_db'] for p in schedule}=={13,19}
+        and all(sum(p['snr_db']==s for p in schedule)<=5 for s in (13,19)), 'Frozen 13/19 bounded candidate union required')
+    require(len(rows)==len(wanted) and len({(p['snr_db'],p['candidate_id']) for p in schedule})==len(schedule), 'Complete unique candidate/seed grid required')
+    for row,(p,seed) in zip(rows,wanted):
+        required=dict(source_index=index,source_id=sid,noise_seed=seed,population_role='calibration',**p)
+        require(all(row[k]==v for k,v in required.items()),'Actual source/candidate/seed order differs')
+        require(row['public_frame_counter']==((4 if p['snr_db']==13 else 5)*1000+index)*3+NOISE_SEEDS.index(seed), 'Original full-SNR counter differs')
+    return len(rows)
+
+
+def render_source(record,frames,target,schedule,receiver,adapter,scorer,boundary=lambda:None):
+    """Generation sees only RX; the frozen scorer receives target afterward."""
+    index,sid=record['source_index'],record['source_id'];validate_grid(frames,index,sid,schedule)
+    require(not receiver.cache,'Receiver cache must be fresh for each source')
+    rows=[];images=[];image_index={};metric_results=[];starts=time.monotonic()
+    for frame in frames:
+        boundary();result=receiver.reconstruct(adapter.receiver_view({'rx':frame}))
+        inputs=adapter.metric_inputs(result,target,expected_preprocessing_sha256=record['preprocessing_id'])
+        digest=result['summary']['image_sha256']
+        if digest not in image_index:image_index[digest]=len(images);images.append(inputs['image'])
+        else:require(np.array_equal(images[image_index[digest]],inputs['image']), 'RGB digest collision')
+        # Preserve the complete original CPU evidence after reconstruction. It
+        # never enters receiver_view or the renderer; even wrong accepted IDs
+        # and rejected-body hard bits remain the original CPU facts.
+        row=deepcopy(frame)
+        require(all(result['summary'][k]==frame[k] for k in adapter.CLAIMS),'Visual adapter changed paid RX facts')
+        for k,v in result['summary'].items():
+            if k in adapter.CLAIMS or k=='status':continue
+            if k=='image_reconstruction_complete' and k in row:
+                require(row[k] is False and v is True,'Unexpected CPU-to-visual image completion transition')
+                row['cpu_image_reconstruction_complete']=row[k];row[k]=v;continue
+            require(k not in row or row[k]==v,'Visual metadata would replace a CPU fact: '+k);row[k]=v
+        row['visual_status']=result['summary']['status']
+        row.update(image_slot=image_index[digest],synthetic=False,preprocessing_id=record['preprocessing_id'],primary_metric=PRIMARY)
+        rows.append(row)
+    rendered=time.monotonic()-starts;boundary();began=time.monotonic()
+    metric_record=dict(image_id=sid,preprocessing_id=record['preprocessing_id'],source_index=index,class_index=record['class_index'])
+    scorer.prepare_source(metric_record,target.astype(np.float32)/np.float32(255),index)
+    metric_results=scorer(metric_record,images)
+    require(len(metric_results)==len(images),'Original scorer returned an incomplete RGB grid')
+    for row in rows:
+        scored=metric_results[row['image_slot']]
+        for key in (PRIMARY,'psnr_db','lpips_alex'):
+            require(type(scored.get(key))in (int,float) and math.isfinite(scored[key]),'Missing/nonfinite actual '+key)
+        require(-1<=scored[PRIMARY]<=1 and scored['lpips_alex']>=0,'Original required metric outside definition')
+        require(not(set(scored)&set(row)), 'Metric scorer may not replace actual RX identity')
+        row.update(scored)
+    return rows,np.stack(images),dict(frames=len(rows),unique_images=len(images),receiver_cache_hits=receiver.hits,
+        receiver_cache_misses=receiver.misses,gray_frames=sum(r['gray'] for r in rows),render_seconds=rendered,
+        metric_seconds=time.monotonic()-began,cost_scope='cached per-source batch execution; not online latency',new_packet_decodes=0)
+
+
+def write_source(out,record,rows,images,inputs,cost,regsha,adapter):
+    index=record['source_index'];out=Path(out);archive=out/'images'/f'{index:04d}.npz';archive.parent.mkdir(parents=True,exist_ok=True)
+    require(images.dtype==np.float32 and images.shape[1:]==(3,256,256), 'Exact float32 image archive required')
+    for row in rows:require(adapter.wire.array_sha(images[row['image_slot']])==row['image_sha256'],'Image-slot byte binding differs')
+    with archive.open('xb') as f:np.savez(f,images=images)
+    for row in rows:row['image_archive']=str(archive)
+    rp=out/'sources'/f'{index:04d}.json';save(rp,rows)
+    cp=out/'source_checkpoints'/f'{index:04d}.json';outputs={str(p):sha(p) for p in (archive,rp)}
+    save(cp,dict(status=SOURCE_DONE,registration_sha256=regsha,source_index=index,source_id=record['source_id'],
+        frame_count=len(rows),noise_seeds=list(NOISE_SEEDS),input_bindings=inputs,outputs=outputs,
+        source_decode_complete=True,image_reconstruction_complete=True,images_scored=True,primary_metric=PRIMARY,**cost))
+    outputs[str(cp)]=sha(cp);return outputs,archive.stat().st_size
+
+
+def validate_final(rows,ids,schedule,selector,profiles):
+    require(len(ids)==len(set(ids))==1000 and len(rows)==1000*3*len(schedule), 'Complete original1000 visual grid required')
+    size=3*len(schedule);pool={p['profile_id']:p for p in profiles}
+    for i,sid in enumerate(ids):
+        group=rows[i*size:(i+1)*size];validate_grid(group,i,sid,schedule)
+        for row in group:selector.validate_actual_receiver(row,{str(k):v for k,v in pool.items()})
+
+
+class FrameWriter:
+    """Bounded-RAM full JSON inventory; failed partial bytes are preserved."""
+    def __init__(self,out):
+        self.path=Path(out)/'frame_metrics.json';self.pending=self.path.with_suffix('.json.pending')
+        require(not self.path.exists(),'No replacement of a final metric inventory')
+        self.stream=self.pending.open('x',encoding='utf-8',newline='\n');self.stream.write('[\n');self.count=0
+    def append(self,rows):
+        for row in rows:
+            if self.count:self.stream.write(',\n')
+            json.dump(row,self.stream,ensure_ascii=False,allow_nan=False);self.count+=1
+        self.stream.flush()
+    def finish(self,expected):
+        require(self.count==expected,'Incomplete metric inventory cannot be finalized')
+        self.stream.write('\n]\n');self.stream.close()
+        require(not self.path.exists(),'Final metric inventory appeared unexpectedly')
+        os.replace(self.pending,self.path);return self.path
+    def close(self):
+        if not self.stream.closed:self.stream.close()
+
+
+def run(config_path):
+    ctx=load_registered(config_path);cfg=ctx['cfg'];out=Path(cfg['out']);native=None;frame_writer=None;began=time.monotonic()
+    require(not out.exists() or out.is_dir() and not out.is_symlink() and not any(out.iterdir()),'Fresh owner-created visual output only; no retry')
+    out.mkdir(parents=True,exist_ok=True);save(out/'attempt.json',dict(registration_sha256=ctx['regsha'],new_packet_decodes=0,pid=os.getpid()))
+    try:
+        owner=module(cfg['visual_owner_module'],'main_visual_current_owner');supervision=owner.admit_worker(config_path,ctx)
+        require(supervision['status']=='MAIN_VISUAL_WORKER_ADMITTED' and supervision['registration_sha256']==ctx['regsha']
+            and supervision['config_sha256']==sha(config_path),'Actual registered MAIN GPU admission required')
+        closure=module(cfg['static_closure_module'],'main_visual_static_source_closure')
+        require(closure.collect_bindings(cfg['root'],cfg['native_runtime'],cfg['var_source'],cfg['dino_source'],cfg['uep_runtime'])==ctx['static_bindings'], 'Current complete native source graph differs before model loading')
+        require(shutil.disk_usage(out).free>=cfg['max_archive_bytes']+STORAGE_RESERVE_BYTES,'Registered floatRGB storage headroom unavailable')
+        def boundary(source_boundary=False):
+            require(not STOP and not any(Path(p).exists() for p in (cfg['stop_file'],str(out/'STOP'))),'STOP at preserved source boundary')
+            require(time.monotonic()-began<cfg['max_seconds'] and time.time()<cfg['deadline_unix'],'Original visual deadline reached')
+            owner.check_live_admission(ctx,supervision)
+            if native is not None:health_check(native,quality,source_boundary=source_boundary)
+        boundary()
+        for p in (cfg['runtime_dir'],cfg['uep_runtime'],str(Path(cfg['root'])/'src')):sys.path.insert(0,p)
+        quality=module(cfg['quality_driver_module'],'quality_driver');source=module(cfg['source_driver_module'],'h_source_driver')
+        phy=module(cfg['legacy_phy_module'],'main_visual_original_crc')
+        native=quality.build_native(Path(cfg['root']),cfg['native_runtime'],stop);validate_native(native,ctx)
+        metricdir=out/'original_metric_qualification';metricdir.mkdir()
+        copied=metricdir/'metric_batch8_qualification.json';shutil.copyfile(cfg['metric_batch_qualification'],copied)
+        require(sha(copied)==sha(cfg['metric_batch_qualification']),'Original batch receipt copy differs')
+        scorer=quality.MetricScorer(native,Path(cfg['root']),metricdir)
+        require(quality.q.jsonable(scorer.identity)==ctx['metric_identity'],'Loaded original L/14 metrics/source/batch/flags identity differs')
+        require(sha(copied)==sha(cfg['metric_batch_qualification']),'Metric qualification was replaced or rerun')
+        outputs={str(copied):sha(copied)};costs=[];imagebytes=0;frame_writer=FrameWriter(out)
+        profile_pool={p['candidate_id']:p for p in ctx['cpu_ctx']['profiles']}
+        for index,record in enumerate(ctx['cpu_ctx']['records']):
+            boundary(source_boundary=True);record,frames,target,pins=source_inputs(ctx,index)
+            receiver=ctx['adapter'].frozen_native_receiver(native,ctx['cpu_ctx']['catalogue'],frozen_render_received=source.render_received,
+                crc_accept=phy.crc_accept_batch,model_identity=dict(frozen_visual_identity=native.loaded['identity'],numerical_runtime=native.flags,
+                    renderer_sha256=sha(cfg['source_driver_module']),native_source_bindings=ctx['static_bindings']))
+            rows,images,cost=render_source(record,frames,target,ctx['cpu_ctx']['schedule'],receiver,ctx['adapter'],scorer,boundary)
+            for row in rows:ctx['cpu'].selection.validate_actual_receiver(row,profile_pool)
+            local,size=write_source(out,record,rows,images,pins,cost,ctx['regsha'],ctx['adapter']);outputs.update(local)
+            imagebytes+=size;require(imagebytes<=cfg['max_archive_bytes'],'Image cap exceeded; preserve all completed sources')
+            frame_writer.append(rows);costs.append(cost)
+            progress(out/'status.json',dict(status='RUNNING',completed_sources=index+1,total_sources=1000,completed_frames=frame_writer.count,
+                elapsed_seconds=time.monotonic()-began,image_archive_bytes=imagebytes,new_packet_decodes=0))
+        ids=[r['source_id'] for r in ctx['cpu_ctx']['records']]
+        expected=1000*3*len(ctx['cpu_ctx']['schedule'])
+        require(len(ids)==len(set(ids))==len(costs)==1000 and frame_writer.count==expected,'Complete original calibration1000 required')
+        boundary(source_boundary=True);native.frozen();validate_native(native,ctx);require(budget_snapshot(ctx)==ctx['before'],'Visual worker changed MAIN paid calls')
+        rp=frame_writer.finish(expected);outputs[str(rp)]=sha(rp)
+        cp=out/'receiver_cost_counts.json';save(cp,dict(status='CACHED_STAGE_COST_NOT_ONLINE_TIMING',sources=costs,new_packet_decodes=0));outputs[str(cp)]=sha(cp)
+        verify(ctx['bound']);verify(outputs)
+        done=dict(status=DONE,registration_sha256=ctx['regsha'],config_sha256=sha(config_path),source_count=1000,frame_count=expected,
+            source_ids=ids,noise_seeds=list(NOISE_SEEDS),schedule=ctx['cpu_ctx']['schedule'],outputs=outputs,
+            source_bindings=ctx['reg']['source_bindings'],input_bindings=ctx['reg']['input_bindings'],
+            predecessor_closure_bindings=ctx['cpu_closed']['bindings'],supervision=supervision,
+            numerical_runtime=native.flags,frozen_visual_identity=native.loaded['identity'],visual_source_bindings=native.driver_bindings,
+            score_identity=scorer.identity,metric_objective=PRIMARY,receiver_rule='KEEP',budget_before=ctx['before'],budget_after=budget_snapshot(ctx),
+            source_decode_complete=True,image_reconstruction_complete=True,images_scored=True,GPU_used=True,policy_selection=False,
+            new_packet_decodes=0,noise_generated=0,development_used=False,holdout_used=False,automatic_successor_started=False,
+            main_final_selection_complete=False,image_archive_bytes=imagebytes,elapsed_seconds=time.monotonic()-began)
+        save(out/'completion.json',done);return done
+    except BaseException:
+        if frame_writer is not None:frame_writer.close()
+        save(out/'failure.json',dict(status='FAILED_PRESERVE_NO_RETRY',registration_sha256=ctx['regsha'],traceback=traceback.format_exc(),
+            new_packet_decodes=0,CPU_evidence_preserved=True));raise
+
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--config',required=True);args=p.parse_args()
+    signal.signal(signal.SIGTERM,stop);signal.signal(signal.SIGINT,stop)
+    print(json.dumps({'status':run(args.config)['status']}),flush=True)

@@ -1,0 +1,360 @@
+"""Bounded actual MAIN raw/raster/KEEP calibration; worker or read-only merge.
+
+Only a separately registered shortlist and original calibration1000 are used.
+This module never scores images, changes candidates, or runs a successor.
+"""
+from __future__ import annotations
+import argparse
+from contextlib import closing
+import hashlib
+import json
+import os
+from pathlib import Path
+import signal
+import sqlite3
+import sys
+import time
+import numpy as np
+import main_qualification_proxy_r2 as old
+import main_calibration_select_13_19_r1 as selection
+
+rx=old.rx;budget=old.budget
+read=old.read;sha=old.sha;save=old.save;verify=old.verify;require=old.require;module=old.module
+SCHEMA='MAIN_ACTUAL_CALIBRATION_CONFIG_R1'
+REG='MAIN_ACTUAL_CALIBRATION_EXECUTION_REGISTERED_R1'
+WORKER_DONE='MAIN_ACTUAL_CALIBRATION_WORKER_COMPLETE'
+DONE='MAIN_ACTUAL_CALIBRATION_CPU_COMPLETE'
+PHASE='actual_calibration'
+FULL_SNRS=(1,4,7,10,13,19)
+NOISE_SEEDS=(4101,4102,4103)
+NOISE_NAMESPACE='MAIN_CALIBRATION_V1'
+DEADLINE=1791564605.9549868
+ENGINEERING=dict(noise_namespace=NOISE_NAMESPACE,noise_seeds=list(NOISE_SEEDS),full_snr_order=list(FULL_SNRS),
+    active_snrs=[13,19],noise_seed_encoding='SHA256(canonical JSON [MAIN_CALIBRATION_V1,1024,source_id,noise_seed]) first16 bytes little-endian',
+    normal_generator='numpy.Generator(numpy.PCG64(seed)).standard_normal((1024,2),dtype=float64)',
+    noise_scale='10**(-SNR/20)',public_counter='(full_snr_index*1000+original_source_index)*3+noise_index',
+    counter_depends_on_candidate=False,body_scramble_session='actual-body',body_group=0,
+    shared_K0_single_observation=True,source_count=1000,maximum_frames=30000,maximum_packet_calls=60000,
+    order='raster',receiver_rule=rx.RULE,GPU_used=False,development_used=False,policy_selection=False)
+
+
+def schedule(profiles,aliases,shortlist,spec):
+    pool,cells=selection.validate_shortlist(profiles,aliases,shortlist,spec)
+    points=sorted({(s,k) for (_,s),cell in cells.items() for k in cell['candidate_ids']})
+    require(len(points)<=10 and all(sum(s==x for s,k in points)<=5 for x in (13,19)), 'Bounded family union required')
+    return [dict(slot=i,snr_db=s,candidate_id=k,profile_id=pool[k]['profile_id'],wire_key=pool[k]['wire_key'],
+        family_memberships=[f for f in old.action_space.FAMILIES if k in cells[f,s]['candidate_ids']])
+        for i,(s,k) in enumerate(points)]
+
+
+def frame_counter(source_index,snr,seed):
+    require(type(source_index)is int and 0<=source_index<1000 and snr in (13,19) and seed in NOISE_SEEDS,'Original calibration frame identity required')
+    return (FULL_SNRS.index(snr)*1000+source_index)*3+NOISE_SEEDS.index(seed)
+
+
+def noise(source_id,seed):
+    require(isinstance(source_id,str) and source_id and seed in NOISE_SEEDS,'Bound source/noise seed required')
+    token=budget.canonical([NOISE_NAMESPACE,1024,source_id,seed]).encode()
+    n=int.from_bytes(hashlib.sha256(token).digest()[:16],'little')
+    return np.random.Generator(np.random.PCG64(n)).standard_normal((1024,2))
+
+
+def token_sha(tokens):
+    a=np.asarray(tokens)
+    require(a.dtype==np.dtype('int64') and a.shape==(680,) and ((a>=0)&(a<4096)).all(),'Original680 int64 VQ tokens required')
+    return hashlib.sha256(b'int64:680\0'+a.astype('<i8',copy=False).tobytes()).hexdigest()
+
+
+def load_tokens(record,bindings):
+    """Only tokens are decompressed; the co-stored source image is not used."""
+    cp=record['checkpoint'];require(bindings.get(cp)==sha(cp)==record['checkpoint_sha256'],'Unbound source asset checkpoint')
+    value=read(cp);archive=record['archive']
+    require(value['source_index']==record['source_index'] and value['source_id']==record['source_id']
+        and value['tokens_sha256']==record['tokens_sha256'] and value['archive']==archive
+        and value['outputs'].get(archive)==bindings.get(archive)==sha(archive),'Changed exact source archive')
+    with np.load(archive,allow_pickle=False) as z:
+        require(set(z.files)=={'tokens','pixels'},'Unknown original source archive schema')
+        tokens=z['tokens']
+    require(token_sha(tokens)==record['tokens_sha256'],'Tokens differ from admitted original calibration source')
+    return [tokens[rx.PREFIX[i]:rx.PREFIX[i+1]] for i in range(10)]
+
+
+def asset_records(completion,manifest,calibration):
+    require(completion['status']=='H_FULL1000_CPU_ASSETS_READY_SOURCE_ENCODING_INCOMPLETE'
+        and completion['source_count']==1000 and completion['new_packet_decodes']==0
+        and completion['development_used'] is False,'Original successful calibration-only asset export required')
+    ids=manifest['source_ids'];rows=manifest['records']
+    require(ids==calibration['source_ids'] and len(ids)==len(set(ids))==len(rows)==1000
+        and calibration['stage']==calibration['calibration_or_development']=='m1_calibration', 'Exact calibration1000 order required')
+    for i,row in enumerate(rows):
+        require(row['source_index']==i and row['source_id']==ids[i]
+            and row['preprocessing_id']==calibration['preprocessing_ids'][i]
+            and completion['outputs'].get(row['checkpoint'])==row['checkpoint_sha256']
+            and row['archive'] in completion['outputs'] and rx.sha(row['tokens_sha256']), 'Missing or mismatched calibration source metadata')
+    return rows
+
+
+def phase_budget(value,*,before=False,expected_calls=None):
+    c=value['phase_charged']
+    require(value['schema']==budget.SCHEMA and value['branch']=='MAIN' and value['total_cap']==105176
+        and value['limits']==budget.PHASE_LIMITS and c['qualification']==2168 and c['proxy_phy']==43008
+        and 0<=c[PHASE]<=60000 and value['charged']==45176+c[PHASE]
+        and value['H_C_ledger_used'] is False,'MAIN original three-phase budget differs')
+    if before:require(c[PHASE]==0 and value['unresolved']==0,'Fresh calibration and closed proxy required')
+    if expected_calls is not None:require(c[PHASE]==expected_calls and value['unresolved']==0,'Actual metered call count differs')
+
+
+def command(cfg,worker_index=None):
+    args=[cfg['python'],'-B',str(Path(__file__).absolute()),'--config',cfg['_path'],'--stage']
+    return args+(['merge'] if worker_index is None else ['worker','--worker-index',str(worker_index)])
+
+
+check_stop=old.check_stop
+exited=old.exited
+
+
+def runtime_admission(cfg,regsha,worker_index):
+    a=old.await_admission(cfg,cfg['admission']);me=budget.process_identity(os.getpid());owner=a['owner_identity']
+    require(a['status']=='MAIN_CPU_WORKERS_ADMITTED' and a['registration_sha256']==regsha
+        and a['config_sha256']==sha(cfg['_path']) and a['phase']==PHASE,'Exact calibration admission required')
+    require(owner['argv']==cfg['owner_argv'] and os.getppid()==owner['pid']
+        and budget.same_identity(owner,budget.process_identity(owner['pid'])),'Live registered parent required')
+    require(len(a['workers'])==2 and len({r['identity']['pid'] for r in a['workers']})==2,'Two distinct workers required')
+    for i,row in enumerate(a['workers']):
+        require(row['worker_index']==i and row['identity']['argv']==command(cfg,i)
+            and row['cpu_affinity']==cfg['cpu_affinity'][i]
+            and budget.same_identity(row['identity'],budget.process_identity(row['identity']['pid'])),'Wrong worker admission')
+    require(budget.same_identity(a['workers'][worker_index]['identity'],me),'Wrong current worker')
+    require(os.sched_getaffinity(0)==set(cfg['cpu_affinity'][worker_index]) and os.getpriority(os.PRIO_PROCESS,0)==15,'Registered2-core/nice15 required')
+    return me
+
+
+def merge_admission(cfg,regsha):
+    a=old.await_admission(cfg,cfg['merge_admission']);me=budget.process_identity(os.getpid());owner=a['owner_identity']
+    require(a['status']=='MAIN_CPU_MERGE_ADMITTED' and a['registration_sha256']==regsha
+        and a['config_sha256']==sha(cfg['_path']) and a['phase']==PHASE and os.getppid()==owner['pid']
+        and owner['argv']==cfg['owner_argv'] and budget.same_identity(owner,budget.process_identity(owner['pid']))
+        and me['argv']==command(cfg) and budget.same_identity(a['identity'],me),'Exact live merge admission required')
+    require(os.sched_getaffinity(0)==set(cfg['cpu_affinity'][0]) and os.getpriority(os.PRIO_PROCESS,0)==15,'Exact merge resources required')
+    return a
+
+
+def load_registered(config):
+    config=str(Path(config).absolute());cfg=read(config);reg=read(cfg['registration']);regsha=sha(cfg['registration'])
+    require(cfg['schema']==SCHEMA and cfg['phase']==PHASE and reg['status']==REG and reg['phase']==PHASE,
+        'Independent actual calibration registration required')
+    verify(reg['source_bindings']);verify(reg['input_bindings']);bound=dict(reg['input_bindings'])
+    for p,s in reg['source_bindings'].items():require(p not in bound or bound[p]==s,'Conflicting binding');bound[p]=s
+    require(cfg['engineering']==ENGINEERING and cfg['workers']==2 and cfg['deadline_unix']==DEADLINE
+        and cfg['threads']==2 and cfg['nice']==15 and cfg['GPU_jobs']==0,'Frozen engineering/resource contract differs')
+    require(len(cfg['cpu_affinity'])==2 and all(len(x)==len(set(x))==2 for x in cfg['cpu_affinity'])
+        and len(set(sum(cfg['cpu_affinity'],[])))==4,'Two disjoint2-core workers required')
+    required=[config,cfg['owner_config'],cfg['owner_module'],cfg['budget_registration'],cfg['profiles'],cfg['aliases'],
+        cfg['shortlist'],cfg['selection_spec'],cfg['asset_manifest'],cfg['asset_completion'],cfg['calibration_registration'],
+        cfg['legacy_qualification'],str(Path(__file__).absolute()),str(Path(rx.__file__).absolute()),
+        str(Path(budget.__file__).absolute()),str(Path(selection.__file__).absolute()),str(Path(old.__file__).absolute()),
+        str(Path(old.action_space.__file__).absolute()),str(Path(selection.old.__file__).absolute())]
+    required += [str(Path(cfg['legacy_runtime'])/n) for n in old.SOURCES]
+    for p in required:require(bound.get(p)==sha(p),'Missing executed dependency '+p)
+    budget.validate_budget_registration(read(cfg['budget_registration']));phase_budget(reg['budget_before'],before=True)
+    profiles=read(cfg['profiles']);aliases=read(cfg['aliases']);shortlist=read(cfg['shortlist']);spec=read(cfg['selection_spec'])
+    cat=rx.PublicCatalogue(profiles,aliases,catalogue_digest=rx.identity(profiles),aliases_digest=rx.identity(aliases),
+        backend_identity=profiles[0]['groups'][0]['layout']['implementation'])
+    points=schedule(profiles,aliases,shortlist,spec)
+    require(cfg['schedule']==points and cfg['maximum_packet_calls']==60000,'Registered shortlist schedule differs')
+    records=asset_records(read(cfg['asset_completion']),read(cfg['asset_manifest']),read(cfg['calibration_registration']))
+    require(rx.identity([r['source_id'] for r in records])==spec['source_ids_sha256'],'Shortlist population differs from assets')
+    for r in records:
+        for p in (r['checkpoint'],r['archive']):require(p in bound,'Every exact source archive/checkpoint must be bound')
+    cfg['_path']=config
+    return dict(cfg=cfg,reg=reg,regsha=regsha,bound=bound,catalogue=cat,profiles=profiles,schedule=points,records=records)
+
+
+def execute_frame(ctx,record,scales,point,seed,transmitter,receiver):
+    """TX sees source; actual RX receives only noisy symbols and public values."""
+    i=record['source_index'];snr=point['snr_db'];counter=frame_counter(i,snr,seed)
+    profile=ctx['catalogue'].entry(point['profile_id']);payload=rx.serialize_raw(scales,profile)
+    wave,tx=transmitter.transmit(profile['profile_id'],[payload],counter)
+    wave=np.asarray(wave,dtype=np.float64)
+    require(wave.shape==(1024,2) and np.isfinite(wave).all() and tx['N']==1024
+        and tx['header_uses']==68 and tx['body_uses']+tx['idle_uses']==956,'Original fully paid1024 waveform required')
+    z=noise(record['source_id'],seed);received=wave+z*10**(-float(snr)/20)
+    event=f'MAIN_CALIBRATION_V1/{profile["wire_key"]}/snr{snr}/source{i:04d}/noise{seed}'
+    actual=receiver.receive(received,snr,counter,phase=PHASE,event_prefix=event)
+    require(actual['status']=='MAIN_RAW_KEEP_RECEPTION_COMPLETE' and actual['source_decode_complete'] is True,
+        'Actual KEEP receive did not complete')
+    body_float_sha=None
+    if actual['header_ok']:
+        actual_profile=ctx['catalogue'].entry(actual['rx_profile_id'])
+        body_float_sha=rx.array_sha(received[68:68+actual_profile['groups'][0]['symbols']].astype(np.float32))
+    return dict(actual,candidate_id=point['candidate_id'],profile_id=profile['profile_id'],wire_key=profile['wire_key'],
+        family_memberships=point['family_memberships'],slot=point['slot'],snr_db=snr,noise_seed=seed,
+        source_index=i,source_id=record['source_id'],population_role='calibration',
+        source_tokens_sha256=record['tokens_sha256'],noise_sha256=rx.array_sha(z),transmission=tx,
+        transmitted_payload_sha256=rx.array_sha(payload),body_received_float32_sha256=body_float_sha,
+        new_metric_calls=0,quality_scored=False)
+
+
+def base_receipt(ctx):
+    cfg=ctx['cfg']
+    return dict(phase=PHASE,registration_sha256=ctx['regsha'],config_sha256=sha(cfg['_path']),
+        budget_registration_sha256=sha(cfg['budget_registration']),catalogue_digest=ctx['catalogue'].digest,
+        source_bindings=ctx['reg']['source_bindings'],input_bindings=ctx['reg']['input_bindings'],
+        GPU_used=False,development_read=False,quality_ranked=False,images_scored=False,policy_selection=False,
+        image_reconstruction_complete=False,source_decode_complete=True,automatic_successor_started=False)
+
+
+def run_worker(config,worker_index):
+    ctx=load_registered(config);cfg=ctx['cfg'];require(worker_index in (0,1),'Two registered worker indices only')
+    me=runtime_admission(cfg,ctx['regsha'],worker_index);check_stop(cfg);out=Path(cfg['out'])/f'worker_{worker_index}'
+    require(not out.exists() or out.is_dir() and not any(out.iterdir()),'Fresh worker output; no retry')
+    out.mkdir(parents=True,exist_ok=True);save(out/'attempt.json',dict(worker_identity=me,registration_sha256=ctx['regsha']))
+    ledger=None
+    def stop(*args):raise RuntimeError('Signal received; preserve charged events and outputs')
+    signal.signal(signal.SIGTERM,stop);signal.signal(signal.SIGINT,stop)
+    try:
+        sys.path.insert(0,cfg['legacy_runtime']);common=module(Path(cfg['legacy_runtime'])/'uep_common.py','uep_common')
+        phy=module(Path(cfg['legacy_runtime'])/'uep_phy.py','uep_phy')
+        actual=module(Path(cfg['legacy_runtime'])/'actual_phy.py','main_bound_original_actual_phy')
+        backend_module=module(Path(cfg['legacy_runtime'])/'ldpc_backend.py','main_bound_original_ldpc')
+        import torch
+        old.runtime_flags(torch);backend=backend_module.SionnaBackend('cpu',cfg['legacy_qualification'])
+        require(backend.qualified and backend.identity==ctx['catalogue'].backend_identity,'Qualified original LDPC backend required')
+        ledger=budget.BudgetLedger(cfg['ledger'],sha(cfg['budget_registration']),worker_identity=me)
+        before=ledger.snapshot();phase_budget(before)
+        transmitter=actual.FrameLink(cfg['root'],backend,{'entries':ctx['profiles']})
+        receiver=rx.Receiver(ctx['catalogue'],header=transmitter.header,backend=backend,phy=phy,ledger=ledger)
+        outputs={};events=[];frames=0;indices=list(range(worker_index,1000,2))
+        for i in indices:
+            check_stop(cfg);record=ctx['records'][i];scales=load_tokens(record,ctx['bound']);rows=[]
+            for point in ctx['schedule']:
+                for seed in NOISE_SEEDS:
+                    check_stop(cfg);row=execute_frame(ctx,record,scales,point,seed,transmitter,receiver)
+                    rows.append(row);events.extend(row['packet_event_ids'])
+            tp=Path(cfg['out'])/'traces'/f'{i:04d}.json';save(tp,rows);outputs[str(tp)]=sha(tp)
+            cp=Path(cfg['out'])/'source_checkpoints'/f'{i:04d}.json'
+            value=dict(status='MAIN_ACTUAL_CALIBRATION_SOURCE_COMPLETE',source_index=i,source_id=record['source_id'],
+                source_tokens_sha256=record['tokens_sha256'],registration_sha256=ctx['regsha'],worker_identity=me,
+                frame_count=len(rows),packet_calls=sum(r['logical_packet_calls'] for r in rows),outputs={str(tp):sha(tp)})
+            save(cp,value);outputs[str(cp)]=sha(cp);frames+=len(rows)
+        check_stop(cfg);verify(ctx['reg']['source_bindings'])
+        done=dict(base_receipt(ctx),status=WORKER_DONE,worker_index=worker_index,worker_identity=me,
+            source_indices=indices,source_count=500,frame_count=frames,packet_calls=len(events),event_ids=events,
+            outputs=outputs,budget_before=before,budget_after=ledger.snapshot())
+        save(out/'completion.json',done);return done
+    except BaseException as e:
+        save(out/'failure.json',dict(error=type(e).__name__,message=str(e),registration_sha256=ctx['regsha'],
+            worker_identity=me,budget=ledger.snapshot() if ledger else None));raise
+
+
+def verify_worker_closure(cfg,regsha,admission,completions):
+    c=read(cfg['worker_closure']);bindings={cfg['worker_closure']:sha(cfg['worker_closure'])}
+    require(c['status']=='MAIN_CPU_WORKERS_NORMALLY_CLOSED' and c['registration_sha256']==regsha
+        and c['config_sha256']==sha(cfg['_path']) and c['phase']==PHASE
+        and budget.same_identity(c['owner_identity'],admission['owner_identity']) and len(c['workers'])==len(completions)==2,
+        'Exact parent-waited closure required')
+    for i,(rec,done) in enumerate(zip(c['workers'],completions)):
+        require(rec['worker_index']==i,'Worker closure order differs')
+        pins={rec[k]['path']:rec[k]['sha256'] for k in ('launch','exit','log')};verify(pins);bindings.update(pins)
+        start=read(rec['launch']['path']);end=read(rec['exit']['path']);ident=done['worker_identity']
+        require(start['status']=='MAIN_CPU_WORKER_LAUNCHED' and start['worker_index']==i
+            and start['registration_sha256']==regsha and start['config_sha256']==sha(cfg['_path'])
+            and start['identity']==ident and ident['argv']==command(cfg,i)
+            and start['owner_identity']==c['owner_identity'] and end['status']=='MAIN_CPU_WORKER_EXITED'
+            and end['registration_sha256']==regsha and end['worker_index']==i and end['identity']==ident
+            and end['exit_code']==0 and end['wait_completed'] is True and exited(ident)
+            and end['launch_sha256']==rec['launch']['sha256'] and end['log_sha256']==rec['log']['sha256']
+            and end['completion_sha256']==sha(Path(cfg['out'])/f'worker_{i}/completion.json'),'Original worker exit0 evidence required')
+    return bindings
+
+
+def audit_frame(row,ctx,record,point,seed,actuals,worker):
+    require(all(row[k]==v for k,v in dict(source_index=record['source_index'],source_id=record['source_id'],
+        source_tokens_sha256=record['tokens_sha256'],candidate_id=point['candidate_id'],profile_id=point['profile_id'],
+        wire_key=point['wire_key'],slot=point['slot'],family_memberships=point['family_memberships'],snr_db=point['snr_db'],
+        noise_seed=seed,population_role='calibration',public_frame_counter=frame_counter(record['source_index'],point['snr_db'],seed)).items()),
+        'Actual frame grid or original TX identity differs')
+    presented=rx.present_actual(row['header'],row['body'],ctx['catalogue'])
+    require(all(row[k]==v for k,v in presented.items()),'Received state differs from actual hard bits/header')
+    require(row['codebook_sha256']==ctx['catalogue'].digest and row['aliases_sha256']==ctx['catalogue'].aliases_digest
+        and row['image_reconstruction_complete'] is False and row['quality_scored'] is False
+        and row['new_metric_calls']==0 and rx.sha(row['received_sha256']), 'Wrong actual RX/codebook/quality scope')
+    require(row['noise_sha256']==rx.array_sha(noise(record['source_id'],seed)),'Common frozen noise identity differs')
+    events=row['packet_events'];require(len(events)==row['logical_packet_calls']==(2 if row['header_ok'] else 1)
+        and row['packet_event_ids']==[x['event_id'] for x in events],'Actual decoder count differs')
+    prefix=f'MAIN_CALIBRATION_V1/{point["wire_key"]}/snr{point["snr_db"]}/source{record["source_index"]:04d}/noise{seed}'
+    base_request=dict(schema='MAIN_ACTUAL_RX_REQUEST_V1',received_sha256=row['received_sha256'],
+        codebook_sha256=ctx['catalogue'].digest,aliases_sha256=ctx['catalogue'].aliases_digest,
+        snr_db=float(point['snr_db']),public_frame_counter=row['public_frame_counter'],N=1024,
+        body_session=rx.SESSION,body_group=0)
+    for j,event in enumerate(events):
+        kind='header' if j==0 else 'body';key=rx.HEADER_KEY if j==0 else row['body']['phy_key']
+        require(event['event_id']==prefix+'.'+kind and event['kind']==kind and event['phy_key']==key,'Wrong event identity')
+        a=actuals.get(event['event_id']);require(a is not None and a['status']=='COMPLETE' and a['phase']==PHASE
+            and a['kind']==kind and a['phy_key']==key and json.loads(a['worker'])==worker
+            and a['request_sha']==event['request_sha256'] and a['result_sha']==event['result_sha256'], 'Metered event proof differs')
+        result=row['header'] if j==0 else row['body']
+        require(json.loads(a['result'])==result and budget.digest(result)==a['result_sha'],'Ledger actual decoder result differs')
+        request=dict(base_request,component=kind)
+        if j:
+            p=ctx['catalogue'].entry(row['rx_profile_id'])
+            require(rx.sha(row['body_received_float32_sha256']), 'Missing actual selected body slice identity')
+            request.update(actual_profile_id=p['profile_id'],actual_wire_key=p['wire_key'],
+                header_result_sha256=rx.identity(row['header']),body_received_float32_sha256=row['body_received_float32_sha256'])
+        require(rx.identity(request)==a['request_sha'],'Metered request does not describe this actual received frame')
+    return [r['event_id'] for r in events]
+
+
+def audit_inventory(ctx,admission):
+    """Reaudit original closed workers and every paid trace; never decode/write."""
+    cfg=ctx['cfg']
+    from register_main_cpu_phase_r2 import readonly_budget
+    snap=readonly_budget(cfg['ledger'],sha(cfg['budget_registration']));phase_budget(snap)
+    fields=('event_id','phase','kind','phy_key','request_sha','status','worker','result','result_sha')
+    with closing(sqlite3.connect('file:'+str(Path(cfg['ledger']).absolute())+'?mode=ro',uri=True)) as c:
+        actuals={r[0]:dict(zip(fields,r)) for r in c.execute('SELECT '+','.join(fields)+' FROM events WHERE phase=?',(PHASE,))}
+    dones=[read(Path(cfg['out'])/f'worker_{i}/completion.json') for i in range(2)]
+    outputs=verify_worker_closure(cfg,ctx['regsha'],admission,dones);events=[];frame_count=0
+    for wi,done in enumerate(dones):
+        require(done['status']==WORKER_DONE and done['registration_sha256']==ctx['regsha']
+            and done['config_sha256']==sha(cfg['_path']) and done['worker_index']==wi
+            and done['source_indices']==list(range(wi,1000,2)) and done['source_count']==500,
+            'Complete modulo1000 worker grid required')
+        verify(done['outputs']);observed=[];wf=0
+        for i in done['source_indices']:
+            check_stop(cfg);record=ctx['records'][i];cp=Path(cfg['out'])/'source_checkpoints'/f'{i:04d}.json'
+            tp=Path(cfg['out'])/'traces'/f'{i:04d}.json';cpv=read(cp);rows=read(tp)
+            require(done['outputs'].get(str(cp))==sha(cp) and done['outputs'].get(str(tp))==sha(tp)
+                and cpv['outputs']=={str(tp):sha(tp)} and cpv['worker_identity']==done['worker_identity']
+                and cpv['source_index']==i and cpv['source_id']==record['source_id']
+                and cpv['registration_sha256']==ctx['regsha'] and len(rows)==len(ctx['schedule'])*3,
+                'Bound complete source trace required')
+            frame_events=[]
+            for row,(point,seed) in zip(rows,((p,s) for p in ctx['schedule'] for s in NOISE_SEEDS)):
+                frame_events+=audit_frame(row,ctx,record,point,seed,actuals,done['worker_identity'])
+            require(cpv['frame_count']==len(rows) and cpv['packet_calls']==len(frame_events),'Source counts differ')
+            observed+=frame_events;wf+=len(rows)
+        require(done['event_ids']==observed and done['packet_calls']==len(observed) and done['frame_count']==wf,'Worker counts/events differ')
+        events+=observed;frame_count+=wf;outputs.update(done['outputs'])
+        dp=Path(cfg['out'])/f'worker_{wi}/completion.json';outputs[str(dp)]=sha(dp)
+    require(len(events)==len(set(events)) and set(events)==set(actuals)
+        and frame_count==1000*3*len(ctx['schedule']),'Exact all-source physical grid and no extra charged events required')
+    phase_budget(snap,expected_calls=len(events));require(readonly_budget(cfg['ledger'],sha(cfg['budget_registration']))==snap,'Read-only audit changed budget')
+    verify(ctx['reg']['source_bindings']);verify(ctx['reg']['input_bindings'])
+    return dict(frame_count=frame_count,packet_calls=len(events),budget=snap,outputs=outputs)
+
+
+def merge(config):
+    ctx=load_registered(config);cfg=ctx['cfg'];admission=merge_admission(cfg,ctx['regsha']);check_stop(cfg)
+    path=Path(cfg['out'])/'merge_attempt.json';require(not path.exists() and not(Path(cfg['out'])/'completion.json').exists(),'No implicit merge retry')
+    save(path,dict(registration_sha256=ctx['regsha'],identity=budget.process_identity(os.getpid())))
+    audit=audit_inventory(ctx,admission)
+    done=dict(base_receipt(ctx),status=DONE,worker_index=None,source_count=1000,
+        unique_candidate_snr_count=len(ctx['schedule']),**audit)
+    save(Path(cfg['out'])/'completion.json',done);return done
+
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--config',required=True);p.add_argument('--stage',choices=['worker','merge'],required=True)
+    p.add_argument('--worker-index',type=int);a=p.parse_args()
+    print((run_worker(a.config,a.worker_index) if a.stage=='worker' else merge(a.config))['status'],flush=True)

@@ -1,0 +1,117 @@
+"""Private operations fixtures; no actual data, context, registration or PHY."""
+import ast
+import copy
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tempfile
+from types import SimpleNamespace
+import unittest
+from unittest import mock
+import operate_main_actual_calibration_r1 as m
+
+
+class Pins:
+    def mapping(self,values):
+        for p,s in values.items():
+            if m.sha(p)!=s:raise RuntimeError('Changed fixture SHA')
+
+
+def ctx_fixture(base):
+    loc=m.locations(base);loc['code'].mkdir(parents=True);loc['q'].mkdir(parents=True)
+    q=loc['q']/'completion.json';m.save(q,{'outputs':{}})
+    budget=base/'budget.json';m.save(budget,{})
+    cfg=dict(root=str(loc['root']),ledger=str(loc['ledger']),budget_registration=str(budget),
+        profiles='/exact270',aliases='/exact329',legacy_runtime='/frozen/uep',legacy_qualification='/frozen/ldpc.json',
+        python=str(loc['root']/'outputs/PRIOR-AWARE-UEP-20261004-V1/ldpc_environment/bin/python'),
+        stop_file=str(loc['stop']),deadline_unix=m.DEADLINE)
+    return dict(loc=loc,cfg=cfg,python=cfg['python'],runtime=cfg['legacy_runtime'],pins=Pins(),
+        before={'charged':45176},sources={},inputs={},spec={'owner_config':'/proxy/config','completion':'/proxy/done'},
+        prescreen_spec={'config':'/freeze/config','completion':'/freeze/done'},
+        asset_spec={'owner_config':'/assets/config','completion':'/assets/done'},
+        registrar=SimpleNamespace(w=SimpleNamespace(ENGINEERING={'counter':'frozen'}),readonly_budget=lambda *a:{'charged':45176}),
+        old=SimpleNamespace(THREAD_KEYS=('OMP_NUM_THREADS','MKL_NUM_THREADS','OPENBLAS_NUM_THREADS','NUMEXPR_NUM_THREADS'),exited=lambda x:True))
+
+
+class Tests(unittest.TestCase):
+    def setUp(self):
+        t=tempfile.TemporaryDirectory();self.addCleanup(t.cleanup);self.base=Path(t.name);self.ctx=ctx_fixture(self.base)
+
+    def test_request_preserves_exact_predecessors_and_independent_budget(self):
+        r=m.make_request(self.ctx)
+        self.assertEqual(r['schema'],'MAIN_ACTUAL_CALIBRATION_REGISTRATION_REQUEST_R1')
+        self.assertEqual(r['proxy_predecessor'],self.ctx['spec']);self.assertEqual(r['prescreen_predecessor'],self.ctx['prescreen_spec'])
+        self.assertEqual(r['asset_predecessor'],self.ctx['asset_spec']);self.assertEqual(r['resources']['cpu_affinity'],[[24,25],[26,27]])
+        self.assertEqual(r['engineering'],{'counter':'frozen'});self.assertEqual(r['python'],self.ctx['cfg']['python'])
+        self.assertEqual(r['qualification_test_count'],m.TEST_COUNT);self.assertFalse(r['H_C_ledger_opened'])
+        self.assertIn(str(self.ctx['loc']['q']/'completion.json'),r['input_bindings'])
+
+    def test_runtime_order_preserves_physical_action_module_origin(self):
+        e=m.environment(self.ctx);parts=e['PYTHONPATH'].split(os.pathsep)
+        self.assertEqual(parts,[str(self.ctx['loc'][k])for k in ('code','oldcode','prescreen_code')])
+        self.assertEqual(e['CUDA_VISIBLE_DEVICES'],'')
+        self.assertTrue(all(e[k]=='2'for k in self.ctx['old'].THREAD_KEYS))
+        tree=ast.parse(Path(m.__file__).read_text(encoding='utf-8'))
+        self.assertFalse(any(isinstance(n,ast.Call)and isinstance(n.func,ast.Attribute)and n.func.attr=='resolve'for n in ast.walk(tree)))
+
+    def test_changed_budget_deadline_stop_rejected_without_action(self):
+        with mock.patch.object(m.time,'time',return_value=m.DEADLINE-1):m.unchanged(self.ctx)
+        with mock.patch.object(m.time,'time',return_value=m.DEADLINE+1),self.assertRaises(RuntimeError):m.unchanged(self.ctx)
+        self.ctx['registrar'].readonly_budget=lambda *a:{'charged':45177}
+        with mock.patch.object(m.time,'time',return_value=m.DEADLINE-1),self.assertRaises(RuntimeError):m.unchanged(self.ctx)
+        self.ctx['loc']['stop'].parent.mkdir(parents=True,exist_ok=True);m.save(self.ctx['loc']['stop'],{'reason':'preserve'})
+        with mock.patch.object(m.time,'time',return_value=m.DEADLINE-1),self.assertRaises(RuntimeError):m.unchanged(self.ctx)
+
+    def test_one_shot_attempt_and_save_refuse_overwrite(self):
+        f=m.attempt(self.ctx,'launch')
+        with self.assertRaises(RuntimeError):m.attempt(self.ctx,'launch')
+        with self.assertRaises(FileExistsError):m.save(f/'attempt.json',{})
+
+    def test_spawn_capture_failure_keeps_real_pending_pid(self):
+        f=m.attempt(self.ctx,'qualify');child=SimpleNamespace(pid=123,wait=lambda:0)
+        self.ctx['old'].capture=lambda *a:(_ for _ in ()).throw(RuntimeError('capture failed'))
+        with mock.patch.object(m.subprocess,'Popen',return_value=child),self.assertRaises(RuntimeError):
+            m.invoke(self.ctx,f,['/exact/python','-B','entry'])
+        p=m.read(f/'spawn_pending_identity.json');self.assertEqual(p['pid'],123);self.assertFalse(p['identity_verified'])
+
+    def test_launcher_parent_uses_four_core_union_only_actual_phase(self):
+        tree=ast.parse(Path(m.__file__).read_text(encoding='utf-8'));fn=next(n for n in tree.body if isinstance(n,ast.FunctionDef)and n.name=='launch')
+        pools=[n for n in ast.walk(fn)if isinstance(n,ast.Call)and isinstance(n.func,ast.Name)and n.func.id=='resources']
+        self.assertEqual(len(pools),1);self.assertEqual(ast.literal_eval(pools[0].args[0]),[24,25,26,27])
+        self.assertIn('actual_calibration',ast.unparse(fn));self.assertNotIn('build_native',ast.unparse(tree))
+        self.assertEqual(len(m.NEW_SOURCES),8);self.assertEqual(len(set(m.NEW_SOURCES)),8)
+
+    def test_qualified_requires_exact_original_test_inventory_and_zero_exit(self):
+        c=self.ctx;f=c['loc']['ops']/'qualify';f.mkdir(parents=True)
+        identity={'pid':4,'start_ticks':5,'uid':6,'argv':['python','-B','-m','unittest']}
+        (f/'process.log').write_text('pure tests\n');m.save(f/'launch.json',{'identity':identity})
+        m.save(f/'exit.json',dict(identity=identity,exit_code=0,wait_completed=True,log_sha256=m.sha(f/'process.log')))
+        q=dict(status=m.QUALIFIED,python=c['python'],test_count=m.TEST_COUNT,test_modules=m.TEST_MODULES,all_tests_passed=True,
+            actual_backend_called=False,new_packet_decodes=0,GPU_used=False,budget_before=c['before'],budget_after=c['before'],
+            source_bindings=c['sources'],input_bindings=c['inputs'],outputs={str(f/n):m.sha(f/n)for n in ('launch.json','exit.json','process.log')})
+        qp=c['loc']['q']/'completion.json';qp.write_text(json.dumps(q));m.qualified(c)
+        q['test_modules']=q['test_modules'][:-1];qp.write_text(json.dumps(q))
+        with self.assertRaises(RuntimeError):m.qualified(c)
+
+    def test_separated_three_runtime_layout_runs_all_formal_tests(self):
+        here=Path(m.__file__).parent
+        with tempfile.TemporaryDirectory() as td:
+            td=Path(td);new=td/'actual';old=td/'physical';pure=td/'prescreen';cwd=td/'unrelated'
+            for p in (new,old,pure,cwd):p.mkdir()
+            sys.path.insert(0,str(here))
+            import operate_main_cpu_phase_r2_remote as prior
+            import operate_main_psnr_freeze_r1 as pre
+            for n in m.NEW_SOURCES:shutil.copyfile(here/n,new/n)
+            for n in prior.PINS:shutil.copyfile(here/n,old/n)
+            for n in pre.PURE_PINS:shutil.copyfile(here/n,pure/n)
+            env=dict(os.environ,PYTHONPATH=os.pathsep.join(map(str,(new,old,pure))),CUDA_VISIBLE_DEVICES='',PYTHONDONTWRITEBYTECODE='1',
+                OMP_NUM_THREADS='2',MKL_NUM_THREADS='2',OPENBLAS_NUM_THREADS='2',NUMEXPR_NUM_THREADS='2')
+            result=subprocess.run([sys.executable,'-B','-m','unittest',*m.TEST_MODULES],cwd=cwd,env=env,capture_output=True,text=True)
+            self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+            self.assertRegex(result.stderr,r'Ran '+str(m.TEST_COUNT)+r' tests');self.assertNotIn('skipped',result.stderr.lower())
+
+
+if __name__=='__main__':unittest.main()

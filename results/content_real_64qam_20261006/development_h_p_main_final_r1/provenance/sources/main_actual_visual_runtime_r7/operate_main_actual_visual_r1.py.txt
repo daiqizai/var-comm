@@ -1,0 +1,245 @@
+"""Three explicit MAIN visual operations. No automatic sequence or successor.
+
+Qualification runs pure fixtures with hidden CUDA in the original UM interpreter.
+Only a separately called launch starts the registered single GPU supervisor.
+"""
+from __future__ import annotations
+import argparse
+import copy
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+import time
+import traceback
+
+DEADLINE=1791564605.9549868
+QUALIFIED='MAIN_ACTUAL_VISUAL_CPU_INTERFACE_QUALIFICATION_PASS_R1'
+TEST_MODULES=['test_main_visual_keep_adapter','test_main_actual_visual_driver_r1','test_main_actual_visual_owner_r1','test_register_main_actual_visual_r1']
+TEST_COUNT=56
+NEW_SOURCES=['main_visual_keep_adapter.py','test_main_visual_keep_adapter.py','main_actual_visual_driver_r1.py',
+    'test_main_actual_visual_driver_r1.py','main_actual_visual_owner_r1.py','test_main_actual_visual_owner_r1.py',
+    'register_main_actual_visual_r1.py','test_register_main_actual_visual_r1.py',
+    'operate_main_actual_visual_r1.py','test_operate_main_actual_visual_r1.py','test_main_raw_keep_receiver.py']
+METRIC_PINS={'registration.json':'bb7f8d7d08616a1b634885ceb5663a4aba1d570460f222b5ac9237ea30a28e2a',
+    'metric_batch8_qualification.json':'f1604378fe68c83fd02d3e7bc07fabc20ed7c088677e33978fc57a69d5391411'}
+THREAD_KEYS=('OMP_NUM_THREADS','MKL_NUM_THREADS','OPENBLAS_NUM_THREADS','NUMEXPR_NUM_THREADS')
+
+
+def require(ok,message):
+    if not ok:raise RuntimeError(message)
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p):
+    h=hashlib.sha256()
+    with Path(p).open('rb') as f:
+        for b in iter(lambda:f.read(1048576),b''):h.update(b)
+    return h.hexdigest()
+def save(p,value):
+    p=Path(p);p.parent.mkdir(parents=True,exist_ok=True)
+    with p.open('x',encoding='utf-8',newline='\n') as f:
+        json.dump(value,f,indent=2,sort_keys=True,ensure_ascii=False,allow_nan=False);f.write('\n');f.flush();os.fsync(f.fileno())
+def verify(pins):
+    for p,s in pins.items():require(Path(p).is_file() and sha(p)==s,'Changed or missing file '+p)
+def combine(*maps):
+    out={}
+    for pins in maps:
+        for p,s in pins.items():require(p not in out or out[p]==s,'Conflicting SHA '+p);out[p]=s
+    return out
+def bind(paths):return {str(Path(p).absolute()):sha(p) for p in paths}
+def module(path,name):
+    spec=importlib.util.spec_from_file_location(name,path);m=importlib.util.module_from_spec(spec);sys.modules[name]=m;spec.loader.exec_module(m);return m
+
+
+def locations(root):
+    root=Path(root).absolute();out=root/'outputs/CONTENT-REAL-64QAM-20261006';main=out/'MAIN'
+    return dict(root=root,o=out,main=main,code=out/'prepared_v1/main_actual_visual_runtime_r1',
+        actual=out/'prepared_v1/main_actual_runtime_r1',physical=out/'prepared_v1/main_physical_runtime_r2',
+        prescreen=out/'prepared_v1/main_psnr_runtime_r1',ops=out/'prepared_v1/main_actual_visual_operations_r1',
+        q=main/'prepared_visual_qualification_r1',execution=main/'actual_visual_execution_r1',out=main/'actual_visual_r1',
+        cpu_execution=main/'actual_calibration_execution_r1',source_execution=out/'H/full1000_source_execution_v1',
+        metric=root/'outputs/PRIOR-AWARE-UEP-20261004-V1/quality_final1000',stop=main/'STOP')
+
+
+def fixed_request(loc):
+    return dict(schema='MAIN_ACTUAL_VISUAL_REGISTRATION_REQUEST_R1',root=str(loc['root']),execution_dir=str(loc['execution']),
+        out=str(loc['out']),runtime_dir=str(loc['code']),
+        cpu_batch=dict(owner_config=str(loc['cpu_execution']/'owner_config.json'),completion=str(loc['cpu_execution']/'completion.json')),
+        visual_reference=dict(config=str(loc['source_execution']/'source_config.json'),owner_config=str(loc['source_execution']/'owner_config.json'),
+            completion=str(loc['source_execution']/'completion.json')),
+        metric_registration=str(loc['metric']/'registration.json'),metric_batch_qualification=str(loc['metric']/'metric_batch8_qualification.json'),
+        prepared_qualification=str(loc['q']/'completion.json'),resources=dict(gpu_device=0,gpu_threads=6,gpu_affinity=[4,5,6,7,8,9],
+            nice=15,max_seconds=86400,max_archive_bytes=24*1024**3))
+
+
+def initial_sources(loc):
+    """Authenticate the imported CPU predecessor before its closure executes."""
+    op=loc['cpu_execution']/'owner_config.json';oc=read(op);rp=Path(oc['registration']);reg=read(rp)
+    require(rp==loc['cpu_execution']/'execution_registration.json'
+        and reg['status']=='MAIN_ACTUAL_CALIBRATION_EXECUTION_REGISTERED_R1'
+        and reg['owner_scope']=='ONE_MAIN_ACTUAL_CALIBRATION_CPU_BATCH_ONLY'
+        and reg['owner_config_sha256']==sha(op) and reg['input_bindings'].get(str(op))==sha(op),
+        'Original CPU registration/config is not sealed')
+    required=loc['actual']/'main_actual_calibration_owner_r1.py'
+    require(reg['source_bindings'].get(str(required))==sha(required),'Original imported CPU owner must be bound before closure')
+    sources=dict(reg['source_bindings']);verify(sources)
+    for name in NEW_SOURCES:
+        path=loc['code']/name;require(path.is_file() and not path.is_symlink(),'Required explicit visual source missing '+name)
+        sources=combine(sources,{str(path):sha(path)})
+    return sources
+
+
+def context(root):
+    require(sys.platform.startswith('linux'),'Real operations require original Linux process identities')
+    loc=locations(root);require(Path(__file__).absolute()==loc['code']/'operate_main_actual_visual_r1.py','Explicit new private visual runtime required')
+    for path in reversed((loc['code'],loc['actual'],loc['physical'],loc['prescreen'])):
+        if str(path)not in sys.path:sys.path.insert(0,str(path))
+    fresh=initial_sources(loc)
+    reg=module(loc['code']/'register_main_actual_visual_r1.py','_main_visual_registrar')
+    from register_main_cpu_phase_r2 import readonly_budget
+    # The registrar's public metadata helpers own the normal predecessor gates.
+    # No image arrays/model constructor is used during these operations.
+    request=fixed_request(loc)
+    for name,digest in METRIC_PINS.items():require(sha(loc['metric']/name)==digest,'Original actual qualified metric receipt differs')
+    request.update(source_bindings=fresh,input_bindings=bind([loc['metric']/name for name in METRIC_PINS]))
+    admitted=reg.inspect_inputs(request,require_fresh=False)
+    cpu=admitted['cpu_closed'];visual=admitted['visual']
+    before=cpu['done']['budget'];require(readonly_budget(cpu['ctx']['cfg']['ledger'],sha(cpu['ctx']['cfg']['budget_registration']))==before,
+        'Actual MAIN CPU budget changed after normal completion')
+    require(cpu['done']['status']=='MAIN_ACTUAL_CALIBRATION_CPU_COMPLETE' and cpu['done']['source_count']==1000
+        and cpu['done']['frame_count']==3000*len(cpu['ctx']['schedule']) and cpu['owner_done']['automatic_successor_started']is False,
+        'Only normally closed original MAIN actual1000 may precede visual work')
+    cfg=visual['cfg'];owner=visual['owner'];python=visual['python']
+    expected=str(loc['root']/'outputs/UNIFIED-METRICS-20261002/environment/bin/python')
+    require(python==expected and Path(python).is_absolute(),'Original UM interpreter must be preserved without resolving its venv path')
+    sources=combine(admitted['sources'],fresh)
+    inputs=combine(admitted['inputs'],bind([loc['metric']/name for name in METRIC_PINS]))
+    verify(sources);verify(inputs)
+    for key,path in [('profiles',cpu['ctx']['cfg']['profiles']),('aliases',cpu['ctx']['cfg']['aliases'])]:
+        require(Path(path).parent==Path(cpu['ctx']['cfg']['profiles']).parent,'Original metadata fixture directory split')
+    request.update(source_bindings=sources,input_bindings=inputs)
+    ctx=dict(loc=loc,reg=reg,request=request,cpu=cpu,visual=visual,before=before,python=python,sources=sources,inputs=inputs,readonly_budget=readonly_budget,
+        source_renderer=cfg['source_driver_module'],uep_runtime=cpu['ctx']['cfg']['legacy_runtime'],
+        plan_summary=str(Path(cpu['ctx']['cfg']['profiles']).parent))
+    unchanged(ctx);require(set(range(4,10))<=os.sched_getaffinity(0),'Registered visual CPU4–9 unavailable');return ctx
+
+
+def environment(ctx):
+    loc=ctx['loc'];env=dict(os.environ,CUDA_VISIBLE_DEVICES='',PYTHONDONTWRITEBYTECODE='1',PYTHONUNBUFFERED='1',
+        PYTHONPATH=os.pathsep.join(str(loc[k]) for k in ('code','actual','physical','prescreen')),
+        MAIN_TEST_SOURCE_RENDERER=ctx['source_renderer'],MAIN_TEST_PLAN_SUMMARY=ctx['plan_summary'],MAIN_TEST_UEP_RUNTIME=ctx['uep_runtime'])
+    env.update({k:'2' for k in THREAD_KEYS});return env
+
+
+def unchanged(ctx):
+    require(time.time()<DEADLINE,'Original visual deadline expired')
+    require(not any(p.exists() for p in (ctx['loc']['stop'],ctx['loc']['o']/'STOP',ctx['loc']['o']/'H/STOP')),'STOP blocks new visual operation')
+    verify(ctx['sources']);verify(ctx['inputs']);c=ctx['cpu']['ctx']['cfg']
+    require(ctx['readonly_budget'](c['ledger'],sha(c['budget_registration']))==ctx['before'],'MAIN budget changed; no implicit continuation')
+
+
+def attempt(ctx,stage):
+    p=ctx['loc']['ops']/stage;require(not p.exists(),'Prior operation is preserved; no retry');p.mkdir(parents=True)
+    save(p/'attempt.json',dict(stage=stage,source_bindings=ctx['sources'],input_bindings=ctx['inputs'],budget_before=ctx['before'],
+        new_packet_decodes=0,GPU_started=False,automatic_next_stage=False));return p
+
+
+def resources(cores):os.sched_setaffinity(0,cores);os.setpriority(os.PRIO_PROCESS,0,15)
+
+
+def capture(child,argv,identity_reader):
+    for _ in range(100):
+        require(child.poll()is None,'Child exited before verified launch identity')
+        try:
+            me=identity_reader(child.pid)
+            if me['argv']==argv and me['uid']==os.getuid():return me
+        except (FileNotFoundError,ProcessLookupError):pass
+        time.sleep(.01)
+    raise RuntimeError('Actual identity capture failed; inspect preserved PID, no retry')
+
+
+def invoke(ctx,folder,command):
+    with (folder/'process.log').open('xb') as log:
+        child=subprocess.Popen(command,cwd=ctx['loc']['code'],env=environment(ctx),stdin=subprocess.DEVNULL,
+            stdout=log,stderr=subprocess.STDOUT,preexec_fn=lambda:resources([4,5]))
+        save(folder/'spawn_pending_identity.json',dict(pid=child.pid,argv=command,identity_verified=False))
+        identity=capture(child,command,ctx['reg'].owner.ids.process_identity)
+        save(folder/'launch.json',dict(identity=identity,argv=command,cpu_affinity=[4,5],threads=2,nice=15,CUDA_VISIBLE_DEVICES=''))
+        code=child.wait()
+    save(folder/'exit.json',dict(identity=identity,exit_code=code,wait_completed=True,log_sha256=sha(folder/'process.log')))
+    require(code==0,'Operation child failed; preserve, no retry')
+
+
+def qualified(ctx):
+    p=ctx['loc']['q']/'completion.json';q=read(p);f=ctx['loc']['ops']/'qualify'
+    require(q['status']==QUALIFIED and q['python']==ctx['python'] and q['test_modules']==TEST_MODULES and q['test_count']==TEST_COUNT
+        and q['all_tests_passed']is True and q['real_metric_calls']==q['new_packet_decodes']==0 and q['GPU_used']is False and q['model_imports']is False
+        and q['budget_before']==q['budget_after']==ctx['before'] and not(f/'failure.json').exists(),'Exact pure visual qualification required')
+    for k in ('source_bindings','input_bindings','outputs'):verify(q[k])
+    require(q['source_bindings']==ctx['sources'] and q['input_bindings']==ctx['inputs'],'Source/assets changed since qualification')
+    x=read(f/'exit.json');l=read(f/'launch.json')
+    require(x['identity']==l['identity'] and x['exit_code']==0 and x['wait_completed']is True and ctx['reg'].owner.exited(x['identity'])
+        and x['log_sha256']==sha(f/'process.log'),'Qualification child must normally exit with closed log');return q
+
+
+def qualify(ctx):
+    unchanged(ctx);require(not ctx['loc']['q'].exists(),'Prior qualification retained');f=attempt(ctx,'qualify');ctx['loc']['q'].mkdir(parents=True)
+    try:
+        invoke(ctx,f,[ctx['python'],'-B','-m','unittest','-v',*TEST_MODULES]);log=(f/'process.log').read_text(encoding='utf-8',errors='replace')
+        require(re.search(r'Ran '+str(TEST_COUNT)+r' tests in .*\n\s*OK\s*$',log) and not re.search(r'\bskipped\b',log,re.I), 'Exact fixture inventory with no skips required')
+        unchanged(ctx);q=dict(status=QUALIFIED,python=ctx['python'],test_modules=TEST_MODULES,test_count=TEST_COUNT,all_tests_passed=True,
+            real_metric_calls=0,new_packet_decodes=0,GPU_used=False,model_imports=False,budget_before=ctx['before'],budget_after=ctx['before'],
+            source_bindings=ctx['sources'],input_bindings=ctx['inputs'],outputs=bind([f/n for n in ('process.log','launch.json','exit.json')]))
+        save(ctx['loc']['q']/'completion.json',q);return q
+    except BaseException:save(f/'failure.json',dict(status='FAILED_QUALIFICATION_PRESERVE',traceback=traceback.format_exc()));raise
+
+
+def make_request(ctx):
+    qualified(ctx)
+    # Registrar adds the actual qualification afterward. It cannot appear in
+    # its own input_bindings when its immutable qualification is generated.
+    return copy.deepcopy(ctx['request'])
+
+
+def register(ctx):
+    qualified(ctx);unchanged(ctx);loc=ctx['loc']
+    require(not loc['execution'].exists() and not loc['out'].exists(),'Existing registration/output preserved');f=attempt(ctx,'register')
+    try:
+        save(f/'request.json',make_request(ctx));invoke(ctx,f,[ctx['python'],'-B',str(loc['code']/'register_main_actual_visual_r1.py'),'--request',str(f/'request.json')])
+        seal=read(loc['execution']/'registration_completion.json');require(seal['status']==ctx['reg'].owner.REGISTERED,'Independent visual seal missing')
+        verify(seal['outputs']);unchanged(ctx);return seal
+    except BaseException:save(f/'failure.json',dict(status='FAILED_REGISTER_PRESERVE_NO_LAUNCH',traceback=traceback.format_exc()));raise
+
+
+def launch(ctx):
+    qualified(ctx);unchanged(ctx);loc=ctx['loc'];folder=loc['ops']/'register';x=read(folder/'exit.json')
+    require(not(folder/'failure.json').exists() and x['exit_code']==0 and x['wait_completed']is True
+        and ctx['reg'].owner.exited(x['identity']) and x['log_sha256']==sha(folder/'process.log'),'Registration child must normally close')
+    new=ctx['reg'].owner.load(loc['execution']/'owner_config.json')
+    require(new['owner']['python']==ctx['python'] and new['owner']['cpu_affinity']==list(range(4,10))
+        and new['before']==ctx['before'] and new['owner']['automatic_successor']is False,'Exact single visual owner scope required')
+    require(not any((loc['execution']/n).exists() for n in ('attempt.json','owner_start.json','completion.json','failure.json','worker'))
+        and not loc['out'].exists(),'Prior owner/science attempt cannot restart');f=attempt(ctx,'launch')
+    try:
+        command=ctx['reg'].owner.argv(new['owner'])
+        with (loc['execution']/'owner.log').open('xb') as log:
+            # Parent retains every registered visual core; child changes CUDA to0
+            # and six threads itself using the sealed supervisor environment.
+            child=subprocess.Popen(command,cwd=loc['root'],env=environment(ctx),stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT,
+                start_new_session=True,preexec_fn=lambda:resources(list(range(4,10))))
+            save(f/'spawn_pending_identity.json',dict(pid=child.pid,argv=command,identity_verified=False))
+            identity=capture(child,command,ctx['reg'].owner.ids.process_identity)
+            done=dict(status='MAIN_ACTUAL_VISUAL_OWNER_LAUNCHED_R1',identity=identity,argv=command,registration_sha256=new['regsha'],
+                owner_config_sha256=sha(loc['execution']/'owner_config.json'),budget_before=ctx['before'],GPU_jobs=1,gpu_device=0,gpu_threads=6,
+                cpu_affinity=list(range(4,10)),new_packet_decodes=0,noise_generated=0,policy_selection=False,development_used=False,
+                automatic_next_stage=False,scientific_completion_claimed=False)
+            save(loc['execution']/'launch.json',done);save(f/'completion.json',done);return done
+    except BaseException:save(f/'failure.json',dict(status='FAILED_LAUNCH_PRESERVE_INSPECT_PID',traceback=traceback.format_exc()));raise
+
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--root',required=True);p.add_argument('--stage',choices=['qualify','register','launch'],required=True)
+    a=p.parse_args();ctx=context(a.root);print({'qualify':qualify,'register':register,'launch':launch}[a.stage](ctx)['status'],flush=True)

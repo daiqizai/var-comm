@@ -1,0 +1,359 @@
+"""Independent CPU statistics for the sealed H18/P2 and actual MAIN4.
+
+Registration reads identities only. A waited CPU worker later reads the fixed
+source means and actual metric rows. No model, packet, noise or policy call.
+"""
+from __future__ import annotations
+import argparse
+import contextlib
+import csv
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import re
+import signal
+import subprocess
+import sys
+import time
+import traceback
+
+REQUEST='MAIN_H_P_FINAL_STATISTICS_REQUEST_R1'
+REGISTERED='MAIN_H_P_STATISTICS_REGISTERED_R1'
+SEALED='MAIN_H_P_STATISTICS_REGISTERED_NOT_LAUNCHED_R1'
+SCIENCE='MAIN_H_P_FIXED_SOURCE_STATISTICS_COMPLETE_R1'
+DONE='MAIN_H_P_STATISTICS_NORMALLY_COMPLETE_R1'
+QUALIFIED='MAIN_H_P_STATISTICS_CPU_QUALIFICATION_PASS_R1'
+DEADLINE=1791564605.9549868
+THREADS=('OMP_NUM_THREADS','MKL_NUM_THREADS','OPENBLAS_NUM_THREADS','NUMEXPR_NUM_THREADS')
+TEST_MODULES=['test_main_h_p_statistics_core_r1','test_main_h_p_statistics_driver_r1']
+TEST_COUNT=20  # Original seven core tests plus thirteen driver/closure tests.
+HP_FILES=('source_means.csv','point_identity.json','normalization_proof.json','target_pixel_bridge.json','metric_availability.json')
+STOP=False
+
+def require(ok,message):
+    if not ok:raise RuntimeError(message)
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p):
+    h=hashlib.sha256()
+    with Path(p).open('rb') as f:
+        for b in iter(lambda:f.read(1048576),b''):h.update(b)
+    return h.hexdigest()
+def identity(v):return hashlib.sha256(json.dumps(v,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
+def bind(paths):return {str(Path(p).absolute()):sha(p) for p in paths}
+def verify(pins):
+    for p,h in pins.items():require(Path(p).is_absolute() and sha(p)==h,'Changed bound input: '+p)
+def combine(*maps):
+    result={}
+    for mapping in maps:
+        for p,h in mapping.items():require(p not in result or result[p]==h,'Conflicting SHA: '+p);result[p]=h
+    return result
+def save(p,v):
+    p=Path(p);p.parent.mkdir(parents=True,exist_ok=True)
+    with p.open('x',encoding='utf-8',newline='\n') as f:json.dump(v,f,sort_keys=True,indent=2,allow_nan=False);f.write('\n');f.flush();os.fsync(f.fileno())
+def module(p,name,bound):
+    p=str(Path(p).absolute());require(bound.get(p)==sha(p),'Source must be pinned before import: '+p)
+    s=importlib.util.spec_from_file_location(name,p);m=importlib.util.module_from_spec(s);sys.modules[name]=m;s.loader.exec_module(m);return m
+def process(pid):
+    p=Path('/proc')/str(pid);f=(p/'stat').read_text().rsplit(')',1)[1].split()
+    return dict(pid=pid,start_ticks=int(f[19]),uid=p.stat().st_uid,argv=(p/'cmdline').read_bytes().decode().rstrip('\0').split('\0'))
+def absent(old):
+    try:now=process(old['pid'])
+    except FileNotFoundError:return True
+    return any(now[k]!=old[k] for k in ('start_ticks','uid'))
+def waited(child):
+    while True:
+        try:return child.wait()
+        except KeyboardInterrupt:continue
+def capture(child,argv,uid):
+    until=time.monotonic()+10
+    while time.monotonic()<until:
+        require(child.poll() is None,'CPU child exited before identity admission')
+        try:
+            candidate=process(child.pid)
+            if candidate['argv']==argv and candidate['uid']==uid:return candidate
+        except FileNotFoundError:pass
+        time.sleep(.05)
+    raise RuntimeError('CPU child command did not settle to the registered interpreter')
+def stop(*_):
+    global STOP
+    STOP=True
+def check_stop(r):
+    b=Path(r['root'])/'outputs/CONTENT-REAL-64QAM-20261006'
+    require(not STOP and time.time()<DEADLINE and not any((p/'STOP').exists() for p in (b,b/'H',b/'MAIN',Path(r['execution_dir']),Path(r['out']))),'STOP/deadline; retain all evidence')
+
+def historical_hp(spec,visual):
+    """Reuse the normal H/P proof sealed before MAIN4 fees, never its live gate."""
+    require(set(spec)=={'config','registration','owner_completion','completion'},'Exact four historical H/P control pins required')
+    cc=visual['ctx']['cpu_ctx'];sealed=cc['predecessor']['bindings']
+    for key in ('registration','owner_completion','completion'):
+        p=spec[key];require(sealed.get(p)==sha(p),'H/P receipt absent from normal MAIN4 predecessor snapshot: '+p)
+    # The normal CPU snapshot seals the original registration itself. Its
+    # immutable input map authenticates the old worker config and private
+    # admission/plan paths even when they were not flattened into that snapshot.
+    reg=read(spec['registration']);ancestry=combine(sealed,reg['source_bindings'],reg['input_bindings'])
+    require(ancestry.get(spec['config'])==sha(spec['config']),'H/P worker config is not bound by the sealed original registration')
+    cfg,owner,done=[read(spec[k]) for k in ('config','owner_completion','completion')]
+    require(cfg['schema']=='H_P_FIXED_STATISTICS_CONFIG_V1' and cfg['registration']==spec['registration']
+        and reg['input_bindings'].get(spec['config'])==sha(spec['config'])
+        and done['status']=='H_P_FIXED_SOURCE_COMPARISON_COMPLETE_MAIN_PENDING'
+        and done['registration_sha256']==sha(spec['registration']) and done['config_sha256']==sha(spec['config']),
+        'Original H/P statistics identity differs')
+    require(owner['status']=='REGISTERED_H_STAGE_BATCH_COMPLETE' and owner['registration_sha256']==sha(spec['registration'])
+        and owner['budget']==done['budget_before']==done['budget_after'] and owner['budget']['charged']==164760,
+        'Historical H/P successful owner budget proof differs')
+    require(done['source_ids']==cc['source_ids'] and done['source_count']==100 and done['comparison_count']==18
+        and done['admitted_metric_count']==18 and done['missing_P_metric_count']==3
+        and done['bootstrap_seed']==2026100605 and done['bootstrap_replicates']==10000
+        and done['policy_selection'] is False and done['new_packet_decodes']==done['new_metric_calls']==0,
+        'Original fixed H18/P2 statistics scope differs')
+    old=combine(reg['source_bindings'],reg['input_bindings'],done['input_bindings'],done['source_bindings'],done['outputs'])
+    paths={name:str(Path(cfg['out'])/name) for name in HP_FILES}
+    paths.update(admission=cfg['admission'],comparison_plan=cfg['comparison_plan'])
+    for p in paths.values():require(old.get(p)==sha(p) and ancestry.get(p)==sha(p),'Sealed historical table/metadata changed: '+p)
+    points=read(paths['point_identity.json']);proof=read(paths['normalization_proof.json'])
+    admission=read(paths['admission']);availability=read(paths['metric_availability.json']);plan=read(paths['comparison_plan'])
+    require(proof['status']=='H_P_NORMALIZED_VIEW_NOT_STATISTICAL_RESULT' and proof['source_ids']==cc['source_ids']
+        and proof['common_metric_admission_sha256']==identity(admission)
+        and done['common_metric_admission_sha256']==sha(paths['admission'])
+        and done['comparison_plan_sha256']==sha(paths['comparison_plan']),
+        'Original canonical admission identity and file SHA domains differ')
+    metrics={v['metric']:v['metric_identity'] for v in availability if v['status']=='ADMITTED'}
+    missing={v['metric'] for v in availability if v['status']=='MISSING_IN_P'}
+    require(len(metrics)==18 and set(proof['metrics'])==set(metrics)
+        and missing=={'mse','resnet50_top1_probability','confidently_wrong'}
+        and all(p['metric_identity']==metrics for p in points.values()),'Original18 admission/3 missing P metrics differ')
+    for name,h in metrics.items():
+        ent=admission['metrics'][name];require(ent['status']=='ADMITTED' and ent['branches']['H']['identity']==ent['branches']['P']['identity'],'Historical per-metric identity differs')
+        expected=identity(dict(metric=name,identity=ent['branches']['H']['identity'],both_branch_numerics={k:{j:v[j] for j in ('precision','batch_execution')} for k,v in ent['branches'].items()},admission_sha256=identity(admission)))
+        require(h==expected,'Historical metric identity digest differs')
+    return dict(cfg=cfg,reg=reg,done=done,paths=paths,points=points,proof=proof,metrics=metrics,
+        availability=availability,pairs=[(r['method'],r['reference']) for r in plan['comparisons']],bindings=combine(bind(spec.values()),bind(paths.values())))
+
+def inspect(r):
+    """Full normal visual closure once; metadata admission precedes quality rows."""
+    require(r['schema']==REQUEST and r['policy_selection'] is False,'Explicit final fixed statistics request required');check_stop(r)
+    verify(r['source_bindings']);bound=combine(r['source_bindings'],r['input_bindings'])
+    for p in [str(Path(__file__).absolute()),r['core_module'],r['statistics_module'],r['visual_owner_module']]:require(r['source_bindings'].get(p)==sha(p),'Executed source missing')
+    for p in r['visual_batch'].values():require(bound.get(p)==sha(p),'Normal MAIN4 visual batch must be explicit')
+    oc=read(r['visual_batch']['owner_config']);rp=oc['registration'];require(bound.get(rp)==sha(rp),'Visual self-registration must be explicit before import')
+    vr=read(rp)
+    for p,h in vr['source_bindings'].items():require(bound.get(p)==h==sha(p),'Original visual verifier source changed')
+    sys.path[:0]=[p for p in r['pythonpath'] if p not in sys.path]
+    vo=module(r['visual_owner_module'],'final_statistics_original_MAIN4_owner',bound);closed=vo.closed_batch(r['visual_batch'])
+    vc=closed['ctx'];science=closed['science'];bound=combine(bound,closed['bindings'])
+    # The original normal-closure verifier has just checked this predecessor's
+    # complete input/output maps. Additional request inputs are checked here.
+    verify({p:h for p,h in r['input_bindings'].items() if closed['bindings'].get(p)!=h})
+    require(science['status']=='MAIN4_DEVELOPMENT_ACTUAL_RX_METRICS_COMPLETE_R1' and closed['done']['status']=='MAIN4_VISUAL_NORMALLY_COMPLETE_R1'
+        and science['source_count']==100 and science['frame_count']==1200,'Actual1200 metric rows require successful original GPU owner')
+    require(r['python']==vc['cfg']['python'],'Original UM interpreter path retained without symlink resolution')
+    hp=historical_hp(r['HP_batch'],closed);bound=combine(bound,hp['bindings'])
+    historical=vc['historical_metrics']['done']
+    require(science['metric_evaluator_identity']==historical['metric_evaluator_identity'] and science['metric_metadata']==historical['metric_metadata'],
+        'MAIN and H require identical original Suite/ConvNeXt definitions/weights/precision/batch')
+    hc=vc['cfg']['historical_H_metrics'];hrows=str(Path(vc['historical_metrics']['config']['out'])/'frame_metrics.json')
+    require(historical['outputs'].get(hrows)==bound.get(hrows)==sha(hrows),'Original H reference rows must be sealed, not reconstructed from means')
+    core=module(r['core_module'],'registered_final_MAIN_H_P_core',bound);stats=module(r['statistics_module'],'original_source_statistics',bound)
+    require(sha(r['statistics_module'])==hp['proof']['statistics_contract']['sha256'],'Original bootstrap implementation changed')
+    cc=vc['cpu_ctx'];contract=core.plan(hp['points'],hp['pairs'],cc['context']['schedule'],sha(cc['cfg']['selected']),hp['metrics'])
+    return dict(request=r,bound=bound,visual=closed,visual_owner=vo,visual_ctx=vc,hp=hp,core=core,statistics=stats,
+        contract=contract,ids=cc['source_ids'],schedule=cc['context']['schedule'],H_rows=hrows,
+        before=vo.w.budget_snapshot(vc),sources=combine(r['source_bindings'],vr['source_bindings']),
+        main_rows=str(Path(vc['cfg']['out'])/'frame_metrics.json'))
+
+def budget(ctx):
+    value=ctx['visual_owner'].w.budget_snapshot(ctx['visual_ctx']);require(value==ctx['before'],'Statistics cannot change either ledger');return value
+
+def load_rows(ctx):
+    """No images/models: preserve sealed H/P means, authenticate100 H references."""
+    hp=ctx['hp'];ids=ctx['ids'];bridge=read(hp['paths']['target_pixel_bridge.json']);rows=read(ctx['main_rows'])
+    require(ctx['visual']['science']['outputs'].get(ctx['main_rows'])==sha(ctx['main_rows']),'Actual MAIN rows changed')
+    references=[None]*100
+    for h in read(ctx['H_rows']):
+        i=h['source_index'];require(type(i)is int and 0<=i<100 and h['source_id']==ids[i],'Historical H source row identity differs')
+        if h['development_slot']==0 and h['noise_seed']==6201:
+            require(references[i] is None,'Duplicate fixed H reference row');references[i]=h
+    require(all(r is not None for r in references),'Original H row required for every source prediction/reference hash')
+    cc=ctx['visual_ctx']['cpu_ctx']
+    for i,b in enumerate(bridge):
+        rec=cc['records'][i]
+        require(b['pixel_equality']=='EXACT_UINT8_AND_FLOAT32_CONVERSION' and b['preprocessing_sha256']['H']==rec['preprocessing_id']
+            and all(b['branch_input_bindings']['H'].get(p)==ctx['bound'].get(p)==sha(p) for p in (rec['checkpoint'],rec['archive'])),
+            'Original common pixel bridge must reference the exact MAIN development asset bytes')
+    normalized=ctx['core'].normalize_main(rows,ids,ctx['schedule'],ctx['contract']['points'],bridge,references,hp['metrics'])
+    with Path(hp['paths']['source_means.csv']).open(newline='',encoding='utf-8') as f:old=list(csv.DictReader(f))
+    require(len(old)==36000,'Exactly36000 old source mean cells required')
+    return old,normalized,references
+
+def csv_file(path,rows):
+    require(rows,'Nonempty final table required');fields=list(dict.fromkeys(k for r in rows for k in r))
+    with Path(path).open('x',encoding='utf-8',newline='') as f:
+        w=csv.DictWriter(f,fields,lineterminator='\n');w.writeheader();w.writerows(rows)
+
+def qualification(r,ctx):
+    q=read(r['qualification']);require(TEST_COUNT>0 and q['status']==QUALIFIED and q['python']==r['python']
+        and q['tests_run']==TEST_COUNT and q['test_modules']==TEST_MODULES and q['exit_code']==0 and q['process_waited'] is True
+        and q['pythonpath']==r['pythonpath'] and q['GPU_used'] is False and q['new_packet_decodes']==0
+        and q['model_imports'] is False,'Actual CPU-only final statistics qualification required')
+    for k in ('source_bindings','input_bindings','outputs'):verify(q[k])
+    for p,h in r['source_bindings'].items():require(q['source_bindings'].get(p)==h,'Qualification misses new/original source')
+    for p,h in r['input_bindings'].items():require(q['input_bindings'].get(p)==h,'Qualification misses admitted original metadata')
+    for p,h in ctx.get('bound',{}).items():
+        require((q['source_bindings'] if p in ctx.get('sources',{}) else q['input_bindings']).get(p)==h,
+            'Qualification misses the actual normal predecessor input: '+p)
+    for name in TEST_MODULES:
+        p=str(Path(__file__).absolute().with_name(name+'.py'));require(q['source_bindings'].get(p)==sha(p),'Formal test must be directly bound')
+    log=Path(q['log']).read_text(encoding='utf-8',errors='replace')
+    require(q['outputs'].get(q['log'])==sha(q['log']) and re.search(r'Ran '+str(TEST_COUNT)+r' tests in .*\n\s*OK\s*$',log)
+        and not re.search(r'\bskipped\b',log,re.I),'Closed test inventory required')
+    return q
+
+def register(request_path):
+    r=read(request_path);e=Path(r['execution_dir']);out=Path(r['out']);base=Path(r['root'])/'outputs/CONTENT-REAL-64QAM-20261006/MAIN'
+    require(e.parent==out.parent==base and e!=out and not e.exists() and not out.exists(),'Fresh independent final statistics output required')
+    require(r['affinity']==[0,1] and r['nice']==15 and type(r['max_seconds'])is int and 0<r['max_seconds']<=7200
+        and r['pythonpath'] and r['pythonpath'][0]==str(Path(__file__).absolute().parent),'One CPU worker two threads and explicit runtime required')
+    ctx=inspect(r);q=qualification(r,ctx);e.mkdir()
+    try:
+        plan=e/'comparison_plan.json';save(plan,ctx['contract']);cfg=dict(r,request=str(Path(request_path).absolute()),registration=str(e/'execution_registration.json'),comparison_plan=str(plan))
+        cp=e/'config.json';save(cp,cfg)
+        inputs=combine(ctx['bound'],q['outputs'],bind([request_path,r['qualification'],plan,cp]))
+        c=ctx['visual_ctx']['cpu_ctx']['cfg']
+        reg=dict(status=REGISTERED,config_sha256=sha(cp),source_bindings=ctx['sources'],input_bindings=inputs,budget_before=ctx['before'],
+            lock_paths=[str(Path(c[k]).with_suffix('.owner.lock')) for k in ('ledger','main_ledger')],
+            predecessors=[ctx['visual']['done']['owner_identity'],ctx['visual']['done']['worker_identity']],
+            point_count=24,comparison_count=58,common_metrics=18,new_packet_decodes=0,GPU_used=False,policy_selection=False)
+        save(cfg['registration'],reg);require(budget(ctx)==reg['budget_before'],'Budget changed before seal')
+        done=dict(status=SEALED,registration_sha256=sha(cfg['registration']),outputs=bind([plan,cp,cfg['registration']]),worker_started=False)
+        save(e/'registration_completion.json',done);return done
+    except BaseException:save(e/'registration_failure.json',dict(status='FAILED_PRESERVE_NO_RETRY',traceback=traceback.format_exc()));raise
+
+def sealed(config_path):
+    cfg=read(config_path);reg=read(cfg['registration']);e=Path(cfg['execution_dir']);seal=read(e/'registration_completion.json')
+    require(reg['status']==REGISTERED and reg['config_sha256']==sha(config_path) and seal['status']==SEALED
+        and seal['registration_sha256']==sha(cfg['registration']) and not(e/'registration_failure.json').exists(),'Normal independent registration seal required')
+    verify(seal['outputs']);verify(reg['source_bindings']);return cfg,reg
+
+def command(cfg,path,stage):return [cfg['python'],'-B',str(Path(__file__).absolute()),'--stage',stage,'--config',str(path)]
+
+def validate_science(science,cfg,reg,config_path,child):
+    require(science['status']==SCIENCE and science['registration_sha256']==sha(cfg['registration'])
+        and science['config_sha256']==sha(config_path) and science['worker_identity']==child
+        and science['source_bindings']==reg['source_bindings'] and science['input_bindings']==reg['input_bindings']
+        and science['budget_before']==science['budget_after']==reg['budget_before']
+        and science['source_count']==100 and science['point_count']==24 and science['comparison_count']==58
+        and science['admitted_metric_count']==18 and science['missing_P_metric_count']==3
+        and science['MAIN_frames']==1200 and science['source_mean_cells']==43200 and science['paired_cells']==1044
+        and science['bootstrap_seed']==2026100605 and science['bootstrap_replicates']==10000
+        and science['new_packet_decodes']==science['new_metric_calls']==science['new_noise_draws']==0
+        and science['GPU_used'] is False and science['policy_selection'] is False and science['success_gate_evaluated'] is False
+        and science['automatic_successor'] is False and science['old_H_P_source_means_preserved'] is True,
+        'Complete registered fixed statistics/identity/maps required')
+    verify(science['outputs'])
+
+def worker(config_path):
+    cfg,reg=sealed(config_path);ctx=inspect(cfg);e=Path(cfg['execution_dir']);out=Path(cfg['out']);began=time.monotonic()
+    require(identity(ctx['contract'])==identity(read(cfg['comparison_plan'])) and ctx['before']==reg['budget_before'],
+        'Registered pre-score comparison/identity differs')
+    require(os.environ.get('CUDA_VISIBLE_DEVICES')=='' and all(os.environ.get(k)=='2' for k in THREADS)
+        and os.sched_getaffinity(0)==set(cfg['affinity']) and os.getpriority(os.PRIO_PROCESS,0)==15,'Exact CPU-only2 thread worker required')
+    while not(e/'worker_launch.json').exists():check_stop(cfg);require(time.monotonic()-began<120,'Parent admission absent');time.sleep(.1)
+    launch=read(e/'worker_launch.json');require(launch['identity']==process(os.getpid()) and launch['owner_identity']==process(os.getppid())
+        and launch['identity']['argv']==command(cfg,config_path,'worker') and launch['registration_sha256']==sha(cfg['registration']),
+        'Exact live registered CPU parent and worker required')
+    require(not out.exists(),'Fresh statistics output only');out.mkdir();save(out/'attempt.json',dict(registration_sha256=sha(cfg['registration'])))
+    try:
+        # Persist the already sealed plan before loading any score values.
+        save(out/'comparison_plan.json',ctx['contract']);old,main,refs=load_rows(ctx);check_stop(cfg)
+        result=ctx['core'].combine_summary(old,main,ctx['ids'],ctx['contract'],ctx['statistics'])
+        require(len(result['summary'])==432 and len(result['paired'])==1044 and len(result['source_means'])==43200,'Complete24x18 and58x18 result grid required')
+        for k in ('summary','paired','source_means'):csv_file(out/(k+'.csv'),result[k])
+        save(out/'metric_availability.json',ctx['hp']['availability']);save(out/'MAIN_normalized_rows.json',main)
+        save(out/'H_reference_rows.json',refs);save(out/'point_identity.json',ctx['contract']['points'])
+        save(out/'provenance.json',dict(source_ids=ctx['ids'],H_P_source_means_sha256=sha(ctx['hp']['paths']['source_means.csv']),
+            normalization_proof_sha256=sha(ctx['hp']['paths']['normalization_proof.json']),original_H_rows_sha256=sha(ctx['H_rows']),
+            MAIN_rows_sha256=sha(ctx['main_rows']),old_means_reused=True,metrics_recomputed=False,policy_selection=False,
+            frame_level_noise_pairing_claimed=False,bootstrap_seed=2026100605,bootstrap_replicates=10000,
+            pointwise_intervals=True,multiplicity_adjusted=False,success_gate_evaluated=False))
+        require(time.monotonic()-began<cfg['max_seconds'],'Statistics deadline exceeded');check_stop(cfg);after=budget(ctx)
+        outputs=bind(p for p in out.iterdir() if p.name!='completion.json');verify(outputs)
+        done=dict(status=SCIENCE,registration_sha256=sha(cfg['registration']),config_sha256=sha(config_path),
+            source_count=100,point_count=24,comparison_count=58,admitted_metric_count=18,missing_P_metric_count=3,
+            MAIN_frames=1200,source_mean_cells=43200,paired_cells=1044,source_ids=ctx['ids'],
+            budget_before=reg['budget_before'],budget_after=after,outputs=outputs,source_bindings=reg['source_bindings'],input_bindings=reg['input_bindings'],
+            worker_identity=launch['identity'],GPU_used=False,new_packet_decodes=0,new_metric_calls=0,new_noise_draws=0,
+            policy_selection=False,holdout_used=False,success_gate_evaluated=False,MAIN_final_delivery=False,automatic_successor=False,
+            old_H_P_source_means_preserved=True,bootstrap_seed=2026100605,bootstrap_replicates=10000)
+        save(out/'completion.json',done);return done
+    except BaseException:save(out/'failure.json',dict(status='FAILED_PRESERVE_NO_RETRY',traceback=traceback.format_exc()));raise
+
+def run(config_path):
+    require(sys.platform.startswith('linux'),'Original Linux identity required');cfg,reg=sealed(config_path);check_stop(cfg)
+    e=Path(cfg['execution_dir']);out=Path(cfg['out']);require(not out.exists() and not any((e/n).exists() for n in ('owner_start.json','failure.json','completion.json','worker.log')),'No automatic retry')
+    require(all(absent(p) for p in reg['predecessors']),'Original visual owner/worker must be reaped')
+    require(process(os.getpid())['argv']==command(cfg,config_path,'run'),'Registered supervisor argv required')
+    os.sched_setaffinity(0,cfg['affinity']);os.setpriority(os.PRIO_PROCESS,0,15)
+    child=None;log=None;locks=contextlib.ExitStack();began=time.monotonic();me=process(os.getpid())
+    try:
+        import fcntl
+        for p in reg['lock_paths']:
+            f=locks.enter_context(Path(p).open('a+'));fcntl.flock(f,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        save(e/'owner_start.json',dict(identity=me,registration_sha256=sha(cfg['registration'])))
+        argv=command(cfg,config_path,'worker');logpath=e/'worker.log';log=logpath.open('xb')
+        env=dict(os.environ,PYTHONPATH=os.pathsep.join(cfg['pythonpath']),CUDA_VISIBLE_DEVICES='',PYTHONDONTWRITEBYTECODE='1',**{k:'2' for k in THREADS})
+        child=subprocess.Popen(argv,cwd=cfg['root'],env=env,stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT)
+        save(e/'spawn_pending_identity.json',dict(pid=child.pid,argv=argv,identity_verified=False))
+        ident=capture(child,argv,me['uid'])
+        save(e/'worker_launch.json',dict(identity=ident,owner_identity=me,registration_sha256=sha(cfg['registration'])))
+        while child.poll() is None:
+            check_stop(cfg);require(time.monotonic()-began<cfg['max_seconds'],'Registered CPU owner deadline');time.sleep(.2)
+        code=waited(child);log.flush();os.fsync(log.fileno());log.close();require(absent(ident),'Worker must be reaped')
+        cp=out/'completion.json';exit=dict(exit_code=code,wait_completed=True,identity=ident,log_sha256=sha(logpath),completion_sha256=sha(cp) if cp.exists() else None)
+        save(e/'worker_exit.json',exit);require(code==0 and cp.exists() and not(out/'failure.json').exists(),'Actual successful CPU exit required')
+        science=read(cp);validate_science(science,cfg,reg,config_path,ident);check_stop(cfg)
+        done=dict(status=DONE,registration_sha256=sha(cfg['registration']),owner_identity=me,worker_identity=ident,
+            outputs=combine(science['outputs'],bind([cp,e/'owner_start.json',e/'worker_launch.json',e/'worker_exit.json',logpath])),
+            budget_before=reg['budget_before'],budget_after=science['budget_after'],new_packet_decodes=0,GPU_used=False,automatic_successor=False,success_gate_evaluated=False)
+        save(e/'completion.json',done);return done
+    except BaseException:
+        failure=traceback.format_exc()
+        try:
+            if not(e/'STOP').exists():save(e/'STOP',dict(status='FINAL_STATISTICS_STOP_PRESERVE'))
+        except BaseException:failure+='\nSTOP write failed\n'+traceback.format_exc()
+        if child is not None:
+            waited(child)
+            if log is not None and not log.closed:log.flush();os.fsync(log.fileno());log.close()
+            if not(e/'worker_exit.json').exists():save(e/'worker_exit.json',dict(pid=child.pid,exit_code=child.returncode,wait_completed=True,log_sha256=sha(e/'worker.log')))
+        save(e/'failure.json',dict(status='FAILED_PRESERVE_NO_RETRY',traceback=failure));raise
+    finally:
+        if log is not None and not log.closed:log.close()
+        locks.close()
+
+def closed_batch(spec):
+    require(set(spec)=={'config','completion'},'Exact final CPU closure specification required');cfg,reg=sealed(spec['config']);e=Path(cfg['execution_dir'])
+    require(spec['completion']==str(e/'completion.json') and not any((p/n).exists() for p in (e,Path(cfg['out'])) for n in ('STOP','failure.json')),'Only original normal final CPU closure')
+    done=read(spec['completion']);science=read(Path(cfg['out'])/'completion.json');launch=read(e/'worker_launch.json');exit=read(e/'worker_exit.json');start=read(e/'owner_start.json')
+    require(done['status']==DONE and science['status']==SCIENCE and done['registration_sha256']==science['registration_sha256']==sha(cfg['registration'])
+        and done['owner_identity']==start['identity']==launch['owner_identity'] and done['worker_identity']==launch['identity']==exit['identity']
+        and absent(done['owner_identity']) and absent(done['worker_identity']) and exit['exit_code']==0 and exit['wait_completed'] is True
+        and exit['log_sha256']==sha(e/'worker.log') and exit['completion_sha256']==sha(Path(cfg['out'])/'completion.json'),
+        'Original waited normal owner/worker/log/receipt required')
+    require(start['registration_sha256']==launch['registration_sha256']==sha(cfg['registration'])
+        and science['config_sha256']==sha(spec['config']) and science['worker_identity']==launch['identity']
+        and done['owner_identity']['argv']==command(cfg,spec['config'],'run')
+        and done['worker_identity']['argv']==command(cfg,spec['config'],'worker')
+        and science['point_count']==24 and science['comparison_count']==58 and science['source_count']==100
+        and science['admitted_metric_count']==18 and science['source_mean_cells']==43200 and science['paired_cells']==1044
+        and science['new_packet_decodes']==science['new_metric_calls']==science['new_noise_draws']==0
+        and science['GPU_used'] is False and science['policy_selection'] is False and science['success_gate_evaluated'] is False,
+        'Normal fixed statistics summary/command must match the actual waited worker')
+    validate_science(science,cfg,reg,spec['config'],launch['identity'])
+    require(done['budget_before']==done['budget_after']==science['budget_before']==science['budget_after']==reg['budget_before'],'Final immutable budget differs')
+    verify(done['outputs']);verify(science['outputs']);return dict(done=done,science=science,bindings=combine(reg['source_bindings'],reg['input_bindings'],done['outputs'],bind([cfg['registration'],spec['config'],spec['completion']])))
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--stage',choices=['register','run','worker'],required=True);p.add_argument('--request');p.add_argument('--config');a=p.parse_args()
+    signal.signal(signal.SIGTERM,stop);signal.signal(signal.SIGINT,stop)
+    print((register(a.request) if a.stage=='register' else run(a.config) if a.stage=='run' else worker(a.config))['status'],flush=True)

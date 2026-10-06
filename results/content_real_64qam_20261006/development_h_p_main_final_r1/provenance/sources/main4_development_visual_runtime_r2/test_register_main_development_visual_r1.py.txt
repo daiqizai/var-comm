@@ -1,0 +1,156 @@
+"""Pure CPU admission tests. No native/backend construction or actual closure."""
+from copy import deepcopy
+import json
+import os
+from pathlib import Path
+import tempfile
+from types import SimpleNamespace
+import unittest
+from unittest import mock
+import register_main_development_visual_r1 as r
+import main_development_visual_driver_r1 as d
+import main_development_visual_owner_r1 as owner
+
+
+def put(path,value):
+    path=Path(path);path.parent.mkdir(parents=True,exist_ok=True);path.write_text(json.dumps(value),encoding='utf-8');return str(path)
+
+
+class RegistrationTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup);self.root=Path(self.tmp.name)
+        base=self.root/'outputs/CONTENT-REAL-64QAM-20261006';e=base/'MAIN/visual_execution';out=base/'MAIN/visual'
+        self.req=dict(schema=r.SCHEMA,root=str(self.root),execution_dir=str(e),out=str(out),automatic_successor=False,policy_selection=False,
+            python=str(self.root/'outputs/UNIFIED-METRICS-20261002/environment/bin/python'),pythonpath=[str(Path(r.__file__).absolute().parent)],
+            deadline_unix=r.DEADLINE,cpu_batch=dict(owner_config=str(base/'MAIN/cpu/owner_config.json'),completion=str(base/'MAIN/cpu/completion.json')),
+            historical_H_metrics={k:str(base/'H'/(k+'.json')) for k in ('config','registration','completion','owner_completion')},
+            resources=dict(gpu_device=0,gpu_threads=6,gpu_affinity=[4,5,6,7,8,9],nice=15,max_seconds=7200,max_archive_bytes=2*1024**3),
+            visual_lock_path=str(base/'shared_visual.lock'),nvidia_smi=put(self.root/'nvidia-smi',{'binary':'fixture'}),
+            native_reference_config=str(self.root/'native.json'),native_source_graph=str(self.root/'graph.json'),
+            metric_assets=str(self.root/'assets.json'),metric_policy=str(self.root/'policy.json'),prepared_qualification=str(self.root/'q/completion.json'),
+            source_bindings={},input_bindings={})
+        for key in r.MODULE_KEYS:self.req[key]=put(self.root/(key+'.py'),{'fixture':key})
+        self.req['worker_module']=str(Path(d.__file__).absolute());self.req['visual_owner_module']=str(Path(owner.__file__).absolute())
+        native={k:str(self.root/k) for k in r.NATIVE_KEYS};native['root']=str(self.root)
+        self.ctx=dict(request=self.req,e=e,out=out,native=native,driver=d,owner=owner,before=dict(H=dict(charged=167157,MAIN4_calls=2397,unresolved=0),
+            MAIN=dict(charged=105176,unresolved=0)),static={'immutable':'source'},sources={},inputs={},cpu_closed={'closed':'once'})
+
+    def test_exact_original_interpreter_resources_and_deadline(self):
+        with mock.patch.object(r.time,'time',return_value=0):self.assertEqual(r.shape(self.req),(self.ctx['e'],self.ctx['out']))
+        for path,value in [('python','/usr/bin/python3'),('deadline_unix',r.DEADLINE+1),('automatic_successor',True)]:
+            bad=deepcopy(self.req);bad[path]=value
+            with mock.patch.object(r.time,'time',return_value=0),self.assertRaises(RuntimeError):r.shape(bad)
+        bad=deepcopy(self.req);bad['resources']['gpu_threads']=2
+        with mock.patch.object(r.time,'time',return_value=0),self.assertRaises(RuntimeError):r.shape(bad)
+
+    def test_fresh_siblings_and_stops(self):
+        self.ctx['e'].mkdir(parents=True)
+        with mock.patch.object(r.time,'time',return_value=0),self.assertRaisesRegex(RuntimeError,'Fresh'):r.shape(self.req)
+        with mock.patch.object(r.time,'time',return_value=0):r.shape(self.req,fresh=False)
+        (self.ctx['e']/'STOP').write_text('preserve',encoding='utf-8')
+        with mock.patch.object(r.time,'time',return_value=0),self.assertRaisesRegex(RuntimeError,'STOP'):r.shape(self.req,fresh=False)
+
+    def test_cpu_self_registration_pin_before_import(self):
+        rp=put(self.root/'cpu-reg.json',{'source_bindings':{}})
+        put(self.req['cpu_batch']['owner_config'],{'registration':rp});put(self.req['cpu_batch']['completion'],{'status':'normal fixture'})
+        bound=r.bind(self.req['cpu_batch'].values())
+        with mock.patch.object(r,'module') as imports,self.assertRaisesRegex(RuntimeError,'self-registration'):r.cpu_closed(self.req,bound)
+        imports.assert_not_called();bound.update(r.bind([rp]))
+        cc={'ctx':{'cfg':{'owner_module':self.req['cpu_owner_module']}}}
+        module=SimpleNamespace(closed_batch=lambda _:cc)
+        with mock.patch.object(r,'module',return_value=module):self.assertIs(r.cpu_closed(self.req,bound)[1],cc)
+
+    def test_dependency_changed_or_unbound_rejected_before_import(self):
+        p=self.root/'dependency.py';p.write_text('raise AssertionError("must not execute")',encoding='utf-8')
+        with self.assertRaisesRegex(RuntimeError,'before import'):r.module(p,'unbound_fixture',{})
+        pins=r.bind([p]);p.write_text('# changed',encoding='utf-8')
+        with self.assertRaisesRegex(RuntimeError,'before import'):r.module(p,'changed_fixture',pins)
+
+    def test_make_configs_consumed_by_real_owner_validate_shape(self):
+        cfg,oc=r.make_configs(self.ctx);cp=put(self.ctx['e']/'worker_config.json',cfg);op=put(self.ctx['e']/'owner_config.json',oc)
+        cfg['_path']=cp;oc['_path']=op
+        ctx=dict(cfg=cfg,bound=r.bind([op,cfg['visual_owner_module'],oc['nvidia_smi']]))
+        owner.validate_shape(oc,ctx)
+        self.assertEqual(cfg['runtime_dir'],self.ctx['native']['runtime_dir']);self.assertEqual(cfg['cpu_batch'],self.req['cpu_batch'])
+        self.assertEqual(oc['worker_argv'],[self.req['python'],'-B',str(Path(d.__file__).absolute()),'--config',cp])
+        bad=deepcopy(oc);bad['pythonpath']+=['/wrong']
+        with self.assertRaisesRegex(RuntimeError,'interpreter'):owner.validate_shape(bad,ctx)
+
+    def qualified(self):
+        names=r.TEST_MODULES;count=40
+        sources=r.bind([Path(r.__file__).absolute().parent/(n+'.py') for n in names])
+        inp=put(self.root/'admitted.json',{'normal':'receipt'});log=self.root/'q/tests.log';log.parent.mkdir(exist_ok=True)
+        log.write_text('Ran '+str(count)+' tests in 0.1s\n\nOK\n',encoding='utf-8')
+        q=dict(status=r.QUALIFIED,python=self.req['python'],pythonpath=self.req['pythonpath'],tests_run=count,test_modules=names,
+            process_waited=True,exit_code=0,new_packet_decodes=0,GPU_used=False,model_imports=False,source_bindings=sources,
+            input_bindings=r.bind([inp]),outputs=r.bind([log]),log=str(log))
+        put(self.req['prepared_qualification'],q);self.ctx.update(sources=sources,inputs=r.bind([inp]));return q,count
+
+    def test_qualification_exact_receipt_log_and_inputs(self):
+        q,count=self.qualified()
+        with mock.patch.object(r,'TEST_COUNT',count):self.assertEqual(r.qualification(self.ctx),q)
+        for key in ('worker_module','core_module','visual_owner_module','env_compatibility_module'):
+            q['source_bindings'].update(r.bind([self.req[key]]))
+        put(self.req['prepared_qualification'],q)
+        cfg={k:self.req[k] for k in ('worker_module','core_module','visual_owner_module','env_compatibility_module','prepared_qualification','python','pythonpath')}
+        owner_ctx=dict(cfg=cfg,reg=dict(qualification_test_count=count,qualification_test_modules=r.TEST_MODULES),
+            bound=r.combine(q['source_bindings'],q['input_bindings'],r.bind([self.req['prepared_qualification']])))
+        self.assertEqual(owner.qualification(owner_ctx),q)
+        q['input_bindings']={};put(self.req['prepared_qualification'],q)
+        with mock.patch.object(r,'TEST_COUNT',count),self.assertRaisesRegex(RuntimeError,'admitted input'):r.qualification(self.ctx)
+
+    def test_qualification_rejects_skips_and_other_interpreter(self):
+        q,count=self.qualified();log=Path(q['log']);log.write_text('Ran 40 tests in 0.1s\nOK (skipped=1)\n',encoding='utf-8')
+        q['outputs']=r.bind([log]);put(self.req['prepared_qualification'],q)
+        with mock.patch.object(r,'TEST_COUNT',count),self.assertRaisesRegex(RuntimeError,'without skips'):r.qualification(self.ctx)
+        q['python']='/usr/bin/python3';put(self.req['prepared_qualification'],q)
+        with mock.patch.object(r,'TEST_COUNT',count),self.assertRaisesRegex(RuntimeError,'original-environment'):r.qualification(self.ctx)
+
+    def register_fixture(self,fail=False):
+        rp=put(self.root/'request.json',self.req);qp=put(self.req['prepared_qualification'],{'fixture':True});calls=[]
+        def inspect(cfg,bound,closed=None):
+            calls.append('worker_inspect');self.assertIs(closed,self.ctx['cpu_closed']);self.assertIn(cfg['visual_owner_config'],bound)
+            return {'before':self.ctx['before'],'cfg':cfg,'bound':bound}
+        def preflight(oc,ctx):
+            calls.append('owner_preflight');self.assertFalse((self.ctx['e']/'registration_completion.json').exists())
+            reg=r.read(oc['registration']);self.assertEqual(reg['budget_before'],self.ctx['before']);self.assertEqual(reg,ctx['reg'])
+            if fail:raise RuntimeError('preflight failure')
+        self.ctx['driver']=SimpleNamespace(SCHEMA=d.SCHEMA,REGISTERED=d.REGISTERED,command=d.command,inspect=inspect,budget_snapshot=lambda c:c['before'])
+        self.ctx['owner']=SimpleNamespace(SCHEMA=owner.SCHEMA,REGISTERED=owner.REGISTERED,validate_shape=preflight,
+            qualification=lambda c:calls.append('owner_qualification'))
+        return rp,calls
+
+    def test_seal_follows_real_config_and_both_preflights(self):
+        rp,calls=self.register_fixture()
+        with mock.patch.object(r.sys,'platform','linux'),mock.patch.object(r,'inspect_inputs',return_value=self.ctx),mock.patch.object(r,'qualification',return_value={'outputs':{}}):
+            done=r.register(rp)
+        self.assertEqual(calls,['worker_inspect','owner_preflight','owner_qualification']);self.assertEqual(done['budget_before']['H']['charged'],167157)
+        self.assertFalse(done['worker_started']);r.verify(done['outputs'])
+        reg=r.read(self.ctx['e']/'execution_registration.json');self.assertEqual(reg['frame_count'],1200);self.assertEqual(reg['slots'],[18,19,20,21])
+        self.assertEqual(reg['new_packet_decodes'],0);self.assertFalse(reg['automatic_successor'])
+
+    def test_failed_owner_preflight_retains_files_without_seal(self):
+        rp,calls=self.register_fixture(fail=True)
+        with mock.patch.object(r.sys,'platform','linux'),mock.patch.object(r,'inspect_inputs',return_value=self.ctx),mock.patch.object(r,'qualification',return_value={'outputs':{}}),self.assertRaisesRegex(RuntimeError,'preflight failure'):
+            r.register(rp)
+        self.assertFalse((self.ctx['e']/'registration_completion.json').exists())
+        self.assertTrue((self.ctx['e']/'execution_registration.json').exists());self.assertTrue((self.ctx['e']/'registration_failure.json').exists())
+
+    def test_actual_downloaded_original_metadata_fields(self):
+        # An explicit remote fixture root is required outside this local checkout.
+        base=Path(os.environ.get('MAIN4_VISUAL_TEST_METADATA_ROOT',str(Path(__file__).parent.parent/'current')))
+        native=r.read(base/'main_r8/worker_config.json');nr=r.read(base/'main_r8/execution_registration.json')
+        hc=r.read(base/'h18_metrics_r1/H/development_metrics_execution_r1/metrics_config.json')
+        hd=r.read(base/'h18_metrics_r1/H/development_metrics_r1/completion.json')
+        ho=r.read(base/'h18_metrics_r1/H/development_metrics_execution_r1/completion.json')
+        for key in r.NATIVE_KEYS:self.assertIn(key,native)
+        self.assertEqual(native['python'],'REPO/outputs/UNIFIED-METRICS-20261002/environment/bin/python')
+        self.assertTrue(nr['native_source_bindings']);self.assertIn('/usr/bin/nvidia-smi',r.combine(nr['source_bindings'],nr['input_bindings']))
+        for key in ('metric_assets','metric_driver_module','metric_adapter_module','visual_owner_config'):self.assertIn(key,hc)
+        self.assertEqual(hd['status'],'H_DEVELOPMENT_METRICS_COMPLETE');self.assertEqual(hd['frame_count'],5400)
+        self.assertEqual(hd['noise_seeds'],[6201,6202,6203]);self.assertEqual(hd['metric_batch_size'],1)
+        self.assertIn('policy_sha256',hd['metric_metadata']['independent']);self.assertEqual(ho['budget']['charged'],164760)
+        self.assertEqual(ho['status'],'REGISTERED_H_STAGE_BATCH_COMPLETE')
+
+
+if __name__=='__main__':unittest.main()

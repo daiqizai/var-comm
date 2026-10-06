@@ -1,0 +1,168 @@
+"""Pure arrays/fake PHY/temporary SQLite tests; no actual science assets."""
+import copy
+from contextlib import closing
+import hashlib
+import json
+from pathlib import Path
+import sqlite3
+import tempfile
+import types
+import unittest
+from unittest import mock
+import numpy as np
+import main_actual_calibration_driver_r1 as d
+from test_main_calibration_select_13_19_r1 import fixture
+
+
+def put(p,v):
+    p=Path(p);p.parent.mkdir(parents=True,exist_ok=True);p.write_text(json.dumps(v),encoding='utf8');return str(p)
+
+
+def fake_cat():
+    c=object.__new__(d.rx.PublicCatalogue)
+    ps=[dict(profile_id=i,candidate_id=f'{i+1:064x}',wire_key=f'{i+10:064x}',m=1+i,K=0,
+        groups=[dict(source_bits=12*d.rx.PREFIX[1+i],information_bits=12*d.rx.PREFIX[1+i]+16,
+            transmitted_bits=200,modulation='QPSK',symbols=100,layout={'test':i},phy_key=f'{i+20:064x}')]) for i in range(2)]
+    c._profiles=ps;c._aliases=[];c.digest=d.rx.identity(ps);c.aliases_digest=d.rx.identity([]);c.backend_identity={'fake':True};return c
+
+
+class FakeTorch:
+    float32=np.float32
+    @staticmethod
+    def as_tensor(a,**kwargs):return np.asarray(a,dtype=kwargs['dtype'])
+
+
+class FakeTX:
+    def __init__(self):self.calls=[]
+    def transmit(self,pid,payloads,counter):
+        self.calls.append((pid,payloads,counter));wave=np.ones((1024,2),dtype=np.float64)*(pid+1)
+        return wave,dict(N=1024,header_uses=68,body_uses=100,idle_uses=856,E=float((wave*wave).sum()),
+            waveform_sha256=d.rx.array_sha(wave),profile_id=pid,frame_counter=counter)
+
+
+def setup(tmp,*,pid=1,accepted=False,fail=False):
+    cat=fake_cat();ident=dict(pid=123,start_ticks=456,uid=1002,argv=['fake-worker'])
+    ledger=d.budget.BudgetLedger(Path(tmp)/'main.sqlite','a'*64,worker_identity=ident,identity_reader=lambda p:ident)
+    backend=types.SimpleNamespace(identity=cat.backend_identity,device='cpu',torch=FakeTorch)
+    def prepaid(kind):
+        with closing(sqlite3.connect(ledger.path)) as c:
+            assert c.execute('SELECT count(*) FROM events WHERE kind=? AND status=?',(kind,'RESERVED')).fetchone()[0]==1
+    def receive_header(y,snr,codebook):
+        prepaid('header');return dict(profile_id=pid,header_crc_ok=pid is not None,
+            header_fields_legal=pid is not None,header_ok=pid is not None,score=1.)
+    def receive_body(b,y,k,n,q,snr,counters,group,session):
+        prepaid('body');assert session=='actual-body' and group==0
+        if fail:raise RuntimeError('fake backend failure')
+        hard=np.ones((1,k-16),dtype=np.uint8);decoded=np.concatenate([hard,np.zeros((1,16),dtype=np.uint8)],axis=1)
+        decoded[0,-1]=int(accepted);return hard,np.array([accepted],dtype=bool),decoded
+    phy=types.SimpleNamespace(receive_packet=receive_body,crc_accept_batch=lambda b:np.asarray(b)[...,-1].astype(bool))
+    receiver=d.rx.Receiver(cat,header=types.SimpleNamespace(receive=receive_header),backend=backend,phy=phy,ledger=ledger)
+    record=dict(source_index=0,source_id='synthetic-cal-source',tokens_sha256='c'*64)
+    point=dict(slot=0,snr_db=13,candidate_id=cat.entry(0)['candidate_id'],profile_id=0,
+        wire_key=cat.entry(0)['wire_key'],family_memberships=['WHOLE','PARTIAL'])
+    scales=[np.zeros(s*s,dtype=np.int64) for s in d.rx.SIZES]
+    return dict(cat=cat,ledger=ledger,identity=ident,receiver=receiver,record=record,point=point,scales=scales,tx=FakeTX())
+
+
+def actual_events(ledger):
+    fields=('event_id','phase','kind','phy_key','request_sha','status','worker','result','result_sha')
+    with closing(sqlite3.connect(ledger.path)) as c:return {r[0]:dict(zip(fields,r)) for r in c.execute('SELECT '+','.join(fields)+' FROM events')}
+
+
+class Tests(unittest.TestCase):
+    def test_complete_frozen_schedule_shared_K0_once(self):
+        p,a,ids,spec,proxy,short=fixture();out=d.schedule(p,a,short,spec)
+        self.assertEqual(len(out),10);self.assertEqual([x['slot'] for x in out],list(range(10)))
+        self.assertEqual(sum(len(x['family_memberships'])==2 for x in out),2)
+        bad=copy.deepcopy(short);bad['cells'][1]['candidate_ids'].append(p[-1]['candidate_id'])
+        with self.assertRaises(ValueError):d.schedule(p,a,bad,spec)
+
+    def test_original_namespace_no_candidate_or_snr_seed_fullsix_counter(self):
+        z=d.noise('source',4101);raw=json.dumps(['MAIN_CALIBRATION_V1',1024,'source',4101],sort_keys=True,separators=(',',':')).encode()
+        n=int.from_bytes(hashlib.sha256(raw).digest()[:16],'little')
+        np.testing.assert_array_equal(z,np.random.Generator(np.random.PCG64(n)).standard_normal((1024,2)))
+        self.assertEqual(z.dtype,np.float64);self.assertEqual(d.frame_counter(0,13,4101),12000)
+        self.assertEqual(d.frame_counter(999,19,4103),17999)
+        self.assertFalse(np.array_equal(z,d.noise('source',4102)))
+        with self.assertRaises(ValueError):d.frame_counter(0,4,4101)
+
+    def test_actual_wrong_header_rejected_body_is_kept_and_prepaid(self):
+        with tempfile.TemporaryDirectory() as td:
+            f=setup(td);ctx={'catalogue':f['cat']}
+            row=d.execute_frame(ctx,f['record'],f['scales'],f['point'],4101,f['tx'],f['receiver'])
+            self.assertEqual(row['profile_id'],0);self.assertEqual(row['rx_profile_id'],1)
+            self.assertFalse(row['body_crc_accept']);self.assertFalse(row['gray']);self.assertEqual(row['receiver_state']['m'],2)
+            self.assertEqual(row['receiver_state']['prefix'][0],[4095]);self.assertEqual(row['logical_packet_calls'],2)
+            events=d.audit_frame(row,ctx,f['record'],f['point'],4101,actual_events(f['ledger']),f['identity'])
+            self.assertEqual(len(events),2)
+
+    def test_unknown_header_only_one_charge_no_body_or_truth_repair(self):
+        with tempfile.TemporaryDirectory() as td:
+            f=setup(td,pid=None);ctx={'catalogue':f['cat']}
+            row=d.execute_frame(ctx,f['record'],f['scales'],f['point'],4101,f['tx'],f['receiver'])
+            self.assertTrue(row['gray']);self.assertEqual(row['source_status'],'HEADER_REJECT_GRAY')
+            self.assertIsNone(row['body']);self.assertEqual(row['logical_packet_calls'],1)
+            self.assertEqual(len(d.audit_frame(row,ctx,f['record'],f['point'],4101,actual_events(f['ledger']),f['identity'])),1)
+
+    def test_ledger_actual_bits_request_and_source_grid_tampering_refused(self):
+        with tempfile.TemporaryDirectory() as td:
+            f=setup(td);ctx={'catalogue':f['cat']};row=d.execute_frame(ctx,f['record'],f['scales'],f['point'],4101,f['tx'],f['receiver'])
+            rows=actual_events(f['ledger'])
+            for mutation in (lambda x:x.update(source_id='wrong'),lambda x:x.update(received_sha256='0'*64),
+                lambda x:x['body']['hard_payload'].__setitem__(0,0),lambda x:x.update(noise_sha256='0'*64),
+                lambda x:x['packet_events'][0].update(request_sha256='0'*64)):
+                bad=copy.deepcopy(row);mutation(bad)
+                with self.assertRaises(ValueError):d.audit_frame(bad,ctx,f['record'],f['point'],4101,rows,f['identity'])
+
+    def test_same_K0_logical_roles_reuse_exact_paid_event_only(self):
+        with tempfile.TemporaryDirectory() as td:
+            f=setup(td);ctx={'catalogue':f['cat']}
+            first=d.execute_frame(ctx,f['record'],f['scales'],f['point'],4101,f['tx'],f['receiver'])
+            second=d.execute_frame(ctx,f['record'],f['scales'],f['point'],4101,f['tx'],f['receiver'])
+            self.assertEqual(first,second);self.assertEqual(f['ledger'].snapshot()['phase_charged'][d.PHASE],2)
+            f['scales'][0][0]=5
+            # FakeTX waveform deliberately does not encode content. Production
+            # execute uses original FrameLink, whose waveform changes; ledger
+            # request identity itself rejects any altered received samples.
+            with self.assertRaises(d.budget.BudgetError):
+                f['receiver'].receive(np.zeros((1024,2)),13,12000,phase=d.PHASE,event_prefix=first['packet_event_ids'][0][:-7])
+
+    def test_failed_decoder_stays_charged_and_blocks_new_calls(self):
+        with tempfile.TemporaryDirectory() as td:
+            f=setup(td,fail=True)
+            with self.assertRaisesRegex(RuntimeError,'backend'):d.execute_frame({'catalogue':f['cat']},f['record'],f['scales'],f['point'],4101,f['tx'],f['receiver'])
+            self.assertEqual(f['ledger'].snapshot()['phase_charged'][d.PHASE],2)
+            with self.assertRaises(d.budget.BudgetError):d.execute_frame({'catalogue':f['cat']},f['record'],f['scales'],f['point'],4102,f['tx'],f['receiver'])
+
+    def test_only_tokens_loaded_from_original_two_array_archive(self):
+        with tempfile.TemporaryDirectory() as td:
+            td=Path(td);a=td/'source.npz';tokens=np.arange(680,dtype=np.int64)
+            np.savez(a,tokens=tokens,pixels=np.zeros((3,2,2),dtype=np.uint8));cp=td/'cp.json'
+            row=dict(source_index=0,source_id='s',tokens_sha256=d.token_sha(tokens),archive=str(a))
+            put(cp,dict(row,outputs={str(a):d.sha(a)}));record=dict(row,checkpoint=str(cp),checkpoint_sha256=d.sha(cp))
+            result=d.load_tokens(record,{str(cp):d.sha(cp),str(a):d.sha(a)})
+            np.testing.assert_array_equal(np.concatenate(result),tokens)
+            record['tokens_sha256']='0'*64
+            with self.assertRaises(ValueError):d.load_tokens(record,{str(cp):d.sha(cp),str(a):d.sha(a)})
+
+    def test_full1000_metadata_order_preprocessing_and_no_dev(self):
+        ids=[f'c{i}' for i in range(1000)];cal=dict(source_ids=ids,preprocessing_ids=[f'p{i}' for i in range(1000)],
+            stage='m1_calibration',calibration_or_development='m1_calibration')
+        records=[dict(source_index=i,source_id=s,preprocessing_id=f'p{i}',tokens_sha256='a'*64,checkpoint=f'/cp/{i}',
+            checkpoint_sha256='b'*64,archive=f'/a/{i}') for i,s in enumerate(ids)]
+        done=dict(status='H_FULL1000_CPU_ASSETS_READY_SOURCE_ENCODING_INCOMPLETE',source_count=1000,new_packet_decodes=0,
+            development_used=False,outputs={p:s for r in records for p,s in [(r['checkpoint'],'b'*64),(r['archive'],'c'*64)]})
+        manifest=dict(source_ids=ids,records=records);self.assertEqual(len(d.asset_records(done,manifest,cal)),1000)
+        records[-1]['preprocessing_id']='wrong'
+        with self.assertRaises(ValueError):d.asset_records(done,manifest,cal)
+
+    def test_phase_reserve_dynamic_calls_and_no_H_borrow(self):
+        value=dict(schema=d.budget.SCHEMA,branch='MAIN',total_cap=105176,limits=d.budget.PHASE_LIMITS,
+            phase_charged=dict(qualification=2168,proxy_phy=43008,actual_calibration=59997),charged=105173,
+            H_C_ledger_used=False,unresolved=0)
+        d.phase_budget(value,expected_calls=59997)
+        for change in ({'branch':'H'},{'charged':105174},{'unresolved':1}):
+            with self.assertRaises(ValueError):d.phase_budget(dict(value,**change),expected_calls=59997)
+
+
+if __name__=='__main__':unittest.main()

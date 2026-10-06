@@ -1,0 +1,61 @@
+"""Match the two exact environment phases of the unchanged original loader.
+
+This guard never sets an environment value, loads a model, or changes a CPU/GPU
+resource. NumPy starts under the original all-six launch environment. The bound
+legacy preflight later sets only OPENBLAS_NUM_THREADS to two; PyTorch numerical
+flags remain independently checked by each original visual worker.
+"""
+from __future__ import annotations
+import hashlib
+import os
+from pathlib import Path
+import sys
+import types
+
+PREFLIGHT='experiments/rx-posterior-step1-20260929/run_preflight.py'
+PREFLIGHT_SHA='1aea50854bccc9b7518e04ad6fc39eb5084ea131e18ba2d529ceeb44e650ed16'
+THREAD_KEYS=('OMP_NUM_THREADS','MKL_NUM_THREADS','OPENBLAS_NUM_THREADS','NUMEXPR_NUM_THREADS')
+OWNER_SHA={
+    'C':'2e7cb0e19ab35d4d69bf0bbe54a4172b0db29f954e61283dbcaa822f58a2fae0',
+    'MAIN':'71fab2a7f1ae6ff6a6ae747c4d20bb3f98de248a17735eab3d892e23bda700a0',
+}
+OLD=b"all(os.environ.get(k)=='6' for k in THREAD_KEYS)"
+NEW=b"_preflight_environment.check(ctx['bound'],cfg['root'])"
+IMPORT=b'import original_preflight_environment_r1 as _preflight_environment\n'
+
+def require(ok,message):
+    if not ok:raise RuntimeError(message)
+def sha(path):return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+def check(bound,root,*,environment=None,modules=None):
+    """Return True only for the registered before/after legacy-import state."""
+    own=str(Path(__file__).absolute())
+    require(bound.get(own)==sha(own),'Environment compatibility helper must be SHA-bound')
+    env=os.environ if environment is None else environment
+    registry=sys.modules if modules is None else modules
+    original=Path(root).absolute()/PREFLIGHT
+    require(bound.get(str(original))==PREFLIGHT_SHA and sha(original)==PREFLIGHT_SHA,
+        'Exact original preflight source must be registered and unchanged')
+    expected={k:'6' for k in THREAD_KEYS}
+    if 'run_preflight' in registry:
+        loaded=registry['run_preflight'];spec=getattr(loaded,'__spec__',None)
+        require(type(loaded)is types.ModuleType and getattr(loaded,'__name__',None)=='run_preflight'
+            and getattr(loaded,'__file__',None)==str(original) and spec is not None
+            and spec.name=='run_preflight' and spec.origin==str(original),
+            'Loaded legacy preflight has an unknown module/path/spec identity')
+        expected['OPENBLAS_NUM_THREADS']='2'
+    require(all(env.get(k)==v for k,v in expected.items()),
+        'Original preflight phase/thread environment differs: expected '+repr(expected))
+    return True
+
+def derive_owner(original,kind):
+    """Pure exact-byte derivative; original process/lock/numerical gates stay."""
+    require(kind in OWNER_SHA and hashlib.sha256(original).hexdigest()==OWNER_SHA[kind],
+        'Exact frozen owner bytes required')
+    anchor=b'from __future__ import annotations\n'
+    require(original.count(anchor)==1 and original.count(OLD)==1 and IMPORT not in original,
+        'Exactly one frozen environment expression and import anchor required')
+    derived=original.replace(anchor,anchor+IMPORT).replace(OLD,NEW)
+    require(derived.replace(IMPORT,b'',1).replace(NEW,OLD,1)==original,
+        'Owner derivative changed more than the helper import and one predicate')
+    return derived

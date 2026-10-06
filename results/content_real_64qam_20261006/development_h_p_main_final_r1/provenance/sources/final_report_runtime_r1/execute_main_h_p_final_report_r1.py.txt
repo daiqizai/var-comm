@@ -1,0 +1,235 @@
+"""Registered single-process projection of normally completed fixed results.
+
+No additional owner, model, selection, packet or bootstrap. The external caller
+retains launch, waited exit and closed log; closed_report authenticates them.
+"""
+import argparse
+import csv
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import shutil
+import sys
+import traceback
+
+REQUEST='MAIN_H_P_FINAL_REPORT_REQUEST_R1'
+REGISTERED='MAIN_H_P_FINAL_REPORT_REGISTERED_R1'
+DONE='MAIN_H_P_FINAL_REPORT_PROJECTED_R1'
+PINS={
+ 'projection':'852b4e3933159f128357db56e14130bf9ab7d71e6b557d96118b4c13cec73745',
+ 'distributions':'4b6a85a2cf4499c716803594a2fb0ef2f3238578da8d94a82f6c77b498a1b395',
+ 'statistics':'15b9de792232705755c2809985566c27042aae4993c4afbd6e60b07527e536de',
+ 'timing':'52d5b4cb48e5e9abca5f688f9f7d15eed9cdb954e2c71847f386d090ca0287d9',
+ 'old_projection':'6bcf40c835b7b0ee1e90adf3f66857979b1c2f11a8d1a47ee58c058d546d8545',
+}
+H_TABLES=('point_catalog.csv','tx_source_scale.csv','rx_received_scale.csv','receiver_status.csv','comparison_plan.json',
+          'summary.csv','paired.csv','classifier_transition.csv','wire_diagnostics.csv','metric_provenance.json','cost_scope.json')
+HP_TABLES=('point_identity.json','common_metric_admission.json','comparison_plan.json','summary.csv','paired.csv',
+           'source_means.csv','normalization_proof.json','target_pixel_bridge.json','metric_availability.json')
+F_TABLES=('comparison_plan.json','point_identity.json','summary.csv','paired.csv','source_means.csv','provenance.json','metric_availability.json')
+T_TABLES=('component_summary.json','component_cases.json')
+
+def require(v,m):
+    if not v:raise RuntimeError(m)
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p):
+    h=hashlib.sha256()
+    with Path(p).open('rb') as f:
+        for b in iter(lambda:f.read(1048576),b''):h.update(b)
+    return h.hexdigest()
+def bind(paths):return {str(Path(p).absolute()):sha(p) for p in paths}
+def combine(*maps):
+    result={}
+    for values in maps:
+        for p,h in values.items():require(p not in result or result[p]==h,'Conflicting SHA: '+p);result[p]=h
+    return result
+def verify(pins):
+    for p,h in pins.items():require(Path(p).is_absolute() and sha(p)==h,'Changed bound file: '+p)
+def save(p,v):
+    p=Path(p);p.parent.mkdir(parents=True,exist_ok=True)
+    with p.open('x',encoding='utf-8',newline='\n') as f:json.dump(v,f,ensure_ascii=False,sort_keys=True,indent=2,allow_nan=False);f.write('\n');f.flush();os.fsync(f.fileno())
+def exact(p,bound,used):
+    p=str(p);require(bound.get(p)==sha(p),'Unsealed consumed metadata/table: '+p);used[p]=bound[p];return p
+def doc(p,bound,used):return read(exact(p,bound,used))
+def table(p,bound,used):
+    p=exact(p,bound,used)
+    if Path(p).suffix=='.csv':
+        with Path(p).open(encoding='utf-8',newline='') as f:return list(csv.DictReader(f))
+    return read(p)
+def module(p,name,bound):
+    exact(p,bound,{})
+    s=importlib.util.spec_from_file_location(name,p);m=importlib.util.module_from_spec(s);sys.modules[name]=m;s.loader.exec_module(m);return m
+def identity(pid):
+    p=Path('/proc')/str(pid);v=(p/'stat').read_text().rsplit(')',1)[1].split()
+    return dict(pid=pid,start_ticks=int(v[19]),uid=p.stat().st_uid,argv=(p/'cmdline').read_bytes().decode().rstrip('\0').split('\0'))
+def absent(who):
+    try:now=identity(who['pid'])
+    except FileNotFoundError:return True
+    return now['start_ticks']!=who['start_ticks'] or now['uid']!=who['uid']
+
+def historical(role,spec,predecessor,bound,used):
+    """Authenticate old normal receipts through sealed ancestry, no live H gate."""
+    sealed=predecessor['bindings'];rp=exact(spec['registration'],sealed,used);reg=read(rp)
+    ancestor=combine(sealed,reg['source_bindings'],reg['input_bindings'])
+    own=doc(spec['config'],ancestor,used);np=str(Path(own['owner_out'])/'completion.json')
+    normal=doc(np,sealed,used);done=doc(spec['completion'],sealed,used)
+    status={'H':'H18_DEVELOPMENT_DESCRIPTIVE_AGGREGATION_COMPLETE','HP':'H_P_FIXED_SOURCE_COMPARISON_COMPLETE_MAIN_PENDING',
+            'H_timing':'H_FIXED16_ONLINE_COMPONENTS_COMPLETE'}[role]
+    require(normal['status']=='REGISTERED_H_STAGE_BATCH_COMPLETE' and done['status']==status
+        and normal['registration_sha256']==done['registration_sha256']==sha(rp)
+        and done['budget_before']==done['budget_after']==normal['budget'] and normal['budget']['charged']==164760,
+        'Historical successful owner/science identity differs')
+    jobs=[j for s in own['stages'] for j in s['jobs'] if j['completion']==spec['completion'] and status in j['accepted_statuses']]
+    require(len(jobs)==1 and jobs[0]['argv'].count('--config')==1,'Unique original worker configuration required')
+    cp=jobs[0]['argv'][jobs[0]['argv'].index('--config')+1];cfg=doc(cp,ancestor,used)
+    require(cfg['registration']==rp and done['config_sha256']==sha(cp),'Historical config identity changed')
+    outputs=done['outputs'];directory=Path(cfg['out'])
+    if role=='H':
+        original=done['original_aggregation_receipt'];p=original['path']
+        require(outputs.get(p)==original['sha256']==sha(p) and not done['original_aggregation_receipt_modified'],'Original H envelope changed')
+        used[p]=sha(p);science=read(p);directory=Path(p).parent
+        require(science['status']==status and science['budget_before']==science['budget_after']==done['budget_after'], 'Original H21 scientific receipt differs')
+        require(all(outputs.get(p)==h for p,h in science['outputs'].items()),'Unsealed H annex output')
+    else:science=done
+    inherited=combine(bound,ancestor,outputs,science['outputs'])
+    return dict(science=science,directory=directory,outputs=science['outputs'],bound=inherited,
+        controls=bind([rp,spec['config'],np,spec['completion'],cp]),cfg=cfg)
+
+def preflight(r):
+    require(r['schema']==REQUEST and r['policy_selection'] is False and r['automatic_successor'] is False,'Fixed report request required')
+    root=Path(r['root']);base=root/'outputs/CONTENT-REAL-64QAM-20261006';e=Path(r['execution_dir']);out=Path(r['out'])
+    require(e.parent==out.parent==base/'MAIN' and e!=out,'Separate MAIN report directories required')
+    require(not any((p/'STOP').exists() for p in (base,base/'H',base/'MAIN',e,out)),'Unresolved STOP')
+    verify(r['source_bindings']);verify(r['input_bindings']);bound=combine(r['source_bindings'],r['input_bindings']);used={}
+    require(r['source_bindings'].get(str(Path(__file__).absolute()))==sha(__file__),'Actual report entry must be bound')
+    for key,h in PINS.items():require(r['source_bindings'].get(r['modules'][key])==h==sha(r['modules'][key]),'Frozen report/closure module changed: '+key)
+    require(r['source_bindings'].get(r['modules']['success'])==sha(r['modules']['success']),'Original success projection must be bound')
+    for kind in ('statistics','timing'):
+        spec=r[kind+'_batch']
+        require(set(spec)=={'config','completion'} and Path(spec['completion']).is_file(),'Actual normal '+kind+' completion required')
+        cfg=doc(spec['config'],bound,used);doc(spec['completion'],bound,used)
+        exact(cfg['registration'],bound,used) # self-registration is never assumed to be inherited
+    sys.path[:0]=[p for p in r['pythonpath'] if p not in sys.path]
+    stats=module(r['modules']['statistics'],'final_report_statistics',bound)
+    timing=module(r['modules']['timing'],'final_report_timing',bound)
+    sc=stats.closed_batch(r['statistics_batch']);tc=timing.closed_batch(r['timing_batch'])
+    require(sc['science']['budget_after']==tc['science']['budget_after']==tc['ctx']['before'],'Final statistics and timing budgets differ')
+    prior=tc['ctx']['prior'];cc=prior['cpu_ctx'];pred=cc['predecessor']
+    require(read(r['statistics_batch']['config'])['visual_batch']==tc['ctx']['request']['visual_batch'], 'Statistics/timing must use the same actual MAIN4 batch')
+    require(r['python']==prior['cfg']['python'] and r['affinity']==[0,1] and r['nice']==15,'Original UM and CPU2 report resources')
+    bound=combine(bound,sc['bindings'],tc['bindings'])
+    cpup=str(base/'MAIN/main4_development_preparation_r2/request.json');cpu_request=doc(cpup,combine(bound,cc['reg']['input_bindings']),used)
+    batches={key:historical(key,cpu_request['H_zero_PHY_batches'][role],pred,bound,used)
+        for key,role in [('H','H_aggregation'),('HP','HP_statistics'),('H_timing','H_timing')]}
+    for batch in batches.values():bound=combine(bound,batch['bound'])
+    criteria=exact(r['criteria'],bound,used);require(sha(criteria)=='24e4e3e1042c4e1e752c6de26ba40bd5973290ec191f932e2591caabe5c8f8a7','Original success criteria bytes only')
+    for p,h in r.get('extra_evidence',{}).items():require(bound.get(p)==h==sha(p),'Supplementary publication evidence must be in the admitted ancestry');used[p]=h
+    normal_evidence=dict(statistics=bind([*r['statistics_batch'].values(),read(r['statistics_batch']['config'])['registration']]),
+        timing=bind([*r['timing_batch'].values(),read(r['timing_batch']['config'])['registration']]),
+        MAIN4_visual=bind([*tc['ctx']['request']['visual_batch'].values(),prior['cfg']['registration']]),
+        MAIN4_CPU=bind([*prior['cfg']['cpu_batch'].values(),cc['cfg']['registration']]),
+        inherited_predecessor=dict(path=cc['cfg']['predecessor_closure'],sha256=sha(cc['cfg']['predecessor_closure']),normal_roles=pred['normal_roles']),
+        historical={k:v['controls'] for k,v in batches.items()},extra_evidence=r.get('extra_evidence',{}))
+    for key in ('statistics','timing','MAIN4_visual','MAIN4_CPU'):used.update(normal_evidence[key])
+    used[cc['cfg']['predecessor_closure']]=sha(cc['cfg']['predecessor_closure'])
+    # Imports here are only pure projections; fixed dependencies are verified above.
+    module(r['modules']['old_projection'],'h_p_cost_report',bound);module(r['modules']['success'],'main_h_success_projection_r1',bound)
+    projection=module(r['modules']['projection'],'main_h_p_final_report_r1',bound);distribution=module(r['modules']['distributions'],'main_development_distributions_r1',bound)
+    return dict(request=r,e=e,out=out,stats=sc,timing=tc,timing_api=timing,prior=prior,cc=cc,before=tc['ctx']['before'],
+        batches=batches,bound=bound,used=used,normal_evidence=normal_evidence,projection=projection,distribution=distribution)
+
+def datasets(ctx):
+    used=ctx['used'];bound=ctx['bound'];attachments={}
+    def load(label,batch,names):
+        result={}
+        for name in names:
+            p=str(batch['directory']/name);require(batch['outputs'].get(p)==bound.get(p)==sha(p),'Original table output missing')
+            attachments[label+'/'+name]=p;result[name.rsplit('.',1)[0]]=table(p,bound,used)
+        result['completion']=batch['science'];return result
+    hp=load('HP',ctx['batches']['HP'],HP_TABLES)
+    h=load('H',ctx['batches']['H'],H_TABLES)
+    ht=load('H_timing',ctx['batches']['H_timing'],('component_summary.json','component_cases.json','historical_phy_event_windows.json'))
+    cfg=read(ctx['request']['statistics_batch']['config']);sc=ctx['stats']['science']
+    final=load('final',dict(directory=Path(cfg['out']),outputs=sc['outputs'],science=sc),F_TABLES)
+    mtc=ctx['timing']['ctx']['cfg'];mt=load('MAIN_timing',dict(directory=Path(mtc['out']),outputs=ctx['timing']['science']['outputs'],science=ctx['timing']['science']),T_TABLES)
+    hp['source_means_sha256']=sha(attachments['HP/source_means.csv']);hp['normalization_proof_sha256']=sha(attachments['HP/normalization_proof.json'])
+    hp['target_pixel_bridge']=dict(path=attachments['HP/target_pixel_bridge.json'],sha256=sha(attachments['HP/target_pixel_bridge.json']))
+    selected=ctx['cc']['cfg']['selected'];exact(selected,bound,used);final['selection_sha256']=sha(selected)
+    rows=str(Path(ctx['prior']['cfg']['out'])/'frame_metrics.json');require(ctx['timing']['ctx']['closed']['science']['outputs'].get(rows)==bound.get(rows),'Original complete MAIN1200 row pin required')
+    schedule=ctx['cc']['context']['schedule'];distribution=ctx['distribution'].summarize(table(rows,bound,used),sc['source_ids'],schedule)
+    args=dict(hp=hp,h18=h,final=final,schedule=schedule,main_distribution=distribution,
+        criteria_bytes=Path(ctx['request']['criteria']).read_bytes(),h_timing=ht,main_timing=mt)
+    return args,attachments
+
+def register(path):
+    r=read(path);e=Path(r['execution_dir']);out=Path(r['out']);require(not e.exists() and not out.exists(),'Fresh report attempt only')
+    ctx=preflight(r);e.mkdir()
+    try:
+        cp=e/'config.json';cfg=dict(r,request=str(Path(path).absolute()),registration=str(e/'execution_registration.json'));save(cp,cfg)
+        reg=dict(status=REGISTERED,config_sha256=sha(cp),source_bindings=r['source_bindings'],
+            input_bindings=combine(r['input_bindings'],ctx['used'],bind([path,cp])),normal_evidence=ctx['normal_evidence'],
+            budget_before=ctx['before'],new_packet_decodes=0,new_metric_calls=0,new_bootstrap=0,GPU_used=False,policy_selection=False)
+        save(cfg['registration'],reg);done=dict(status=REGISTERED,outputs=bind([cp,cfg['registration']]),registration_sha256=sha(cfg['registration']),call_started=False)
+        save(e/'registration_completion.json',done);return done
+    except BaseException:save(e/'registration_failure.json',dict(status='FAILED_PRESERVE_NO_RETRY',traceback=traceback.format_exc()));raise
+
+def sealed(path):
+    cfg=read(path);reg=read(cfg['registration']);e=Path(cfg['execution_dir']);seal=read(e/'registration_completion.json')
+    require(reg['status']==seal['status']==REGISTERED and reg['config_sha256']==sha(path)
+        and seal['registration_sha256']==sha(cfg['registration']) and not(e/'registration_failure.json').exists(),'Original report registration required')
+    verify(seal['outputs']);verify(reg['source_bindings']);verify(reg['input_bindings']);return cfg,reg
+
+def run(path):
+    cfg,reg=sealed(path);out=Path(cfg['out']);require(not out.exists(),'Retain old output; no retry')
+    require(sys.platform.startswith('linux'),'Original Linux invocation identity required')
+    me=identity(os.getpid());argv=[cfg['python'],'-B',str(Path(__file__).absolute()),'--stage','run','--config',str(Path(path).absolute())]
+    require(me['argv']==argv,'Exact registered read-only report command required')
+    os.sched_setaffinity(0,[0,1]);os.setpriority(os.PRIO_PROCESS,0,15)
+    require(os.environ.get('CUDA_VISIBLE_DEVICES')=='' and all(os.environ.get(k)=='2' for k in ('OMP_NUM_THREADS','MKL_NUM_THREADS','OPENBLAS_NUM_THREADS','NUMEXPR_NUM_THREADS')),'CPU-only report environment required')
+    out.mkdir();save(out/'attempt.json',dict(identity=me,registration_sha256=sha(cfg['registration'])))
+    try:
+        ctx=preflight(cfg);require(ctx['before']==reg['budget_before'] and ctx['normal_evidence']==reg['normal_evidence'],'Normal predecessor evidence changed since registration')
+        args,copies=datasets(ctx);view=ctx['projection'].project(**args);text=ctx['projection'].markdown(view)
+        save(out/'view.json',view);save(out/'MAIN_distributions.json',args['main_distribution'])
+        with (out/'report.md').open('x',encoding='utf-8',newline='\n') as f:f.write(text)
+        inventory={}
+        for relative,original in copies.items():
+            p=out/'tables'/relative;p.parent.mkdir(parents=True,exist_ok=True)
+            require(Path(original).stat().st_size<40*1024**2,'Only light text table attachments')
+            with p.open('xb') as f:f.write(Path(original).read_bytes())
+            require(sha(p)==ctx['used'][original]==sha(original),'Copied table bytes differ')
+            inventory[str(p)]=dict(original=original,sha256=sha(p))
+        save(out/'table_inventory.json',inventory);verify(ctx['used']);after=ctx['timing_api'].budget(ctx['timing']['ctx'])
+        require(after==reg['budget_before'],'Read-only projection changed budget')
+        outputs=bind(p for p in out.rglob('*') if p.is_file())
+        done=dict(status=DONE,registration_sha256=sha(cfg['registration']),config_sha256=sha(path),process_identity=me,
+            source_bindings=reg['source_bindings'],input_bindings=combine(reg['input_bindings'],ctx['used']),outputs=outputs,
+            normal_evidence=ctx['normal_evidence'],budget_before=reg['budget_before'],budget_after=after,
+            source_count=100,point_count=24,comparison_count=58,common_metrics=18,new_packet_decodes=0,new_metric_calls=0,
+            new_bootstrap=0,GPU_used=False,policy_selection=False,automatic_successor=False,external_exit_not_yet_certified=True)
+        save(out/'completion.json',done);return done
+    except BaseException:save(out/'failure.json',dict(status='FAILED_PRESERVE_NO_RETRY',traceback=traceback.format_exc()));raise
+
+def closed_report(spec):
+    require(set(spec)=={'config','completion','launch','exit','log'},'Exact external waited-call specification required')
+    cfg,reg=sealed(spec['config']);require(spec['completion']==str(Path(cfg['out'])/'completion.json'),'Original report completion only')
+    require(not(Path(cfg['out'])/'failure.json').exists(),'Failed report attempt remains blocked')
+    done=read(spec['completion']);launch=read(spec['launch']);end=read(spec['exit'])
+    require(done['status']==DONE and done['registration_sha256']==sha(cfg['registration']) and done['config_sha256']==sha(spec['config'])
+        and done['process_identity']==launch['identity']==end['identity'] and absent(done['process_identity'])
+        and end['exit_code']==0 and end['process_waited'] is True and end['log_sha256']==sha(spec['log']), 'Actual original report exit0/closed log required')
+    require(done['process_identity']['argv']==[cfg['python'],'-B',str(Path(__file__).absolute()),'--stage','run','--config',spec['config']]
+        and done['source_bindings']==reg['source_bindings'] and done['normal_evidence']==reg['normal_evidence']
+        and done['budget_before']==done['budget_after']==reg['budget_before'] and done['source_count']==100 and done['point_count']==24
+        and done['comparison_count']==58 and done['common_metrics']==18 and done['new_packet_decodes']==done['new_metric_calls']==done['new_bootstrap']==0
+        and done['GPU_used'] is False and done['policy_selection'] is False and done['automatic_successor'] is False,'Fixed report provenance/scope changed')
+    verify(done['outputs']);verify(done['input_bindings'])
+    require(all(done['input_bindings'].get(p)==h for p,h in reg['input_bindings'].items()),'Report omitted registered input evidence')
+    return dict(receipt=done,outputs=done['outputs'],source_bindings=reg['source_bindings'],normal_evidence=done['normal_evidence'],
+        bindings=combine(done['input_bindings'],done['outputs'],reg['source_bindings'],bind([*spec.values(),cfg['registration']])))
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--stage',choices=('register','run'),required=True);p.add_argument('--request');p.add_argument('--config');a=p.parse_args()
+    print((register(a.request) if a.stage=='register' else run(a.config))['status'],flush=True)

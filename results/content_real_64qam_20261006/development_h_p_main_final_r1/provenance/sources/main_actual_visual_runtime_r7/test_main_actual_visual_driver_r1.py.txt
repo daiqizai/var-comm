@@ -1,0 +1,294 @@
+"""Portable pure fixtures. No data/model/PHY load, no repository path assumptions."""
+import copy
+import hashlib
+import json
+from pathlib import Path
+import tempfile
+from types import SimpleNamespace
+import unittest
+from unittest import mock
+import numpy as np
+import main_actual_visual_driver_r1 as d
+import main_visual_keep_adapter as a
+import main_calibration_select_13_19_r1 as selection
+
+
+def profile(pid=0):
+    return dict(profile_id=pid,m=1,K=0,wire_key=f'{pid+1:064x}',candidate_id=f'{pid+2:064x}')
+
+
+def fixtures(index=0,sid='cal-source'):
+    p=profile();schedule=[dict(slot=i,snr_db=s,candidate_id=p['candidate_id'],profile_id=0,
+        wire_key=p['wire_key'],family_memberships=['WHOLE','PARTIAL']) for i,s in enumerate((13,19))]
+    state=dict(kind='tokens',prefix=[[7]],partial_values=[],m=1,K=0,order='raster')
+    target=np.zeros((3,256,256),np.uint8)
+    record=dict(source_index=index,source_id=sid,preprocessing_id=hashlib.sha256(target.tobytes()).hexdigest(),class_index=7)
+    rows=[]
+    for point in schedule:
+        for seed in d.NOISE_SEEDS:
+            rows.append(dict(point,source_index=index,source_id=sid,noise_seed=seed,population_role='calibration',
+                status='MAIN_RAW_KEEP_RECEPTION_COMPLETE',N=1024,header={},body={},codebook_sha256='a'*64,aliases_sha256='b'*64,
+                public_frame_counter=((4 if point['snr_db']==13 else 5)*1000+index)*3+d.NOISE_SEEDS.index(seed),
+                header_crc_ok=True,header_fields_legal=True,header_ok=True,rx_profile_id=0,body_decode_complete=True,
+                body_crc_accept=False,source_status='KEEP_ACTUAL_HARD_TOKENS',receiver_state=copy.deepcopy(state),
+                actual_state_sha256=a.wire.state_digest(state),gray=False,order='raster',rule='KEEP',source_decode_complete=True,
+                packet_event_ids=['paid.header','paid.body'],evaluation_only={'tokens':'NOT_RX'},transmission={'target':'NOT_RX'}))
+    return record,rows,target,schedule
+
+
+class FakeReceiver:
+    def __init__(self):self.cache={};self.hits=0;self.misses=0;self.views=[]
+    def reconstruct(self,view):
+        assert set(view)==set(a.WIRE_FIELDS)
+        self.views.append(copy.deepcopy(view));image=np.full((3,256,256),.5,np.float32)
+        hit=bool(self.cache)
+        if hit:self.hits+=1
+        else:self.misses+=1
+        self.cache['actual-rx']=True
+        summary={k:copy.deepcopy(view[k]) for k in a.CLAIMS}
+        summary.update(status=a.DONE,image_sha256=a.wire.array_sha(image),image_reconstruction_complete=True,
+            receiver_view_sha256=a.wire.identity(view),visual_cache_key='c'*64,visual_cache_hit=hit,
+            target_used_for_generation=False,new_packet_decodes=0)
+        return dict(image=image,summary=summary)
+
+
+class FakeScorer:
+    def __init__(self,mutate=None):self.prepared=[];self.calls=[];self.mutate=mutate
+    def prepare_source(self,record,target,index):
+        assert target.dtype==np.float32 and target.shape==(3,256,256)
+        self.prepared.append((copy.deepcopy(record),target.copy(),index))
+    def __call__(self,record,images):
+        self.calls.append((record,len(images)))
+        rows=[dict(dinov2_vitl14_cosine=.4,psnr_db=12.,lpips_alex=.2,dino_cosine=.5) for _ in images]
+        if self.mutate:
+            for row in rows:self.mutate(row)
+        return rows
+
+
+def metric_fixture(folder):
+    quality=folder/'quality.py';quality.write_text('original scorer\n',encoding='utf-8')
+    dep=folder/'metric_models.py';dep.write_text('original L14\n',encoding='utf-8')
+    helper=folder/'batch_speed.py';helper.write_text('original qualified tails\n',encoding='utf-8')
+    weight=folder/'L14.pth';weight.write_bytes(b'fake original L14 weights')
+    assets=dict(implementation={'revision':'original'},weights=dict(path=str(weight),sha256=d.sha(weight)))
+    manifest=folder/'modelmanifest.json';d.save(manifest,{'dinov2_vitl14':assets})
+    flags=dict(threads=6,interop_threads=2,precision='highest')
+    batch=dict(status='FIXED_BATCH8_QUALIFICATION_PASS',chosen_batch_size=8,qualified_batch_sizes=[1,2,4,8],
+        real_model_weights=True,synthetic_images=True,scientific_result=False,
+        checks=[dict(batch_size=i,comparison=dict(passed=True,classification_exact=True)) for i in (1,2,4,8)],
+        binding=dict(evaluator='e'*64,modelmanifest_sha256=d.sha(manifest),driver_sha256=d.sha(quality),context=dict(flags=flags),
+            metric_source_sha256=d.sha(dep),original_batch_helper_sha256=d.sha(helper)))
+    bp=folder/'batch.json';d.save(bp,batch)
+    identity=dict(primary_objective=d.PRIMARY,batch_size=8,qualified_batch_sizes=[1,2,4,8],driver_sha256=d.sha(quality),
+        batch_qualification_sha256=d.sha(bp),metric_evaluator_identity='e'*64,modelmanifest_sha256=d.sha(manifest),
+        numerical_runtime=flags,source_bindings={str(p):d.sha(p) for p in (dep,helper,weight,manifest)},
+        model_metadata=dict(metrics={'dinov2_vitl14':dict(status='READY',model_id='Meta ViT-L/14 1024-d',assets=assets)}))
+    return {'score_identity':identity},batch,quality,bp,flags
+
+
+class Driver(unittest.TestCase):
+    def test_pair_grid_preserves_full_snr_indices_four_and_five(self):
+        rec,rows,target,points=fixtures()
+        self.assertEqual(d.validate_grid(rows,0,rec['source_id'],points),6)
+        self.assertEqual([rows[i]['public_frame_counter'] for i in (0,3)],[12000,15000])
+        rows[0]['public_frame_counter']=0
+        with self.assertRaisesRegex(RuntimeError,'counter'):d.validate_grid(rows,0,rec['source_id'],points)
+
+    def test_missing_duplicate_or_changed_seed_refused(self):
+        rec,rows,_,points=fixtures()
+        for bad in (rows[:-1],rows+[rows[-1]],rows[:1]*len(rows)):
+            with self.assertRaises(RuntimeError):d.validate_grid(bad,0,rec['source_id'],points)
+        rows[0]['noise_seed']=6201
+        with self.assertRaises(RuntimeError):d.validate_grid(rows,0,rec['source_id'],points)
+
+    def test_actual_receiver_only_all_failures_retained_unique_rgb_metric_cache(self):
+        rec,frames,target,points=fixtures();rx=FakeReceiver();score=FakeScorer()
+        rows,images,cost=d.render_source(rec,frames,target,points,rx,a,score)
+        self.assertEqual(len(rows),6);self.assertEqual(images.shape,(1,3,256,256));self.assertEqual(score.calls[0][1],1)
+        self.assertEqual(len(rx.views),6);self.assertTrue(all(set(v)==set(a.WIRE_FIELDS) for v in rx.views))
+        self.assertEqual(cost['receiver_cache_hits'],5);self.assertTrue(all(not r['body_crc_accept'] and not r['gray'] for r in rows))
+        self.assertTrue(all(r[d.PRIMARY]==.4 and r['source_status']=='KEEP_ACTUAL_HARD_TOKENS' for r in rows))
+        self.assertTrue(all(r['transmission']==frames[i]['transmission'] and r['header']==frames[i]['header']
+            and r['body']==frames[i]['body'] for i,r in enumerate(rows)))
+        self.assertTrue(all(r['status']=='MAIN_RAW_KEEP_RECEPTION_COMPLETE' for r in rows))
+
+    def test_target_changes_only_score_reference_not_generation(self):
+        rec,frames,target,points=fixtures();rx1=FakeReceiver();s1=FakeScorer()
+        rows1,images1,_=d.render_source(rec,frames,target,points,rx1,a,s1)
+        target[:]=255;rec['preprocessing_id']=hashlib.sha256(target.tobytes()).hexdigest();rx2=FakeReceiver();s2=FakeScorer()
+        rows2,images2,_=d.render_source(rec,frames,target,points,rx2,a,s2)
+        self.assertEqual(rx1.views,rx2.views);np.testing.assert_array_equal(images1,images2)
+        self.assertFalse(np.array_equal(s1.prepared[0][1],s2.prepared[0][1]))
+
+    def test_source_cache_must_be_empty_and_no_cross_source_reuse(self):
+        rec,frames,target,points=fixtures();rx=FakeReceiver();rx.cache['other']=True
+        with self.assertRaisesRegex(RuntimeError,'fresh'):d.render_source(rec,frames,target,points,rx,a,FakeScorer())
+
+    def test_metric_cannot_substitute_small_dino_or_change_rx(self):
+        for mutate in (lambda r:r.pop(d.PRIMARY),lambda r:r.update(header_ok=False),lambda r:r.update(psnr_db=None),
+                       lambda r:r.update(dinov2_vitl14_cosine=1.1)):
+            rec,frames,target,points=fixtures()
+            with self.assertRaises(RuntimeError):d.render_source(rec,frames,target,points,FakeReceiver(),a,FakeScorer(mutate))
+
+    def test_software_model_error_propagates_without_gray_substitution(self):
+        rec,frames,target,points=fixtures();rx=FakeReceiver()
+        rx.reconstruct=mock.Mock(side_effect=RuntimeError('model failure'))
+        with self.assertRaisesRegex(RuntimeError,'model failure'):d.render_source(rec,frames,target,points,rx,a,FakeScorer())
+
+    def test_float_rgb_and_checkpoint_seal_then_no_overwrite(self):
+        rec,frames,target,points=fixtures();rows,images,cost=d.render_source(rec,frames,target,points,FakeReceiver(),a,FakeScorer())
+        with tempfile.TemporaryDirectory() as td:
+            paths,size=d.write_source(td,rec,rows,images,{'input':'a'*64},cost,'b'*64,a)
+            self.assertEqual(len(paths),3);d.verify(paths);self.assertGreater(size,images.nbytes)
+            cp=d.read(Path(td)/'source_checkpoints/0000.json');self.assertEqual(cp['frame_count'],6)
+            self.assertEqual(cp['status'],d.SOURCE_DONE)
+            with np.load(Path(td)/'images/0000.npz',allow_pickle=False) as z:np.testing.assert_array_equal(z['images'],images)
+            with self.assertRaises(FileExistsError):d.write_source(td,rec,rows,images,{},cost,'b'*64,a)
+
+    def test_wrong_archive_slot_hash_is_rejected_before_write(self):
+        rec,frames,target,points=fixtures();rows,images,cost=d.render_source(rec,frames,target,points,FakeReceiver(),a,FakeScorer())
+        rows[0]['image_sha256']='f'*64
+        with tempfile.TemporaryDirectory() as td:
+            with self.assertRaises(RuntimeError):d.write_source(td,rec,rows,images,{},cost,'b'*64,a)
+            self.assertFalse((Path(td)/'images/0000.npz').exists())
+
+    def test_batch_qualification_and_original_l14_identity_exact(self):
+        with tempfile.TemporaryDirectory() as td:
+            args=metric_fixture(Path(td));identity=d.original_metric_identity(*args)
+            self.assertEqual(identity['primary_objective'],d.PRIMARY)
+            args[0]['score_identity']['model_metadata']['metrics']['dinov2_vitl14']['model_id']='DINOv2 ViT-S/14 384-d'
+            with self.assertRaisesRegex(RuntimeError,'substitute'):d.original_metric_identity(*args)
+
+    def test_missing_tail_or_changed_numeric_qualification_refused(self):
+        with tempfile.TemporaryDirectory() as td:
+            args=metric_fixture(Path(td));args[1]['checks'][-1]['comparison']['classification_exact']=False
+            with self.assertRaises(RuntimeError):d.original_metric_identity(*args)
+            args[1]['checks'][-1]['comparison']['classification_exact']=True;args[-1]['threads']=2
+            # The actual flags and old identity are independent objects.
+            args[0]['score_identity']['numerical_runtime']=dict(args[-1],threads=6)
+            with self.assertRaises(RuntimeError):d.original_metric_identity(*args)
+
+    def test_changed_scorer_dependency_refused(self):
+        with tempfile.TemporaryDirectory() as td:
+            args=metric_fixture(Path(td));(Path(td)/'metric_models.py').write_text('different model',encoding='utf-8')
+            with self.assertRaisesRegex(RuntimeError,'dependency'):d.original_metric_identity(*args)
+
+    def test_original_code_map_can_omit_l14_weight_but_new_registration_cannot(self):
+        with tempfile.TemporaryDirectory() as td:
+            args=metric_fixture(Path(td));identity=args[0]['score_identity'];bound=dict(identity['source_bindings'])
+            weight=identity['model_metadata']['metrics']['dinov2_vitl14']['assets']['weights']['path']
+            del identity['source_bindings'][weight];original=copy.deepcopy(identity)
+            self.assertEqual(d.original_metric_identity(*args,registered_bindings=bound),original)
+            self.assertEqual(identity,original)
+            with self.assertRaisesRegex(RuntimeError,'manifest assets'):
+                d.original_metric_identity(*args,registered_bindings=identity['source_bindings'])
+            Path(weight).write_bytes(b'changed original weights')
+            with self.assertRaisesRegex(RuntimeError,'Changed/unbound'):
+                d.original_metric_identity(*args,registered_bindings=bound)
+
+    def test_manifest_implementation_tree_is_bound_and_rejects_path_escape(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);value={'implementation':{'path':str(root),'files':{'model.py':'a'*64}},'weights':{'path':str(root/'w'),'sha256':'b'*64}}
+            self.assertEqual(d.metric_asset_bindings(value),{str(root/'model.py'):'a'*64,str(root/'w'):'b'*64})
+            value['implementation']['files']={'../outside.py':'a'*64}
+            with self.assertRaisesRegex(RuntimeError,'Unsafe'):d.metric_asset_bindings(value)
+
+    def test_native_exact_identity_flags_and_full_source_graph(self):
+        ctx=dict(calibration={'identity':{'models':'original'}},expected_flags={'FP32':True},static_bindings={'native':'a'},bound={'native':'a'})
+        native=SimpleNamespace(loaded={'identity':{'models':'original'}},flags={'FP32':True},driver_bindings={'native':'a'})
+        d.validate_native(native,ctx);native.driver_bindings['new']='b'
+        with self.assertRaises(RuntimeError):d.validate_native(native,ctx)
+
+    def test_output_grid_is_accepted_by_original_selector_receiver_validator(self):
+        rows=[];ids=[f'cal-{i}' for i in range(1000)];points=None
+        rec,frames,target,points=fixtures();base,_,_=d.render_source(rec,frames,target,points,FakeReceiver(),a,FakeScorer())
+        for i,sid in enumerate(ids):
+            for original in base:
+                row=copy.deepcopy(original);row.update(source_index=i,source_id=sid)
+                row['public_frame_counter']=((4 if row['snr_db']==13 else 5)*1000+i)*3+d.NOISE_SEEDS.index(row['noise_seed']);rows.append(row)
+        d.validate_final(rows,ids,points,selection,[profile()])
+        rows[-1]['rx_profile_id']=123
+        with self.assertRaises(ValueError):d.validate_final(rows,ids,points,selection,[profile()])
+
+    def test_readonly_budget_requires_existing_file_and_exact_paid_counts(self):
+        with tempfile.TemporaryDirectory() as td:
+            ledger=Path(td)/'ledger';reg=Path(td)/'budget.json';reg.write_text('{}',encoding='utf-8')
+            ctx=dict(cpu_ctx={'cfg':{'ledger':str(ledger),'budget_registration':str(reg)}},readonly_budget=mock.Mock(return_value={'paid':9}),
+                cpu_owner=SimpleNamespace(require_budget=mock.Mock()),cpu_closed={'done':{'packet_calls':9}})
+            with self.assertRaises(RuntimeError):d.budget_snapshot(ctx)
+            ctx['readonly_budget'].assert_not_called();ledger.write_bytes(b'existing fake database')
+            self.assertEqual(d.budget_snapshot(ctx),{'paid':9});ctx['cpu_owner'].require_budget.assert_called_once_with({'paid':9},9)
+
+    def test_source_loader_reads_original_pixels_not_token_member(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);record,rows,target,_=fixtures();archive=root/'source.npz'
+            # Object arrays cannot be loaded with allow_pickle=False. Passing
+            # here proves the visual loader never reads the co-stored tokens.
+            with archive.open('wb') as f:np.savez(f,pixels=target,tokens=np.array([object()],dtype=object))
+            ap=root/'asset.json';record.update(checkpoint=str(ap),archive=str(archive))
+            d.save(ap,dict(source_index=0,original_calibration_index=0,source_id=record['source_id'],
+                preprocessing_id=record['preprocessing_id'],archive=str(archive),outputs={str(archive):d.sha(archive)},evaluation_class_index=7))
+            cp=root/'cpu/source_checkpoints/0000.json';tp=root/'cpu/traces/0000.json';d.save(tp,rows)
+            d.save(cp,dict(source_index=0,source_id=record['source_id'],outputs={str(tp):d.sha(tp)}))
+            pins={str(p):d.sha(p) for p in (archive,ap,cp,tp)}
+            ctx=dict(cpu_ctx={'cfg':{'out':str(root/'cpu')},'records':[record]},bound=pins,cpu_closed={'done':{'outputs':pins}})
+            r,actual,pixels,inputs=d.source_inputs(ctx,0)
+            np.testing.assert_array_equal(pixels,target);self.assertEqual(actual,rows);self.assertEqual(r['class_index'],7)
+            with archive.open('wb') as f:np.savez(f,pixels=target+1,tokens=np.zeros(680,dtype=np.int64))
+            with self.assertRaises(RuntimeError):d.source_inputs(ctx,0)
+
+    def test_streamed_full_evidence_is_exact_and_failed_partial_preserved(self):
+        with tempfile.TemporaryDirectory() as td:
+            writer=d.FrameWriter(td);rows=[{'actual_hard_bits':[0,1],'dinov2_vitl14_cosine':.2}]
+            writer.append(rows)
+            with self.assertRaises(RuntimeError):writer.finish(2)
+            self.assertTrue(writer.pending.exists());self.assertFalse(writer.path.exists())
+            writer.append(rows);path=writer.finish(2);self.assertEqual(d.read(path),rows+rows)
+            with self.assertRaises(RuntimeError):d.FrameWriter(td)
+
+    def test_real_receiver_receive_full_frame_then_visual_phase_completion(self):
+        # Exercise the frozen real receive method, not a handwritten subset of
+        # its output. Only the PHY/ledger/model callbacks are synthetic.
+        rec,_,target,points=fixtures();cat=object.__new__(a.wire.PublicCatalogue)
+        cat._profiles=[dict(profile_id=0,m=1,K=0,wire_key='e'*64,groups=[dict(phy_key='d'*64,source_bits=12,
+            information_bits=28,transmitted_bits=100,symbols=50,modulation='QPSK',layout={'fake':True})])]
+        cat._aliases=[];cat.digest=a.wire.identity(cat._profiles);cat.aliases_digest=a.wire.identity([]);cat.backend_identity={'fake':True}
+        fake_torch=SimpleNamespace(float32=np.float32,as_tensor=lambda x,**k:np.asarray(x,dtype=k['dtype']))
+        backend=SimpleNamespace(identity=cat.backend_identity,device='cpu',torch=fake_torch)
+        ledger=SimpleNamespace(branch='MAIN',register_configuration=lambda *args:None,
+            decode_once=lambda phase,event_id,**kwargs:kwargs['decode']())
+        header=SimpleNamespace(receive=lambda *args:dict(profile_id=0,header_crc_ok=True,header_fields_legal=True,header_ok=True,score=1.))
+        def physical(*args):
+            payload=np.ones((1,12),np.uint8);decoded=np.concatenate((payload,np.zeros((1,16),np.uint8)),axis=1)
+            return payload,np.array([False]),decoded
+        crc=lambda bits:bool(np.asarray(bits)[-1])
+        phy=SimpleNamespace(receive_packet=physical,crc_accept_batch=crc)
+        physical_rx=a.wire.Receiver(cat,header=header,backend=backend,phy=phy,ledger=ledger)
+        frames=[]
+        for point in points:
+            for seed in d.NOISE_SEEDS:
+                counter=((4 if point['snr_db']==13 else 5)*1000)*3+d.NOISE_SEEDS.index(seed)
+                actual=physical_rx.receive(np.zeros((1024,2),np.float64),point['snr_db'],counter,
+                    phase='actual_calibration',event_prefix=f'fake-{point["snr_db"]}-{seed}')
+                frames.append(dict(actual,**point,source_index=0,source_id=rec['source_id'],noise_seed=seed,
+                    population_role='calibration',quality_scored=False,new_metric_calls=0))
+        renderer=a.Receiver(cat,crc_accept=crc,render_tokens=lambda *args:np.full((3,256,256),.5,np.float32),model_identity={'frozen':'fake'})
+        rows,images,cost=d.render_source(rec,frames,target,points,renderer,a,FakeScorer())
+        self.assertEqual(len(rows),6)
+        for before,after in zip(frames,rows):
+            self.assertFalse(before['image_reconstruction_complete']);self.assertFalse(after['cpu_image_reconstruction_complete'])
+            self.assertTrue(after['image_reconstruction_complete'])
+            for key in ('header','body','receiver_state','packet_events','packet_event_ids','status'):
+                self.assertEqual(after[key],before[key])
+
+    def test_original_polling_inside_source_forced_original_boundary_per_source(self):
+        native=SimpleNamespace(common=SimpleNamespace(check=mock.Mock()))
+        quality=SimpleNamespace(boundary=mock.Mock(return_value=False))
+        d.health_check(native,quality,source_boundary=True)
+        for _ in range(30):d.health_check(native,quality)
+        self.assertEqual(native.common.check.call_count,30);quality.boundary.assert_called_once_with(native)
+        quality.boundary.return_value=True
+        with self.assertRaisesRegex(RuntimeError,'safety'):d.health_check(native,quality,source_boundary=True)
+
+
+if __name__=='__main__':unittest.main()

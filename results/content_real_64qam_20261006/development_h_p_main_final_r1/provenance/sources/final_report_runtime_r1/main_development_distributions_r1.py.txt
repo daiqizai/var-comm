@@ -1,0 +1,96 @@
+"""Descriptive MAIN4 distributions from already authenticated 1200 CPU/RX rows.
+
+No file access, models, decoding, selection or bootstrap. Gray is an outcome,
+never a source endpoint. TX endpoint denominators are100; RX/energy are300.
+"""
+from collections import Counter
+import math
+import numpy as np
+
+ORDER=((18,13,'QPSK'),(19,13,'16QAM'),(20,19,'QPSK'),(21,19,'16QAM'))
+SEEDS=(6201,6202,6203)
+SIZES=(1,2,3,4,5,6,8,10,13,16)
+
+def require(value,message):
+    if not value:raise ValueError(message)
+
+def endpoint(m,k):
+    require(type(m)is int and type(k)is int and 1<=m<=10
+        and (k==0 if m==10 else 0<=k<SIZES[m]**2),'Canonical real source endpoint required')
+    return m,k
+
+def summary(values):
+    a=np.asarray(values,dtype=np.float64)
+    require(a.shape==(300,) and np.isfinite(a).all() and (a>=0).all(),'All300 finite actual frame values required')
+    return dict(count=300,mean=float(a.mean()),std_population=float(a.std(ddof=0)),
+        minimum=float(a.min()),p05=float(np.quantile(a,.05,method='linear')),
+        median=float(np.quantile(a,.5,method='linear')),p95=float(np.quantile(a,.95,method='linear')),maximum=float(a.max()))
+
+def summarize(rows,source_ids,schedule):
+    require(len(source_ids)==len(set(source_ids))==100,'Exactly the sealed development100 source order required')
+    require([(p['development_slot'],p['snr_db'],p['modulation']) for p in schedule]==list(ORDER),
+        'Exactly four frozen references; no new candidate selection')
+    require(len(rows)==1200,'All1200 actual logical frames, including failures, required')
+    points={p['development_slot']:p for p in schedule};seen=set();groups={k:[] for k in points}
+    for r in rows:
+        i=r['source_index'];slot=r['development_slot'];seed=r['noise_seed']
+        require(type(i)is int and 0<=i<100 and r['source_id']==source_ids[i] and slot in points and seed in SEEDS,
+            'Wrong source/slot/noise identity')
+        key=(i,slot,seed);require(key not in seen,'Duplicate actual frame');seen.add(key);p=points[slot]
+        require(all(r[k]==p[k] for k in ('snr_db','modulation','candidate_id','profile_id','wire_key','m','K')),
+            'TX reference differs from the already frozen selection')
+        endpoint(r['m'],r['K'])
+        require(r['population_role']=='development' and r['physical_ledger_branch']=='H' and r['phase']=='development'
+            and r['source_decode_complete'] is True and r['policy_selection'] is False and r['frame_normalized'] is False,
+            'Only completed original MAIN4 development receive records are admitted')
+        require(r['public_frame_counter']==(slot*100+i)*3+SEEDS.index(seed),'Original counter changed')
+        tx=r['transmission']
+        require(tx['N']==r['N']==1024 and tx['header_uses']==68 and tx['body_uses']+tx['idle_uses']==956
+            and type(tx['body_uses'])is int and type(tx['idle_uses'])is int and tx['body_uses']>0 and tx['idle_uses']>=0
+            and tx['profile_id']==r['profile_id'] and tx['frame_counter']==r['public_frame_counter'],
+            'Actual fully paid68+956 frame accounting required')
+        values=[r['header_energy'],r['body_and_idle_energy'],r['total_energy']]
+        require(all(type(v) in (int,float) and math.isfinite(v) and v>=0 for v in values)
+            and r['total_energy']==tx['E'] and math.isclose(values[0]+values[1],values[2],rel_tol=1e-12,abs_tol=1e-8),
+            'Actual energy components/total differ; no image or theoretical energy estimator')
+        state=r['receiver_state'];h=r['header']
+        require(type(r['gray'])is bool and type(r['header_ok'])is bool and type(r['body_crc_accept'])is bool
+            and r['header_ok']==h['header_ok'],'Explicit actual header/CRC/gray evidence required')
+        if r['gray']:
+            require(not r['header_ok'] and r['rx_profile_id'] is None and r['body'] is None
+                and not r['body_decode_complete'] and not r['body_crc_accept'] and state['kind']=='gray'
+                and state['m']==state['K']==0 and r['source_status']=='HEADER_REJECT_GRAY','Only actual rejected headers are gray')
+        else:
+            endpoint(state['m'],state['K'])
+            require(r['header_ok'] and r['body_decode_complete'] and state['kind']=='tokens'
+                and r['rx_profile_id']==h['profile_id']==r['body']['profile_id']
+                and r['body_crc_accept']==r['body']['crc_accept'] and r['source_status']=='KEEP_ACTUAL_HARD_TOKENS',
+                'KEEP CRC-rejected hard tokens must remain actual received state')
+        groups[slot].append(r)
+    require(seen=={(i,p['development_slot'],s) for i in range(100) for p in schedule for s in SEEDS},'Incomplete registered grid')
+    outputs=[]
+    for p in schedule:
+        rs=sorted(groups[p['development_slot']],key=lambda r:(r['source_index'],r['noise_seed']))
+        txs=Counter((r['m'],r['K'],r['profile_id']) for r in rs if r['noise_seed']==6201)
+        rx=Counter();categories=Counter();wrong_profile=0
+        for r in rs:
+            if r['gray']:rx[('GRAY',None,None,None,None)]+=1;categories['HEADER_REJECT_GRAY']+=1
+            else:
+                state=r['receiver_state'];rx[('TOKENS',state['m'],state['K'],r['rx_profile_id'],r['body_crc_accept'])]+=1
+                categories['KEEP_CRC_ACCEPT' if r['body_crc_accept'] else 'KEEP_CRC_REJECT']+=1
+                wrong_profile+=int(r['rx_profile_id']!=r['profile_id'])
+        outputs.append(dict(development_slot=p['development_slot'],snr_db=p['snr_db'],modulation=p['modulation'],
+            candidate_id=p['candidate_id'],TX_source_denominator=100,RX_frame_denominator=300,
+            TX_endpoints=[dict(m=m,K=k,profile_id=pid,source_count=n,fraction=n/100) for (m,k,pid),n in sorted(txs.items())],
+            RX_endpoints=[dict(outcome=c,m=m,K=k,profile_id=pid,body_crc_accept=accepted,frame_count=n,fraction=n/300)
+                for (c,m,k,pid,accepted),n in sorted(rx.items())],
+            RX_categories={name:dict(frame_count=categories[name],fraction=categories[name]/300)
+                for name in ('HEADER_REJECT_GRAY','KEEP_CRC_ACCEPT','KEEP_CRC_REJECT')},
+            accepted_different_public_profile_frames=wrong_profile,
+            energy={name:summary([r[name] for r in rs]) for name in ('header_energy','body_and_idle_energy','total_energy')},
+            symbol_uses={name:summary([r['transmission'][name] for r in rs]) for name in ('N','header_uses','body_uses','idle_uses')}))
+    return dict(status='MAIN4_FULL_DEVELOPMENT_DISTRIBUTIONS_R1',source_count=100,frame_count=1200,point_count=4,
+        points=outputs,noise_seeds=list(SEEDS),gray_is_not_source_m0=True,failed_frames_in_denominator=True,
+        source_endpoints_fixed_by_selection=True,energy_uses_all_noise_frames=True,
+        descriptive_convention=dict(std='population ddof=0',quantiles='NumPy linear p05/p50/p95; not bootstrap confidence intervals'),
+        new_packet_decodes=0,new_metric_calls=0,bootstrap_calls=0,policy_selection=False,success_gate_evaluated=False)

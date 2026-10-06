@@ -1,0 +1,272 @@
+"""Pure supervisor tests: no actual GPU, ledger, model, assets or channel."""
+import contextlib
+import hashlib
+import json
+import os
+from pathlib import Path
+from types import SimpleNamespace
+import tempfile
+import unittest
+from unittest import mock
+import main_development_visual_owner_r1 as o
+
+
+def fixture(root):
+    root=Path(root);study=root/'outputs/CONTENT-REAL-64QAM-20261006';e=study/'MAIN/visual_execution';e.mkdir(parents=True)
+    op=e/'owner_config.json';cp=e/'worker_config.json';reg=e/'registration.json';exe=root/'nvidia-smi';exe.write_bytes(b'fixture-only')
+    cfg=dict(root=str(root),out=str(study/'MAIN/visual'),registration=str(reg),_path=str(cp),python='/original/UM/bin/python',
+        worker_module=str(Path(o.w.__file__).absolute()),visual_owner_module=str(Path(o.__file__).absolute()),visual_owner_config=str(op),
+        core_module=str(Path(o.__file__).absolute()),env_compatibility_module=str(Path(o.__file__).absolute()),
+        pythonpath=['/new/runtime','/original/physical','/original/E'],prepared_qualification=str(e/'qualification.json'),
+        gpu_device=0,gpu_threads=6,gpu_affinity=[4,5,6,7,8,9],nice=15,max_seconds=100,deadline_unix=9999999999,
+        stop_file=str(study/'MAIN/STOP'))
+    owner=dict(schema=o.SCHEMA,owner_out=str(e),worker_config=str(cp),registration=str(reg),python=cfg['python'],_path=str(op),
+        pythonpath=cfg['pythonpath'],prepared_qualification=cfg['prepared_qualification'],
+        gpu_device=0,gpu_threads=6,gpu_affinity=cfg['gpu_affinity'],cpu_affinity=cfg['gpu_affinity'],nice=15,
+        max_seconds=100,deadline_unix=cfg['deadline_unix'],automatic_successor=False,
+        visual_lock_path=str(study/'shared_visual.lock'),nvidia_smi=str(exe),worker_argv=o.w.command(cfg))
+    o.save(cp,cfg);o.save(op,{k:v for k,v in owner.items() if k!='_path'});o.save(reg,{'fixture':True})
+    bound=o.bind([exe,cp,op,o.__file__,o.w.__file__]);records=[dict(source_id='s'+str(i),preprocessing_id='p'+str(i)) for i in range(100)]
+    before=dict(H={'charged':167160,'MAIN4_calls':2400},MAIN={'charged':105176})
+    return dict(cfg=cfg,owner=owner,bound=bound,regsha=o.sha(reg),reg=dict(source_bindings={},input_bindings={},budget_before=before),
+        cpu_ctx=dict(context={'schedule':[{'development_slot':s} for s in (18,19,20,21)]},source_ids=[r['source_id'] for r in records],records=records,
+            cfg={'ledger':str(study/'H/budget.sqlite'),'main_ledger':str(study/'MAIN/budget.sqlite')}),
+        static_bindings={'/original/model.py':'a'*64},expected_flags={'threads':6,'interop_threads':2},native_identity={'var':'fixed'},
+        historical_metrics={'done':{'metric_evaluator_identity':'original-B1','metric_metadata':{'precision':'FP32'}}},
+        metric=SimpleNamespace(REQUIRED=('lpips_alex',)))
+
+
+def identity(pid,argv):return dict(pid=pid,start_ticks=100+pid,uid=1002,argv=argv)
+
+
+def science(ctx):
+    cfg=ctx['cfg'];out=Path(cfg['out']);rows=[];outputs={}
+    for i,sid in enumerate(ctx['cpu_ctx']['source_ids']):
+        ap=out/'images'/f'{i:04d}.npz';ap.parent.mkdir(parents=True,exist_ok=True);ap.write_bytes(b'pure fixture RGB')
+        rp=out/'sources'/f'{i:04d}.json'
+        current=[dict(source_index=i,source_id=sid,development_slot=s,noise_seed=n,image_archive=str(ap),
+            image_reconstruction_complete=True,metric_evaluator_identity='original-B1',metric_batch_size=1,
+            used_for_selection=False,F_recovery_error=None,lpips_alex=.2,mse=.1,psnr_db=10.,legacy_quality_psnr_db=10.)
+            for s in (18,19,20,21) for n in (6201,6202,6203)]
+        o.save(rp,current);cp=out/'source_checkpoints'/f'{i:04d}.json'
+        o.save(cp,dict(status=o.w.SOURCE_DONE,registration_sha256=ctx['regsha'],source_index=i,source_id=sid,
+            preprocessing_id='p'+str(i),frame_count=12,rows=str(rp),archive=str(ap),outputs=o.bind([rp,ap]),input_bindings={}))
+        outputs.update(o.bind([rp,ap,cp]));rows.extend(current)
+    flat=out/'frame_metrics.json';o.save(flat,rows);outputs.update(o.bind([flat]))
+    return dict(status=o.w.DONE,registration_sha256=ctx['regsha'],config_sha256=o.sha(cfg['_path']),source_count=100,
+        frame_count=1200,source_ids=ctx['cpu_ctx']['source_ids'],schedule=ctx['cpu_ctx']['context']['schedule'],noise_seeds=[6201,6202,6203],
+        policy_selection=False,development_used=True,holdout_used=False,automatic_successor=False,statistical_aggregation_run=False,
+        MAIN_final_delivery=False,online_timing_measured=False,source_decode_complete=True,image_reconstruction_complete=True,
+        images_scored=True,GPU_used=True,unified_neural_metrics_run=True,new_packet_decodes=0,noise_generated=0,metric_batch_size=1,
+        source_bindings=ctx['reg']['source_bindings'],input_bindings=ctx['reg']['input_bindings'],
+        budget_before=ctx['reg']['budget_before'],budget_after=ctx['reg']['budget_before'],
+        native_source_bindings=ctx['static_bindings'],numerical_runtime=ctx['expected_flags'],frozen_visual_identity=ctx['native_identity'],
+        metric_evaluator_identity='original-B1',metric_metadata={'precision':'FP32'},outputs=outputs)
+
+
+def admission(ctx):
+    owner=ctx['owner'];e=Path(owner['owner_out']);(e/'worker').mkdir()
+    parent=identity(10,o.argv(owner));worker=identity(11,o.w.command(ctx['cfg']))
+    gpu=dict(status='GPU_IDLE_CONFIRMED',owner_identity=parent,registration_sha256=ctx['regsha'],visual_lock_path=owner['visual_lock_path'])
+    start=dict(identity=parent,registration_sha256=ctx['regsha'],owner_config_sha256=o.sha(owner['_path']))
+    launch=dict(identity=worker,owner_identity=parent,registration_sha256=ctx['regsha'],config_sha256=o.sha(ctx['cfg']['_path']))
+    o.save(e/'owner_start.json',start);o.save(e/'gpu_admission.json',gpu);o.save(e/'worker/launch.json',launch)
+    a=dict(status=o.ADMITTED,registration_sha256=ctx['regsha'],config_sha256=o.sha(ctx['cfg']['_path']),owner_identity=parent,worker_identity=worker,
+        gpu_device=0,threads=6,affinity=owner['gpu_affinity'],gpu_admission=gpu,
+        bindings=o.bind([e/'owner_start.json',e/'gpu_admission.json',e/'worker/launch.json']))
+    o.save(e/'worker_admission.json',a);return a
+
+
+class Tests(unittest.TestCase):
+    def test_registered_shape_single_gpu_original_union_lock(self):
+        with tempfile.TemporaryDirectory() as td:
+            c=fixture(td);o.validate_shape(c['owner'],c)
+            for field,value in [('cpu_affinity',[4,5]),('gpu_threads',2),('visual_lock_path',str(Path(td)/'newlock')),('automatic_successor',True)]:
+                bad=dict(c['owner'],**{field:value})
+                with self.assertRaises(RuntimeError):o.validate_shape(bad,c)
+
+    def test_gpu_inventory_one_empty_only_no_zombie_exception(self):
+        with tempfile.TemporaryDirectory() as td:
+            c=fixture(td)
+            def runner_with(values):return mock.Mock(side_effect=[SimpleNamespace(stdout=s) for s in values])
+            ok=o.gpu_idle(c['owner'],runner_with(['0, GPU-fixture\n','']))
+            self.assertEqual(ok['status'],'GPU_IDLE_CONFIRMED')
+            for values in (['0, GPU-a\n1, GPU-b\n'],['0, GPU-a\n','999\n']):
+                with self.assertRaises(RuntimeError):o.gpu_idle(c['owner'],runner_with(values))
+
+    def test_worker_environment_keeps_original_six_threads(self):
+        with mock.patch.dict(os.environ,{'CUDA_VISIBLE_DEVICES':'','OMP_NUM_THREADS':'2'}):
+            env=o.environment({'pythonpath':['/runtime','/original/E']});self.assertEqual(env['CUDA_VISIBLE_DEVICES'],'0')
+            self.assertTrue(all(env[k]=='6' for k in o.THREAD_KEYS))
+
+    def test_atomic_admission_never_overwrites(self):
+        with tempfile.TemporaryDirectory() as td:
+            p=Path(td)/'admission';o.atomic_save(p,{'x':1})
+            with self.assertRaises(FileExistsError):o.atomic_save(p,{'x':2})
+            self.assertEqual(o.read(p),{'x':1})
+
+    def test_current_worker_admission_requires_real_parent_lock_resources(self):
+        with tempfile.TemporaryDirectory() as td:
+            c=fixture(td);a=admission(c)
+            with mock.patch.object(o.os,'getpid',return_value=11),mock.patch.object(o.os,'getppid',return_value=10),\
+                 mock.patch.object(o,'identity',side_effect=lambda p:a['worker_identity'] if p==11 else a['owner_identity']),\
+                 mock.patch.object(o.os,'sched_getaffinity',return_value=set(c['cfg']['gpu_affinity']),create=True),\
+                 mock.patch.object(o.os,'getpriority',return_value=15,create=True),mock.patch.object(o.os,'PRIO_PROCESS',0,create=True),\
+                 mock.patch.dict(os.environ,o.environment(c['owner'])),mock.patch.object(o,'environment_compatible',return_value=True),mock.patch.object(o,'lock_is_held',return_value=True),\
+                 mock.patch.object(o.w,'budget_snapshot',side_effect=AssertionError('Do not scan ledger per frame')):
+                o.check_live_admission(c,a)
+                with mock.patch.object(o.os,'getppid',return_value=12),self.assertRaisesRegex(RuntimeError,'parent/worker'):o.check_live_admission(c,a)
+                with mock.patch.object(o,'lock_is_held',return_value=False),self.assertRaisesRegex(RuntimeError,'lock/launch'):o.check_live_admission(c,a)
+
+    def test_changed_admission_or_budget_blocks_live_worker(self):
+        with tempfile.TemporaryDirectory() as td:
+            c=fixture(td);a=admission(c);a['worker_identity']['start_ticks']+=1
+            with self.assertRaisesRegex(RuntimeError,'admission changed'):o.check_live_admission(c,a)
+            with mock.patch.object(o,'check_live_admission'),mock.patch.object(o.w,'budget_snapshot',return_value={'charged':45181}),\
+                 self.assertRaisesRegex(RuntimeError,'budget changed'):
+                o.admit_worker(c['cfg']['_path'],c)
+
+    def test_receipt_exact_grid_native_flags_and_no_phy(self):
+        with tempfile.TemporaryDirectory() as td:
+            c=fixture(td);p=Path(c['cfg']['out'])/'completion.json';d=science(c);o.save(p,d)
+            with mock.patch.object(o.w,'budget_snapshot',return_value=c['reg']['budget_before']):
+                self.assertEqual(o.receipt(c)['frame_count'],1200)
+                for key,value in [('frame_count',1199),('new_packet_decodes',1),('metric_batch_size',8),('native_source_bindings',{}),('policy_selection',True)]:
+                    p.write_text(json.dumps(dict(d,**{key:value})),encoding='utf-8')
+                    with self.assertRaises(RuntimeError):o.receipt(c)
+
+    def test_poll_zombie_window_waits_before_identity_check(self):
+        with tempfile.TemporaryDirectory() as td:
+            c=fixture(td);a=admission(c);folder=Path(c['owner']['owner_out'])/'worker';lp=folder/'worker.log';log=lp.open('xb');log.write(b'complete\n')
+            o.save(Path(c['cfg']['out'])/'completion.json',{'fixture':True});events=[]
+            p=mock.Mock();p.poll.side_effect=[None,0];p.wait.side_effect=lambda:events.append('wait') or 0
+            child=dict(process=p,log=log,folder=folder,logpath=lp,launch={'identity':a['worker_identity']})
+            def reaped(x):self.assertTrue(log.closed);self.assertEqual(events,['wait']);events.append('reaped');return True
+            with mock.patch.object(o.time,'sleep'),mock.patch.object(o,'exited',side_effect=reaped),\
+                 mock.patch.object(o,'identity',side_effect=AssertionError('No parent live check while monitoring')):
+                result=o.wait_child(c,child,o.time.monotonic())
+            self.assertEqual(events,['wait','reaped']);self.assertEqual(result['exit_code'],0)
+            self.assertTrue((folder/'exit.json').is_file());p.terminate.assert_not_called();p.kill.assert_not_called()
+
+    def test_stop_and_deadline_drain_keep_exit_and_logs(self):
+        for why in ('stop','deadline'):
+            with self.subTest(why=why),tempfile.TemporaryDirectory() as td:
+                c=fixture(td);a=admission(c);folder=Path(c['owner']['owner_out'])/'worker';lp=folder/'worker.log';log=lp.open('xb');log.write(b'checkpoint retained')
+                o.save(Path(c['cfg']['out'])/'completion.json',{'fixture':True})
+                if why=='stop':o.request_stop(c,'fixture STOP')
+                p=mock.Mock();p.poll.side_effect=[None,0];p.wait.return_value=0
+                child=dict(process=p,log=log,folder=folder,logpath=lp,launch={'identity':a['worker_identity']})
+                with mock.patch.object(o.time,'sleep'),mock.patch.object(o,'exited',return_value=True),self.assertRaises(RuntimeError):
+                    o.wait_child(c,child,o.time.monotonic()-(101 if why=='deadline' else 0))
+                self.assertTrue(log.closed);self.assertEqual(o.read(folder/'exit.json')['exit_code'],0)
+                self.assertTrue(Path(c['cfg']['stop_file']).exists());p.terminate.assert_not_called();p.kill.assert_not_called()
+
+    def test_nonzero_exit_cannot_use_existing_science_completion(self):
+        with tempfile.TemporaryDirectory() as td:
+            c=fixture(td);a=admission(c);folder=Path(c['owner']['owner_out'])/'worker';lp=folder/'worker.log';log=lp.open('xb')
+            o.save(Path(c['cfg']['out'])/'completion.json',{'status':o.w.DONE});p=mock.Mock();p.poll.return_value=1;p.wait.return_value=1
+            with mock.patch.object(o,'exited',return_value=True),self.assertRaises(RuntimeError):
+                o.wait_child(c,dict(process=p,log=log,folder=folder,logpath=lp,launch={'identity':a['worker_identity']}),o.time.monotonic())
+            self.assertEqual(o.read(folder/'exit.json')['exit_code'],1)
+
+    def test_closed_batch_requires_normal_owner_waited_worker_and_exact_receipt(self):
+        with tempfile.TemporaryDirectory() as td:
+            c=fixture(td);a=admission(c);e=Path(c['owner']['owner_out']);lp=e/'worker/worker.log';lp.write_bytes(b'COMPLETE\n')
+            d=science(c);d['supervision']=a;cp=Path(c['cfg']['out'])/'completion.json';o.save(cp,d)
+            end=dict(status='MAIN_VISUAL_WORKER_EXITED',identity=a['worker_identity'],exit_code=0,wait_completed=True,
+                launch_sha256=o.sha(e/'worker/launch.json'),log_sha256=o.sha(lp),completion_sha256=o.sha(cp));o.save(e/'worker/exit.json',end)
+            outputs=o.bind([cp,e/'worker/launch.json',lp,e/'worker/exit.json',e/'worker_admission.json',e/'owner_start.json',e/'gpu_admission.json'])
+            done=dict(status=o.DONE,registration_sha256=c['regsha'],owner_config_sha256=o.sha(c['owner']['_path']),owner_identity=a['owner_identity'],
+                outputs=outputs,budget_before=c['reg']['budget_before'],budget_after=c['reg']['budget_before'],frame_count=1200,source_count=100,worker_identity=a['worker_identity'],source_bindings=c['reg']['source_bindings'],input_bindings=c['reg']['input_bindings'],new_packet_decodes=0,automatic_successor_started=False)
+            o.save(e/'completion.json',done);spec=dict(owner_config=c['owner']['_path'],completion=str(e/'completion.json'))
+            with mock.patch.object(o,'load',return_value=c),mock.patch.object(o,'exited',return_value=True),mock.patch.object(o.w,'budget_snapshot',return_value=c['reg']['budget_before']):
+                self.assertEqual(o.closed_batch(spec)['done']['frame_count'],1200)
+                with mock.patch.object(o,'exited',return_value=False),self.assertRaisesRegex(RuntimeError,'owner must normally exit'):o.closed_batch(spec)
+                o.save(e/'failure.json',{'failure':'retained'})
+                with self.assertRaisesRegex(RuntimeError,'failure cannot'):o.closed_batch(spec)
+
+    def test_supervisor_never_mutates_packet_ledger_or_loads_models(self):
+        import ast
+        tree=ast.parse(Path(o.__file__).read_text(encoding='utf-8'))
+        calls={n.func.attr for n in ast.walk(tree) if isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute)}
+        self.assertTrue({'BudgetLedger','decode_once','build_native','MetricScorer','kill','terminate'}.isdisjoint(calls))
+        source=Path(o.__file__).read_text(encoding='utf-8');self.assertLess(source.index('if child is not None:'),source.index('locks.close()'))
+
+    def test_historical_stop_gate_does_not_expire_completed_evidence(self):
+        with tempfile.TemporaryDirectory() as td:
+            c=fixture(td);c['cfg']['deadline_unix']=1
+            with self.assertRaisesRegex(RuntimeError,'deadline'):o.check_stop(c)
+            o.check_stop(c,enforce_deadline=False)
+            o.request_stop(c,'must still block old failures')
+            with self.assertRaisesRegex(RuntimeError,'STOP'):o.check_stop(c,enforce_deadline=False)
+
+    def test_real_qualification_consumer_requires_exact_log_and_bound_entrypoints(self):
+        with tempfile.TemporaryDirectory() as td:
+            c=fixture(td);cfg=c['cfg'];log=Path(td)/'tests.log';log.write_text('Ran 16 tests in 1.0s\n\nOK\n')
+            c['reg'].update(qualification_test_count=16,qualification_test_modules=['test_fixed_inventory'])
+            q=dict(status=o.QUALIFIED,python=cfg['python'],pythonpath=cfg['pythonpath'],tests_run=16,
+                test_modules=['test_fixed_inventory'],exit_code=0,process_waited=True,new_packet_decodes=0,GPU_used=False,model_imports=False,
+                source_bindings=o.bind([cfg[k] for k in ('worker_module','core_module','visual_owner_module','env_compatibility_module')]),
+                input_bindings={},outputs=o.bind([log]),log=str(log))
+            p=Path(cfg['prepared_qualification']);o.save(p,q);c['bound'][str(p)]=o.sha(p)
+            self.assertEqual(o.qualification(c)['tests_run'],16)
+            for changed in (dict(q,model_imports=True),dict(q,source_bindings={}),dict(q,tests_run=15)):
+                p.write_text(json.dumps(changed));c['bound'][str(p)]=o.sha(p)
+                with self.assertRaises(RuntimeError):o.qualification(c)
+
+    def test_spawn_identity_failure_retains_pid_closed_log_and_wait(self):
+        with tempfile.TemporaryDirectory() as td:
+            c=fixture(td);p=mock.Mock(pid=501);p.wait.return_value=1
+            with mock.patch.object(o.subprocess,'Popen',return_value=p),mock.patch.object(o,'capture',side_effect=RuntimeError('identity failed')):
+                with self.assertRaisesRegex(RuntimeError,'identity failed'):o.spawn(c,identity(10,o.argv(c['owner'])))
+            folder=Path(c['owner']['owner_out'])/'worker';exit=o.read(folder/'spawn_failure_exit.json')
+            self.assertEqual(o.read(folder/'spawn_pending_identity.json')['pid'],501);self.assertTrue(exit['wait_completed'])
+            self.assertEqual(exit['log_sha256'],o.sha(folder/'worker.log'));p.wait.assert_called_once()
+            self.assertTrue(Path(c['cfg']['stop_file']).exists());p.terminate.assert_not_called();p.kill.assert_not_called()
+        with tempfile.TemporaryDirectory() as td:
+            c=fixture(td);p=mock.Mock(pid=502);p.wait.return_value=1
+            with mock.patch.object(o.subprocess,'Popen',return_value=p),mock.patch.object(o,'capture',side_effect=RuntimeError('identity failed')),\
+                 mock.patch.object(o,'request_stop',side_effect=OSError('disk marker failure')):
+                with self.assertRaisesRegex(RuntimeError,'identity failed'):o.spawn(c,identity(10,o.argv(c['owner'])))
+            p.wait.assert_called_once();self.assertTrue(o.read(Path(c['owner']['owner_out'])/'worker/spawn_failure_exit.json')['wait_completed'])
+
+    def test_both_H_and_MAIN_accounting_locks_required_in_fixed_order(self):
+        with tempfile.TemporaryDirectory() as td:
+            c=fixture(td);paths=o.lock_paths(c)
+            self.assertEqual(paths,[c['owner']['visual_lock_path'],str(Path(c['cpu_ctx']['cfg']['ledger']).with_suffix('.owner.lock')),
+                str(Path(c['cpu_ctx']['cfg']['main_ledger']).with_suffix('.owner.lock'))])
+            self.assertEqual(len(set(paths)),3)
+
+    def test_owner_marker_write_failure_still_drains_before_lock_release(self):
+        with tempfile.TemporaryDirectory() as td:
+            c=fixture(td);parent=identity(10,o.argv(c['owner']));events=[];held=[]
+            for key in ('ledger','main_ledger'):Path(c['cpu_ctx']['cfg'][key]).parent.mkdir(parents=True,exist_ok=True)
+            @contextlib.contextmanager
+            def lock(_):
+                held.append(True);events.append('locked')
+                try:yield
+                finally:held.clear();events.append('unlocked')
+            def spawned(ctx,me):
+                folder=Path(c['owner']['owner_out'])/'worker';folder.mkdir();lp=folder/'worker.log';log=lp.open('xb');log.write(b'closed after exception')
+                child=identity(11,o.w.command(c['cfg']));o.save(folder/'launch.json',{'identity':child})
+                p=mock.Mock();p.poll.return_value=1
+                def waited():self.assertTrue(held);events.append('wait');return 1
+                p.wait.side_effect=waited
+                return dict(process=p,log=log,folder=folder,logpath=lp,launch={'identity':child})
+            fcntl=SimpleNamespace(LOCK_EX=2,LOCK_NB=4,flock=lambda *a:None)
+            with mock.patch.object(o.sys,'platform','linux'),mock.patch.object(o,'load',return_value=c),\
+                 mock.patch.object(o,'identity',return_value=parent),mock.patch.object(o,'visual_lock',lock),\
+                 mock.patch.object(o.os,'sched_getaffinity',return_value=set(range(10)),create=True),\
+                 mock.patch.object(o.os,'sched_setaffinity',create=True),mock.patch.object(o.os,'setpriority',create=True),\
+                 mock.patch.object(o.os,'PRIO_PROCESS',0,create=True),mock.patch.object(o.signal,'signal'),\
+                 mock.patch.dict('sys.modules',{'fcntl':fcntl}),mock.patch.object(o,'gpu_idle',return_value={'status':'GPU_IDLE_CONFIRMED'}),\
+                 mock.patch.object(o.w,'budget_snapshot',return_value=c['reg']['budget_before']),mock.patch.object(o,'spawn',side_effect=spawned),\
+                 mock.patch.object(o,'atomic_save',side_effect=RuntimeError('admission publication failed')),\
+                 mock.patch.object(o,'request_stop',side_effect=OSError('marker write failed')),mock.patch.object(o,'exited',return_value=True):
+                with self.assertRaisesRegex(RuntimeError,'admission publication failed'):o.run(c['owner']['_path'])
+            self.assertEqual(events[-1],'unlocked');self.assertIn('wait',events)
+            e=Path(c['owner']['owner_out']);self.assertTrue((e/'failure.json').exists())
+            self.assertTrue(o.read(e/'worker/exit.json')['wait_completed']);self.assertFalse((e/'completion.json').exists())
+
+
+if __name__=='__main__':unittest.main()

@@ -1,0 +1,152 @@
+"""Prepared MAIN actual-hard-token visual adapter; no model/PHY loader or CLI.
+
+The future caller admits the original full catalogue, paid CPU event closure,
+exclusive visual runtime, and exact source population. This module recomputes
+the RX parse on every frame, including cache hits. Target/TX fields never enter
+generation. It deliberately does not compute the calibration selection metric.
+"""
+from contextlib import nullcontext
+from copy import deepcopy
+import numpy as np
+import main_raw_keep_receiver as wire
+
+require = wire.require
+SIZES, PREFIX = wire.SIZES, wire.PREFIX
+CLAIMS = ('header_crc_ok', 'header_fields_legal', 'header_ok', 'rx_profile_id',
+          'body_decode_complete', 'body_crc_accept', 'source_status',
+          'receiver_state', 'actual_state_sha256', 'gray', 'order', 'rule',
+          'source_decode_complete')
+WIRE_FIELDS = ('status', 'N', 'header', 'body', 'codebook_sha256',
+               'aliases_sha256', 'public_frame_counter', *CLAIMS)
+DONE = 'MAIN_ACTUAL_KEEP_VISUAL_RECONSTRUCTION_COMPLETE'
+
+
+def receiver_view(frame):
+    """Future frame wrapper uses rx=<unchanged Receiver.receive result>."""
+    rx = frame['rx']
+    return {key: deepcopy(rx[key]) for key in WIRE_FIELDS}
+
+
+def validate_image(value):
+    a = np.asarray(value)
+    require(a.dtype == np.float32 and a.shape == (3, 256, 256)
+            and np.isfinite(a).all() and ((a >= 0) & (a <= 1)).all(),
+            'Actual decoder must return finite original float32 RGB')
+    return a.copy()
+
+
+def flatten_state(state):
+    """Actual received m1..10 prefix and public raster partial values only."""
+    require(state['kind'] == 'tokens' and state['order'] == 'raster', 'MAIN hard raster state required')
+    m, K = state['m'], state['K']
+    require(type(m) is int and 1 <= m <= 10 and wire.canonical(m, K) == (m, K),
+            'Actual canonical m1..10 endpoint required')
+    require(len(state['prefix']) == m, 'Actual complete prefix count differs')
+    values = []
+    for scale, value in enumerate(state['prefix']):
+        a = np.asarray(value)
+        require(a.shape == (SIZES[scale]**2,) and np.issubdtype(a.dtype, np.integer)
+                and ((a >= 0) & (a < 4096)).all(), 'Malformed received full scale')
+        values.append(a.astype(np.int64, copy=True))
+    partial = np.asarray(state['partial_values'])
+    require(partial.shape == (K,) and (K == 0 or np.issubdtype(partial.dtype, np.integer))
+            and ((partial >= 0) & (partial < 4096)).all(), 'Malformed received raster partial')
+    if K: values.append(partial.astype(np.int64, copy=True))
+    return np.concatenate(values)
+
+
+class Receiver:
+    def __init__(self, catalogue, *, crc_accept, render_tokens, model_identity,
+                 inference_context=nullcontext, cache=None):
+        require(isinstance(catalogue, wire.PublicCatalogue), 'Original complete270 public catalogue required')
+        require(callable(crc_accept) and callable(render_tokens), 'Inject frozen CRC and token renderer')
+        require(isinstance(model_identity, dict) and model_identity, 'Bound complete visual runtime identity required')
+        self.catalogue = catalogue
+        self.crc_accept, self.render_tokens = crc_accept, render_tokens
+        self.model_identity = deepcopy(model_identity)
+        self.model_identity_sha256 = wire.identity(self.model_identity)
+        self.inference_context, self.cache = inference_context, {} if cache is None else cache
+        self.hits = self.misses = 0
+
+    def _wire(self, view):
+        require(set(view) == set(WIRE_FIELDS), 'Only actual RX public evidence is permitted')
+        self.catalogue.verify()
+        require(view['status'] == 'MAIN_RAW_KEEP_RECEPTION_COMPLETE' and view['N'] == 1024
+                and view['codebook_sha256'] == self.catalogue.digest
+                and view['aliases_sha256'] == self.catalogue.aliases_digest
+                and type(view['public_frame_counter']) is int and view['public_frame_counter'] >= 0,
+                'Wrong catalogue or incomplete actual MAIN reception')
+        state = wire.present_actual(view['header'], view['body'], self.catalogue)
+        require(all(view[k] == state[k] for k in CLAIMS), 'Actual header/hard bits and cached receiver state disagree')
+        if view['body'] is not None:
+            actual = self.crc_accept(np.asarray(view['body']['decoded_bits'], dtype=np.uint8))
+            require(isinstance(actual, (bool, np.bool_)) and bool(actual) == view['body']['crc_accept'],
+                    'Frozen CRC evidence differs; do not recast software corruption as channel rejection')
+        require(wire.identity(self.model_identity) == self.model_identity_sha256, 'Visual identity mutated')
+        return state
+
+    def reconstruct(self, view):
+        actual = self._wire(view)  # Even a cache hit must validate this paid frame.
+        tokens = None if actual['gray'] else flatten_state(actual['receiver_state'])
+        key = wire.identity(dict(actual_state_sha256=actual['actual_state_sha256'],
+                                 model_identity_sha256=self.model_identity_sha256,
+                                 codebook_sha256=self.catalogue.digest, rule='MAIN_RAW_RASTER_KEEP'))
+        hit = key in self.cache
+        if hit:
+            item = self.cache[key]; image = validate_image(item['image'])
+            require(item['key'] == key and item['image_sha256'] == wire.array_sha(image), 'Corrupt visual cache')
+            self.hits += 1
+        else:
+            with self.inference_context():
+                if actual['gray']:
+                    image = np.full((3, 256, 256), .5, dtype=np.float32)
+                else:
+                    state = actual['receiver_state']
+                    image = validate_image(self.render_tokens(tokens.copy(), state['m'], state['K']))
+            self.cache[key] = dict(key=key, image=image.copy(), image_sha256=wire.array_sha(image))
+            self.misses += 1
+        summary = dict(status=DONE, **deepcopy(actual), image_sha256=wire.array_sha(image),
+            receiver_view_sha256=wire.identity(view), visual_cache_key=key, visual_cache_hit=hit,
+            actual_received_tokens_sha256=None if tokens is None else wire.array_sha(tokens),
+            model_identity_sha256=self.model_identity_sha256,
+            image_reconstruction_complete=True, new_packet_decodes=0, policy_selection=False,
+            target_used_for_generation=False, TX_truth_used_for_generation=False,
+            clean_source_image_substitution=False,
+            frozen_renderer_executed_this_frame=bool(not hit and not actual['gray']))
+        return dict(image=image.copy(), received_tokens=None if tokens is None else tokens.copy(), summary=summary)
+
+
+def frozen_native_receiver(native, catalogue, *, frozen_render_received, crc_accept, model_identity, cache=None):
+    """No setup/guard bypass: caller first admits the actual native and code SHA.
+
+    frozen_render_received is the unchanged h_source_driver.render_received:
+    its ten-scale loop uses old _Prior directly, not complete_partial/_prefix.
+    Its generic canonical token count accepts m1..3 as well as m8 partial.
+    """
+    require(tuple(native.loaded['vae'].quantize.v_patch_nums) == SIZES,
+            'Original official ten-scale quantizer required')
+    require(model_identity['frozen_visual_identity'] == native.loaded['identity']
+            and model_identity['numerical_runtime'] == native.flags,
+            'Exact model and numeric qualification identity required')
+    return Receiver(catalogue, crc_accept=crc_accept,
+        render_tokens=lambda tokens, m, K: frozen_render_received(native, tokens, m, K),
+        model_identity=model_identity, inference_context=native.torch.no_grad, cache=cache)
+
+
+def metric_inputs(result, target_u8, *, expected_preprocessing_sha256):
+    """After reconstruction only. Supplies original FP32 target to DINO-L suite.
+
+    This computes neither PSNR nor DINO; a separately admitted original metric
+    scorer must return dinov2_vitl14_cosine, psnr_db and lpips_alex for every frame.
+    """
+    import hashlib
+    summary = result['summary']; image = validate_image(result['image'])
+    require(summary['status'] == DONE and summary['image_reconstruction_complete'] is True
+            and summary['image_sha256'] == wire.array_sha(image), 'Pending/changed reconstruction cannot be scored')
+    target = np.asarray(target_u8)
+    require(target.dtype == np.uint8 and target.shape == (3, 256, 256)
+            and hashlib.sha256(target.tobytes()).hexdigest() == expected_preprocessing_sha256,
+            'Original exact calibration target pixels required')
+    return dict(image=image, target=target.astype(np.float32)/np.float32(255),
+                primary_metric='dinov2_vitl14_cosine', policy_selection=False,
+                target_preprocessing_sha256=expected_preprocessing_sha256)

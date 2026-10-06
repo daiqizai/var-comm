@@ -1,0 +1,408 @@
+"""Seal one MAIN4 CPU development batch against the unchanged H reserve.
+
+All original normal closures are checked before registration. The new immutable
+closure snapshot is used after charging begins; old receipts are never rewritten
+to pretend that their historical budget was167160. No model/PHY is constructed.
+"""
+from __future__ import annotations
+import argparse
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+import time
+import traceback
+
+REQUEST='MAIN4_H_DEVELOPMENT_REGISTRATION_REQUEST_R2'
+QUALIFIED='MAIN4_H_DEVELOPMENT_CPU_INTERFACE_QUALIFICATION_PASS_R2'
+REGISTERED='MAIN4_H_DEVELOPMENT_REGISTERED_NOT_LAUNCHED_R2'
+DEADLINE=1791564605.9549868
+SELECTION_SHA='4c5deae6113c571c3070852916230aad5579369c5590affeaa846b5cd3b71a70'
+TEST_MODULES=['test_main_development_cpu_r1','test_main_development_driver_r2',
+    'test_main_development_owner_r2','test_register_main_development_r2']
+TEST_COUNT=44  # Frozen inventory: original core9 + driver8 + owner15 + registrar12.
+ZERO_STATUSES=dict(H_metrics='H_DEVELOPMENT_METRICS_COMPLETE',
+    P600='P600_RECEIVED_LATENT_CONVNEXT_COMPLETE',H_timing='H_FIXED16_ONLINE_COMPONENTS_COMPLETE',
+    H_aggregation='H18_DEVELOPMENT_DESCRIPTIVE_AGGREGATION_COMPLETE',
+    HP_statistics='H_P_FIXED_SOURCE_COMPARISON_COMPLETE_MAIN_PENDING',
+    HP_cost_report='H_P_COMPONENT_REPORT_COMPLETE_MAIN_PENDING')
+SOURCE_NAMES=['main_development_cpu_r1.py','test_main_development_cpu_r1.py',
+    'main_development_driver_r2.py','test_main_development_driver_r2.py',
+    'main_development_owner_r2.py','test_main_development_owner_r2.py',
+    'register_main_development_r2.py','test_register_main_development_r2.py']
+
+def require(v,m):
+    if not v:raise RuntimeError(m)
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p):
+    h=hashlib.sha256()
+    with Path(p).open('rb') as f:
+        for b in iter(lambda:f.read(1048576),b''):h.update(b)
+    return h.hexdigest()
+def save(p,v):
+    p=Path(p);p.parent.mkdir(parents=True,exist_ok=True)
+    with p.open('x',encoding='utf-8',newline='\n') as f:
+        json.dump(v,f,sort_keys=True,indent=2,allow_nan=False);f.write('\n');f.flush();os.fsync(f.fileno())
+def combine(*maps):
+    out={}
+    for m in maps:
+        for p,s in m.items():require(p not in out or out[p]==s,'Conflicting binding '+p);out[p]=s
+    return out
+def bind(paths):return {str(Path(p).absolute()):sha(p) for p in paths}
+def verify(m):
+    for p,s in m.items():require(Path(p).is_absolute() and sha(p)==s,'Unbound/changed file '+p)
+def module(p,name,bound):
+    p=str(Path(p).absolute());require(bound.get(p)==sha(p),'Must bind module before import '+p)
+    spec=importlib.util.spec_from_file_location(name,p);m=importlib.util.module_from_spec(spec)
+    sys.modules[name]=m;spec.loader.exec_module(m);return m
+def identity(i):return {k:i[k] for k in ('pid','start_ticks','uid','argv')}
+
+
+def checked_shape(r,*,fresh=True):
+    require(r['schema']==REQUEST and r['deadline_unix']==DEADLINE,'Independent MAIN4 request/original deadline required')
+    root=Path(r['root']);base=root/'outputs/CONTENT-REAL-64QAM-20261006'
+    e,out=Path(r['execution_dir']),Path(r['out'])
+    require(root.is_absolute() and e.parent==out.parent==base/'MAIN' and e!=out,'Fresh disjoint MAIN4 evidence/output paths')
+    require(not fresh or (not e.exists() and not out.exists()),'Old execution/output preserved; no retry')
+    require(r['resources']['cpu_affinities']==[[0,1],[2,3]] and r['resources']['threads']==2
+        and r['resources']['nice']==15 and r['resources']['GPU_jobs']==0
+        and 0<r['resources']['max_worker_seconds']<=7200,'Original H two-worker CPU resource contract required')
+    require(r['automatic_successor'] is False and r['development_policy_selection'] is False,'No successor or development selection')
+    require(Path(r['python']).is_absolute() and r['python']==str(root/'outputs/PRIOR-AWARE-UEP-20261004-V1/ldpc_environment/bin/python'),
+        'Original qualified LDPC interpreter, without resolving the venv symlink')
+    require(len(r['pythonpath'])==len(set(r['pythonpath'])) and all(Path(p).is_absolute() for p in r['pythonpath'])
+        and r['pythonpath'][0]==str(Path(__file__).absolute().parent),'Explicit new/private and original runtime paths required')
+    require(set(r['H_zero_PHY_batches'])==set(ZERO_STATUSES),'Every historical164760 zero-PHY branch must close')
+    require(r['visual_lock']==str(base/'shared_visual.lock'),'Original shared visual lock required')
+    return e,out
+
+
+def normal_h(spec,expected,ctx):
+    """Use the original actual receipt/exit verifier, without source re-encoding."""
+    require(set(spec)=={'config','registration','launch','completion'},'Exact original stage_owner spec required')
+    for p in spec.values():require(ctx['inputs'].get(p)==sha(p),'Explicit prerequisite control pin missing '+p)
+    reg=read(spec['registration']);verify(reg['source_bindings'])
+    ctx['sources']=combine(ctx['sources'],reg['source_bindings'])
+    old=ctx['h_cpu'].closed_batch(ctx['h_owner'],ctx['h_wait'],spec,ctx['request']['H_owner_module'],expected,ctx['h_owner'].raw_process_state)
+    ctx['inputs']=combine(ctx['inputs'],old['bindings'],bind(spec.values()))
+    # The old verifier checked every original input. Preserve the immutable
+    # registration containing those pins; do not repeatedly hash unused historic
+    # RGB/model assets while the new CPU stage consumes only explicitly bound
+    # token archives, checkpoints, codebook and physical dependencies.
+    ctx.setdefault('historical_registration_bindings',{}).update(bind([spec['registration']]))
+    ctx['identities'] += [identity(old['owner_identity'])]+[identity(i) for i in old['children']]
+    return old
+
+
+def inspect_inputs(request_path,*,fresh=True):
+    rp=Path(request_path).absolute();r=read(rp);e,out=checked_shape(r,fresh=fresh)
+    require(time.time()<DEADLINE,'Original deadline reached')
+    verify(r['source_bindings']);verify(r['input_bindings'])
+    sources=dict(r['source_bindings']);inputs=combine(r['input_bindings'],bind([rp]))
+    sys.path[:0]=[p for p in r['pythonpath'] if p not in sys.path]
+    bound=combine(sources,inputs)
+    require(sha(r['selection_module'])==SELECTION_SHA,'Only normally completed frozen MAIN R8 selection is admissible')
+    # Own predecessor registrations are explicit inputs, never inferred from self-binding maps.
+    sr=read(r['selection_request']);se=Path(sr['execution_dir'])
+    for p in [r['selection_request'],str(se/'execution_registration.json'),str(se/'registration_completion.json')]:
+        require(inputs.get(p)==sha(p),'Normal selection self-registration/seal must be bound before import')
+    selector=module(r['selection_module'],'main4_selection_closed_r8',bound)
+    selected=selector.closed_batch(r['selection_request']);sc=selected['ctx'];mcfg=sc['cpu']['cfg']
+    require(selected['done']['source_count']==1000 and selected['done']['frame_count']==30000
+        and selected['done']['H_reference_count']==4 and selected['done']['development_used'] is False,
+        'Exactly four normally selected calibration references required')
+    main_before=sc['before'];require(main_before['charged']==105176 and main_before['unresolved']==0,'MAIN calibration ledger must be closed105176')
+    sources=combine(sources,sc['sources']);inputs=combine(inputs,selected['bindings'])
+    selection_file=str(Path(sr['out'])/'selection.json')
+    require(selected['done']['outputs'].get(selection_file)==sha(selection_file),'Normal full two-axis selection output missing')
+    hcfg=read(r['H_reference_cpu_config']);hreg=read(hcfg['registration'])
+    require(inputs.get(r['H_reference_cpu_config'])==sha(r['H_reference_cpu_config'])
+        and inputs.get(hcfg['registration'])==sha(hcfg['registration'])
+        and hreg['input_bindings'].get(r['H_reference_cpu_config'])==sha(r['H_reference_cpu_config']),
+        'Original H18 config and self-registration required')
+    sources=combine(sources,hreg['source_bindings']);bound=combine(sources,inputs)
+    for k,oldkey in [('H_owner_module','owner_module'),('H_wait_module','wait_module')]:
+        require(r[k]==hcfg[oldkey],'Original H closure module changed')
+    hcpu=module(r['H_cpu_module'],'main4_original_H_cpu_closure',bound)
+    howner=module(r['H_owner_module'],'main4_original_H_owner_closure',bound)
+    hwait=module(r['H_wait_module'],'main4_original_H_wait_closure',bound)
+    driver=module(r['driver_module'],'main4_development_driver_registered',bound)
+    owner=module(r['owner_module'],'main4_development_owner_registered',bound)
+    ctx=dict(request=r,rp=rp,e=e,out=out,sources=sources,inputs=inputs,driver=driver,owner=owner,
+        h_cpu=hcpu,h_owner=howner,h_wait=hwait,identities=[],selection=selected,selected=selection_file,mcfg=mcfg,main_before=main_before,hcfg=hcfg)
+    assets=normal_h(r['H_assets_batch'],dict(status='H_DEVELOPMENT100_CPU_ASSETS_READY_SOURCE_ENCODING_INCOMPLETE',source_count=100),ctx)
+    source=normal_h(r['H_source_batch'],dict(status='H_DEVELOPMENT100_SOURCE_CODEC_COMPLETE',source_count=100,
+        encoder_tokens_verified=True,independent_roundtrip=True,new_packet_decodes=0),ctx)
+    require(source['done']['source_ids']==assets['done']['source_ids'],'Original source100 order differs')
+    zero={role:normal_h(spec,dict(status=ZERO_STATUSES[role]),ctx) for role,spec in r['H_zero_PHY_batches'].items()}
+    for role,closed in zero.items():
+        b=closed['owner_done']['budget'];require(b['charged']==164760 and b['phase_charged']['development']==10800
+            and b['unresolved']==b['failed']==0,'Historical zero-PHY budget differs '+role)
+    for closed in [source,assets,*zero.values()]:
+        require(closed['owner']['budget_path']==hcfg['ledger'] and closed['owner']['budget_registration']==hcfg['budget_registration']
+            and closed['owner']['out']==hcfg['H_out'],'All predecessor jobs must share the original H workspace')
+    require(r['H_source_batch']['completion']==hcfg['source_completion'] and r['H_assets_batch']['completion']==hcfg['asset_completion'],
+        'Original H18 development caches cannot be replaced')
+    for k in ['budget_registration','development_registration','asset_manifest','accounting_audit','protocol']:
+        p=r[k] if k=='accounting_audit' else hcfg[k]
+        require(combine(ctx['sources'],ctx['inputs']).get(p)==sha(p),'Consumed input was not bound '+k)
+    before=driver.ledger_view(hcfg['ledger'],sha(hcfg['budget_registration']))
+    require(before['charged']==164760 and before['MAIN4_calls']==before['unresolved']==0,'Original H reserve must be untouched and quiescent')
+    ctx['before']={k:v for k,v in before.items() if k!='events'}
+    ctx['inputs']=combine(ctx['inputs'],assets['done']['outputs'],source['done']['outputs'])
+    records=driver.asset_records(read(hcfg['development_registration']),source['done'],assets['done'],read(hcfg['asset_manifest']),combine(ctx['sources'],ctx['inputs']))
+    require(len(records)==100,'Original100 exact source cache chain required')
+    for p in [str(Path(__file__).parent/n) for n in SOURCE_NAMES]:
+        require(ctx['sources'].get(p)==sha(p),'New runtime/core/test must be source-bound '+p)
+    # Include both normal selector parent and original visual owner/worker identities.
+    sd=selected['owner_done'];vd=sc['closed'];ctx['identities'] += [identity(sd['owner_identity']),identity(selected['done']['worker_identity'])]
+    for k in ('owner_identity','worker_identity'):
+        v=vd.get(k) or vd.get('owner_done',{}).get(k) or vd.get('done',{}).get(k)
+        if v is not None:ctx['identities'].append(identity(v))
+    unique={json.dumps(i,sort_keys=True):i for i in ctx['identities']};ctx['identities']=list(unique.values())
+    ctx['records']=records;ctx['core']=driver.core
+    ctx['sources']=combine(ctx['sources'],bind([r['selection_module']]))
+    require(all(hwait.exited(i,howner.raw_process_state) for i in ctx['identities']),'An original predecessor process is still live')
+    check_stops(ctx);return ctx
+
+
+def check_stops(ctx):
+    r=ctx['request'];base=Path(r['root'])/'outputs/CONTENT-REAL-64QAM-20261006'
+    require(time.time()<DEADLINE and not any(p.exists() for p in [base/'STOP',base/'H/STOP',base/'MAIN/STOP',ctx['e']/'STOP',ctx['out']/'STOP']),
+        'Original deadline or preserved STOP prevents new MAIN4 work')
+
+
+def make_contract(ctx):
+    c=ctx['core'];h=ctx['hcfg'];cat=ctx['selection']['ctx']['cpu']['catalogue']
+    selected=read(ctx['selected']);pop=read(h['development_registration']);budget=read(h['budget_registration']);rows=c.schedule(selected,cat)
+    contract=dict(status='MAIN4_H_DEVELOPMENT_CORE_REGISTERED_R1',original_H_budget_registration_sha256=sha(h['budget_registration']),
+        accounting_audit_sha256=c.ACCOUNTING_AUDIT_SHA,selected_canonical_sha256=c.identity(selected),
+        development_registration_canonical_sha256=c.identity(pop),budget_canonical_sha256=c.identity(budget),catalogue_digest=cat.digest,
+        aliases_digest=cat.aliases_digest,public_schedule_canonical_sha256=c.identity(rows),engineering_canonical_sha256=c.identity(c.ENGINEERING),
+        core_source_sha256=sha(c.__file__),original_H_development_source_sha256=sha(c.h.__file__),original_MAIN_receiver_source_sha256=sha(c.raw.__file__))
+    c.prepare(selected=selected,catalogue=cat,development_registration=pop,budget=budget,contract=dict(contract,execution_registration_sha256='0'*64))
+    return contract
+
+
+def make_configs(ctx):
+    r,e,h,m=ctx['request'],ctx['e'],ctx['hcfg'],ctx['mcfg'];cp=e/'worker_config.json';op=e/'owner_config.json';rp=e/'execution_registration.json'
+    cfg={k:h[k] for k in ('root','ledger','ledger_module','budget_registration','development_registration','asset_completion','asset_manifest','source_completion','legacy_runtime','protocol')}
+    cfg.update(schema=ctx['driver'].SCHEMA,registration=str(rp),out=str(ctx['out']),owner_module=r['owner_module'],owner_config=str(op),
+        profiles=m['profiles'],aliases=m['aliases'],legacy_qualification=m['legacy_qualification'],python=r['python'],pythonpath=r['pythonpath'],
+        selected=ctx['selected'],accounting_audit=r['accounting_audit'],engineering_contract=str(e/'engineering_contract.json'),
+        predecessor_closure=str(e/'predecessor_closure.json'),prepared_qualification=r['prepared_qualification'],
+        main_ledger=m['ledger'],main_budget_registration=m['budget_registration'],main_budget_module=r['main_budget_module'],
+        visual_lock=r['visual_lock'],stop_file=h['stop_file'],workers=2,threads=2,nice=15,GPU_jobs=0,
+        cpu_affinities=r['resources']['cpu_affinities'],max_worker_seconds=r['resources']['max_worker_seconds'],deadline_unix=DEADLINE)
+    own=dict(schema='MAIN4_H_DEVELOPMENT_OWNER_CONFIG_R2',root=r['root'],execution_dir=str(e),registration=str(rp),
+        worker_config=str(cp),driver_module=r['driver_module'],python=r['python'],pythonpath=r['pythonpath'],cpu_affinities=cfg['cpu_affinities'],
+        nice=15,max_worker_seconds=cfg['max_worker_seconds'],deadline_unix=DEADLINE,visual_lock=r['visual_lock'],ledger=h['ledger'],
+        stop_file=h['stop_file'],automatic_successor=False,prepared_qualification=r['prepared_qualification'])
+    return cfg,own
+
+
+def qualification(ctx):
+    r=ctx['request'];qp=r['prepared_qualification'];q=read(qp)
+    require(q['status']==QUALIFIED and q['python']==r['python'] and q['test_modules']==TEST_MODULES
+        and q['tests_run']==r['qualification_test_count']==TEST_COUNT>0 and q['process_waited'] is True and q['exit_code']==0
+        and q['new_packet_decodes']==0 and q['GPU_used'] is False and q['actual_backend_called'] is False
+        and q['pythonpath']==r['pythonpath'],'Exact original-interpreter pure qualification required')
+    for mapping in ('source_bindings','input_bindings','outputs'):verify(q[mapping])
+    for name in SOURCE_NAMES:
+        p=str(Path(__file__).parent/name);require(q['source_bindings'].get(p)==ctx['sources'].get(p)==sha(p),'Qualification misses current source '+name)
+    for p,s in ctx['inputs'].items():
+        if p!=str(ctx['rp']):require(q['input_bindings'].get(p)==s,'Qualification has different actual metadata '+p)
+    require(q['budget_before']==q['budget_after']==ctx['before'],'Qualification changed the H ledger')
+    return q
+
+
+def register(request_path):
+    require(sys.platform.startswith('linux'),'Original normal process closure requires Linux')
+    ctx=inspect_inputs(request_path);q=qualification(ctx);r,e=ctx['request'],ctx['e'];cfg,owner=make_configs(ctx);contract=make_contract(ctx)
+    closure=dict(status='MAIN4_NORMAL_PREDECESSORS_VERIFIED_R2',MAIN_calibration_calls=105176,
+        selected=dict(path=ctx['selected'],sha256=sha(ctx['selected'])),
+        normal_roles=['MAIN_visual_R8','MAIN_final_selection_R8','H_development_source100','H_zero_PHY_batches'],
+        automatic_successors_active=False,bindings=ctx['inputs'],identities=ctx['identities'],
+        main_budget_before=ctx['main_before'],H_budget_before=ctx['before'],
+        historical_registration_bindings=ctx.get('historical_registration_bindings',{}),
+        historical_input_scope='Original normal APIs verified every historical input. Their exact registration bytes preserve all pins; unused ancestor model/RGB files are not newly consumed. All actual MAIN4 inputs are direct registration pins.')
+    e.mkdir(parents=True)
+    try:
+        paths=[e/n for n in ('worker_config.json','owner_config.json','engineering_contract.json','predecessor_closure.json')]
+        for p,v in zip(paths,(cfg,owner,contract,closure)):save(p,v)
+        inputs=combine(ctx['inputs'],q['outputs'],bind([*paths,r['prepared_qualification']]))
+        reg=dict(status=ctx['driver'].REG,scope='MAIN4_H_RESERVE_CPU_ONLY',owner_scope='MAIN4_H_DEVELOPMENT_CPU_ONLY_R2',
+            config_sha256=sha(paths[0]),owner_config_sha256=sha(paths[1]),budget_registration_sha256=sha(cfg['budget_registration']),
+            source_bindings=ctx['sources'],input_bindings=inputs,budget_before=ctx['before'],MAIN_budget_before=ctx['main_before'],
+            source_count=100,frame_count=1200,maximum_new_packet_calls=2400,phase='development',physical_ledger_branch='H',
+            H_phase_cap=13200,H_total_cap=200000,MAIN_ledger_calls=0,GPU_jobs=0,policy_selection=False,automatic_successor=False)
+        reg.update(qualification_test_count=r['qualification_test_count'],qualification_test_modules=TEST_MODULES)
+        verify(ctx['sources']);verify(inputs);check_stops(ctx)
+        now=ctx['driver'].ledger_view(cfg['ledger'],sha(cfg['budget_registration']))
+        require({k:v for k,v in now.items() if k!='events'}==ctx['before'],'H ledger changed during registration')
+        rp=e/'execution_registration.json';save(rp,reg)
+        ctx['owner'].load(paths[1],require_seal=False)
+        done=dict(status=REGISTERED,registration_sha256=sha(rp),owner_config_sha256=sha(paths[1]),config_sha256=sha(paths[0]),
+            outputs=bind([*paths,rp]),budget_before=ctx['before'],new_packet_decodes=0,GPU_used=False,workers_started=False,automatic_successor=False)
+        save(e/'registration_completion.json',done);return done
+    except BaseException:
+        save(e/'registration_failure.json',dict(status='FAILED_PRESERVE_NO_LAUNCH',traceback=traceback.format_exc(),new_packet_decodes=0));raise
+
+
+def environment(r):
+    env=dict(os.environ,CUDA_VISIBLE_DEVICES='',PYTHONDONTWRITEBYTECODE='1',PYTHONUNBUFFERED='1',
+        PYTHONPATH=os.pathsep.join(r['pythonpath']),MAIN4_TEST_SUPPORT_PATHS=json.dumps(r['test_support_paths']),
+        MAIN_TEST_PLAN_SUMMARY=r['test_plan_summary'],MAIN_TEST_UEP_RUNTIME=r['test_uep_runtime'],
+        MAIN4_TEST_H_CPU_CONFIG=r['H_reference_cpu_config'])
+    env.update({k:'2' for k in ('OMP_NUM_THREADS','MKL_NUM_THREADS','OPENBLAS_NUM_THREADS','NUMEXPR_NUM_THREADS')})
+    return env
+
+
+def cpu_resources(cores):
+    require(set(cores)<=os.sched_getaffinity(0),'CPU cores unavailable')
+    os.sched_setaffinity(0,cores);os.setpriority(os.PRIO_PROCESS,0,15)
+
+
+def run_child(ctx,folder,argv,cores):
+    """One explicit child, normal wait, closed log; never relaunch an attempt."""
+    folder=Path(folder);require(not folder.exists(),'Prior operation preserved; no retry');folder.mkdir(parents=True)
+    save(folder/'attempt.json',dict(argv=argv,request_sha256=sha(ctx['rp']),automatic_retry=False))
+    child=None;handle=None;ident=None
+    try:
+        handle=(folder/'process.log').open('xb')
+        child=subprocess.Popen(argv,cwd=str(Path(__file__).parent),env=environment(ctx['request']),stdin=subprocess.DEVNULL,
+            stdout=handle,stderr=subprocess.STDOUT,start_new_session=True,preexec_fn=lambda:cpu_resources(cores))
+        save(folder/'spawn_pending_identity.json',dict(pid=child.pid,argv=argv,identity_verified=False))
+        ident=ctx['owner'].identity(child.pid);require(ident['argv']==argv and ident['uid']==os.getuid(),'Actual child argv/UID differ')
+        save(folder/'launch.json',dict(identity=ident,argv=argv));rc=child.wait()
+        handle.flush();os.fsync(handle.fileno());handle.close();handle=None
+        save(folder/'exit.json',dict(identity=ident,exit_code=rc,process_waited=True,launch_sha256=sha(folder/'launch.json'),log_sha256=sha(folder/'process.log')))
+        require(rc==0 and ctx['owner'].absent(ident),'Actual child failed or was not reaped')
+        return bind([folder/'attempt.json',folder/'spawn_pending_identity.json',folder/'launch.json',folder/'exit.json',folder/'process.log'])
+    except BaseException:
+        error=traceback.format_exc();marker_error=None;rc=None
+        if child is not None:
+            # A launch child can already own two physical workers. Never kill
+            # that owner or release evidence while those workers remain live.
+            # Its bound STOP path makes its own registered drain hold both locks.
+            if '--config' in argv:
+                try:
+                    stop=Path(ctx['hcfg']['stop_file'])
+                    if not stop.exists():save(stop,dict(status='MAIN4_LAUNCHER_FAILURE_STOP',request_sha256=sha(ctx['rp']),pid=child.pid))
+                except BaseException:marker_error=traceback.format_exc()
+            while True:
+                try:rc=child.wait();break
+                except KeyboardInterrupt:continue
+            if handle is not None:
+                handle.flush();os.fsync(handle.fileno());handle.close();handle=None
+            xp=folder/'exit.json'
+            if not xp.exists():save(xp,dict(identity=ident,pid=child.pid,exit_code=rc,process_waited=True,
+                normal_launch_identity_verified=ident is not None,log_sha256=sha(folder/'process.log')))
+        save(folder/'failure.json',dict(status='FAILED_PRESERVE_INSPECT_NO_RETRY',pid=None if child is None else child.pid,
+            traceback=error,exit_code=rc,child_wait_completed=child is not None,stop_marker_error=marker_error))
+        raise
+    finally:
+        if handle is not None:handle.close()
+
+
+def qualify(request_path):
+    require(sys.platform.startswith('linux'),'Original Linux process identity required')
+    ctx=inspect_inputs(request_path);r=ctx['request'];q=Path(r['prepared_qualification'])
+    require(not q.parent.exists(),'New qualification directory required')
+    outputs=run_child(ctx,q.parent,[r['python'],'-B','-m','unittest','-v',*TEST_MODULES],[0,1])
+    log=q.parent/'process.log';text=log.read_text(encoding='utf-8',errors='replace')
+    require(re.search(r'Ran '+str(r['qualification_test_count'])+r' tests in .*\n\s*OK\s*$',text)
+        and not re.search(r'\bskipped\b',text,re.I),'Exact full pure qualification, no skips')
+    check_stops(ctx);now=ctx['driver'].ledger_view(ctx['hcfg']['ledger'],sha(ctx['hcfg']['budget_registration']))
+    require({k:v for k,v in now.items() if k!='events'}==ctx['before'],'Pure qualification changed H accounting')
+    value=dict(status=QUALIFIED,python=r['python'],test_modules=TEST_MODULES,tests_run=r['qualification_test_count'],
+        process_waited=True,exit_code=0,source_bindings=ctx['sources'],input_bindings=ctx['inputs'],outputs=outputs,
+        log=str(log),pythonpath=r['pythonpath'],budget_before=ctx['before'],budget_after=ctx['before'],
+        new_packet_decodes=0,GPU_used=False,actual_backend_called=False,actual_development_observations_read=False)
+    save(q,value);return value
+
+
+def launch(request_path):
+    require(sys.platform.startswith('linux'),'Original Linux process identity required')
+    ctx=inspect_inputs(request_path,fresh=False);r=ctx['request'];qualification(ctx);op=ctx['e']/'owner_config.json'
+    ctx['owner'].load(op)
+    require(not ctx['out'].exists() and not (ctx['e']/'completion.json').exists(),'Prior scientific launch cannot be reused')
+    argv=[r['python'],'-B',r['owner_module'],'--config',str(op)]
+    outputs=run_child(ctx,Path(r['operations_dir'])/'launch',argv,[0,1,2,3])
+    value=dict(status='MAIN4_H_DEVELOPMENT_OWNER_PROCESS_EXITED_ZERO_R2',outputs=outputs,
+        registration_sha256=sha(ctx['e']/'execution_registration.json'),owner_completion=str(ctx['e']/'completion.json'),
+        automatic_successor=False)
+    # The owner has reaped both workers and merge. Its closed_batch remains the
+    # sole scientific closure API; this external receipt only proves normal wait.
+    save(Path(r['operations_dir'])/'launch/completion.json',value);return value
+
+
+def original_spec(owner_path,status):
+    oc=read(owner_path);jobs=[j for s in oc['stages'] for j in s['jobs'] if status in j['accepted_statuses']]
+    require(len(jobs)==1,'Exact original target job missing/ambiguous: '+status)
+    return dict(config=str(owner_path),registration=oc['registration'],launch=str(Path(oc['owner_out'])/'launch.json'),completion=jobs[0]['completion'])
+
+
+def prepare(root):
+    """Build the one explicit request from original paths; no score ranking."""
+    require(sys.platform.startswith('linux') and TEST_COUNT>0,'Frozen Linux metadata preparation required')
+    root=Path(root).absolute();base=root/'outputs/CONTENT-REAL-64QAM-20261006';runtime=Path(__file__).absolute().parent
+    folder=base/'MAIN/main4_development_preparation_r2'
+    require(not folder.exists(),'Prior metadata preparation is retained; no blind retry');folder.mkdir(parents=True)
+    save(folder/'attempt.json',dict(status='MAIN4_METADATA_PREPARATION_ATTEMPT_R2',new_packet_decodes=0,GPU_used=False))
+    try:
+        srp=base/'prepared_v1/main_actual_selection_runtime_r8/request.json';sr=read(srp)
+        se=Path(sr['execution_dir']);sreg=read(se/'execution_registration.json')
+        hcp=base/'H/development_cpu_execution_v1/payload_config.json';h=read(hcp);hreg=read(h['registration'])
+        sources=combine(sreg['source_bindings'],hreg['source_bindings'],bind(runtime/n for n in SOURCE_NAMES))
+        inputs=combine(sreg['input_bindings'],hreg['input_bindings'],bind([srp,se/'execution_registration.json',
+            se/'registration_completion.json',hcp,h['registration']]))
+        howner=read(h['owner_config']);entries={j['argv'][2] for stage in howner['stages'] for j in stage['jobs']}
+        require(len(entries)==1,'Original H18 physical driver entry is ambiguous');hcpu=entries.pop()
+        def unique(name,mapping):
+            matches=[p for p in mapping if Path(p).name==name];require(len(matches)==1,'Missing/ambiguous original path '+name);return matches[0]
+        modulepaths=[str(runtime),*sr['runtime_dirs'],h['runtime_dir'],h['legacy_runtime']]
+        modulepaths=list(dict.fromkeys(modulepaths))
+        zero_dirs=dict(H_metrics='development_metrics_execution_r1',P600='p600_replay_execution_v1',
+            H_timing='online_components_execution_r1',H_aggregation='h18_aggregation_execution_v1',
+            HP_statistics='h_p_statistics_execution_v1',HP_cost_report='h_p_component_report_execution_r1')
+        zero={role:original_spec(base/'H'/name/'owner_config.json',ZERO_STATUSES[role]) for role,name in zero_dirs.items()}
+        assets=original_spec(base/'H/development100_assets_execution_v1/owner_config.json','H_DEVELOPMENT100_CPU_ASSETS_READY_SOURCE_ENCODING_INCOMPLETE')
+        source=original_spec(base/'H/development100_source_execution_v1/owner_config.json','H_DEVELOPMENT100_SOURCE_CODEC_COMPLETE')
+        for spec in [assets,source,*zero.values()]:
+            oldreg=read(spec['registration']);sources=combine(sources,oldreg['source_bindings']);inputs=combine(inputs,bind(spec.values()))
+        # Complete current inputs are collected by inspect_inputs. Existing
+        # historical registration maps are provenance, never invented completions.
+        inputs=combine(inputs,bind([h[k] for k in ('budget_registration','development_registration','asset_manifest','protocol')]))
+        req=dict(schema=REQUEST,root=str(root),execution_dir=str(base/'MAIN/main4_development_execution_r2'),out=str(base/'MAIN/main4_development_r2'),
+            operations_dir=str(base/'MAIN/main4_development_operations_r2'),deadline_unix=DEADLINE,
+            python=str(root/'outputs/PRIOR-AWARE-UEP-20261004-V1/ldpc_environment/bin/python'),
+            resources=dict(cpu_affinities=h['cpu_affinities'],threads=2,nice=15,GPU_jobs=0,max_worker_seconds=7200),
+            pythonpath=modulepaths,automatic_successor=False,development_policy_selection=False,visual_lock=str(base/'shared_visual.lock'),
+            source_bindings=sources,input_bindings=inputs,selection_module=str(Path(sr['runtime_dirs'][0])/'main_actual_selection_r8.py'),
+            selection_request=str(srp),H_reference_cpu_config=str(hcp),H_cpu_module=hcpu,H_owner_module=h['owner_module'],H_wait_module=h['wait_module'],
+            H_assets_batch=assets,H_source_batch=source,H_zero_PHY_batches=zero,
+            driver_module=str(runtime/'main_development_driver_r2.py'),owner_module=str(runtime/'main_development_owner_r2.py'),
+            main_budget_module=unique('register_main_cpu_phase_r2.py',sources),
+            accounting_audit=unique('MAIN_EXECUTION_AUTHORIZATION_AND_ACCOUNTING_AUDIT_R2.json',inputs),
+            prepared_qualification=str(base/'prepared_v1/main4_development_qualification_r2/completion.json'),qualification_test_count=TEST_COUNT,
+            test_support_paths=[h['runtime_dir']],test_uep_runtime=h['legacy_runtime'],
+            test_plan_summary=str(Path(unique('candidate_profiles.json',inputs)).parent))
+        rp=folder/'request.json';save(rp,req);ctx=inspect_inputs(rp)
+        value=dict(status='MAIN4_METADATA_REQUEST_PREPARED_R2',request=str(rp),request_sha256=sha(rp),outputs=bind([rp]),
+            budget_before=ctx['before'],MAIN_budget_before=ctx['main_before'],source_count=100,frame_count=1200,
+            new_packet_decodes=0,GPU_used=False,actual_development_observations_read=False,workers_started=False)
+        save(folder/'completion.json',value);return value
+    except BaseException:
+        save(folder/'failure.json',dict(status='FAILED_PRESERVE_NO_LAUNCH',traceback=traceback.format_exc(),new_packet_decodes=0));raise
+
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--request');p.add_argument('--root')
+    p.add_argument('--stage',choices=('prepare','qualify','register','launch'),required=True);a=p.parse_args()
+    require(bool(a.root)==(a.stage=='prepare') and bool(a.request)==(a.stage!='prepare'),'Prepare uses --root; the three explicit later phases use --request')
+    print(globals()[a.stage](a.root if a.stage=='prepare' else a.request)['status'])

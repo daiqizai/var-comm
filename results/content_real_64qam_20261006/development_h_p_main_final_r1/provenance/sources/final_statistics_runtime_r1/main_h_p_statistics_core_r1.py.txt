@@ -1,0 +1,97 @@
+"""Add frozen MAIN4 development to the sealed H/P source means.
+
+Pure statistics only. The registered caller authenticates normal receipts,
+metric identities and each input SHA before invoking these functions.
+"""
+from copy import deepcopy
+import math
+import numpy as np
+
+ORDER=((18,13,'QPSK'),(19,13,'16QAM'),(20,19,'QPSK'),(21,19,'16QAM'))
+SEEDS=(6201,6202,6203)
+
+def require(ok,msg):
+    if not ok:raise ValueError(msg)
+
+def plan(old_points,old_comparisons,schedule,selection_sha,metric_identity):
+    """Only frozen identities enter. No quality rows or rankings."""
+    require(len(old_points)==20 and len(old_comparisons)==18,'Original H18/P2 plan required')
+    require({p for p in old_points if p.startswith('H18_SLOT_')}=={f'H18_SLOT_{i:02d}'for i in range(18)},'Original eighteen H identities required')
+    require({p for p in old_points if p.startswith('P1024_SNR_')}=={'P1024_SNR_13','P1024_SNR_19'},'Original two P identities required')
+    require([(p['development_slot'],p['snr_db'],p['modulation'])for p in schedule]==list(ORDER),'Four modulation/SNR references required')
+    require(len(selection_sha)==64 and all(c in '0123456789abcdef'for c in selection_sha),'Frozen calibration policy SHA required')
+    require(len(metric_identity)==18 and all(p['metric_identity']==metric_identity for p in old_points.values()),'Admitted eighteen common identities required')
+    points=deepcopy(old_points);pairs=[]
+    for p in sorted(old_points):
+        if p.startswith('H18_SLOT_'):pairs.append((p,'P1024_SNR_'+str(old_points[p]['snr_db'])))
+    require(set(pairs)=={tuple(p)for p in old_comparisons},'Old H/P pair set changed')
+    for p in schedule:
+        name=f"MAIN_SLOT_{p['development_slot']:02d}"
+        points[name]=dict(branch='MAIN',snr_db=p['snr_db'],noise_seeds=list(SEEDS),policy_sha256=selection_sha,metric_identity=deepcopy(metric_identity))
+        pairs.extend((h,name)for h,v in old_points.items()if v['branch']=='H'and v['snr_db']==p['snr_db'])
+        pairs.append((name,'P1024_SNR_'+str(p['snr_db'])))
+    require(len(points)==24 and len(pairs)==len(set(pairs))==58,'Fixed 18 H/P +36 H/MAIN +4 MAIN/P pairs required')
+    return dict(points=points,comparisons=pairs,policy_selection=False,source_count=100,
+        comparison_count=58,common_metrics=18,bootstrap_seed=2026100605,bootstrap_replicates=10000,
+        frame_level_noise_pairing_claimed=False,holdout_used=False,
+        scope='Same100 development sources, source means of original branch-specific3 noises; pointwise descriptive intervals')
+
+def normalize_main(rows,ids,schedule,points,bridge,h_reference_rows,metric_identity):
+    require(len(ids)==len(set(ids))==100 and len(bridge)==len(h_reference_rows)==100,'Exact original100 source proof required')
+    require(len(rows)==1200,'Exact MAIN4 twelve frames per source required')
+    refs={};targets={}
+    for i,sid in enumerate(ids):
+        b=bridge[i];h=h_reference_rows[i]
+        require(b['source_index']==h['source_index']==i and b['source_id']==h['source_id']==sid,'Original target order differs')
+        require(h['reference_sha256']==b['original_reference_sha256']['H'] and h['true_class']==b['true_class'],'Sealed original H target proof differs')
+        refs[i]=h;targets[i]=b
+    byslot={p['development_slot']:p for p in schedule};seen=set();normalized=[]
+    for r in rows:
+        i=r['source_index'];slot=r['development_slot'];noise=r['noise_seed']
+        require(type(i)is int and i in refs and slot in byslot and noise in SEEDS and (i,slot,noise)not in seen,'Unexpected duplicate MAIN source/point/noise')
+        seen.add((i,slot,noise));p=byslot[slot];h=refs[i];b=targets[i]
+        require(r['source_id']==ids[i] and r['population_role']=='development'and r['N']==1024,'MAIN original source population differs')
+        require(r['source_decode_complete']is True and r['image_reconstruction_complete']is True
+            and r['used_for_selection']is False and r['policy_selection']is False,'Only completed fixed actual RX metrics')
+        require(all(r[k]==p[k]for k in ('snr_db','modulation','candidate_id','profile_id','wire_key','m','K')),'MAIN frozen TX identity differs')
+        require(r['public_frame_counter']==(slot*100+i)*3+SEEDS.index(noise),'Reserved development counter differs')
+        require(r['reference_sha256']==b['original_reference_sha256']['H']
+            and r['reference_preprocessing_sha256']==b['preprocessing_sha256']['H'],'MAIN actual target hash differs')
+        require(r['class_index']==h['true_class']and all(r[k]==h[k]for k in ('resnet50_source_prediction','convnext_source_prediction')),'Original class/source classifier prediction differs')
+        name=f'MAIN_SLOT_{slot:02d}';spec=points[name]
+        require(spec['metric_identity']==metric_identity,'Per-metric admission missing')
+        out=dict(point_id=name,source_index=i,source_id=ids[i],branch='MAIN',N=1024,
+            snr_db=r['snr_db'],noise_seed=noise,reference_sha256=b['reference_sha256'],
+            original_reference_sha256=r['reference_sha256'],policy_sha256=spec['policy_sha256'],
+            metric_identity=deepcopy(metric_identity),used_for_selection=False,holdout_used=False)
+        out.update(true_class=r['class_index'],**{k:r[k]for k in ('resnet50_source_prediction','convnext_source_prediction')})
+        for m in metric_identity:
+            v=r[m];require(isinstance(v,(int,float,bool,np.integer,np.floating,np.bool_))and math.isfinite(float(v)),'Missing/nonfinite MAIN metric '+m)
+            out[m]=v
+        normalized.append(out)
+    require(seen=={(i,s,n)for i in range(100)for s in byslot for n in SEEDS},'MAIN frame grid incomplete')
+    return normalized
+
+def combine_summary(old_source_rows,main_rows,ids,contract,statistics):
+    """Reuse sealed H/P source averages exactly; never fabricate frame replicas."""
+    points=contract['points'];metrics=list(next(iter(points.values()))['metric_identity'])
+    statistics.original100(ids);statistics.point_contract(points,metrics)
+    old={p:{m:np.empty(100,dtype=np.float64)for m in metrics}for p,v in points.items()if v['branch']!='MAIN'}
+    seen=set()
+    for r in old_source_rows:
+        p=r['point_id'];m=r['metric'];i=int(r['source_index']);v=float(r['mean'])
+        require(p in old and m in metrics and 0<=i<100 and r['source_id']==ids[i]and math.isfinite(v)and(p,m,i)not in seen,'Sealed H/P source means incomplete/changed/duplicated')
+        seen.add((p,m,i));old[p][m][i]=v
+    require(seen=={(p,m,i)for p in old for m in metrics for i in range(100)},'Complete 36000 old H/P source means required')
+    newpoints={p:v for p,v in points.items()if v['branch']=='MAIN'}
+    values={**old,**statistics.source_means(main_rows,ids,newpoints,metrics)}
+    samples=statistics.draws();summary=[];paired=[]
+    for p,v in values.items():
+        spec=points[p]
+        for m,a in v.items():summary.append(dict(point_id=p,branch=spec['branch'],snr_db=spec['snr_db'],noise_seeds=spec['noise_seeds'],metric=m,metric_identity=spec['metric_identity'][m],**statistics.interval(a,samples)))
+    for method,reference in contract['comparisons']:
+        a,b=points[method],points[reference]
+        require(a['snr_db']==b['snr_db']and a['metric_identity']==b['metric_identity'],'Same-SNR admitted comparison required')
+        for m in metrics:paired.append(dict(method=method,reference=reference,snr_db=a['snr_db'],metric=m,metric_identity=a['metric_identity'][m],delta_definition='method minus reference',method_noise_seeds=a['noise_seeds'],reference_noise_seeds=b['noise_seeds'],frame_level_noise_pairing_claimed=False,**statistics.interval(values[method][m]-values[reference][m],samples)))
+    return dict(summary=summary,paired=paired,source_means=[dict(point_id=p,metric=m,source_index=i,source_id=ids[i],mean=float(a[i]))for p,v in values.items()for m,a in v.items()for i in range(100)],
+        old_H_P_source_means_preserved=True,policy_selection=False,source_intersection_used=False,holdout_used=False,missing_points_imputed=False)

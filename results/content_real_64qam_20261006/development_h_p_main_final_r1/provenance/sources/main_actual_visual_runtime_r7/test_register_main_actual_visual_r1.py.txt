@@ -1,0 +1,126 @@
+"""Portable metadata fixtures; no model, CUDA, live process or decoder calls."""
+import copy
+import json
+from pathlib import Path
+import tempfile
+import unittest
+from unittest import mock
+import register_main_actual_visual_r1 as r
+
+
+def rewrite(p,value):Path(p).write_text(json.dumps(value),encoding='utf-8')
+
+
+def visual_fixture(root):
+    root=Path(root);e=root/'old-execution';out=root/'old-science';e.mkdir();out.mkdir()
+    op=e/'owner_config.json';cp=e/'source_config.json';rp=e/'registration.json'
+    source=root/'old_source.py';supervisor=root/'old_owner.py';source.write_text('old source',encoding='utf-8');supervisor.write_text('old owner',encoding='utf-8')
+    me=dict(pid=1,start_ticks=11,uid=1002,argv=['originalUM','-B',str(supervisor),'--config',str(op)])
+    child=dict(pid=2,start_ticks=22,uid=1002,argv=['originalUM','-B',str(source),'--config',str(cp)])
+    cfg=dict(schema='H_FULL1000_SOURCE_CODEC_CONFIG_V1',source_owner_config=str(op),registration=str(rp),out=str(out))
+    r.save(cp,cfg);job=dict(id='full1000_source',argv=child['argv'],out=str(out),completion=str(out/'completion.json'),receipt_expect={'GPU_used':True})
+    oc=dict(owner_out=str(e),registration=str(rp),stages=[dict(id='source',resource='gpu',jobs=[job])]);r.save(op,oc)
+    reg=dict(status='H_EXECUTION_REVISION_REGISTERED',owner_config_sha256=r.sha(op),allowed_stage_ids=['source'],
+        input_bindings={str(cp):r.sha(cp)},source_bindings={str(source):r.sha(source),str(supervisor):r.sha(supervisor)})
+    r.save(rp,reg);budget=dict(failed=0,unresolved=0)
+    science=dict(status='H_FULL1000_SOURCE_CODEC_COMPLETE',registration_sha256=r.sha(rp),config_sha256=r.sha(cp),source_count=1000,
+        source1000_codec_complete=True,pending_source_encoding_count=0,new_packet_decodes=0,new_image_renders=0,new_metric_calls=0,
+        development_used=False,holdout_used=False,GPU_used=True,budget_before=budget,budget_after=budget)
+    r.save(out/'completion.json',science)
+    r.save(e/'launch.json',dict(identity=me,registration_sha256=r.sha(rp),owner_config_sha256=r.sha(op)))
+    r.save(e/'owner_identity.json',dict(me,registration_sha256=r.sha(rp),config_sha256=r.sha(op)))
+    folder=e/'stages/source/workers/full1000_source';folder.mkdir(parents=True);(folder/'worker.log').write_text('normally completed',encoding='utf-8')
+    start=dict(identity=child,registration_sha256=r.sha(rp));r.save(folder/'launch.json',start)
+    end=dict(identity=child,registration_sha256=r.sha(rp),exit_code=0,completion=str(out/'completion.json'),
+        completion_sha256=r.sha(out/'completion.json'),closed_log_sha256=r.sha(folder/'worker.log'));r.save(folder/'exit_receipt.json',end)
+    stagep=e/'stages/source/completion.json';r.save(stagep,dict(status='REGISTERED_STAGE_COMPLETE',registration_sha256=r.sha(rp),jobs=[end]))
+    # This is the actual historical stage_owner schema: stage, not stage_id.
+    done=dict(status='REGISTERED_H_STAGE_BATCH_COMPLETE',registration_sha256=r.sha(rp),allowed_stage_ids=['source'],
+        qualification_passed=True,future_stages_started=False,budget=budget,
+        completed=[dict(stage='source',completion=str(stagep),sha256=r.sha(stagep))]);r.save(e/'completion.json',done)
+    return dict(config=str(cp),owner_config=str(op),completion=str(e/'completion.json'))
+
+
+def config_context(root):
+    root=Path(root);study=root/'outputs/CONTENT-REAL-64QAM-20261006';e=study/'MAIN/visual-execution'
+    nv=root/'nvidia-smi';nv.write_bytes(b'fake GPU query executable')
+    vc=dict(root=str(root),uep_runtime=str(root/'uep'),native_runtime=str(root/'native'),var_source=str(root/'var'),dino_source=str(root/'dino'),
+        source_driver_module=str(root/'source.py'),static_closure_module=str(root/'closure.py'),numerical_reference=str(root/'native.json'))
+    resources=dict(gpu_device=0,gpu_threads=6,gpu_affinity=[4,5,6,7,8,9],nice=15,max_seconds=86400,max_archive_bytes=r.d.MAX_ARCHIVE_BYTES)
+    request=dict(schema=r.SCHEMA,root=str(root),execution_dir=str(e),out=str(study/'MAIN/visual-science'),runtime_dir=str(Path(r.__file__).parent),
+        cpu_batch={'owner_config':'original-cpu-config','completion':'normal-cpu-completion'},metric_registration='original-metrics',
+        metric_batch_qualification='original-batch8',resources=resources,prepared_qualification=str(root/'qualification.json'))
+    return dict(request=request,visual={'cfg':vc,'owner':{'visual_lock_path':str(study/'shared_visual.lock'),'nvidia_smi':str(nv)},'python':'original-UM-venv'},
+        quality=str(root/'quality.py'),phy=str(root/'phy.py'),cpu_ctx={'cfg':{'stop_file':str(study/'MAIN/STOP')}},resources=resources,
+        sources={},inputs={},native_bindings={'native':'pin'},before={'actual_calls':59800})
+
+
+class Tests(unittest.TestCase):
+    def test_actual_stage_key_and_normal_original_visual_closure(self):
+        with tempfile.TemporaryDirectory() as td:
+            spec=visual_fixture(td)
+            with mock.patch.object(r.cpu_owner.w,'exited',return_value=True):v=r.visual_closed(spec)
+            self.assertEqual(v['python'],'originalUM');self.assertEqual(v['science']['source_count'],1000)
+            self.assertIn(spec['config'],v['bindings']);self.assertEqual(len(v['source_bindings']),2)
+
+    def test_live_original_owner_blocks_reference(self):
+        with tempfile.TemporaryDirectory() as td:
+            spec=visual_fixture(td)
+            with mock.patch.object(r.cpu_owner.w,'exited',return_value=False),self.assertRaisesRegex(RuntimeError,'owner'):r.visual_closed(spec)
+
+    def test_zero_exit_and_original_stage_receipt_are_both_required(self):
+        with tempfile.TemporaryDirectory() as td:
+            spec=visual_fixture(td);e=Path(spec['completion']).parent;f=e/'stages/source/workers/full1000_source/exit_receipt.json'
+            value=r.read(f);value['exit_code']=1;rewrite(f,value)
+            with mock.patch.object(r.cpu_owner.w,'exited',return_value=True),self.assertRaises(RuntimeError):r.visual_closed(spec)
+
+    def test_changed_original_source_configuration_refused(self):
+        with tempfile.TemporaryDirectory() as td:
+            spec=visual_fixture(td);v=r.read(spec['config']);v['out']='different';rewrite(spec['config'],v)
+            with mock.patch.object(r.cpu_owner.w,'exited',return_value=True),self.assertRaisesRegex(RuntimeError,'registered'):r.visual_closed(spec)
+
+    def test_original_science_count_and_failure_not_invented(self):
+        with tempfile.TemporaryDirectory() as td:
+            spec=visual_fixture(td);e=Path(spec['completion']).parent;r.save(e/'failure.json',{'error':'not resolved'})
+            with mock.patch.object(r.cpu_owner.w,'exited',return_value=True),self.assertRaisesRegex(RuntimeError,'failure'):r.visual_closed(spec)
+
+    def test_manifest_full_file_and_tree_pins_with_mutation_rejection(self):
+        with tempfile.TemporaryDirectory() as td:
+            p=Path(td);weight=p/'weight.pth';weight.write_bytes(b'original weight');tree=p/'tree';tree.mkdir();code=tree/'code.py';code.write_bytes(b'original code')
+            m={'weights':{'path':str(weight),'sha256':r.sha(weight)},'implementation':{'path':str(tree),'files':{'code.py':r.sha(code)}}}
+            self.assertEqual(r.manifest_pins(m),{str(weight):r.sha(weight),str(code):r.sha(code)})
+            code.write_bytes(b'changed')
+            with self.assertRaises(RuntimeError):r.manifest_pins(m)
+
+    def test_manifest_path_escape_is_never_admitted(self):
+        with tempfile.TemporaryDirectory() as td:
+            with self.assertRaises(RuntimeError):r.manifest_pins({'path':td,'files':{'../outside':'a'*64}})
+
+    def test_generated_configs_pass_real_independent_owner_shape(self):
+        with tempfile.TemporaryDirectory() as td:
+            ctx=config_context(td);cfg,oc=r.make_configs(ctx);cfg['_path']=oc['worker_config'];oc['_path']=cfg['visual_owner_config']
+            r.owner.validate_shape(oc,{'cfg':cfg,'bound':{oc['nvidia_smi']:r.sha(oc['nvidia_smi'])}})
+            self.assertEqual(cfg['python'],'original-UM-venv');self.assertEqual(oc['worker_argv'][0],cfg['python'])
+            self.assertEqual(cfg['max_archive_bytes'],24*1024**3);self.assertFalse(oc['automatic_successor'])
+            self.assertNotIn('ledger',cfg) # MAIN ledger is obtained only through the closed CPU context.
+
+    def test_nonlinux_request_does_not_touch_registration(self):
+        with mock.patch.object(r.sys,'platform','win32'),self.assertRaises(RuntimeError):r.inspect_inputs({'schema':r.SCHEMA})
+
+    def test_registration_only_seals_after_new_owner_preflight_no_launch(self):
+        with tempfile.TemporaryDirectory() as td:
+            ctx=config_context(td);p=Path(r.__file__).parent
+            names=['register_main_actual_visual_r1.py','main_actual_visual_owner_r1.py','main_actual_visual_driver_r1.py','main_visual_keep_adapter.py']+[n+'.py' for n in r.TEST_MODULES]
+            ctx['sources']=r.bind([p/n for n in names]);qp=ctx['request']['prepared_qualification']
+            q=dict(status=r.QUALIFIED,python=ctx['visual']['python'],test_modules=r.TEST_MODULES,test_count=r.TEST_COUNT,
+                all_tests_passed=True,new_packet_decodes=0,GPU_used=False,model_imports=False,source_bindings=ctx['sources'],input_bindings={},outputs={});r.save(qp,q)
+            request=Path(td)/'request.json';r.save(request,ctx['request'])
+            with mock.patch.object(r,'inspect_inputs',return_value=ctx),mock.patch.object(r.owner,'load',return_value={'admitted':True}) as load,\
+                 mock.patch.object(r.d,'budget_snapshot',return_value=ctx['before']):
+                done=r.register(request)
+            self.assertEqual(done['status'],r.owner.REGISTERED);load.assert_called_once();self.assertFalse(done['worker_started'])
+            reg=r.read(Path(ctx['request']['execution_dir'])/'execution_registration.json')
+            self.assertEqual(reg['frame_count'],30000);self.assertEqual(reg['new_packet_decodes'],0);self.assertFalse(reg['policy_selection'])
+
+
+if __name__=='__main__':unittest.main()

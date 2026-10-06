@@ -1,0 +1,223 @@
+"""CPU fixtures only: original raw/KEEP core and temporary ledger, no real PHY."""
+import copy
+from contextlib import closing
+import hashlib
+import json
+import os
+from pathlib import Path
+import sqlite3
+import tempfile
+import time
+from types import SimpleNamespace
+import unittest
+from unittest import mock
+import numpy as np
+
+# This old fixture accepts explicit MAIN4_TEST_SUPPORT_PATHS, MAIN_TEST_PLAN_SUMMARY
+# and MAIN_TEST_UEP_RUNTIME for isolated/deployed qualification.
+import test_main_development_cpu_r1 as f
+import main_development_driver_r2 as d
+
+
+def write(path,value):
+    path=Path(path);path.parent.mkdir(parents=True,exist_ok=True);path.write_text(json.dumps(value),encoding='utf-8')
+
+
+def assets(folder,args):
+    pop=copy.deepcopy(args['development_registration']);pop['identity']={'frozen':'fixture'}
+    records=[];source_records=[];bound={};asset_outputs={};source_outputs={}
+    for i,sid in enumerate(pop['source_ids']):
+        a=Path(folder)/'assets'/f'{i:04d}.json';z=a.with_suffix('.npz');s=Path(folder)/'source'/f'{i:04d}.json';a.parent.mkdir(exist_ok=True)
+        tokens=np.arange(680,dtype=np.int64);np.savez(z,tokens=tokens,pixels=np.zeros((3,256,256),np.uint8))
+        th=hashlib.sha256(b'int64:680\0'+tokens.astype('<i8').tobytes()).hexdigest()
+        acp=dict(source_index=i,source_id=sid,preprocessing_id=pop['preprocessing_ids'][i],tokens_sha256=th,
+            original_development_data_binding=pop['data_bindings'][i],archive=str(z),outputs=d.bind([z]))
+        write(a,acp);asset=dict(source_index=i,source_id=sid,preprocessing_id=acp['preprocessing_id'],
+            tokens_sha256=th,checkpoint=str(a),checkpoint_sha256=d.sha(a),archive=str(z))
+        write(s,dict(status='H_DEVELOPMENT100_SOURCE_CODEC_SOURCE_COMPLETE',source_index=i,source_id=sid,
+            registration_sha256='b'*64,encoder_tokens_verified=True,independent_roundtrip=True,tokens_sha256=th,
+            source_assets_checkpoint=dict(path=str(a),sha256=d.sha(a))))
+        records.append(asset);source_records.append(dict(source_index=i,source_id=sid,checkpoint=str(s),sha256=d.sha(s)))
+        bound.update(d.bind([a,z,s]));asset_outputs.update(d.bind([a,z]));source_outputs.update(d.bind([s]))
+    manifest=dict(status='H_DEVELOPMENT100_CPU_ASSETS_READY_SOURCE_ENCODING_INCOMPLETE',source_ids=pop['source_ids'],
+        preprocessing_ids=pop['preprocessing_ids'],original_data_bindings=pop['data_bindings'],visual_identity=pop['identity'],records=records)
+    assetdone=dict(manifest,outputs=asset_outputs)
+    sourcedone=dict(status='H_DEVELOPMENT100_SOURCE_CODEC_COMPLETE',source_count=100,source_ids=pop['source_ids'],records=source_records,
+        encoder_tokens_verified=True,independent_roundtrip=True,new_packet_decodes=0,new_metric_calls=0,holdout_used=False,
+        registration_sha256='b'*64,outputs=source_outputs)
+    result=d.asset_records(pop,sourcedone,assetdone,manifest,bound)
+    return pop,sourcedone,assetdone,manifest,result,bound
+
+
+class DriverTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.args=f.inputs();cls.assets_temp=tempfile.TemporaryDirectory()
+        cls.assets_fixture=assets(Path(cls.assets_temp.name).absolute(),cls.args)
+
+    @classmethod
+    def tearDownClass(cls):cls.assets_temp.cleanup()
+
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory();self.root=Path(self.temp.name).absolute()
+        self.pop,self.source,self.assetdone,self.manifest,self.records,self.bound=copy.deepcopy(self.assets_fixture)
+        self.cfgpath=self.root/'config.json';self.budgetpath=self.root/'budget.json';write(self.cfgpath,{});write(self.budgetpath,{})
+        a=dict(self.args,development_registration=self.pop);contract=f.seal(a)
+        contract['original_H_budget_registration_sha256']=d.sha(self.budgetpath)
+        self.context=d.core.prepare(**a,contract=contract)
+        self.ctx=dict(cfg=dict(_path=str(self.cfgpath),out=str(self.root/'out'),budget_registration=str(self.budgetpath),
+            stop_file=str(self.root/'STOP'),max_worker_seconds=21600),reg=dict(source_bindings={},input_bindings={},budget_before={}),
+            regsha='e'*64,bound=self.bound,context=self.context,catalogue=a['catalogue'],profiles=a['catalogue']._profiles,
+            records=self.records,source_ids=self.pop['source_ids'],predecessor=dict(bindings={}))
+        self.ctx['owner']=SimpleNamespace(check_live_admission=lambda ctx,proof:None)
+
+    def tearDown(self):self.temp.cleanup()
+
+    def test_original_dev100_source_schema_and_no_pixel_read(self):
+        self.assertEqual(len(self.records),100)
+        original=np.load;access=[]
+        class Guard:
+            def __init__(self,*a,**kw):self.z=original(*a,**kw);self.files=self.z.files
+            def __enter__(self):return self
+            def __exit__(self,*_):self.z.close()
+            def __getitem__(self,k):
+                access.append(k)
+                if k!='tokens':raise AssertionError('CPU must not read pixels')
+                return self.z[k]
+        with mock.patch.object(d.np,'load',Guard):scales,pins=d.load_tokens(self.records[0],self.bound)
+        self.assertEqual(access,['tokens']);self.assertEqual(sum(len(v) for v in scales),680);self.assertEqual(len(pins),3)
+        bad=copy.deepcopy(self.source);bad['source_ids'][0]='calibration-other'
+        with self.assertRaisesRegex(ValueError,'development100'):d.asset_records(self.pop,bad,self.assetdone,self.manifest,self.bound)
+        bad=copy.deepcopy(self.manifest);bad['records'][0]['checkpoint_sha256']='f'*64
+        with self.assertRaisesRegex(ValueError,'checkpoint'):d.asset_records(self.pop,self.source,self.assetdone,bad,self.bound)
+
+    def test_only_sealed_R8_predecessor_snapshot_is_consumed(self):
+        sel=self.root/'selected.json';write(sel,self.args['selected']);pp=self.root/'prior.json'
+        value=dict(status='MAIN4_NORMAL_PREDECESSORS_VERIFIED_R2',MAIN_calibration_calls=105176,selected=dict(path=str(sel),sha256=d.sha(sel)),
+            normal_roles=['MAIN_visual_R8','MAIN_final_selection_R8','H_development_source100','H_zero_PHY_batches'],
+            automatic_successors_active=False,bindings=d.bind([sel]))
+        write(pp,value);cfg=dict(selected=str(sel),predecessor_closure=str(pp));calls=[]
+        owner=SimpleNamespace(inspect_predecessors=lambda *a:(calls.append('sealed') or copy.deepcopy(value)),
+            admit_worker=lambda *a:None,check_live_admission=lambda *a:None,closed_workers=lambda *a:None)
+        self.assertEqual(d.predecessor_gate(cfg,{},d.bind([sel,pp]),owner),value);self.assertEqual(calls,['sealed'])
+        value['normal_roles'][0]='MAIN_visual_R2';write(pp,value)
+        with self.assertRaisesRegex(ValueError,'R8'):d.predecessor_gate(cfg,{},d.bind([sel,pp]),owner)
+
+    def test_partition_counter_noise_and_commands(self):
+        self.assertEqual(sorted(d.indices(0)+d.indices(1)),list(range(100)));self.assertFalse(set(d.indices(0))&set(d.indices(1)))
+        for w in (-1,2,None):
+            with self.assertRaises(ValueError):d.indices(w)
+        cfg=dict(python='python',_path='/sealed/cfg.json')
+        self.assertEqual(d.command(cfg,1)[-4:],['--stage','worker','--worker-index','1'])
+        self.assertEqual(d.command(cfg)[-2:],['--stage','merge'])
+        a=d.core.h.standard_noise(self.ctx['source_ids'][0],13,6201)
+        self.assertEqual(d.core.raw.array_sha(a),d.core.raw.array_sha(d.core.h.standard_noise(self.ctx['source_ids'][0],13,6201)))
+        self.assertEqual({d.core.h.frame_counter(s,i,n) for s in range(18,22) for i in range(100) for n in (6201,6202,6203)},set(range(5400,6600)))
+
+    def actual_source_trace(self,i=0,ledger=None):
+        if ledger is None:
+            ledger=f.FakeH();ledger.binding=d.sha(self.budgetpath)
+        cat=self.ctx['catalogue'];backend=f.f.FakeBackend(cat)
+        pid=next(p['profile_id'] for p in cat._profiles if p['m']==2 and p['K']>0 and p['groups'][0]['modulation']=='16QAM')
+        header=f.f.FakeHeader(pid,ledger);phy=f.f.FakePhy(ledger);tx=f.FakeTX(cat,header)
+        scales,pins=d.load_tokens(self.records[i],self.bound);frames=[]
+        for point in self.context['schedule']:
+            for seed in d.core.h.SEEDS:
+                header.crc=seed!=6202
+                frames.append(d.core.run_frame(ctx=self.context,development_slot=point['development_slot'],source_id=self.ctx['source_ids'][i],
+                    source_index=i,noise_seed=seed,scales=scales,transmitter=tx,backend=backend,phy=phy,ledger=ledger))
+        p=self.root/f'trace{i}.json';write(p,dict(status='MAIN4_H_DEVELOPMENT_SOURCE_TRACES_R1',registration_sha256='e'*64,
+            source_index=i,source_id=self.ctx['source_ids'][i],source_bindings=pins,frames=frames))
+        return p,frames,ledger
+
+    def test_full_original_KEEP_frames_validate_and_wrong_RX_values_survive(self):
+        path,frames,_=self.actual_source_trace()
+        with mock.patch.object(d,'indices',return_value=[0]):events,summary=d.trace_inventory(self.ctx,[path],0)
+        self.assertEqual(summary['frame_count'],12);self.assertEqual(summary['header_gray_frames'],4);self.assertEqual(len(events),20)
+        row=frames[0];self.assertFalse(row['body_crc_accept']);self.assertFalse(row['gray']);self.assertEqual(row['source_status'],'KEEP_ACTUAL_HARD_TOKENS')
+        self.assertEqual(events[row['packet_event_ids'][1]]['result'],row['body'])
+        doc=d.read(path);doc['frames'][0]['receiver_state']['prefix'][0][0]^=1;write(path,doc)
+        with mock.patch.object(d,'indices',return_value=[0]),self.assertRaisesRegex(ValueError,'RX-only'):
+            d.trace_inventory(self.ctx,[path],0)
+
+    def test_trace_rejects_missing_frame_unrelated_source_and_result_hash(self):
+        path,_,_=self.actual_source_trace();original=d.read(path)
+        for mutation in (lambda v:v['frames'].pop(),lambda v:v.update(source_bindings={}),
+            lambda v:v['frames'][0]['packet_events'][0].update(result_sha256='0'*64)):
+            value=copy.deepcopy(original);mutation(value);write(path,value)
+            with mock.patch.object(d,'indices',return_value=[0]),self.assertRaises(ValueError):d.trace_inventory(self.ctx,[path],0)
+
+    def test_fresh_output_and_live_merge_admission_before_claim(self):
+        folder=self.root/'empty';folder.mkdir();d.claim(folder,self.ctx,0)
+        with self.assertRaisesRegex(ValueError,'Prior output'):d.claim(folder,self.ctx,0)
+        self.ctx['owner'].check_live_admission=lambda *a:(_ for _ in ()).throw(ValueError('merge admission missing'))
+        with self.assertRaisesRegex(ValueError,'merge admission'):d.merge_body(self.ctx,{},time.monotonic())
+        self.assertFalse((Path(self.ctx['cfg']['out'])/'merge').exists())
+
+    def test_actual_H_schema_historic_fingerprint_and_exact_paid_result(self):
+        who=dict(pid=10,start_ticks=20,uid=1002,argv=['fake-CPU']);dbpath=self.root/'H.sqlite';budgetsha=d.sha(self.budgetpath)
+        real=f.BudgetLedger(dbpath,budgetsha,'H',d.PHASES,worker_identity=who,identity_reader=lambda pid:who)
+        # Synthetic historical rows use the actual production schema and exact phase counts.
+        with closing(sqlite3.connect(dbpath)) as db:
+            rows=((f'old:{phase}:{i:06d}',phase,'header','old','a'*64,'COMPLETE',d.canonical(who),0.,1.,'{}',d.digest({}),None)
+                for phase,n in d.BEFORE.items() for i in range(n))
+            db.executemany('INSERT INTO events VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',rows)
+            db.executemany('UPDATE counters SET charged=? WHERE phase=?',[(n,p) for p,n in d.BEFORE.items()]);db.commit()
+        baseline=d.ledger_view(dbpath,budgetsha);self.assertEqual(baseline['charged'],164760)
+        self.ctx['cfg']['ledger']=str(dbpath);self.ctx['reg']['budget_before']={k:v for k,v in baseline.items() if k!='events'}
+        class Proof:
+            def __init__(self):self.active=None;self.events={}
+            branch='H';binding=budgetsha;limits=d.PHASES
+            def register_configuration(self,*a):return real.register_configuration(*a)
+            def decode_once(self,phase,event,kind,key,request,decode):
+                def paid():
+                    self.active=event;self.events[event]={'status':'RESERVED'}
+                    try:return decode()
+                    finally:self.active=None
+                return real.decode_once(phase,event,kind,key,request,paid)
+        path,frames,_=self.actual_source_trace(ledger=Proof())
+        with mock.patch.object(d,'indices',return_value=[0]):expected,_=d.trace_inventory(self.ctx,[path],0)
+        after=d.stable_budget(self.ctx,expected=expected,worker=0)
+        self.assertEqual(after['charged'],164780);self.assertEqual(after['phase_charged']['development'],10820)
+        bad=copy.deepcopy(expected);bad[next(iter(bad))]['result']={'different':'actual result'}
+        with self.assertRaisesRegex(ValueError,'actual header/body'):d.stable_budget(self.ctx,expected=bad,worker=0)
+        with closing(sqlite3.connect(dbpath)) as db:
+            db.execute("UPDATE events SET request_sha=? WHERE event_id=(SELECT event_id FROM events WHERE event_id LIKE 'old:%' LIMIT 1)",('b'*64,));db.commit()
+        with self.assertRaisesRegex(ValueError,'Historical H'):d.stable_budget(self.ctx)
+
+    def test_two_real_worker_bodies_merge_and_independent_inventory(self):
+        identities={i:dict(pid=100+i,start_ticks=4,uid=1002,argv=['fixture',str(i)]) for i in (0,1)}
+        owners=[];proof=dict(bindings={},worker_identity=dict(pid=102,start_ticks=5,uid=1002,argv=['fixture','merge']))
+        cat=self.ctx['catalogue'];backend=f.f.FakeBackend(cat)
+        pid=next(p['profile_id'] for p in cat._profiles if p['m']==2 and p['K']>0)
+        all_events={}
+        def view(ctx,expected=None,worker=None):
+            events={eid:dict(value,status='COMPLETE',identity=identities[int(d.PATTERN.fullmatch(eid)[2])%2]) for eid,value in expected.items()}
+            all_events.update(events)
+            return dict(charged=164760+len(all_events),MAIN4_calls=len(all_events),unresolved=0,events=events)
+        class Header(f.f.FakeHeader):
+            def receive(self,*a,**kw):
+                self.crc='seed6202' not in self.ledger.active
+                return super().receive(*a,**kw)
+        with mock.patch.object(d,'stable_budget',side_effect=view):
+            for w in (0,1):
+                ledger=f.FakeH();ledger.binding=d.sha(self.budgetpath);ledger.worker=identities[w]
+                header=Header(pid,ledger);phy=f.f.FakePhy(ledger);tx=f.FakeTX(cat,header)
+                done=d.worker_body(self.ctx,w,proof,ledger,backend,phy,tx,time.monotonic())
+                self.assertEqual(done['frame_count'],600);self.assertEqual(done['new_packet_decodes'],1000)
+                self.assertFalse(done['images_scored']);self.assertFalse(done['GPU_used'])
+                cp=Path(self.ctx['cfg']['out'])/f'worker_{w}'/'completion.json';d.save(cp,done)
+                owners.append(dict(worker_index=w,completion=str(cp),completion_sha256=d.sha(cp),exit_code=0,
+                    wait_completed=True,exited=True,identity=identities[w],bindings=d.bind([cp])))
+            self.ctx['owner'].closed_workers=lambda ctx:owners
+            merged=d.merge_body(self.ctx,proof,time.monotonic());self.assertEqual(merged['status'],d.DONE)
+            self.assertEqual(merged['worker_identity'],proof['worker_identity'])
+            self.assertEqual(merged['frame_count'],1200);self.assertEqual(merged['new_packet_decodes'],2000)
+            self.assertEqual(merged['header_gray_frames'],400)
+            inv=d.audit_inventory(self.ctx);self.assertEqual(inv['summary']['frame_count'],1200)
+            self.assertEqual(len(inv['trace_paths']),100);self.assertEqual(len(inv['events']),2000)
+            bad=Path(self.ctx['cfg']['out'])/'worker_1/source_checkpoints/0099.json';v=d.read(bad);v['source_id']='wrong';write(bad,v)
+            with self.assertRaises(ValueError):d.audit_inventory(self.ctx)
+
+
+if __name__=='__main__':unittest.main()

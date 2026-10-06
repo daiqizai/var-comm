@@ -1,0 +1,324 @@
+"""Pure final table projection; the caller admits normal closures and byte SHAs.
+
+No files, process operations, ranking, bootstrap, image export or model calls.
+The returned object is a report view, never an experiment completion receipt.
+"""
+from copy import deepcopy
+import hashlib
+import json
+import math
+
+import h_p_cost_report as old
+import main_h_success_projection_r1 as success
+
+CRITERIA_SHA = '24e4e3e1042c4e1e752c6de26ba40bd5973290ec191f932e2591caabe5c8f8a7'
+ORDER = ((18, 13, 'QPSK'), (19, 13, '16QAM'), (20, 19, 'QPSK'), (21, 19, '16QAM'))
+METRICS = old.METRICS
+H_METRICS = set(METRICS) | set(old.MISSING)
+NOISE = dict(old.NOISE, MAIN=[6201, 6202, 6203])
+require = old.require
+
+
+def canonical(value):
+    return json.dumps(value, sort_keys=True, separators=(',', ':'), allow_nan=False)
+
+
+def same_interval(a, b):
+    """CSV number formatting may change; underlying values must remain exact."""
+    return all(float(a[k]) == float(b[k]) for k in ('mean', 'ci_low', 'ci_high'))
+
+
+def final_tables(final, hp, catalog, schedule):
+    done = final['completion']; plan = final['comparison_plan']; points = final['point_identity']
+    require(done['status'] == 'MAIN_H_P_FIXED_SOURCE_STATISTICS_COMPLETE_R1'
+        and all(done[k] == v for k, v in dict(source_count=100, point_count=24,
+            comparison_count=58, admitted_metric_count=18, missing_P_metric_count=3,
+            MAIN_frames=1200, source_mean_cells=43200, paired_cells=1044,
+            bootstrap_seed=2026100605, bootstrap_replicates=10000).items()), 'Complete frozen final statistics required')
+    require(all(done[k] is False for k in ('GPU_used', 'policy_selection', 'holdout_used',
+        'success_gate_evaluated', 'automatic_successor', 'MAIN_final_delivery'))
+        and all(done[k] == 0 for k in ('new_packet_decodes', 'new_metric_calls', 'new_noise_draws'))
+        and done['old_H_P_source_means_preserved'] is True
+        and done['budget_before'] == done['budget_after'], 'Statistics scope/budget changed')
+    require(len(done['source_ids']) == len(set(done['source_ids'])) == 100, 'Original100 source identities required')
+    require(all(isinstance(v,str) and len(v)==64 and all(c in '0123456789abcdef' for c in v)
+        for v in (final['selection_sha256'],hp['source_means_sha256'],hp['normalization_proof_sha256'])),
+        'Exact original selection/source-means/bridge SHA required')
+    require([(p['development_slot'], p['snr_db'], p['modulation']) for p in schedule] == list(ORDER),
+        'Exactly four frozen MAIN modulation references, no development re-selection')
+    refs = {f"MAIN_SLOT_{p['development_slot']:02d}": p for p in schedule}
+    require(set(points) == set(hp['point_identity']) | set(refs)
+        and canonical(plan['points']) == canonical(points), 'Exact24 point identities required')
+    for p, spec in hp['point_identity'].items():
+        require(canonical(points[p]) == canonical(spec), 'Original H/P point identity changed')
+    identities = next(iter(points.values()))['metric_identity']
+    require(set(identities) == set(METRICS), 'Only the admitted18 common metrics')
+    for p, spec in points.items():
+        require(spec['metric_identity'] == identities and old.sequence(spec['noise_seeds']) == NOISE[spec['branch']],
+            'Metric identity or original branch noise changed')
+        if p in refs:
+            require(spec['branch'] == 'MAIN' and spec['snr_db'] == refs[p]['snr_db']
+                and spec['policy_sha256'] == final['selection_sha256'], 'MAIN calibration selection binding differs')
+    pairs = {(h, f"P1024_SNR_{int(r['snr_db'])}") for h, r in catalog.items()}
+    pairs |= {(h, m) for h, r in catalog.items() for m, p in refs.items() if int(r['snr_db']) == p['snr_db']}
+    pairs |= {(m, f"P1024_SNR_{p['snr_db']}") for m, p in refs.items()}
+    require(len(plan['comparisons']) == 58 and {tuple(p) for p in plan['comparisons']} == pairs
+        and all(plan[k] == v for k, v in dict(source_count=100, comparison_count=58, common_metrics=18,
+            bootstrap_replicates=10000, bootstrap_seed=2026100605).items())
+        and all(plan[k] is False for k in ('policy_selection', 'holdout_used', 'frame_level_noise_pairing_claimed')),
+        'Only original18 H/P +36 H/MAIN +4 MAIN/P contrasts admitted')
+    summaries = {}; paired = {}
+    for row in final['summary']:
+        p, m = row['point_id'], row['metric']; key = (p, m)
+        require(p in points and m in METRICS and key not in summaries, 'Unknown/duplicate summary')
+        spec = points[p]; old.interval(row)
+        require(row['branch'] == spec['branch'] and int(row['snr_db']) == int(spec['snr_db'])
+            and row['metric_identity'] == identities[m] and old.sequence(row['noise_seeds']) == NOISE[spec['branch']],
+            'Summary identity changed')
+        summaries[key] = row
+    require(set(summaries) == {(p, m) for p in points for m in METRICS}, 'Complete432 means and intervals required')
+    for row in final['paired']:
+        a, b, m = row['method'], row['reference'], row['metric']; key = (a, b, m)
+        require((a, b) in pairs and m in METRICS and key not in paired, 'Unknown/duplicate paired interval')
+        old.interval(row)
+        require(int(row['snr_db']) == int(points[a]['snr_db']) == int(points[b]['snr_db'])
+            and row['metric_identity'] == identities[m] and row['delta_definition'] == 'method minus reference'
+            and old.sequence(row['method_noise_seeds']) == NOISE[points[a]['branch']]
+            and old.sequence(row['reference_noise_seeds']) == NOISE[points[b]['branch']]
+            and row['frame_level_noise_pairing_claimed'] in (False, 'False'), 'Original source pairing changed')
+        paired[key] = row
+    require(set(paired) == {(a, b, m) for a, b in pairs for m in METRICS}, 'Complete1044 paired cells required')
+    require(all(same_interval(r, summaries[r['point_id'], r['metric']]) for r in hp['summary'])
+        and all(same_interval(r, paired[r['method'], r['reference'], r['metric']]) for r in hp['paired']),
+        'Previously sealed H/P estimates must remain unchanged')
+    provenance = final['provenance']
+    require(provenance['source_ids'] == done['source_ids'] and provenance['old_means_reused'] is True
+        and provenance['H_P_source_means_sha256'] == hp['source_means_sha256']
+        and provenance['normalization_proof_sha256'] == hp['normalization_proof_sha256']
+        and all(provenance[k] is False for k in ('metrics_recomputed', 'policy_selection', 'frame_level_noise_pairing_claimed')),
+        'Original same-source bridge and source-means byte pins required')
+    bridge = hp['target_pixel_bridge']
+    require(set(bridge) == {'path','sha256'} and isinstance(bridge['path'],str)
+        and len(bridge['sha256']) == 64 and all(c in '0123456789abcdef' for c in bridge['sha256'])
+        and hp['completion']['outputs'].get(bridge['path']) == bridge['sha256']
+        and done['input_bindings'].get(bridge['path']) == bridge['sha256'],
+        'Exact pixel bridge must be sealed by both old H/P output and final statistics input')
+    return points
+
+
+def h_annex(h18, catalog):
+    """Retain original21 H metrics and26 factor contrasts; no new test added."""
+    plan = h18['comparison_plan']; pairs = {(r['method'], r['reference']) for r in plan['comparisons']}
+    require(plan['status'] == 'FROZEN_FROM_DECLARED_SCHEDULE_BEFORE_METRIC_ROWS'
+        and plan['selection'] is False and len(plan['comparisons']) == len(pairs) == 26,
+        'Original frozen26 H internal comparisons required')
+    seen = set()
+    for r in h18['summary']:
+        key = (r['point_id'], r['metric']); old.interval(r)
+        require(key not in seen and key[0] in catalog and key[1] in H_METRICS
+            and all(r[k] == catalog[key[0]][k] for k in ('role', 'candidate_id'))
+            and int(r['snr_db']) == int(catalog[key[0]]['snr_db']), 'Original H summary identity differs')
+        seen.add(key)
+    require(seen == {(p, m) for p in catalog for m in H_METRICS}, 'Complete original378 H metric cells required')
+    seen = set()
+    for r in h18['paired']:
+        key = (r['method'], r['reference'], r['metric']); old.interval(r)
+        require(key not in seen and key[:2] in pairs and key[2] in H_METRICS
+            and key[0] in catalog and key[1] in catalog
+            and int(r['snr_db']) == int(catalog[key[0]]['snr_db']) == int(catalog[key[1]]['snr_db'])
+            and r['delta_definition'] == 'method minus reference', 'Original H contrast changed')
+        seen.add(key)
+    require(seen == {(a, b, m) for a, b in pairs for m in H_METRICS}, 'Complete original546 H contrasts required')
+    return deepcopy({k: h18[k] for k in ('comparison_plan', 'summary', 'paired', 'classifier_transition', 'wire_diagnostics')})
+
+
+def distributions(value, schedule):
+    require(value['status'] == 'MAIN4_FULL_DEVELOPMENT_DISTRIBUTIONS_R1'
+        and value['source_count'] == 100 and value['frame_count'] == 1200 and value['point_count'] == 4
+        and value['noise_seeds'] == NOISE['MAIN'] and value['gray_is_not_source_m0'] is True
+        and value['failed_frames_in_denominator'] is True and value['energy_uses_all_noise_frames'] is True
+        and value['source_endpoints_fixed_by_selection'] is True and value['policy_selection'] is False
+        and all(value[k] == 0 for k in ('new_packet_decodes', 'new_metric_calls', 'bootstrap_calls')),
+        'Complete pure1200-frame MAIN distributions required')
+    require(len(value['points']) == 4, 'All four MAIN points required')
+    for point, frozen in zip(value['points'], schedule):
+        require(all(point[k] == frozen[k] for k in ('development_slot', 'snr_db', 'modulation', 'candidate_id'))
+            and point['TX_source_denominator'] == 100 and point['RX_frame_denominator'] == 300,
+            'Distribution identity/denominator differs')
+        require(sum(r['source_count'] for r in point['TX_endpoints']) == 100
+            and all((r['m'], r['K'], r['profile_id']) == (frozen['m'], frozen['K'], frozen['profile_id'])
+                and r['source_count'] >= 0 and r['fraction'] == r['source_count']/100 for r in point['TX_endpoints']), 'TX source counts differ')
+        require(sum(r['frame_count'] for r in point['RX_endpoints']) == 300
+            and sum(r['frame_count'] for r in point['RX_categories'].values()) == 300, 'RX failures lost from denominator')
+        for row in point['RX_endpoints']:
+            require(row['frame_count'] >= 0 and row['fraction'] == row['frame_count']/300, 'RX fraction differs')
+            if row['outcome'] == 'GRAY':
+                require(all(row[k] is None for k in ('m', 'K', 'profile_id', 'body_crc_accept')), 'Gray is not a source m0 endpoint')
+            else:
+                require(row['outcome'] == 'TOKENS' and 1 <= row['m'] <= 10 and type(row['body_crc_accept']) is bool,
+                    'Actual KEEP hard tokens including CRC rejects required')
+        require(set(point['energy']) == {'header_energy', 'body_and_idle_energy', 'total_energy'}, 'Only actual three energy columns')
+        for row in point['energy'].values():
+            require(row['count'] == 300 and all(math.isfinite(float(row[k])) and row[k] >= 0 for k in
+                ('mean', 'std_population', 'minimum', 'p05', 'median', 'p95', 'maximum'))
+                and row['minimum'] <= row['p05'] <= row['median'] <= row['p95'] <= row['maximum'], 'Invalid actual frame energy summary')
+    return deepcopy(value)
+
+
+def main_costs(value):
+    if value is None:
+        return dict(status='PENDING_NORMAL_MAIN_TIMING_CLOSURE', components=[], end_to_end_latency=None)
+    done, summary = value['completion'], value['component_summary']; design = done['timing_design']
+    require(done['status'] == 'MAIN4_FIXED16_COMPONENT_MEASUREMENT_COMPLETE_R1'
+        and done['source_count'] == 16 and done['component_case_count'] == 64
+        and done['source_indices'] == design['source_indices'] == old.FIXED16
+        and done['source_ids'] == design['source_ids'] and len(set(done['source_ids'])) == 16
+        and all(design[k] == v for k, v in dict(slots=[18,19,20,21], noise_seed=6201, source_count=16,
+            component_case_count=64, warmup_repetitions=1, measured_repetitions=3, batch_size=1).items())
+        and done['budget_before'] == done['budget_after'] and done['policy_selection'] is False
+        and all(done[k] == 0 for k in ('new_packet_decodes', 'new_noise_draws', 'new_quality_samples', 'new_metric_calls'))
+        and done['exclusive_PHY_latency_measured'] is False and done['end_to_end_latency_measured'] is False,
+        'Original fixed16 MAIN component-only timing required')
+    require(summary['status'] == 'MAIN4_FIXED16_COMPONENT_SUMMARY_R1' and summary['source_count'] == 16
+        and summary['component_case_count'] == 64 and summary['uncached'] is True
+        and summary['warmups_excluded'] is True and summary['policy_selection'] is False
+        and summary['historical_PHY_can_be_added_to_GPU_totals'] is False
+        and all(summary[k] is None for k in ('PHY_encode', 'exclusive_PHY_decode', 'end_to_end_latency')),
+        'No invented PHY or end-to-end latency')
+    seen = set(); directions = set()
+    for r in summary['components']:
+        key = (r['development_slot'], r['side'], r['component'])
+        require(key not in seen and key[0] in (18,19,20,21) and key[1] in ('TX','RX')
+            and r['source_count'] == 16 and r['repetitions_per_source'] == 3 and r['warmups_excluded'] is True
+            and r['inclusive'] == (key[2] in ('TX_source_total','RX_source_and_image_total'))
+            and all(math.isfinite(float(r[k])) and r[k] >= 0 for k in ('mean_seconds','median_source_seconds')),
+            'MAIN component identity/averaging differs')
+        seen.add(key); directions.add(key[:2])
+    require(directions == {(s,d) for s in range(18,22) for d in ('TX','RX')}, 'Incomplete four-point component grid')
+    return dict(status='MAIN_COMPONENTS_ONLY', components=deepcopy([{k:v for k,v in r.items() if k != 'source_means'}
+        for r in summary['components']]), timing_design=deepcopy(design), end_to_end_latency=None,
+        nested_totals_must_not_be_added=True, historical_PHY_must_not_be_added=True)
+
+
+def project(*, hp, h18, final, schedule, main_distribution, criteria_bytes, h_timing=None, main_timing=None):
+    """All inputs must already be SHA-authenticated and normally closed by caller."""
+    require(type(criteria_bytes) is bytes and hashlib.sha256(criteria_bytes).hexdigest() == CRITERIA_SHA,
+        'Exact pre-existing SUCCESS_CRITERIA.json bytes required; no new thresholds')
+    criteria = json.loads(criteria_bytes); previous = old.project(hp, h18, h_timing)
+    catalog = old.point_catalog(h18['point_catalog']); points = final_tables(final, hp, catalog, schedule)
+    normalized_catalog = [dict(r, snr_db=int(r['snr_db']), development_slot=int(r['development_slot']))
+        for r in sorted(catalog.values(), key=lambda x:int(x['development_slot']))]
+    gates = success.project(final['paired'], points, normalized_catalog, schedule)
+    hc = previous['costs']; hc.pop('MAIN_online_cost', None)
+    mc = main_costs(main_timing)
+    if main_timing is not None:
+        require(h_timing is not None and main_timing['completion']['source_ids'] == h_timing['completion']['source_ids']
+            == [final['completion']['source_ids'][i] for i in old.FIXED16], 'H/MAIN timing must use the same original fixed16 source identities')
+    return dict(status='PURE_H_P_MAIN_REPORT_PROJECTION_REQUIRES_NORMAL_CLOSURE_AND_SHA_ADMISSION',
+        normal_closure_verified_by_this_module=False, policy_selection=False, new_estimates=False,
+        new_bootstrap_computed=False, new_pairs_created=False, source_count=100, point_count=24,
+        common_metric_count=18, comparison_count=58, holdout_used=False,
+        display_order=[f'H18_SLOT_{i:02d}' for i in range(18)] + [f'MAIN_SLOT_{i:02d}' for i in range(18,22)]
+            + ['P1024_SNR_13','P1024_SNR_19'],
+        H_catalog=normalized_catalog, MAIN_schedule=deepcopy(schedule), point_identity=deepcopy(points),
+        summary=deepcopy(final['summary']), paired=deepcopy(final['paired']), comparison_plan=deepcopy(final['comparison_plan']),
+        provenance=deepcopy(final['provenance']), common_metric_admission=deepcopy(hp['common_metric_admission']),
+        target_pixel_bridge=deepcopy(hp['target_pixel_bridge']),
+        missing_P_metrics=list(old.MISSING), H_full_metric_annex=h_annex(h18,catalog),
+        H_distributions={k:previous[k] for k in ('tx_source_scale','rx_received_scale','receiver_status')},
+        MAIN_distributions=distributions(main_distribution,schedule), H_costs=hc, MAIN_costs=mc,
+        success_criteria_sha256=CRITERIA_SHA, original_H_success_criteria=deepcopy(criteria['H']), H_success=gates,
+        missing=dict(F_recovery_error='NOT_MEASURED_NO_REGISTERED_LATENT_RECOVERY_METRIC',
+            P_online_cost='NOT_MEASURED', PHY_encode='NOT_MEASURED', exclusive_PHY_decode='NOT_MEASURED',
+            end_to_end_latency='NOT_MEASURED', FID='DEFERRED_HOLDOUT', KID='DEFERRED_HOLDOUT'),
+        interpretation=dict(previous['interpretation'], precision='H/MAIN float64 PSNR; retained P float32 scalar. Original suite float32 PSNR remains diagnostic, not silently substituted.',
+            noise='H and MAIN6201..6203; P2001..2003 unchanged. Pair same-source means, never claim matched P noise frames.',
+            MAIN='Four modulation/SNR calibration winners only; family winners are separate calibration evidence.',
+            independent_evidence='Original PSNR/LPIPS/CLIP/ConvNeXt gates, each SNR/reference separately. DINO-only gain is representation-target-only.',
+            completion='This projection is not a normal process closure or final delivery receipt.'))
+
+
+def markdown(view):
+    require(view['normal_closure_verified_by_this_module'] is False and view['policy_selection'] is False,
+        'Pure report scope required')
+    means = {(r['point_id'],r['metric']):r for r in view['summary']}
+    cat = {r['point_id']:r for r in view['H_catalog']}
+    mains = {f"MAIN_SLOT_{r['development_slot']:02d}":r for r in view['MAIN_schedule']}
+    def label(p):
+        if p in cat:return p + ': ' + cat[p]['arm']
+        if p in mains:return p + ': ' + mains[p]['modulation']
+        return p
+    panels = [(name,[p for p in view['display_order'] if p in cat and cat[p]['role']==role])
+        for role,name in zip(old.ROLES,('整尺度四臂：各自校准策略','最强 raw64 部分尺度校准对照','固定 m7/K0/rate1/2 归因对照'))]
+    panels += [('MAIN 四个调制参考点',list(mains)),('P 两个原参考点',['P1024_SNR_13','P1024_SNR_19'])]
+    text=['# H/P/MAIN：同源开发集结果、尺度与组件成本','',
+        '100 个原 development 源，各点先平均三次噪声，再等权平均源。固定展示全部24点，不按开发集挑选赢家。', '',
+        'H/MAIN 使用6201–6203，P保留2001–2003；P对照按源配对，不声称信道噪声逐帧相同。'
+        'H/MAIN PSNR为float64，P保留原float32标量；各指标原模型、精度与批量准入记录原样保留。', '',
+        '58组固定对照共1044个区间来自原10000次源级bootstrap（seed2026100605）。'
+        '均为未作多重比较校正的点级95%区间；本批不是holdout确认。', '']
+    featured=('psnr_db','lpips_alex','dinov2_vitl14_cosine','clip_image_cosine','dists','dreamsim',
+        'resnet50_top1_label','resnet50_top1_source_prediction','convnext_top1_label','convnext_source_prediction_agreement')
+    names=('PSNR','LPIPS','DINO-L','CLIP','DISTS','DreamSim','ResNet标签正确率','ResNet源预测一致率','ConvNeXt标签正确率','ConvNeXt源预测一致率')
+    for title, ids in panels:
+        text += ['## '+title,'','| 冻结点 | SNR | '+' | '.join(names)+' |','|---|---:|'+'---:|'*len(featured)]
+        for p in ids:
+            text.append('| '+label(p)+' | '+str(view['point_identity'][p]['snr_db'])+' | '+
+                ' | '.join(f"{float(means[p,m]['mean']):.5f}" for m in featured)+' |')
+        text += ['']
+    text += ['## 原 H 成功门槛：逐 SNR、逐 MAIN 参考判断','',
+        'PSNR差值区间下界>0；LPIPS上界≤0；CLIP与ConvNeXt源预测一致率下界≥0。'
+        '零非劣效界沿用原协议。跨零表示未解决，不能写成“无恶化”。DINO提升本身不证明内容更正确。','',
+        '| H点 | MAIN参考 | SNR | PSNR | LPIPS | CLIP | ConvNeXt一致率 | 联合门槛 |',
+        '|---|---|---:|---|---|---|---|---|']
+    for row in view['H_success']['comparisons']:
+        checks=['{} [{:+.5f}, {:+.5f}]'.format(x['status'],x['ci_low'],x['ci_high']) for x in row['checks']]
+        text.append(f"| {row['method']} | {row['reference']} | {row['snr_db']} | "+' | '.join(checks)+f" | {row['status']} |")
+    text += ['', '| 整尺度臂 | 同时覆盖13/19及两个MAIN参考 |','|---|---|']
+    for row in view['H_success']['whole_arm_two_snr_gates']:text.append(f"| {row['arm']} | {row['status']} |")
+    text += ['', '缩小P差距与H−MAIN是同一差值，不重复计为独立证据。整尺度H64-R不替代部分尺度raw64对照；'
+        '固定m7是归因口径，不升级为重新选出的系统。','',
+        '## 完整指标与尺度分布','',
+        '完整共同指标表保留24×18均值/区间及58×18配对区间。原H全部21项指标和26组因子对照另表原样保留。'
+        'P缺MSE、ResNet概率与confidently_wrong，不填零、不补算。F恢复误差未测；FID/KID保留holdout待办。','',
+        'H与MAIN的TX尺度按每点100源，RX按每点300帧统计。MAIN的KEEP硬token保留CRC失败状态；gray独立列出，'
+        '不算m0、不删分母。MAIN能量只报实际header、body+idle和total三列，每列包含300帧的均值、总体标准差、'
+        'p05/median/p95和极值，不推算body与idle能量拆分。','']
+    text += ['### MAIN TX源尺度与实际RX状态','',
+        '| slot | 方向 | 结局 | m | K | public ID | body CRC接受 | 计数/分母 |',
+        '|---:|---|---|---:|---:|---:|---|---:|']
+    for p in view['MAIN_distributions']['points']:
+        for x in p['TX_endpoints']:
+            text.append(f"| {p['development_slot']} | TX | 冻结传输尺度 | {x['m']} | {x['K']} | {x['profile_id']} | N/A | {x['source_count']}/100 |")
+        for x in p['RX_endpoints']:
+            fields=['N/A' if x[k] is None else str(x[k]) for k in ('m','K','profile_id','body_crc_accept')]
+            text.append(f"| {p['development_slot']} | RX | {x['outcome']} | "+' | '.join(fields)+f" | {x['frame_count']}/300 |")
+    text += ['', '### MAIN实际能量（每点全部300帧）','',
+        '| slot | 原能量列 | 均值 | 总体标准差 | 最小 | p05 | median | p95 | 最大 |',
+        '|---:|---|---:|---:|---:|---:|---:|---:|---:|']
+    for p in view['MAIN_distributions']['points']:
+        for name in ('header_energy','body_and_idle_energy','total_energy'):
+            x=p['energy'][name]
+            text.append(f"| {p['development_slot']} | {name} | "+' | '.join(f"{x[k]:.6f}" for k in
+                ('mean','std_population','minimum','p05','median','p95','maximum'))+' |')
+    text += ['']
+    for branch in ('H','MAIN'):
+        cost=view[branch+'_costs'];text += ['## '+branch+'在线组件成本','']
+        if cost['status'].startswith('PENDING'):
+            text += ['等待该计时阶段正常闭合，数值保持缺项。',''];continue
+        text += ['固定原16源、noise6201、1次预热+3次实测、B1、每次fresh计算与精确TX/RX parity。'
+            '下列总项包含子项，不与子项相加。','',
+            '| slot | 方向 | 组件 | 源均值平均/秒 | 源均值中位数/秒 | 包含子项 |', '|---:|---|---|---:|---:|---|']
+        for r in sorted(cost['components'],key=lambda r:(r['development_slot'],r['side'],r['component'])):
+            text.append(f"| {r['development_slot']} | {r['side']} | {r['component']} | {r['mean_seconds']:.6f} | {r['median_source_seconds']:.6f} | {r['inclusive']} |")
+        text += ['']
+        if branch=='MAIN':
+            text += ['MAIN的TX_source_total仅为raw12 raster序列化；fresh Encoder/VQ单列。'
+                'RX总项包含实际KEEP接收解析与后缀VAR/Dc（或实际拒收gray），不含PHY。','']
+        else:
+            text += ['H的TX_source_total为源编码组件，fresh Encoder/VQ另列；不含CRC/FEC、调制和信道。'
+                '该名称不表示完整发送端耗时。','']
+    text += ['P在线成本、PHY编码、独占PHY译码与端到端耗时均为N/A。历史PHY事件窗含并发及记账开销，'
+        '只作独立诊断，不与GPU组件拼成端到端延迟，也不计算缺测P的加速比。','',
+        '本报告是已封结果的纯投影；正式调用方须先验证各阶段正常退出和完整输入输出SHA。','']
+    return '\n'.join(text)

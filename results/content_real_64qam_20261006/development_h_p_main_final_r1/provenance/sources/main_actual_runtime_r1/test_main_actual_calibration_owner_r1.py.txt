@@ -1,0 +1,181 @@
+"""Pure receipt/process fixtures; no runtime backend or decoder invocation."""
+import ast
+import copy
+import json
+from pathlib import Path
+import tempfile
+from types import SimpleNamespace
+import unittest
+from unittest import mock
+import main_actual_calibration_owner_r1 as o
+
+
+def ident(pid,argv):return dict(pid=pid,start_ticks=100+pid,uid=5,argv=argv)
+def write(p,value):o.save(p,value);return str(p)
+
+
+def budget(calls=0):
+    limits=dict(qualification=2168,proxy_phy=43008,actual_calibration=60000)
+    return dict(schema=o.w.budget.SCHEMA,registration_sha256='e'*64,branch='MAIN',total_cap=105176,
+        limits=limits,phase_charged=dict(qualification=2168,proxy_phy=43008,actual_calibration=calls),
+        charged=45176+calls,phase_remaining=dict(qualification=0,proxy_phy=0,actual_calibration=60000-calls),
+        unresolved=0,H_C_ledger_used=False)
+
+
+def fixture(base):
+    root=base/'repo';e=root/'execution';out=root/'result';e.mkdir(parents=True);out.mkdir()
+    cp=e/'driver.json';op=e/'owner.json';rp=e/'reg.json'
+    cfg=dict(root=str(root),out=str(out),phase=o.PHASE,workers=2,python='/frozen/ldpc/bin/python',
+        cpu_affinity=[[24,25],[26,27]],owner_config=str(op),owner_module=str(Path(o.__file__).resolve()),
+        registration=str(rp),stop_file=str(root/'STOP'),budget_registration=str(root/'budget.json'),
+        admission=str(e/'worker_admission.json'),merge_admission=str(e/'merge_admission.json'),
+        worker_closure=str(e/'workers_closed.json'),deadline_unix=9999999999,_path=str(cp))
+    cfg['owner_argv']=[cfg['python'],'-B',cfg['owner_module'],'--config',str(op)]
+    owner=dict(schema=o.SCHEMA,phase=o.PHASE,owner_out=str(e),worker_config=str(cp),registration=str(rp),
+        wrapper=str(Path(o.w.__file__).resolve()),python=cfg['python'],cpu_affinity=[24,25,26,27],
+        threads=2,nice=15,GPU_jobs=0,max_packet_calls=60000,max_seconds=60,deadline_unix=cfg['deadline_unix'],
+        automatic_successor=False,development_allowed=False,quality_selection_allowed=False)
+    write(cp,cfg);write(op,owner);write(rp,{});write(Path(cfg['budget_registration']),{})
+    return dict(cfg=cfg,owner=owner,regsha=o.sha(rp),catalogue=SimpleNamespace(digest='a'*64),
+        schedule=[dict(candidate_id=str(i))for i in range(10)],bound={},owner_config=str(op),
+        reg=dict(source_bindings={'fake.py':'b'*64},input_bindings={'fake.json':'c'*64}))
+
+
+def science(ctx,status,index=None,calls=None):
+    frames=o.expected_frames(ctx,index)
+    return dict(status=status,registration_sha256=ctx['regsha'],config_sha256=o.sha(ctx['cfg']['_path']),
+        budget_registration_sha256=o.sha(ctx['cfg']['budget_registration']),catalogue_digest=ctx['catalogue'].digest,
+        source_bindings=ctx['reg']['source_bindings'],input_bindings=ctx['reg']['input_bindings'],
+        outputs=o.bind((ctx['cfg']['_path'],)),phase=o.PHASE,worker_index=index,frame_count=frames,
+        packet_calls=frames+100 if calls is None else calls)
+
+
+class Process:
+    def __init__(self,code=0,polls=None):self.code=code;self.polls=list(polls or []);self.waited=False
+    def poll(self):return self.polls.pop(0) if self.polls else self.code
+    def wait(self):self.waited=True;return self.code
+
+
+class Tests(unittest.TestCase):
+    def setUp(self):
+        t=tempfile.TemporaryDirectory();self.addCleanup(t.cleanup);self.base=Path(t.name);self.ctx=fixture(self.base)
+
+    def child(self,index=0,code=0):
+        c=self.ctx;cfg=c['cfg'];f=Path(c['owner']['owner_out'])/('merge' if index is None else 'worker_'+str(index));f.mkdir()
+        me=ident(301 if index is None else 201+index,o.w.command(cfg,index));parent=ident(101,cfg['owner_argv'])
+        launch=dict(identity=me,owner_identity=parent,worker_index=index,registration_sha256=c['regsha'],
+            config_sha256=o.sha(cfg['_path']),status='MAIN_CPU_MERGE_LAUNCHED' if index is None else 'MAIN_CPU_WORKER_LAUNCHED')
+        write(f/'launch.json',launch);logpath=f/'worker.log';log=logpath.open('wb');log.write(b'pure fixture\n')
+        cp=Path(cfg['out'])/('completion.json' if index is None else f'worker_{index}/completion.json')
+        done=science(c,o.SCIENCE_DONE if index is None else o.WORKER_DONE,index,
+                     calls=30200 if index is None else 15100)
+        done['worker_identity']=me;done['budget']=budget(30200);write(cp,done)
+        return dict(process=Process(code),log=log,logpath=logpath,folder=f,launch=launch,index=index)
+
+    def test_fixed_scope_and_disjoint_resource_union(self):
+        o.validate_shape(self.ctx['owner'],self.ctx['cfg'])
+        for k,v in [('phase','proxy_phy'),('GPU_jobs',1),('max_packet_calls',60001),
+                    ('automatic_successor',True),('development_allowed',True),('quality_selection_allowed',True),
+                    ('cpu_affinity',[24,25])]:
+            with self.assertRaises((RuntimeError,ValueError)):o.validate_shape(dict(self.ctx['owner'],**{k:v}),self.ctx['cfg'])
+
+    def test_dynamic_accepted_header_counts_not_fixed_sixty_thousand(self):
+        o.require_budget(budget());o.require_budget(budget(30200),30200)
+        self.assertEqual(o.validate_counts(self.ctx,science(self.ctx,o.SCIENCE_DONE,calls=30200)),30200)
+        for calls in (29999,60001,True):
+            with self.assertRaises((RuntimeError,ValueError)):o.validate_counts(self.ctx,science(self.ctx,o.SCIENCE_DONE,calls=calls))
+        with self.assertRaises((RuntimeError,ValueError)):o.require_budget(budget(30200),60000)
+
+    def test_budget_cannot_borrow_or_hide_unresolved(self):
+        for key,value in [('unresolved',1),('H_C_ledger_used',True),('charged',45177),
+                          ('phase_charged',dict(qualification=2167,proxy_phy=43009,actual_calibration=0))]:
+            with self.assertRaises((RuntimeError,ValueError)):o.require_budget(dict(budget(),**{key:value}))
+        b=budget();b['phase_remaining']['actual_calibration']=59999
+        with self.assertRaises((RuntimeError,ValueError)):o.require_budget(b)
+
+    def test_shortlist_drives_exact_frame_count_within_original_cap(self):
+        self.assertEqual(o.expected_frames(self.ctx),30000);self.assertEqual(o.expected_frames(self.ctx,0),15000)
+        self.ctx['schedule']=self.ctx['schedule'][:8]
+        self.assertEqual(o.expected_frames(self.ctx),24000)
+        self.ctx['schedule']*=2
+        with self.assertRaises((RuntimeError,ValueError)):o.expected_frames(self.ctx)
+
+    def test_admission_atomic_and_complete_for_two_workers(self):
+        children=[self.child(i)for i in range(2)];parent=children[0]['launch']['owner_identity']
+        try:
+            o.publish_admission(self.ctx,parent,children)
+            got=o.read(self.ctx['cfg']['admission']);self.assertEqual(len(got['workers']),2)
+            self.assertEqual([v['identity']for v in got['workers']],[c['launch']['identity']for c in children])
+            with self.assertRaises(FileExistsError):o.publish_admission(self.ctx,parent,children)
+        finally:
+            for c in children:c['log'].close()
+
+    def test_wait_reaps_before_closing_receipts_no_poll_identity_race(self):
+        c=self.child();c['process']=Process(polls=[None,0])
+        with mock.patch.object(o.time,'sleep'):records=o.wait_children(self.ctx,[c],o.time.monotonic())
+        self.assertTrue(c['process'].waited);self.assertTrue(c['log'].closed)
+        self.assertEqual(o.read(c['folder']/'exit.json')['exit_code'],0)
+        self.assertEqual(records[0]['log']['sha256'],o.sha(c['logpath']))
+
+    def test_nonzero_or_deadline_preserves_evidence_without_kill(self):
+        c=self.child(code=7)
+        with self.assertRaises((RuntimeError,ValueError)):o.wait_children(self.ctx,[c],o.time.monotonic())
+        self.assertEqual(o.read(c['folder']/'exit.json')['exit_code'],7)
+        self.assertFalse(Path(self.ctx['cfg']['merge_admission']).exists())
+
+    def test_deadline_requests_boundary_stop_not_force_kill(self):
+        for cause in ('deadline','explicit_STOP'):
+            with self.subTest(cause=cause):
+                self.ctx=fixture(self.base/cause);c=self.child();c['process']=Process(polls=[None,None,0])
+                if cause=='explicit_STOP':write(Path(self.ctx['cfg']['stop_file']),{'reason':'user STOP preserved'})
+                with mock.patch.object(o.time,'sleep'):
+                    with self.assertRaises((RuntimeError,ValueError)):
+                        o.wait_children(self.ctx,[c],o.time.monotonic()-(100 if cause=='deadline' else 0))
+                self.assertTrue(Path(self.ctx['cfg']['stop_file']).exists());self.assertTrue(c['process'].waited)
+                self.assertTrue(c['log'].closed);self.assertEqual(o.read(c['folder']/'exit.json')['exit_code'],0)
+                self.assertTrue(c['logpath'].is_file());self.assertFalse(hasattr(c['process'],'kill'))
+
+    def test_receipt_dependency_map_and_catalogue_must_match(self):
+        p=self.base/'done.json';write(p,science(self.ctx,o.SCIENCE_DONE))
+        o.receipt(p,o.SCIENCE_DONE,self.ctx)
+        d=o.read(p);d['catalogue_digest']='f'*64;p.write_text(json.dumps(d))
+        with self.assertRaises((RuntimeError,ValueError)):o.receipt(p,o.SCIENCE_DONE,self.ctx)
+
+    def closure(self):
+        c=self.ctx;cfg=c['cfg'];e=Path(c['owner']['owner_out']);children=[self.child(i)for i in range(2)]
+        parent=children[0]['launch']['owner_identity'];o.publish_admission(c,parent,children)
+        records=o.wait_children(c,children,o.time.monotonic())
+        write(Path(cfg['worker_closure']),dict(status='MAIN_CPU_WORKERS_NORMALLY_CLOSED',registration_sha256=c['regsha'],
+            config_sha256=o.sha(cfg['_path']),phase=o.PHASE,owner_identity=parent,workers=records))
+        merge=self.child(None);o.publish_admission(c,parent,[merge],True);o.wait_children(c,[merge],o.time.monotonic())
+        write(e/'owner_start.json',dict(identity=parent,registration_sha256=c['regsha'],owner_config_sha256=o.sha(c['owner_config'])))
+        files=[p for p in e.rglob('*')if p.is_file()]+[p for p in Path(cfg['out']).rglob('*')if p.is_file()]
+        write(e/'completion.json',dict(status=o.DONE,phase=o.PHASE,registration_sha256=c['regsha'],
+            owner_config_sha256=o.sha(c['owner_config']),owner_identity=parent,automatic_successor_started=False,
+            GPU_used=False,development_read=False,quality_ranked=False,budget_before=budget(),budget_after=budget(30200),
+            frame_count=30000,packet_calls=30200,outputs=o.bind(files)))
+        return dict(owner_config=c['owner_config'],completion=str(e/'completion.json'))
+
+    def test_normal_complete_chain_accepts_actual_less_than_cap(self):
+        spec=self.closure()
+        with mock.patch.object(o,'load',return_value=self.ctx),mock.patch.object(o.w,'exited',return_value=True):
+            c=o.closed_phase(spec)
+        self.assertEqual(c['done']['packet_calls'],30200);self.assertEqual(c['done']['budget']['charged'],75376)
+
+    def test_live_owner_or_nonzero_merge_rejected_after_science_completion(self):
+        spec=self.closure()
+        with mock.patch.object(o,'load',return_value=self.ctx),mock.patch.object(o.w,'exited',return_value=False):
+            with self.assertRaises((RuntimeError,ValueError)):o.closed_phase(spec)
+        p=Path(self.ctx['owner']['owner_out'])/'merge/exit.json';d=o.read(p);d['exit_code']=1;p.write_text(json.dumps(d))
+        d=o.read(spec['completion']);d['outputs'][str(p)]=o.sha(p);Path(spec['completion']).write_text(json.dumps(d))
+        with mock.patch.object(o,'load',return_value=self.ctx),mock.patch.object(o.w,'exited',return_value=True):
+            with self.assertRaises((RuntimeError,ValueError)):o.closed_phase(spec)
+
+    def test_owner_never_calls_science_or_automatic_next_stage(self):
+        tree=ast.parse(Path(o.__file__).read_text());calls={n.func.attr for n in ast.walk(tree)
+            if isinstance(n,ast.Call)and isinstance(n.func,ast.Attribute)}
+        self.assertFalse({'decode_once','receive','receive_packet','transmit','kill','terminate','build_native'}&calls)
+        self.assertEqual(o.PHASE,'actual_calibration')
+
+
+if __name__=='__main__':unittest.main()

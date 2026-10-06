@@ -1,0 +1,169 @@
+import copy
+import os
+from pathlib import Path
+import unittest
+
+import main_h_p_final_report_r1 as r
+from test_h_p_cost_report import fixture as old_fixture
+
+
+def fixture():
+    hp, h18, ht = old_fixture()
+    hp.update(source_means_sha256='a'*64, normalization_proof_sha256='b'*64)
+    hp['target_pixel_bridge']=dict(path='/sealed/old_hp/target_pixel_bridge.json',sha256='d'*64)
+    hp['completion']['outputs']={hp['target_pixel_bridge']['path']:hp['target_pixel_bridge']['sha256']}
+    schedule=[dict(development_slot=s,snr_db=n,modulation=q,candidate_id='frozen'+str(s),
+        m=6 if q=='QPSK' else 8,K=40 if q=='QPSK' else 9,profile_id=88 if q=='QPSK' else 243)
+        for s,n,q in r.ORDER]
+    points=copy.deepcopy(hp['point_identity']);ident=points['H18_SLOT_00']['metric_identity'];selection='c'*64
+    points.update({f"MAIN_SLOT_{p['development_slot']:02d}":dict(branch='MAIN',snr_db=p['snr_db'],
+        noise_seeds=r.NOISE['MAIN'],policy_sha256=selection,metric_identity=copy.deepcopy(ident)) for p in schedule})
+    pairs=[(x['method'],x['reference']) for x in hp['comparison_plan']['comparisons']]
+    for p in schedule:
+        m=f"MAIN_SLOT_{p['development_slot']:02d}"
+        pairs.extend((x['point_id'],m) for x in h18['point_catalog'] if x['snr_db']==p['snr_db'])
+        pairs.append((m,f"P1024_SNR_{p['snr_db']}"))
+    plan=dict(points=points,comparisons=pairs,policy_selection=False,source_count=100,comparison_count=58,
+        common_metrics=18,bootstrap_seed=2026100605,bootstrap_replicates=10000,
+        frame_level_noise_pairing_claimed=False,holdout_used=False)
+    interval={k:hp['summary'][0][k] for k in ('mean','ci_low','ci_high','source_count','noise_count','frame_count','bootstrap_replicates','bootstrap_seed')}
+    summary=copy.deepcopy(hp['summary'])
+    summary.extend(dict(point_id=p,branch='MAIN',snr_db=v['snr_db'],noise_seeds=r.NOISE['MAIN'],metric=m,
+        metric_identity=ident[m],**interval) for p,v in points.items() if v['branch']=='MAIN' for m in r.METRICS)
+    paired=copy.deepcopy(hp['paired'])
+    paired.extend(dict(method=a,reference=b,metric=m,snr_db=points[a]['snr_db'],metric_identity=ident[m],
+        delta_definition='method minus reference',method_noise_seeds=r.NOISE[points[a]['branch']],
+        reference_noise_seeds=r.NOISE[points[b]['branch']],frame_level_noise_pairing_claimed=False,**interval)
+        for a,b in pairs[18:] for m in r.METRICS)
+    ids=['source'+str(i) for i in range(100)]
+    ht['completion']['source_ids']=[ids[i] for i in r.old.FIXED16]
+    done=dict(status='MAIN_H_P_FIXED_SOURCE_STATISTICS_COMPLETE_R1',source_count=100,point_count=24,
+        comparison_count=58,admitted_metric_count=18,missing_P_metric_count=3,MAIN_frames=1200,
+        source_mean_cells=43200,paired_cells=1044,bootstrap_seed=2026100605,bootstrap_replicates=10000,
+        GPU_used=False,policy_selection=False,holdout_used=False,success_gate_evaluated=False,automatic_successor=False,
+        MAIN_final_delivery=False,new_packet_decodes=0,new_metric_calls=0,new_noise_draws=0,
+        old_H_P_source_means_preserved=True,budget_before={'H':167160,'MAIN':105176},budget_after={'H':167160,'MAIN':105176},source_ids=ids)
+    done['input_bindings']=dict(hp['completion']['outputs'])
+    final=dict(completion=done,comparison_plan=plan,point_identity=points,selection_sha256=selection,summary=summary,paired=paired,
+        provenance=dict(source_ids=ids,old_means_reused=True,H_P_source_means_sha256='a'*64,
+            normalization_proof_sha256='b'*64,metrics_recomputed=False,policy_selection=False,frame_level_noise_pairing_claimed=False))
+    cat=h18['point_catalog'];keys={(x['role'],x['snr_db'],x['arm']):x['point_id'] for x in cat};internal=[]
+    for snr in (13,19):
+        for role in (r.old.ROLES[0],r.old.ROLES[2]):
+            internal.extend((keys[role,snr,a],keys[role,snr,b]) for a,b in
+                (('H16-A','H16-R'),('H64-A','H64-R'),('H64-R','H16-R'),('H64-A','H16-A')))
+        internal.extend((keys[r.old.ROLES[0],snr,a],keys[r.old.ROLES[2],snr,a]) for a in ('H16-R','H16-A','H64-R','H64-A'))
+        internal.append((keys[r.old.ROLES[1],snr,'H64-RAW-PARTIAL'],keys[r.old.ROLES[0],snr,'H64-R']))
+    byid={x['point_id']:x for x in cat}
+    h18.update(comparison_plan=dict(status='FROZEN_FROM_DECLARED_SCHEDULE_BEFORE_METRIC_ROWS',selection=False,
+        comparisons=[dict(method=a,reference=b) for a,b in internal]),
+        summary=[dict(x,metric=m,**interval) for x in cat for m in r.H_METRICS],
+        paired=[dict(method=a,reference=b,metric=m,snr_db=byid[a]['snr_db'],delta_definition='method minus reference',**interval)
+            for a,b in internal for m in r.H_METRICS],classifier_transition=[],wire_diagnostics=[])
+    energy=dict(count=300,mean=1024.,std_population=0.,minimum=1024.,p05=1024.,median=1024.,p95=1024.,maximum=1024.)
+    distribution=dict(status='MAIN4_FULL_DEVELOPMENT_DISTRIBUTIONS_R1',source_count=100,frame_count=1200,point_count=4,
+        noise_seeds=r.NOISE['MAIN'],gray_is_not_source_m0=True,failed_frames_in_denominator=True,
+        energy_uses_all_noise_frames=True,source_endpoints_fixed_by_selection=True,policy_selection=False,
+        new_packet_decodes=0,new_metric_calls=0,bootstrap_calls=0,
+        points=[dict(p,TX_source_denominator=100,RX_frame_denominator=300,
+            TX_endpoints=[dict(m=p['m'],K=p['K'],profile_id=p['profile_id'],source_count=100,fraction=1.)],
+            RX_endpoints=[dict(outcome='GRAY',m=None,K=None,profile_id=None,body_crc_accept=None,frame_count=3,fraction=.01),
+                dict(outcome='TOKENS',m=p['m'],K=p['K'],profile_id=p['profile_id'],body_crc_accept=False,frame_count=297,fraction=.99)],
+            RX_categories={'HEADER_REJECT_GRAY':dict(frame_count=3,fraction=.01),'KEEP_CRC_REJECT':dict(frame_count=297,fraction=.99)},
+            energy={name:dict(energy) for name in ('header_energy','body_and_idle_energy','total_energy')}) for p in schedule])
+    design=dict(source_indices=r.old.FIXED16,source_ids=[ids[i] for i in r.old.FIXED16],slots=[18,19,20,21],noise_seed=6201,
+        source_count=16,component_case_count=64,warmup_repetitions=1,measured_repetitions=3,batch_size=1)
+    mt=dict(completion=dict(status='MAIN4_FIXED16_COMPONENT_MEASUREMENT_COMPLETE_R1',source_count=16,component_case_count=64,
+        source_indices=design['source_indices'],source_ids=design['source_ids'],timing_design=design,budget_before=done['budget_before'],
+        budget_after=done['budget_after'],policy_selection=False,new_packet_decodes=0,new_noise_draws=0,new_quality_samples=0,
+        new_metric_calls=0,exclusive_PHY_latency_measured=False,end_to_end_latency_measured=False),
+        component_summary=dict(status='MAIN4_FIXED16_COMPONENT_SUMMARY_R1',source_count=16,component_case_count=64,
+            uncached=True,warmups_excluded=True,policy_selection=False,historical_PHY_can_be_added_to_GPU_totals=False,
+            PHY_encode=None,exclusive_PHY_decode=None,end_to_end_latency=None,
+            components=[dict(development_slot=s,side=d,component=n,source_count=16,repetitions_per_source=3,
+                mean_seconds=.2,median_source_seconds=.2,warmups_excluded=True,inclusive=True) for s in range(18,22)
+                for d,n in (('TX','TX_source_total'),('RX','RX_source_and_image_total'))]))
+    path=Path(os.environ.get('MAIN_FINAL_REPORT_CRITERIA',Path(__file__).resolve().parents[1]/'SUCCESS_CRITERIA.json'))
+    return dict(hp=hp,h18=h18,h_timing=ht,final=final,schedule=schedule,main_distribution=distribution,
+        criteria_bytes=path.read_bytes(),main_timing=mt)
+
+
+class Report(unittest.TestCase):
+    def test_complete_projection_preserves_values_roles_and_no_mutation(self):
+        data=fixture();before=copy.deepcopy(data);out=r.project(**data)
+        self.assertEqual(data,before);self.assertEqual(out['summary'],data['final']['summary'])
+        self.assertEqual(out['paired'],data['final']['paired']);self.assertEqual(len(out['paired']),1044)
+        self.assertEqual(len(out['H_full_metric_annex']['summary']),378)
+        self.assertEqual(len(out['H_full_metric_annex']['paired']),546)
+        self.assertEqual([x['role'] for x in out['H_catalog']].count('H_RAW_PARTIAL_SYSTEM'),2)
+        self.assertEqual(len(out['H_success']['comparisons']),36)
+        self.assertFalse(out['normal_closure_verified_by_this_module']);self.assertFalse(out['new_estimates'])
+
+    def test_missing_duplicate_new_pair_or_altered_old_values_fail(self):
+        for change in ('missing','duplicate','newpair','changed_old','missing_h21'):
+            data=fixture()
+            if change=='missing':data['final']['summary'].pop()
+            elif change=='duplicate':data['final']['paired'][-1]=data['final']['paired'][0]
+            elif change=='newpair':data['final']['comparison_plan']['comparisons'][-1]=('H18_SLOT_00','H18_SLOT_08')
+            elif change=='changed_old':data['final']['summary'][0]['mean']=123
+            else:data['h18']['summary'].pop()
+            with self.subTest(change=change),self.assertRaises(ValueError):r.project(**data)
+
+    def test_branch_noise_precision_and_original_success_bytes_remain(self):
+        data=fixture();out=r.project(**data);text=r.markdown(out)
+        for phrase in ('2001–2003','float64','float32','固定 m7','最强 raw64','DINO-L','F恢复误差未测','N/A','每点100源','每点300帧',
+                       'fresh Encoder/VQ另列','MAIN实际能量','header_energy','| 18 | RX | GRAY | N/A | N/A | N/A | N/A | 3/300 |'):
+            self.assertIn(phrase,text)
+        self.assertEqual(out['missing_P_metrics'],list(r.old.MISSING))
+        data['criteria_bytes']+=b'\n'
+        with self.assertRaises(ValueError):r.project(**data)
+        data=fixture();data['final']['paired'][0]['reference_noise_seeds']=[6201,6202,6203]
+        with self.assertRaises(ValueError):r.project(**data)
+
+    def test_gate_per_reference_and_whole_two_snr_without_winner(self):
+        data=fixture()
+        for row in data['final']['paired']:
+            if row['method'].startswith('H18_') and row['reference'].startswith('MAIN_') and row['metric'] in r.success.METRICS:
+                row.update(mean=-.5 if row['metric']=='lpips_alex' else .5,
+                    ci_low=-1 if row['metric']=='lpips_alex' else .1,ci_high=-.1 if row['metric']=='lpips_alex' else 1.)
+        out=r.project(**data);self.assertTrue(all(x['status']=='PASS' for x in out['H_success']['whole_arm_two_snr_gates']))
+        row=next(x for x in data['final']['paired'] if x['method']=='H18_SLOT_00' and x['reference']=='MAIN_SLOT_19' and x['metric']=='clip_image_cosine')
+        row['ci_low']=-.1;out=r.project(**data)
+        self.assertEqual(out['H_success']['whole_arm_two_snr_gates'][0]['status'],'UNRESOLVED')
+        self.assertEqual(sum(x['status']=='UNRESOLVED' for x in out['H_success']['comparisons']),1)
+        self.assertEqual(len(out['display_order']),24);self.assertFalse(out['policy_selection'])
+
+    def test_main_gray_keep_and_different_denominators(self):
+        data=fixture();out=r.project(**data)
+        self.assertIsNone(out['MAIN_distributions']['points'][0]['RX_endpoints'][0]['m'])
+        self.assertFalse(out['MAIN_distributions']['points'][0]['RX_endpoints'][1]['body_crc_accept'])
+        for change in ('gray_m0','omit_failure','wrong_tx','invent_energy'):
+            data=fixture();p=data['main_distribution']['points'][0]
+            if change=='gray_m0':p['RX_endpoints'][0]['m']=0
+            elif change=='omit_failure':p['RX_endpoints'].pop(0)
+            elif change=='wrong_tx':p['TX_source_denominator']=300
+            else:p['energy']['idle_energy']=p['energy']['total_energy']
+            with self.subTest(change=change),self.assertRaises(ValueError):r.project(**data)
+
+    def test_pending_costs_and_missing_phy_never_become_zero_or_sum(self):
+        data=fixture();data['main_timing']=None;out=r.project(**data)
+        self.assertEqual(out['MAIN_costs']['status'],'PENDING_NORMAL_MAIN_TIMING_CLOSURE')
+        self.assertIn('等待该计时阶段正常闭合',r.markdown(out));self.assertIsNone(out['MAIN_costs']['end_to_end_latency'])
+        data=fixture();data['main_timing']['component_summary']['end_to_end_latency']=0
+        with self.assertRaises(ValueError):r.project(**data)
+        data=fixture();data['main_timing']['completion']['timing_design']['noise_seed']=6202
+        with self.assertRaises(ValueError):r.project(**data)
+        data=fixture();data['h_timing']['completion']['source_ids'][0]='different-source'
+        with self.assertRaises(ValueError):r.project(**data)
+
+    def test_incomplete_science_or_bridge_cannot_be_reported_as_final(self):
+        for key,val in [('status','RUNNING'),('old_H_P_source_means_preserved',False),('policy_selection',True)]:
+            data=fixture();data['final']['completion'][key]=val
+            with self.assertRaises(ValueError):r.project(**data)
+        data=fixture();data['hp']['normalization_proof_sha256']='d'*64
+        with self.assertRaises(ValueError):r.project(**data)
+        data=fixture();data['final']['completion']['input_bindings'].clear()
+        with self.assertRaises(ValueError):r.project(**data)
+
+
+if __name__=='__main__':unittest.main()

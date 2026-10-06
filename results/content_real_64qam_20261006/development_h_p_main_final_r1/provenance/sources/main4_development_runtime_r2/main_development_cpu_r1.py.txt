@@ -1,0 +1,183 @@
+"""Prepared MAIN4 raw/KEEP development core using the original H reserve.
+
+No CLI, ledger constructor, model, selection, or automatic execution. The
+future driver must authenticate the normal MAIN selection and development100
+asset receipts before sealing this context. Original H/MAIN code is unchanged.
+"""
+from __future__ import annotations
+from copy import deepcopy
+import hashlib
+from pathlib import Path
+import numpy as np
+import h_development_cpu as h
+import main_raw_keep_receiver as raw
+
+require=raw.require
+identity=raw.identity
+PHASE='development'
+ORDER=((18,13,'QPSK'),(19,13,'16QAM'),(20,19,'QPSK'),(21,19,'16QAM'))
+SOURCE_COUNT=100
+FRAME_CAP=1200
+CALL_CAP=2400
+ACCOUNTING_AUDIT_SHA='e9b980c823fc4f9e4e0811e759c3cca3f88b89702fa92d6c520c54e950d2e055'
+ENGINEERING=dict(schema='MAIN4_H_DEVELOPMENT_CORE_R1',slots=[dict(slot=i,snr_db=s,modulation=q) for i,s,q in ORDER],
+    source_count=100,seeds=list(h.SEEDS),frame_cap=1200,packet_call_cap=2400,
+    physical_ledger_branch='H',phase='development',original_phase_cap=13200,
+    independent_MAIN_ledger_calls=0,new_quota=False,
+    noise='Call unchanged h_development_cpu.standard_noise(source_id,SNR,seed); exact common Gaussian with H',
+    counter='Call unchanged h_development_cpu.frame_counter(slot18..21,index,seed)',
+    body_scrambling_session=raw.SESSION,
+    receive_precision='Original MAIN float64 full frame; selected body cast tofloat32 by original raw Receiver.receive. H uses a different full-frame cast; common Gaussian does not imply identical received samples.',
+    wire='Unchanged original270-ID catalogue, raw12-bit tokens plusCRC16, public68-symbol header, paid1024 frame with original QPSK idle',
+    receiver='KEEP actual hard prefix/raster partial for known accepted header, including wrong ID and CRC-rejected body; original header rejection only is gray',
+    event_namespace='H:development:MAINslot{slot:02d}:src{index:04d}:seed{seed}.{header|body}',
+    accounting_basis=dict(file='MAIN_EXECUTION_AUTHORIZATION_AND_ACCOUNTING_AUDIT_R2.json',sha256=ACCOUNTING_AUDIT_SHA),
+    source_truth_for_RX=False,policy_selection=False,automatic_launch=False)
+
+
+def file_sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+
+
+def schedule(selected,catalogue):
+    """Project the four already frozen modulation references; never rank."""
+    require(isinstance(catalogue,raw.PublicCatalogue),'Original complete public catalogue required')
+    catalogue.verify();require(len(catalogue.header_map())==270,'Never shrink the public receive codebook')
+    require(selected['schema']=='MAIN13_19_ACTUAL_CALIBRATION_TWO_AXES_R1'
+        and selected['source_count']==1000 and selected['noise_count']==3
+        and selected['primary']=='dinov2_vitl14_cosine' and selected['tie_epsilon']==0.0
+        and selected['active_SNRs']==[13,19] and selected['development_used'] is False
+        and selected['new_packet_decodes']==selected['new_metric_calls']==0
+        and selected['H_development_policy_points']==4 and selected['H_development_frame_cap']==1200
+        and selected['H_development_packet_cap']==2400
+        and selected['catalogue_digest']==catalogue.digest and selected['aliases_digest']==catalogue.aliases_digest,
+        'Original actual1000 calibrated reference projection required')
+    refs=selected['H_reference_profiles'];require(len(refs)==4,'Exactly four independently calibrated references')
+    result=[]
+    for slot,snr,mod in ORDER:
+        matches=[x for x in refs if x['snr_db']==snr and x['modulation_reference']==mod]
+        require(len(matches)==1,'Missing/duplicate modulation/SNR reference; no family relabelling')
+        c=matches[0];p=catalogue.entry(c['profile_id'])
+        require(c['selection_axis']=='modulation_projection' and c['modulation']==mod==p['groups'][0]['modulation']
+            and all(c[k]==p[k] for k in ('candidate_id','wire_key','m','K'))
+            and c['candidate_id'] in c['selection_set_ids'] and c['source_count']==1000
+            and c['noise_count']==3 and c['primary']=='dinov2_vitl14_cosine'
+            and c['tie_epsilon']==0.0 and c['development_used'] is False,
+            'Selected reference is not the exact original public profile')
+        result.append(dict(development_slot=slot,snr_db=snr,modulation=mod,role='MAIN_CALIBRATED_MODULATION_REFERENCE',
+            candidate_id=c['candidate_id'],profile_id=p['profile_id'],wire_key=p['wire_key'],
+            m=p['m'],K=p['K'],family_memberships=deepcopy(c['family_memberships']),
+            selection_set_ids=deepcopy(c['selection_set_ids'])))
+    return result
+
+
+def prepare(*,selected,catalogue,development_registration,budget,contract):
+    require(contract.get('status')=='MAIN4_H_DEVELOPMENT_CORE_REGISTERED_R1'
+        and raw.sha(contract.get('execution_registration_sha256'))
+        and raw.sha(contract.get('original_H_budget_registration_sha256'))
+        and contract.get('accounting_audit_sha256')==ACCOUNTING_AUDIT_SHA,
+        'Explicit future MAIN4 execution and unchanged original H budget bindings required')
+    require(budget['schema']=='H_PACKET_BUDGET_V1' and budget['status']=='FROZEN'
+        and budget['branch']=='H' and budget['total_cap']==200000 and budget['phase_limits']['development']==13200
+        and budget['no_automatic_transfers'] is True and budget['no_automatic_reserve_spending'] is True,
+        'Original H quota only; no second MAIN development budget')
+    ids=h.population(development_registration);rows=schedule(selected,catalogue)
+    expected=dict(selected_canonical_sha256=identity(selected),development_registration_canonical_sha256=identity(development_registration),
+        budget_canonical_sha256=identity(budget),catalogue_digest=catalogue.digest,aliases_digest=catalogue.aliases_digest,
+        public_schedule_canonical_sha256=identity(rows),engineering_canonical_sha256=identity(ENGINEERING))
+    require(all(contract.get(k)==v for k,v in expected.items()),'Frozen MAIN4 context/choices differ')
+    for name,path in [('core',__file__),('original_H_development',h.__file__),('original_MAIN_receiver',raw.__file__)]:
+        require(contract.get(name+'_source_sha256')==file_sha(path),'Frozen source changed: '+name)
+    return dict(source_ids=ids,catalogue=catalogue,schedule=rows,by_slot={r['development_slot']:r for r in rows},
+        full_phase_limits=deepcopy(budget['phase_limits']),contract=deepcopy(contract))
+
+
+def frame_event(slot,index,seed):
+    h.frame_counter(slot,index,seed)
+    require(slot in h.MAIN_SLOTS,'Only original reserved MAIN slots18..21 can spend here')
+    return f'H:development:MAINslot{slot:02d}:src{index:04d}:seed{seed}'
+
+
+class MainFrameLedger:
+    """An explicit two-event boundary into the existing H ledger, never MAIN."""
+    def __init__(self,ledger,slot,index,seed,*,budget_sha,phase_limits):
+        require(ledger.branch=='H' and ledger.binding==budget_sha and ledger.limits==phase_limits
+            and ledger.limits.get(PHASE)==13200,'Actual original H ledger and full eight phase limits required')
+        self.ledger=ledger;self.event=frame_event(slot,index,seed)
+        self._limits=deepcopy(phase_limits);self._budget_sha=budget_sha
+    @property
+    def branch(self):return self.ledger.branch
+    def check(self):
+        require(self.ledger.branch=='H' and self.ledger.binding==self._budget_sha
+            and self.ledger.limits==self._limits,'Original H ledger identity mutated')
+    def register_configuration(self,key,definition):
+        self.check();return self.ledger.register_configuration(key,definition)
+    def decode_once(self,phase,event_id,*,kind,phy_key,request,decode):
+        self.check();require(phase==PHASE and kind in ('header','body') and event_id==self.event+'.'+kind,
+            'Outside the exact reserved MAIN development event')
+        return self.ledger.decode_once(phase,event_id,kind,phy_key,request,decode)
+
+
+class HReservedReceiver:
+    """Same original raw receive method with explicit H-reserve admission.
+
+    The old calibration Receiver constructor's MAIN-branch check is left intact.
+    No object is relabelled to pass it. This independent constructor admits only
+    the bounded H adapter and calls the unchanged receive implementation.
+    """
+    def __init__(self,catalogue,*,header,backend,phy,ledger):
+        require(isinstance(catalogue,raw.PublicCatalogue) and isinstance(ledger,MainFrameLedger),
+            'Complete original catalogue and explicit H reserve boundary required')
+        ledger.check();catalogue.verify()
+        require(backend.identity==catalogue.backend_identity and str(backend.device)=='cpu'
+            and callable(header.receive) and callable(phy.receive_packet) and callable(phy.crc_accept_batch),
+            'Original qualified CPU PHY functions required')
+        self.catalogue,self.header,self.backend,self.phy,self.ledger=catalogue,header,backend,phy,ledger
+        ledger.register_configuration(raw.HEADER_KEY,deepcopy(raw.HEADER_DEFINITION))
+        for p in catalogue._profiles:
+            group=p['groups'][0];ledger.register_configuration(group['phy_key'],raw.physical_definition(group,catalogue.backend_identity))
+    def receive(self,received,snr_db,public_counter,*,phase,event_prefix):
+        result=raw.Receiver.receive(self,received,snr_db,public_counter,phase=phase,event_prefix=event_prefix)
+        require(result['actual_new_call_count_authority']=='independent_MAIN_ledger','Original receiver accounting annotation changed')
+        result['original_receiver_accounting_annotation']=result['actual_new_call_count_authority']
+        result['actual_new_call_count_authority']='original_H_ledger_development_reserve'
+        return result
+    def for_frame(self,ledger):
+        """Reuse the verified catalogue registrations, never a receive result."""
+        require(isinstance(ledger,MainFrameLedger) and ledger.ledger is self.ledger.ledger,
+            'Frame boundary must use the same actual H ledger')
+        self.ledger.check();ledger.check();self.catalogue.verify()
+        other=object.__new__(type(self));other.__dict__.update(self.__dict__);other.ledger=ledger
+        return other
+
+
+def run_frame(*,ctx,development_slot,source_id,source_index,noise_seed,scales,transmitter,backend,phy,ledger,receiver=None):
+    require(type(source_index)is int and 0<=source_index<100 and ctx['source_ids'][source_index]==source_id,
+        'Exact original development100 source order required')
+    require(development_slot in ctx['by_slot'],'Missing frozen MAIN reference; no substitution')
+    point=ctx['by_slot'][development_slot];cat=ctx['catalogue'];p=cat.entry(point['profile_id'])
+    bounded=MainFrameLedger(ledger,development_slot,source_index,noise_seed,
+        budget_sha=ctx['contract']['original_H_budget_registration_sha256'],phase_limits=ctx['full_phase_limits'])
+    payload=raw.serialize_raw(scales,p);counter=h.frame_counter(development_slot,source_index,noise_seed)
+    wave,tx=transmitter.transmit(p['profile_id'],[payload],counter);wave=np.asarray(wave,dtype=np.float64)
+    require(wave.shape==(1024,2) and np.isfinite(wave).all() and tx['N']==1024
+        and tx['header_uses']==68 and tx['body_uses']==p['groups'][0]['symbols']
+        and tx['idle_uses']==p['idle_symbols'] and tx['body_uses']+tx['idle_uses']==956
+        and tx['profile_id']==p['profile_id'] and tx['frame_counter']==counter
+        and tx['waveform_sha256']==raw.array_sha(wave)
+        and tx['E']==float(np.square(wave).sum()),'Original fully paid MAIN1024 waveform required')
+    noise=h.standard_noise(source_id,point['snr_db'],noise_seed);received=wave+noise*10**(-float(point['snr_db'])/20)
+    if receiver is None:receiver=HReservedReceiver(cat,header=transmitter.header,backend=backend,phy=phy,ledger=bounded)
+    else:
+        require(isinstance(receiver,HReservedReceiver) and receiver.catalogue is cat
+            and receiver.header is transmitter.header and receiver.backend is backend and receiver.phy is phy,
+            'Reused receiver must retain exact original catalogue and qualified PHY objects')
+        receiver=receiver.for_frame(bounded)
+    actual=receiver.receive(received,point['snr_db'],counter,phase=PHASE,event_prefix=bounded.event)
+    require(actual['source_decode_complete'] is True and actual['image_reconstruction_complete'] is False,'CPU actual KEEP source parsing required')
+    return dict(actual,**point,source_id=source_id,source_index=source_index,noise_seed=noise_seed,population_role='development',
+        execution_registration_sha256=ctx['contract']['execution_registration_sha256'],
+        engineering_choices_sha256=identity(ENGINEERING),scrambling_session=raw.SESSION,
+        noise_sha256=raw.array_sha(noise),transmitted_sha256=raw.array_sha(wave),transmitted_payload_sha256=raw.array_sha(payload),
+        transmission=deepcopy(tx),header_energy=float(np.square(wave[:68]).sum()),body_and_idle_energy=float(np.square(wave[68:]).sum()),
+        total_energy=float(np.square(wave).sum()),frame_normalized=False,physical_ledger_branch='H',phase=PHASE,
+        GPU_used=False,neural_metrics_run=False,policy_selection=False,calibration_physical_results_reused=False)

@@ -1,0 +1,54 @@
+"""Project the pre-existing H success criteria onto fixed paired intervals.
+
+This module makes no selection and no new estimates. Its registered caller must
+bind SUCCESS_CRITERIA.json and normal statistical outputs before use.
+"""
+import math
+
+METRICS=('psnr_db','lpips_alex','clip_image_cosine','convnext_source_prediction_agreement')
+
+def metric_gate(metric,lo,hi):
+    if metric not in METRICS or not all(math.isfinite(float(v)) for v in (lo,hi)) or lo>hi:
+        raise ValueError('Invalid original paired confidence interval')
+    if metric=='psnr_db':
+        return 'PASS' if lo>0 else ('NOT_MET' if hi<=0 else 'UNRESOLVED')
+    if metric=='lpips_alex':
+        return 'PASS' if hi<=0 else ('DETERIORATED' if lo>0 else 'UNRESOLVED')
+    return 'PASS' if lo>=0 else ('DETERIORATED' if hi<0 else 'UNRESOLVED')
+
+def project(paired,points,h_catalog,schedule):
+    h={r['point_id']:r for r in h_catalog}
+    if set(h)!={f'H18_SLOT_{i:02d}' for i in range(18)}:
+        raise ValueError('All original H18 identities required')
+    refs={f"MAIN_SLOT_{r['development_slot']:02d}":r for r in schedule}
+    if {(r['development_slot'],r['snr_db'],r['modulation']) for r in schedule}!={(18,13,'QPSK'),(19,13,'16QAM'),(20,19,'QPSK'),(21,19,'16QAM')}:
+        raise ValueError('Both MAIN modulations at both SNRs required')
+    table={}
+    for r in paired:
+        if r['method'] not in h or r['reference'] not in refs or r['metric'] not in METRICS:
+            continue
+        key=(r['method'],r['reference'],r['metric'])
+        if key in table or int(r['snr_db'])!=h[r['method']]['snr_db'] or int(r['snr_db'])!=refs[r['reference']]['snr_db']:
+            raise ValueError('Duplicate or mismatched frozen comparison')
+        if r['delta_definition']!='method minus reference' or int(r['source_count'])!=100:
+            raise ValueError('Original source-level direction and population required')
+        if points[r['method']]['metric_identity'][r['metric']]!=points[r['reference']]['metric_identity'][r['metric']]:
+            raise ValueError('Original per-metric admission differs')
+        lo,hi=float(r['ci_low']),float(r['ci_high'])
+        table[key]=dict(metric=r['metric'],mean=float(r['mean']),ci_low=lo,ci_high=hi,status=metric_gate(r['metric'],lo,hi))
+    rows=[]
+    for method,a in h.items():
+        for reference,b in refs.items():
+            if a['snr_db']!=b['snr_db']:continue
+            checks=[table[(method,reference,m)] for m in METRICS]
+            tags={r['status'] for r in checks}
+            status='PASS' if tags=={'PASS'} else ('NOT_MET' if tags&{'NOT_MET','DETERIORATED'} else 'UNRESOLVED')
+            rows.append(dict(method=method,reference=reference,snr_db=a['snr_db'],arm=a['arm'],role=a['role'],modulation=b['modulation'],checks=checks,status=status))
+    if len(rows)!=36 or len(table)!=144:raise ValueError('Complete 36 original H/MAIN comparisons required')
+    family=[]
+    for arm in ('H16-R','H16-A','H64-R','H64-A'):
+        r=[v for v in rows if v['role']=='H_WHOLE_SYSTEM' and v['arm']==arm]
+        if len(r)!=4:raise ValueError('One frozen whole point per arm/SNR and both references required')
+        status='PASS' if all(v['status']=='PASS' for v in r) else ('NOT_MET' if any(v['status']=='NOT_MET' for v in r) else 'UNRESOLVED')
+        family.append(dict(arm=arm,status=status,scope='Both original SNRs and both independently calibrated MAIN modulation references',comparisons=[(v['method'],v['reference']) for v in r]))
+    return dict(comparisons=rows,whole_arm_two_snr_gates=family,policy_selection=False,new_estimates=False,zero_noninferiority_margin=True,P_gap_is_not_independent_evidence=True,multiple_comparison_adjustment=False,holdout_used=False)

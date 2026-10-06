@@ -1,0 +1,188 @@
+"""No backend/model/PHY: metadata, actual-format pixels and immutable output."""
+from copy import deepcopy
+from contextlib import contextmanager, nullcontext
+import hashlib
+import json
+from pathlib import Path
+import tempfile
+from types import SimpleNamespace
+import unittest
+from unittest import mock
+import numpy as np
+import main_development_visual_driver_r1 as d
+
+def put(p,v):
+    p=Path(p);p.parent.mkdir(parents=True,exist_ok=True);p.write_text(json.dumps(v),encoding='utf-8');return str(p)
+def ident(v):return hashlib.sha256(json.dumps(v,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
+
+class DriverTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup);self.root=Path(self.tmp.name)
+
+    def history(self):
+        ids=[f'dev{i}' for i in range(100)];spec={k:str(self.root/(k+'.json')) for k in ('config','registration','completion','owner_completion')}
+        cfg=dict(schema='H_DEVELOPMENT_METRICS_CONFIG_V1',registration=spec['registration'])
+        put(spec['config'],cfg);put(spec['registration'],{'input_bindings':d.bind([spec['config']])})
+        metadata={'original_B1_metric':'sealed','precision':'float32'}
+        done=dict(status='H_DEVELOPMENT_METRICS_COMPLETE',registration_sha256=d.sha(spec['registration']),config_sha256=d.sha(spec['config']),
+            source_count=100,frame_count=5400,source_ids=ids,noise_seeds=[6201,6202,6203],metric_batch_size=1,new_packet_decodes=0,
+            policy_selection=False,metric_metadata=metadata,metric_evaluator_identity=ident(metadata))
+        put(spec['completion'],done);put(spec['owner_completion'],dict(status='REGISTERED_H_STAGE_BATCH_COMPLETE',
+            registration_sha256=d.sha(spec['registration']),budget=dict(charged=164760,unresolved=0,failed=0)))
+        pins=d.bind(spec.values());return spec,dict(source_ids=ids,predecessor=dict(bindings=pins)),pins
+
+    def test_static_history_does_not_require_current_H164760(self):
+        spec,cc,pins=self.history();cc['current_H_charged']=167160
+        got=d.historical_metrics(spec,cc,pins)
+        self.assertEqual(got['done']['frame_count'],5400)
+        self.assertEqual(cc['current_H_charged'],167160)
+        # No callable old H closed_batch/budget module is supplied or imported.
+        self.assertEqual(set(got),{'config','registration','done'})
+
+    def test_history_must_be_predecessor_sealed_and_normal(self):
+        spec,cc,pins=self.history();wrong=deepcopy(cc);wrong['predecessor']['bindings'].pop(spec['completion'])
+        with self.assertRaisesRegex(RuntimeError,'predecessor seal'):d.historical_metrics(spec,wrong,pins)
+        v=d.read(spec['owner_completion']);v['status']='FAILED';put(spec['owner_completion'],v)
+        pins=d.bind(spec.values());cc['predecessor']['bindings']=pins
+        with self.assertRaisesRegex(RuntimeError,'normally complete'):d.historical_metrics(spec,cc,pins)
+        v['status']='REGISTERED_H_STAGE_BATCH_COMPLETE';put(spec['owner_completion'],v)
+        doc=d.read(spec['completion']);doc['metric_metadata']['precision']='changed';put(spec['completion'],doc)
+        pins=d.bind(spec.values());cc['predecessor']['bindings']=pins
+        with self.assertRaisesRegex(RuntimeError,'metadata identity'):d.historical_metrics(spec,cc,pins)
+
+    def source(self):
+        pixels=np.arange(3*256*256,dtype=np.uint8).reshape(3,256,256);pre=hashlib.sha256(pixels.tobytes()).hexdigest()
+        archive=self.root/'assets/0001.npz';archive.parent.mkdir();np.savez(archive,tokens=np.zeros(680,np.int64),pixels=pixels)
+        ap=self.root/'assets/0001.json';asset=dict(source_index=1,source_id='dev1',preprocessing_id=pre,evaluation_class_index=17,
+            archive=str(archive),outputs=d.bind([archive]));put(ap,asset)
+        rec=dict(asset,checkpoint=str(ap));cp=self.root/'cpu/worker_1/source_checkpoints/0001.json';tp=self.root/'cpu/worker_1/traces/0001.json'
+        rows=[{'synthetic_frame':i}for i in range(12)];put(tp,dict(source_index=1,source_id='dev1',registration_sha256='a'*64,frames=rows))
+        put(cp,dict(source_index=1,source_id='dev1',outputs=d.bind([tp])))
+        calls=[];core=SimpleNamespace(validate_frames=lambda *args:calls.append(args))
+        cc=dict(records=[None,rec],cfg={'out':str(self.root/'cpu')},regsha='a'*64,context={'schedule':['sealed']})
+        ctx=dict(cpu_ctx=cc,bound=d.bind([cp,tp,ap,archive]),core=core)
+        return ctx,rec,pixels,calls
+
+    def test_original_development_pixels_exact_source_label_no_tokens(self):
+        ctx,rec,pixels,calls=self.source();original=np.load;access=[]
+        class Guard:
+            def __init__(self,*a,**kw):self.z=original(*a,**kw);self.files=self.z.files
+            def __enter__(self):return self
+            def __exit__(self,*_):self.z.close()
+            def __getitem__(self,k):
+                access.append(k)
+                if k!='pixels':raise AssertionError('TX tokens must not enter image worker')
+                return self.z[k]
+        with mock.patch.object(d.np,'load',Guard):record,frames,target,pins=d.source_inputs(ctx,1)
+        self.assertEqual(access,['pixels']);self.assertEqual(record['class_index'],17);self.assertEqual(len(frames),12)
+        self.assertTrue(np.array_equal(target,pixels));self.assertEqual(len(calls),1);self.assertEqual(len(pins),4)
+        wrong=d.read(rec['checkpoint']);wrong['evaluation_class_index']=18;put(rec['checkpoint'],wrong)
+        ctx['bound'].update(d.bind([rec['checkpoint']]))
+        with self.assertRaisesRegex(RuntimeError,'label provenance'):d.source_inputs(ctx,1)
+
+    def test_current_H_and_MAIN_snapshot_equal_without_any_charge(self):
+        h=dict(charged=167160,MAIN4_calls=2400,events={'event':'proof'});main=dict(charged=105176)
+        ctx=dict(cpu=SimpleNamespace(stable_budget=lambda _:deepcopy(h)),cpu_ctx={'cfg':{},'bound':{}},
+            cpu_owner=SimpleNamespace(main_budget=lambda *a:deepcopy(main)),before_H={k:v for k,v in h.items() if k!='events'},before_MAIN=main.copy())
+        self.assertEqual(d.budget_snapshot(ctx),{'H':ctx['before_H'],'MAIN':main})
+        h['charged']+=1
+        with self.assertRaisesRegex(RuntimeError,'must not change'):d.budget_snapshot(ctx)
+
+    def test_write_source_preserves_float32_and_all_twelve_logical_rows(self):
+        images=np.stack([np.full((3,256,256),x,np.float32) for x in (.5,.125)])
+        rows=[dict(source_index=0,source_id='dev0',image_slot=i%2,psnr_db=17.1,legacy_quality_psnr_db=17.099999)for i in range(12)]
+        rec=dict(source_index=0,source_id='dev0',preprocessing_id='b'*64);out=self.root/'visual'
+        saved,outputs,size=d.write_source(out,rec,rows,images,{'original':'a'*64},{'unique_images':2},'c'*64)
+        self.assertEqual(len(saved),12);self.assertEqual(len(outputs),3);self.assertGreater(size,images.nbytes)
+        with np.load(saved[0]['image_archive'],allow_pickle=False) as z:
+            self.assertEqual(z.files,['images']);self.assertEqual(z['images'].dtype,np.dtype('float32'));self.assertTrue(np.array_equal(z['images'],images))
+        cp=d.read(out/'source_checkpoints/0000.json');self.assertEqual(cp['frame_count'],12);self.assertFalse(cp['policy_selection'])
+        self.assertEqual(rows[0].keys(),{'source_index','source_id','image_slot','psnr_db','legacy_quality_psnr_db'})
+        with self.assertRaisesRegex(RuntimeError,'Preserve prior'):d.write_source(out,rec,rows,images,{}, {},'c'*64)
+
+    def test_model_build_uses_original_B1_constructor_and_canonical_identity(self):
+        files={k:put(self.root/(k+'.json'),{})for k in ('suite_module','replay_module','validation_module','convnext_weights')}
+        policy=put(self.root/'policy.json',{'frozen_H_policy_for_classifier_provenance_only':True})
+        cfg=dict(runtime_dir=str(self.root),uep_runtime=str(self.root),root=str(self.root),native_runtime=str(self.root),
+            quality_driver_module='quality',source_driver_module='source',legacy_phy_module='phy',metric_policy=policy)
+        native=SimpleNamespace(loaded={'identity':{'visual':'original'}},flags={'original':6},driver_bindings={'source':'pin'},torch='original-native-torch')
+        metadata={'preprocess':(1,2,3),'batch':1};backend=SimpleNamespace(identity=ident(metadata),metadata=metadata);seen=[]
+        interop=[]
+        @contextmanager
+        def repeated(torch):
+            interop.append(torch);interop.append('enter');yield;interop.append('exit')
+        def load_suite(*a):
+            self.assertEqual(interop,['original-native-torch','enter'])
+            return (1,2,3,4,5,{}, {'metric':6})
+        def classifier(*a,**kw):seen.append((a,kw));return 'original_classifier'
+        metric=SimpleNamespace(CONVNEXT_SHA='w'*64,SuiteBackend=lambda *a:backend,frozen_mismatch=lambda *a:{'original':True})
+        modules={'quality':SimpleNamespace(build_native=lambda *a:native,verify_repeated_interop=repeated),'source':'source','phy':'phy',
+            files['suite_module']:SimpleNamespace(load_suite=load_suite,numeric_flags='numeric'),
+            files['validation_module']:SimpleNamespace(ConvNeXtValidation=classifier),files['replay_module']:'original_replay'}
+        ctx=dict(cfg=cfg,bound={},metric_assets={'paths':files},native_identity=native.loaded['identity'],expected_flags=native.flags,
+            static_bindings=native.driver_bindings,metric_flags={'metric':6},metric=metric,cpu_ctx={'source_ids':['fixture']},
+            historical_metrics={'done':{'metric_evaluator_identity':backend.identity,'metric_metadata':d.jsonable(metadata)}})
+        with mock.patch.object(d,'module',side_effect=lambda p,*a:modules[p]),mock.patch.dict('sys.modules',{'torch':SimpleNamespace()}):
+            got=d.build_models(ctx)
+        self.assertIs(got['backend'],backend);self.assertEqual(seen[0][1]['stage'],'development')
+        self.assertEqual(seen[0][1]['policy_path'],policy);self.assertEqual(seen[0][1]['device'],'cuda:0')
+        self.assertEqual(d.jsonable(metadata)['preprocess'],[1,2,3])
+        self.assertEqual(interop,['original-native-torch','enter','exit'])
+
+    def test_wrong_loaded_metric_identity_fails_before_source_work(self):
+        # Exercise the actual comparison, not an exception-swallowing fallback.
+        cfg=dict(runtime_dir='a',uep_runtime='b',root='c',native_runtime='d',quality_driver_module='quality',source_driver_module='source',legacy_phy_module='phy',metric_policy='policy')
+        paths=dict(suite_module='suite',replay_module='replay',validation_module='validation',convnext_weights='weights')
+        native=SimpleNamespace(loaded={'identity':{}},flags={},driver_bindings={},torch=None)
+        modules={'quality':SimpleNamespace(build_native=lambda *a:native,verify_repeated_interop=lambda _:nullcontext()),'source':None,'phy':None,
+            'suite':SimpleNamespace(load_suite=lambda *a:(1,2,3,4,5,{},{}),numeric_flags=None),
+            'validation':SimpleNamespace(ConvNeXtValidation=lambda *a,**k:None)}
+        ctx=dict(cfg=cfg,bound={},metric_assets={'paths':paths},native_identity={},expected_flags={},static_bindings={},metric_flags={},
+            metric=SimpleNamespace(CONVNEXT_SHA='a'*64,SuiteBackend=lambda *a:SimpleNamespace(identity='wrong',metadata={})),
+            historical_metrics={'done':{'metric_evaluator_identity':'original','metric_metadata':{}}})
+        with mock.patch.object(d,'module',side_effect=lambda p,*a:modules[p]),mock.patch.object(d,'sha',return_value='a'*64),mock.patch.dict('sys.modules',{'torch':SimpleNamespace()}):
+            with self.assertRaisesRegex(RuntimeError,'H evaluator identity'):d.build_models(ctx)
+
+    def test_complete_fake_worker_writes100CP_1200rows_once_without_PHY(self):
+        cfgpath=put(self.root/'worker.json',{});source=put(self.root/'source.py',{})
+        out=self.root/'out';ids=[f'dev{i}'for i in range(100)];calls=[]
+        cfg=dict(_path=cfgpath,python='original-python',worker_module=d.__file__,out=str(out),root=str(self.root),
+            visual_owner_module='owner',static_closure_module='closure',native_runtime='native',var_source='var',dino_source='dino',
+            uep_runtime='uep',source_driver_module=source,max_seconds=1000,deadline_unix=1e20,max_archive_bytes=d.MAX_ARCHIVE_BYTES,
+            stop_file=str(self.root/'STOP'))
+        modelid={'original':'identity'};flags={'threads':6};static={'one':'source'}
+        before={'H':{'charged':167160},'MAIN':{'charged':105176}}
+        proof=dict(status='MAIN4_VISUAL_WORKER_ADMITTED_R1',registration_sha256='e'*64,config_sha256=d.sha(cfgpath))
+        owner=SimpleNamespace(admit_worker=lambda *a:proof,check_live_admission=lambda *a:calls.append('boundary'))
+        closure=SimpleNamespace(collect_bindings=lambda *a:static)
+        image=np.full((3,256,256),.5,np.float32)
+        adapter=SimpleNamespace(frozen_native_receiver=lambda *a,**k:'actual_rx_receiver')
+        metric=SimpleNamespace(rgb_sha=lambda a:hashlib.sha256(a.tobytes()).hexdigest(),
+            reference_table=lambda sources,*a:(calls.append(('references',len(sources))) or ['ref']*100))
+        def reconstruct(rec,frames,target,*args):
+            calls.append(('render',rec['source_index']))
+            return [dict(source_index=rec['source_index'],source_id=rec['source_id'],image_slot=0)for _ in range(12)],image[None],{'unique_images':1}
+        def score(rec,rows,images,*args):
+            calls.append(('score',rec['source_index']));return [dict(r,psnr_db=11.,legacy_quality_psnr_db=10.999999)for r in rows],{'unique_metric_pairs':1}
+        ctx=dict(cfg=cfg,bound={},reg={'source_bindings':{},'input_bindings':{},'budget_before':before},regsha='e'*64,
+            static_bindings=static,native_identity=modelid,expected_flags=flags,
+            cpu_ctx=dict(source_ids=ids,catalogue='complete270',context={'schedule':['fixed4']}),
+            metric=metric,adapter=adapter,core=SimpleNamespace(reconstruct_source=reconstruct,score_source=score))
+        native=SimpleNamespace(common=SimpleNamespace(check=lambda:None),frozen=lambda:calls.append('frozen'),
+            flags=flags,loaded={'identity':modelid},driver_bindings=static)
+        models=dict(native=native,quality=SimpleNamespace(boundary=lambda _:False),
+            source=SimpleNamespace(render_received='original'),phy=SimpleNamespace(crc_accept_batch='original_crc'),
+            backend=SimpleNamespace(metadata={'original':'metric'},identity='a'*64,check=lambda:calls.append('metric-check')),mismatch={'original':'fixed'})
+        def inputs(_,i):return dict(source_index=i,source_id=ids[i],preprocessing_id='b'*64),['paid']*12,np.zeros((3,256,256),np.uint8),{}
+        with mock.patch.object(d,'load_registered',return_value=ctx),mock.patch.object(d,'module',side_effect=lambda p,*a:owner if p=='owner'else closure),\
+            mock.patch.object(d,'build_models',return_value=models),mock.patch.object(d,'source_inputs',side_effect=inputs),\
+            mock.patch.object(d,'budget_snapshot',return_value=before),mock.patch.object(d.shutil,'disk_usage',return_value=SimpleNamespace(free=100*1024**3)):
+            done=d.run(cfgpath)
+        self.assertEqual(done['status'],d.DONE);self.assertEqual(done['frame_count'],1200);self.assertEqual(done['source_count'],100)
+        self.assertEqual(done['new_packet_decodes'],0);self.assertFalse(done['statistical_aggregation_run']);self.assertFalse(done['MAIN_final_delivery'])
+        self.assertEqual(len(list((out/'source_checkpoints').glob('*.json'))),100);self.assertEqual(len(d.read(out/'frame_metrics.json')),1200)
+        self.assertEqual(len([x for x in calls if isinstance(x,tuple)and x[0]=='render']),100)
+        self.assertEqual(len([x for x in calls if isinstance(x,tuple)and x[0]=='score']),100)
+        self.assertIn(('references',100),calls);d.verify(done['outputs'])
+
+if __name__=='__main__':unittest.main()

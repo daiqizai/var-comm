@@ -1,0 +1,150 @@
+"""Pure registration contracts; no real closure, source arrays or PHY calls."""
+import copy
+import json
+import os
+from pathlib import Path
+import tempfile
+from types import SimpleNamespace
+import unittest
+from unittest import mock
+import register_main_development_r2 as r
+
+HERE=Path(__file__).absolute().parent
+
+def request(root):
+    root=Path(root);base=root/'outputs/CONTENT-REAL-64QAM-20261006'
+    return dict(schema=r.REQUEST,root=str(root),execution_dir=str(base/'MAIN/dev_execution'),out=str(base/'MAIN/dev'),
+        deadline_unix=r.DEADLINE,python=str(root/'outputs/PRIOR-AWARE-UEP-20261004-V1/ldpc_environment/bin/python'),
+        resources=dict(cpu_affinities=[[0,1],[2,3]],threads=2,nice=15,GPU_jobs=0,max_worker_seconds=7200),
+        pythonpath=[str(HERE),str(root/'old')],automatic_successor=False,development_policy_selection=False,
+        H_zero_PHY_batches={k:{} for k in r.ZERO_STATUSES},visual_lock=str(base/'shared_visual.lock'),
+        owner_module=str(HERE/'main_development_owner_r2.py'),driver_module=str(HERE/'main_development_driver_r2.py'),
+        main_budget_module=str(root/'readonly_MAIN.py'),accounting_audit=str(root/'audit.json'),prepared_qualification=str(base/'prepared/q/completion.json'))
+
+def config_context(root):
+    req=request(root);h={k:str(Path(root)/k) for k in ('ledger','ledger_module','budget_registration','development_registration',
+        'asset_completion','asset_manifest','source_completion','legacy_runtime','protocol','stop_file')};h['root']=str(root)
+    m={k:str(Path(root)/('main_'+k)) for k in ('profiles','aliases','ledger','budget_registration','legacy_qualification')}
+    return dict(request=req,e=Path(req['execution_dir']),out=Path(req['out']),hcfg=h,mcfg=m,
+        selected=str(Path(root)/'frozen_selection.json'),driver=SimpleNamespace(SCHEMA='MAIN4_H_DEVELOPMENT_CPU_CONFIG_R2'))
+
+
+class Registration(unittest.TestCase):
+    def test_fresh_paths_keep_fixed_scope_and_original_deadline(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p=request(tmp);e,out=r.checked_shape(p);self.assertNotEqual(e,out)
+            e.mkdir(parents=True)
+            with self.assertRaisesRegex(RuntimeError,'no retry'):r.checked_shape(p)
+            self.assertEqual(r.checked_shape(p,fresh=False),(e,out))
+
+    def test_missing_one_historical_zero_phy_role_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p=request(tmp);p['H_zero_PHY_batches'].pop('P600')
+            with self.assertRaisesRegex(RuntimeError,'Every historical'):r.checked_shape(p)
+
+    def test_no_new_threads_deadline_or_system_python(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            for mutate in [lambda p:p['resources'].update(threads=3),lambda p:p.update(deadline_unix=r.DEADLINE+1),
+                lambda p:p.update(python='/usr/bin/python3'),lambda p:p.update(development_policy_selection=True)]:
+                p=request(tmp);mutate(p)
+                with self.assertRaises(RuntimeError):r.checked_shape(p)
+
+    def test_owner_worker_mapping_keeps_original_H_and_distinct_MAIN(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            ctx=config_context(tmp);cfg,owner=r.make_configs(ctx)
+            self.assertEqual(cfg['ledger'],ctx['hcfg']['ledger']);self.assertEqual(cfg['main_ledger'],ctx['mcfg']['ledger'])
+            self.assertNotEqual(cfg['ledger'],cfg['main_ledger']);self.assertEqual(cfg['selected'],ctx['selected'])
+            for k in ('root','python','registration','cpu_affinities','nice','max_worker_seconds','deadline_unix','visual_lock','ledger','stop_file','prepared_qualification','pythonpath'):
+                self.assertEqual(cfg[k],owner[k])
+            self.assertFalse(owner['automatic_successor']);self.assertEqual(cfg['workers'],2)
+
+    def test_make_configs_consumed_by_real_new_owner_before_seal(self):
+        import test_main_development_cpu_r1  # Exact existing dependency path admission.
+        import main_development_owner_r2 as owner_api
+        with tempfile.TemporaryDirectory() as tmp:
+            ctx=config_context(tmp);cfg,own=r.make_configs(ctx)
+            cfg['owner_module']=str(Path(owner_api.__file__).absolute());own['driver_module']=str(Path(owner_api.d.__file__).absolute())
+            cp=ctx['e']/'worker_config.json';op=ctx['e']/'owner_config.json';r.save(cp,cfg);r.save(op,own)
+            cfg['_path']=str(cp)
+            bound=r.bind([cp,op,owner_api.__file__]);loaded=dict(cfg=cfg,bound=bound)
+            with mock.patch.object(owner_api,'qualification',return_value={}):
+                self.assertEqual(owner_api.validate_contract(cfg,loaded),own)
+                changed=dict(own,python='/usr/bin/python3');op.unlink();r.save(op,changed);bound[str(op)]=r.sha(op)
+                with self.assertRaisesRegex(ValueError,'mismatch: python'):owner_api.validate_contract(cfg,loaded)
+
+    def test_contract_uses_unchanged_purecore_and_frozen_four_only(self):
+        import test_main_development_cpu_r1 as f
+        a=f.inputs()
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);h={}
+            for name,val in [('development_registration',a['development_registration']),('budget_registration',a['budget'])]:
+                h[name]=str(root/(name+'.json'));r.save(h[name],val)
+            selected=root/'selection.json';r.save(selected,a['selected'])
+            ctx=dict(core=f.c,hcfg=h,selected=str(selected),selection={'ctx':{'cpu':{'catalogue':a['catalogue']}}})
+            contract=r.make_contract(ctx)
+            self.assertNotIn('execution_registration_sha256',contract)
+            self.assertEqual(contract['public_schedule_canonical_sha256'],f.c.identity(f.c.schedule(a['selected'],a['catalogue'])))
+            self.assertEqual(contract['engineering_canonical_sha256'],f.c.identity(f.c.ENGINEERING))
+
+    def test_conflicting_evidence_cannot_be_overwritten(self):
+        with self.assertRaisesRegex(RuntimeError,'Conflicting'):r.combine({'a':'1'},{'a':'2'})
+
+    def test_module_requires_pin_before_import(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p=Path(tmp)/'never.py';p.write_text('raise AssertionError("executed")',encoding='utf-8')
+            with self.assertRaisesRegex(RuntimeError,'before import'):r.module(p,'never',{})
+
+    def test_launcher_identity_failure_stops_then_waits_owner_before_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);rp=root/'request.json';r.save(rp,{})
+            order=[];stop=root/'H/STOP';child=SimpleNamespace(pid=999,wait=lambda:order.append('wait') or 1)
+            ctx=dict(request={},rp=rp,hcfg={'stop_file':str(stop)},owner=SimpleNamespace(identity=mock.Mock(side_effect=ValueError('identity failure'))))
+            real_save=r.save
+            def saved(p,v):
+                if Path(p)==stop:order.append('STOP')
+                if Path(p).name=='failure.json':order.append('failure')
+                real_save(p,v)
+            with mock.patch.object(r,'environment',return_value={}),mock.patch.object(r.subprocess,'Popen',return_value=child),mock.patch.object(r,'save',side_effect=saved):
+                with self.assertRaisesRegex(ValueError,'identity failure'):r.run_child(ctx,root/'launch',['python','-B','owner.py','--config','owner.json'],[0,1,2,3])
+            self.assertEqual(order,['STOP','wait','failure'])
+            self.assertTrue(r.read(root/'launch/exit.json')['process_waited'])
+            self.assertTrue(r.read(root/'launch/failure.json')['child_wait_completed'])
+
+    def test_normal_h_uses_real_original_receipt_contract_and_no_current_budget(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);spec={k:str(root/(k+'.json')) for k in ('config','registration','launch','completion')}
+            for k,p in spec.items():r.save(p,dict(source_bindings={}) if k=='registration' else {})
+            ident=dict(pid=2,start_ticks=3,uid=4,argv=['old'])
+            old=dict(bindings=r.bind(spec.values()),owner_identity=ident,children=[dict(ident,pid=5)])
+            f=mock.Mock(return_value=old);ctx=dict(request={'H_owner_module':'oldowner'},inputs=r.bind(spec.values()),sources={},identities=[],
+                h_cpu=SimpleNamespace(closed_batch=f),h_owner=SimpleNamespace(raw_process_state='reader'),h_wait='wait')
+            self.assertIs(r.normal_h(spec,{'status':'ORIGINAL'},ctx),old)
+            self.assertEqual(f.call_args.args[-2:],({'status':'ORIGINAL'},'reader'));self.assertEqual(len(ctx['identities']),2)
+
+    def test_actual_original_h_reference_config_fields(self):
+        fallback=HERE.parent/'current/h18_cpu/H/development_cpu_execution_v1/payload_config.json'
+        p=Path(os.environ.get('MAIN4_TEST_H_CPU_CONFIG',str(fallback)))
+        require_fields=('source_completion','asset_completion','asset_manifest','development_registration','ledger_module','budget_registration',
+            'owner_module','wait_module','legacy_runtime','protocol','registration','H_out','stop_file')
+        data=r.read(p)
+        self.assertEqual(data['schema'],'H_DEVELOPMENT_CPU_CONFIG_V1')
+        for k in require_fields:self.assertIsInstance(data[k],str)
+        self.assertEqual(data['phase_limits']['development'],13200);self.assertEqual(data['cpu_affinities'],[[0,1],[2,3]])
+
+    def test_registration_seal_follows_new_owner_preflight(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            ctx=config_context(tmp);ctx.update(rp=Path(tmp)/'request.json',before={'charged':164760},main_before={'charged':105176},
+                inputs={},sources={},identities=[],driver=SimpleNamespace(SCHEMA='MAIN4_H_DEVELOPMENT_CPU_CONFIG_R2',REG='R2',ledger_view=lambda *a:{'charged':164760,'events':{}}),
+                owner=SimpleNamespace(load=mock.Mock(side_effect=RuntimeError('preflight sentinel'))))
+            ctx['request']['qualification_test_count']=1
+            real_sha=r.sha
+            def fake_sha(p):return real_sha(p) if Path(p).is_file() else 'a'*64
+            with mock.patch.object(r.sys,'platform','linux'),mock.patch.object(r,'inspect_inputs',return_value=ctx),\
+                mock.patch.object(r,'qualification',return_value={'outputs':{}}),mock.patch.object(r,'make_contract',return_value={}),\
+                mock.patch.object(r,'check_stops'),mock.patch.object(r,'verify'),mock.patch.object(r,'sha',side_effect=fake_sha):
+                with self.assertRaisesRegex(RuntimeError,'preflight sentinel'):r.register(ctx['rp'])
+            self.assertTrue((ctx['e']/'registration_failure.json').is_file())
+            self.assertFalse((ctx['e']/'registration_completion.json').exists())
+
+
+if __name__=='__main__':unittest.main()

@@ -1,0 +1,188 @@
+"""CPU-only real raw parser/KEEP adapter; fake native/render, no models/PHY."""
+from copy import deepcopy
+from contextlib import nullcontext
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import sys
+from types import SimpleNamespace
+import unittest
+import numpy as np
+import main_development_online_components_r1 as c
+
+PINS={
+ 'main_action_space':'7ca5809c00f8fd5ac0040d0abd664e1673cee71287bbe383e07fd1039a87e28d',
+ 'main_raw_keep_receiver':'9e9f84c577996cd16d7aba22c0e3bb7eca9e0e50f2bfe2b9ddfd77a27359968d',
+ 'main_visual_keep_adapter':'70ae6e3d41ffbfb022e26f6a0a731c1cfbb589f5d1ec37dda6b02bb4cea7b2af',
+ 'h_online_components':c.H_TIMING_SHA}
+here=Path(__file__).resolve().parent
+if os.environ.get('MAIN4_TIMING_TEST_SOURCES'):
+    sources=json.loads(Path(os.environ['MAIN4_TIMING_TEST_SOURCES']).read_text(encoding='utf-8-sig'))
+else:
+    sources={n:dict(path=str(here/(n+'.py') if n!='h_online_components' else here.parent/'timing_prep'/ (n+'.py')),sha256=s) for n,s in PINS.items()}
+assert set(sources)==set(PINS)
+loaded={}
+for name,digest in PINS.items():
+    p=Path(sources[name]['path']);assert p.is_absolute() and sources[name]['sha256']==digest==hashlib.sha256(p.read_bytes()).hexdigest()
+    spec=importlib.util.spec_from_file_location(name,p);m=importlib.util.module_from_spec(spec);sys.modules[name]=m;spec.loader.exec_module(m);loaded[name]=m
+a=loaded['main_visual_keep_adapter'];w=loaded['main_raw_keep_receiver'];t=loaded['h_online_components']
+
+
+class Catalogue(w.PublicCatalogue):
+    def __init__(self):
+        self.digest='catalogue';self.aliases_digest='aliases'
+        self.profiles=[dict(profile_id=i,candidate_id='candidate'+str(i),wire_key='wire'+str(i),m=2,K=3,
+            groups=[dict(phy_key='phy'+str(i),source_bits=96,information_bits=112)]) for i in range(4)]
+    def verify(self):pass
+    def entry(self,index):return deepcopy(self.profiles[index])
+
+
+class Clock:
+    def __init__(self):self.n=0
+    def __call__(self):self.n+=1;return self.n/1000.
+
+
+def fixture():
+    cat=Catalogue();pixels=np.full((3,256,256),64,dtype=np.uint8);tokens=np.arange(680,dtype=np.int64)
+    record=dict(source_index=0,source_id='s0',preprocessing_id=hashlib.sha256(pixels.tobytes()).hexdigest(),tokens_sha256=c.token_sha(tokens))
+    split=lambda v:[v[w.PREFIX[i]:w.PREFIX[i+1]] for i in range(10)]
+    schedule=[dict(development_slot=slot,snr_db=snr,modulation=mod,**{k:p[k] for k in ('candidate_id','profile_id','wire_key','m','K')})
+        for (slot,snr,mod),p in zip(c.ORDER,cat.profiles)]
+    cfg=dict(schema='H_ONLINE_COMPONENTS_CONFIG_V1',timing_core_module='/frozen/h_online_components.py')
+    ids=['s'+str(i) for i in range(100)]
+    done=dict(status='H_FIXED16_ONLINE_COMPONENTS_COMPLETE',source_count=16,component_case_count=288,noise_seed=6201,
+        warmup_repetitions=1,measured_repetitions=3,batch_size=1,new_packet_decodes=0,
+        source_indices=list(t.FIXED),source_ids=[ids[i] for i in t.FIXED])
+    frames=[];expected=[];draws=[]
+    def render(values,m,K):
+        draws.append((values.copy(),m,K));return np.full((3,256,256),(int(values.sum())%255)/255.,dtype=np.float32)
+    identity=dict(model='frozen',numeric='FP32')
+    for point in schedule:
+        p=cat.entry(point['profile_id']);hard=w.serialize_raw(split(tokens),p)
+        for seed in (6201,6202,6203):
+            header=dict(header_crc_ok=True,header_fields_legal=True,header_ok=True,profile_id=p['profile_id'],score=1.)
+            body=dict(profile_id=p['profile_id'],phy_key=p['groups'][0]['phy_key'],hard_payload=hard.tolist(),
+                decoded_bits=np.concatenate([hard,np.zeros(16,dtype=np.uint8)]).tolist(),crc_accept=False)
+            actual=w.present_actual(header,body,cat)
+            frame=dict(status='MAIN_RAW_KEEP_RECEPTION_COMPLETE',N=1024,header=header,body=body,
+                codebook_sha256=cat.digest,aliases_sha256=cat.aliases_digest,public_frame_counter=point['development_slot']*300+seed-6201,
+                **actual,**point,source_index=0,source_id='s0',noise_seed=seed,population_role='development',
+                physical_ledger_branch='H',image_reconstruction_complete=False,transmitted_payload_sha256=w.array_sha(hard))
+            rx=a.Receiver(cat,crc_accept=lambda _:False,render_tokens=render,model_identity=identity)
+            result=rx.reconstruct(a.receiver_view({'rx':frame}))
+            exp=dict(frame,**{k:v for k,v in result['summary'].items() if k not in frame},
+                reference_preprocessing_sha256=record['preprocessing_id']);exp['image_reconstruction_complete']=True
+            frames.append(frame);expected.append(exp)
+    draws.clear()
+    return dict(cat=cat,pixels=pixels,tokens=tokens,record=record,split=split,schedule=schedule,config=cfg,done=done,
+        ids=ids,frames=frames,expected=expected,render=render,identity=identity,draws=draws)
+
+
+class Tests(unittest.TestCase):
+    def setUp(self):self.f=fixture();self.encodes=[];self.syncs=[]
+    def sync(self):self.syncs.append(1)
+    def components(self):
+        f=self.f
+        def encoder(pixels):self.encodes.append(pixels.copy());return f['tokens'].copy()
+        return dict(tx=lambda pixels,p:c.tx_once(pixels,p,encoder=encoder,split_tokens=f['split'],wire=w,timing=t,
+                synchronize=self.sync,clock=Clock()),
+            rx=lambda view:c.rx_once(view,f['cat'],adapter=a,timing=t,crc_accept=lambda _:False,
+                render_tokens=f['render'],model_identity=f['identity'],synchronize=self.sync,clock=Clock()))
+    def measure(self,frames=None,expected=None):
+        f=self.f;plan=c.design(f['config'],f['done'],f['ids'],f['schedule'],timing=t)
+        return c.measure_source(plan,f['record'],f['pixels'],frames or f['frames'],expected or f['expected'],f['schedule'],
+            catalogue=f['cat'],components=self.components(),timing=t,adapter=a,synchronize=self.sync,guard=lambda:None)
+
+    def test_original_fixed16_order_and_exact_four_points(self):
+        f=self.f;p=c.design(f['config'],f['done'],f['ids'],f['schedule'],timing=t)
+        self.assertEqual(p['source_indices'],list(t.FIXED));self.assertEqual(p['component_case_count'],64)
+        self.assertEqual(p['per_direction_call_count'],256);self.assertEqual(p['slots'],[18,19,20,21])
+        wrong=deepcopy(f['done']);wrong['source_indices']=sorted(wrong['source_indices'])
+        with self.assertRaisesRegex(RuntimeError,'fixed16'):c.design(f['config'],wrong,f['ids'],f['schedule'],timing=t)
+        with self.assertRaisesRegex(RuntimeError,'four'):c.design(f['config'],f['done'],f['ids'],f['schedule'][::-1],timing=t)
+
+    def test_real_raw_serializer_encoder_separate_no_VAR_sender(self):
+        result=self.components()['tx'](self.f['pixels'],self.f['cat'].entry(0))
+        self.assertEqual(set(result['seconds']),{'TX_visual_encoding','TX_source_total'})
+        self.assertEqual(result['tokens_sha256'],self.f['record']['tokens_sha256']);self.assertEqual(result['sender_VAR_probability_calls'],0)
+        np.testing.assert_array_equal(result['tx']['payload'],w.serialize_raw(self.f['split'](self.f['tokens']),self.f['cat'].entry(0)))
+        self.assertEqual(len(self.encodes),1);self.assertEqual(len(self.f['draws']),0)
+
+    def test_four_cases_real_KEEP_repeat_fresh_and_exact_original_RGB(self):
+        rows=self.measure();self.assertEqual(len(rows),4);self.assertEqual(len(self.encodes),16);self.assertEqual(len(self.f['draws']),16)
+        for row in rows:
+            self.assertFalse(row['gray']);self.assertEqual(row['RX']['warmup_repetitions'],1)
+            self.assertEqual(len(row['RX']['measured']),3);self.assertFalse(row['end_to_end_latency_measured'])
+            self.assertNotIn('receiver_state',row['RX']['measured'][0]['receiver_summary'])
+            self.assertEqual(row['TX']['measured'][0]['component_calls']['TX_source_total'],1)
+
+    def test_wrong_known_header_and_rejected_body_use_actual_tokens(self):
+        f=self.f;frame=deepcopy(f['frames'][0]);p=f['cat'].entry(2);hard=np.asarray(frame['body']['hard_payload'],np.uint8);hard[0]^=1
+        frame['header']['profile_id']=2;frame['body'].update(profile_id=2,phy_key=p['groups'][0]['phy_key'],hard_payload=hard.tolist(),
+            decoded_bits=np.concatenate([hard,np.zeros(16,np.uint8)]).tolist())
+        frame.update(w.present_actual(frame['header'],frame['body'],f['cat']))
+        result=self.components()['rx'](a.receiver_view({'rx':frame}))
+        self.assertFalse(result['receiver_summary']['gray']);self.assertFalse(result['receiver_summary']['body_crc_accept'])
+        self.assertEqual(result['receiver_summary']['rx_profile_id'],2)
+        self.assertEqual(f['draws'][0][0][0],2048);self.assertEqual(len(self.encodes),0)
+
+    def test_actual_header_reject_gray_included_without_decoder_render(self):
+        frame=deepcopy(self.f['frames'][0]);frame['header']=dict(header_crc_ok=False,header_fields_legal=False,header_ok=False,profile_id=None,score=0.)
+        frame['body']=None;frame.update(w.present_actual(frame['header'],None,self.f['cat']))
+        result=self.components()['rx'](a.receiver_view({'rx':frame}))
+        self.assertTrue(result['receiver_summary']['gray']);self.assertEqual(len(self.f['draws']),0)
+        self.assertEqual(set(result['seconds']),{'RX_source_and_image_total'});self.assertTrue((result['image']==.5).all())
+
+    def test_TX_truth_never_enters_RX_and_parity_error_cannot_repair(self):
+        frame=deepcopy(self.f['frames'][0]);frame['untrusted_TX_tokens']='cannot enter'
+        view=a.receiver_view({'rx':frame});self.assertNotIn('untrusted_TX_tokens',view)
+        with self.assertRaisesRegex(RuntimeError,'Narrow'):self.components()['rx'](dict(view,target=self.f['pixels']))
+        result=self.components()['rx'](view);wrong=deepcopy(self.f['expected'][0]);wrong['image_sha256']='0'*64
+        with self.assertRaisesRegex(RuntimeError,'replay differs'):c.verify_rx(result,frame,wrong,a)
+        self.assertEqual(len(self.encodes),0)
+
+    def test_TX_token_payload_parity_checked_after_fresh_computation(self):
+        result=self.components()['tx'](self.f['pixels'],self.f['cat'].entry(0));frame=self.f['frames'][0]
+        c.verify_tx(result,frame,self.f['record']['tokens_sha256'])
+        for bad in ('tokens_sha256','payload_sha256'):
+            altered=deepcopy(result);altered[bad]='0'*64
+            with self.assertRaisesRegex(RuntimeError,'Fresh raw TX'):c.verify_tx(altered,frame,self.f['record']['tokens_sha256'])
+
+    def test_missing_trials_or_changed_pixels_refused_before_measurement(self):
+        f=self.f
+        with self.assertRaisesRegex(RuntimeError,'Complete original12'):self.measure(frames=f['frames'][:-1])
+        f['pixels'][0,0,0]^=1
+        with self.assertRaisesRegex(RuntimeError,'same-source'):self.measure()
+        self.assertEqual(len(self.encodes),0)
+
+    def test_changed_receiver_state_is_execution_error_not_gray(self):
+        view=a.receiver_view({'rx':self.f['frames'][0]});view['receiver_state']['prefix'][0][0]+=1
+        with self.assertRaisesRegex(ValueError,'cached receiver'):self.components()['rx'](view)
+        self.assertEqual(len(self.f['draws']),0)
+
+    def test_synchronize_and_warmup_exclusion_are_original_rule(self):
+        row=self.measure()[0]
+        summary=t.summarize_repetitions(row['TX'])
+        self.assertEqual(len(summary['TX_source_total']['seconds']),3)
+        self.assertGreater(len(self.syncs),0);self.assertEqual(row['TX']['warmups'][0]['phase'],'warmup')
+
+    def test_native_injection_uses_original_encoder_and_received_renderer_only(self):
+        f=self.f;calls=[]
+        native=SimpleNamespace(loaded=dict(vae=SimpleNamespace(quantize=SimpleNamespace(v_patch_nums=a.SIZES)),
+            identity={'weights':'original'}),flags={'dtype':'float32'},torch=SimpleNamespace(no_grad=nullcontext,
+                cuda=SimpleNamespace(synchronize=self.sync)))
+        timing=SimpleNamespace(Meter=t.Meter,digest=t.digest,native_encoder=lambda n,p:(calls.append(n) or f['tokens'].copy()))
+        source=SimpleNamespace(split_tokens=f['split'],render_received=lambda n,v,m,K:f['render'](v,m,K))
+        identity=dict(frozen_visual_identity=native.loaded['identity'],numerical_runtime=native.flags)
+        parts=c.native_components(native,f['cat'],source_api=source,legacy_phy=SimpleNamespace(crc_accept_batch=lambda _:False),
+            adapter=a,timing=timing,model_identity=identity)
+        parts['tx'](f['pixels'],f['cat'].entry(0));parts['rx'](a.receiver_view({'rx':f['frames'][0]}))
+        self.assertEqual(calls,[native]);self.assertEqual(len(f['draws']),1)
+        wrong=deepcopy(identity);wrong['numerical_runtime']={'dtype':'changed'}
+        with self.assertRaisesRegex(RuntimeError,'native identity'):
+            c.native_components(native,f['cat'],source_api=source,legacy_phy=None,adapter=a,timing=timing,model_identity=wrong)
+
+
+if __name__=='__main__':unittest.main()

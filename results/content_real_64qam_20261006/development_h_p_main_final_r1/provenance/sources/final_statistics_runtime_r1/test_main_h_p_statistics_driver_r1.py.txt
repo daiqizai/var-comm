@@ -1,0 +1,261 @@
+"""CPU-only final-statistics contracts; no real quality calculation or models.
+
+The metadata test reads original receipt/identity JSON and hashes the sealed
+old CSV without parsing its values. All score rows in the other tests are fake.
+"""
+from copy import deepcopy
+import contextlib
+import csv
+import json
+import os
+from pathlib import Path, PurePosixPath
+import sys
+import tempfile
+from types import SimpleNamespace
+import unittest
+from unittest import mock
+import main_h_p_statistics_driver_r1 as d
+import test_main_h_p_statistics_core_r1 as f
+
+HERE=Path(__file__).absolute().parent
+META=Path(os.environ.get('MAIN_HP_STATS_TEST_METADATA',str(HERE.parent/'current/h_p_statistics_v1')))
+PREDECESSOR=Path(os.environ.get('MAIN_HP_STATS_TEST_PREDECESSOR',str(HERE.parent/'current/main4_development_r2/predecessor_closure.json')))
+
+def put(p,v):
+    p=Path(p);p.parent.mkdir(parents=True,exist_ok=True)
+    p.write_text(json.dumps(v,sort_keys=True,indent=2),encoding='utf-8');return str(p)
+
+class Tests(unittest.TestCase):
+    def setUp(self):
+        self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup);self.root=Path(self.tmp.name)
+        self.e=self.root/'outputs/CONTENT-REAL-64QAM-20261006/MAIN/statistics_execution'
+        self.out=self.e.with_name('statistics_out');self.e.parent.mkdir(parents=True)
+        self.ids,self.metrics,self.schedule,self.plan,self.bridge,self.refs,self.rows,self.means=f.fixture()
+        self.before={'H':{'charged':167159,'MAIN4_calls':2399},'MAIN':{'charged':105176}}
+        self.cfg=dict(schema=d.REQUEST,root=str(self.root),execution_dir=str(self.e),out=str(self.out),python=sys.executable,
+            pythonpath=[str(HERE)],affinity=[0,1],nice=15,max_seconds=7200,policy_selection=False,
+            registration=str(self.e/'execution_registration.json'),comparison_plan=str(self.e/'comparison_plan.json'))
+
+    def metadata(self):
+        prefix='REPO/outputs/CONTENT-REAL-64QAM-20261006/H/'
+        paths={prefix+'h_p_statistics_execution_v1/statistics_config.json':META/'execution/statistics_config.json',
+            prefix+'h_p_statistics_execution_v1/execution_registration.json':META/'execution/execution_registration.json',
+            prefix+'h_p_statistics_execution_v1/completion.json':META/'execution/completion.json',
+            prefix+'h_p_statistics_v1/completion.json':META/'science/completion.json'}
+        for n in d.HP_FILES:paths[prefix+'h_p_statistics_v1/'+n]=META/'science'/n
+        for n in ('common_metric_admission.json','comparison_plan.json'):paths[prefix+'h_p_statistics_execution_v1/'+n]=META/'execution'/n
+        pins={p:d.sha(local) for p,local in paths.items()}
+        docs={p:d.read(local) for p,local in paths.items() if local.suffix=='.json'}
+        spec=dict(zip(('config','registration','owner_completion','completion'),list(paths)[:4]))
+        predecessor=d.read(PREDECESSOR)
+        v={'ctx':{'cpu_ctx':{'source_ids':docs[spec['completion']]['source_ids'],'predecessor':predecessor}}}
+        return docs,pins,spec,v
+
+    def test_actual_historical_metadata_consumer_and_two_hash_domains(self):
+        docs,pins,spec,v=self.metadata()
+        with mock.patch.object(d,'Path',PurePosixPath),mock.patch.object(d,'read',side_effect=lambda p:docs[str(p)]),\
+             mock.patch.object(d,'sha',side_effect=lambda p:pins[str(p)]),mock.patch.object(d,'bind',side_effect=lambda pp:{str(p):pins[str(p)] for p in pp}):
+            self.assertNotIn(spec['config'],v['ctx']['cpu_ctx']['predecessor']['bindings'])
+            ctx=d.historical_hp(spec,v);self.assertEqual(len(ctx['metrics']),18);self.assertEqual(len(ctx['pairs']),18)
+            self.assertNotIn(ctx['paths']['admission'],v['ctx']['cpu_ctx']['predecessor']['bindings'])
+            proof=docs[ctx['paths']['normalization_proof.json']]
+            self.assertNotEqual(proof['common_metric_admission_sha256'],pins[ctx['paths']['admission']])
+            proof['common_metric_admission_sha256']=pins[ctx['paths']['admission']]
+            with self.assertRaisesRegex(RuntimeError,'canonical admission'):d.historical_hp(spec,v)
+
+    def test_visual_self_registration_required_before_any_import(self):
+        owner=put(self.root/'visual_owner.json',dict(registration=str(self.root/'visual_reg.json')))
+        completion=put(self.root/'visual_complete.json',{})
+        reg=put(self.root/'visual_reg.json',{})
+        stub=self.root/'never_imported_owner.py';stub.write_text('raise AssertionError("must not import")\n')
+        modules=[str(HERE/'main_h_p_statistics_driver_r1.py'),str(HERE/'main_h_p_statistics_core_r1.py'),
+            str(Path(f.s.__file__).absolute()),str(stub)]
+        r=dict(self.cfg,source_bindings=d.bind(modules),input_bindings=d.bind([owner,completion]),visual_batch={'owner_config':owner,'completion':completion},
+            core_module=modules[1],statistics_module=modules[2],visual_owner_module=modules[3])
+        with mock.patch.object(d,'module') as imported,self.assertRaisesRegex(RuntimeError,'self-registration'):
+            d.inspect(r)
+        imported.assert_not_called();self.assertTrue(Path(reg).exists())
+
+    def row_context(self):
+        records=[];bound={}
+        for i,b in enumerate(self.bridge):
+            cp=put(self.root/'assets'/f'{i:04d}.json',{'source_id':self.ids[i]})
+            archive=self.root/'assets'/f'{i:04d}.npz';archive.write_bytes(b'fake asset fixture '+str(i).encode())
+            pins=d.bind([cp,archive]);bound.update(pins)
+            b.update(pixel_equality='EXACT_UINT8_AND_FLOAT32_CONVERSION',branch_input_bindings={'H':pins})
+            records.append(dict(checkpoint=cp,archive=str(archive),preprocessing_id=b['preprocessing_sha256']['H']))
+        bridge=put(self.root/'bridge.json',self.bridge)
+        hrows=put(self.root/'H_rows.json',[dict(r,development_slot=0,noise_seed=6201) for r in self.refs])
+        rows=put(self.root/'MAIN_rows.json',self.rows)
+        means=self.root/'source_means.csv';d.csv_file(means,self.means)
+        hp=dict(paths={'target_pixel_bridge.json':bridge,'source_means.csv':str(means),'normalization_proof.json':put(self.root/'proof.json',{})},
+            metrics=self.metrics,availability=[{'metric':'mse','status':'MISSING_IN_P'}])
+        return dict(hp=hp,ids=self.ids,schedule=self.schedule,contract=self.plan,core=f.c,statistics=f.s,
+            visual_ctx={'cpu_ctx':{'records':records}},visual={'science':{'outputs':d.bind([rows])}},bound=bound,
+            main_rows=rows,H_rows=hrows,before=self.before)
+
+    def test_exact_asset_bridge_actual_h_rows_and_old_means(self):
+        ctx=self.row_context();old,main,refs=d.load_rows(ctx)
+        self.assertEqual(len(old),36000);self.assertEqual(len(main),1200);self.assertEqual(refs[7]['resnet50_source_prediction'],7)
+        self.assertEqual(old[8]['mean'],str(self.means[8]['mean']))
+        self.assertEqual(main[0]['reference_sha256'],self.bridge[0]['reference_sha256'])
+        self.assertEqual(main[0]['original_reference_sha256'],self.rows[0]['reference_sha256'])
+
+    def test_reference_asset_tamper_refused_without_intersection(self):
+        ctx=self.row_context();Path(ctx['visual_ctx']['cpu_ctx']['records'][99]['archive']).write_bytes(b'changed')
+        with self.assertRaisesRegex(RuntimeError,'exact MAIN development asset'):d.load_rows(ctx)
+
+    def test_missing_h_reference_cannot_be_replaced_with_source_mean(self):
+        ctx=self.row_context();rows=d.read(ctx['H_rows']);put(ctx['H_rows'],rows[:-1])
+        with self.assertRaisesRegex(RuntimeError,'every source prediction'):d.load_rows(ctx)
+
+    def qualified(self,r=None):
+        r=dict(self.cfg if r is None else r);r['qualification']=str(self.root/'qualification.json')
+        r.setdefault('source_bindings',d.bind([HERE/(m+'.py') for m in d.TEST_MODULES]))
+        inp=put(self.root/'metadata.json',{'fixture':True});r.setdefault('input_bindings',d.bind([inp]))
+        log=self.root/'tests.log';log.write_text(f'Ran {d.TEST_COUNT} tests in 0.01s\n\nOK\n')
+        q=dict(status=d.QUALIFIED,python=r['python'],pythonpath=r['pythonpath'],tests_run=d.TEST_COUNT,test_modules=d.TEST_MODULES,
+            exit_code=0,process_waited=True,GPU_used=False,new_packet_decodes=0,model_imports=False,
+            source_bindings=r['source_bindings'],input_bindings=r['input_bindings'],outputs=d.bind([log]),log=str(log))
+        put(r['qualification'],q);return r,q
+
+    def test_real_qualification_consumer_requires_exact_scope_inputs_and_log(self):
+        r,q=self.qualified();self.assertEqual(d.qualification(r,{}),q)
+        q['input_bindings']={};put(r['qualification'],q)
+        with self.assertRaisesRegex(RuntimeError,'admitted original metadata'):d.qualification(r,{})
+        q['input_bindings']=r['input_bindings'];q['model_imports']=True;put(r['qualification'],q)
+        with self.assertRaisesRegex(RuntimeError,'CPU-only'):d.qualification(r,{})
+
+    def test_registration_seals_comparisons_before_any_rows_and_refuses_retry(self):
+        r,q=self.qualified();rp=put(self.root/'request.json',r)
+        ctx=dict(contract=self.plan,bound=d.combine(r['source_bindings'],r['input_bindings']),sources=r['source_bindings'],before=self.before,
+            visual_ctx={'cpu_ctx':{'cfg':{'ledger':str(self.root/'H.sqlite'),'main_ledger':str(self.root/'MAIN.sqlite')}}},
+            visual={'done':{'owner_identity':{'pid':1},'worker_identity':{'pid':2}}})
+        with mock.patch.object(d,'inspect',return_value=ctx),mock.patch.object(d,'budget',return_value=self.before),mock.patch.object(d,'load_rows') as rows:
+            result=d.register(rp);rows.assert_not_called();self.assertEqual(result['status'],d.SEALED)
+            cfg,reg=d.sealed(self.e/'config.json');self.assertEqual(reg['comparison_count'],58)
+            self.assertEqual(d.read(cfg['comparison_plan'])['comparisons'],[list(v) for v in self.plan['comparisons']])
+            self.assertFalse(self.out.exists())
+            with self.assertRaisesRegex(RuntimeError,'Fresh independent'):d.register(rp)
+
+    def worker_setup(self):
+        ctx=self.row_context();self.e.mkdir();put(self.cfg['comparison_plan'],self.plan)
+        # Keep the real pure-core tuple pairs; their sealed JSON uses arrays.
+        cp=put(self.e/'config.json',self.cfg);reg=dict(budget_before=self.before,source_bindings={},input_bindings={})
+        put(self.cfg['registration'],reg)
+        parent={'pid':1,'start_ticks':2,'uid':3,'argv':['owner']}
+        child={'pid':4,'start_ticks':5,'uid':3,'argv':d.command(self.cfg,cp,'worker')}
+        put(self.e/'worker_launch.json',dict(identity=child,owner_identity=parent,registration_sha256=d.sha(self.cfg['registration'])))
+        return ctx,cp,reg,parent,child
+
+    def worker_patches(self,ctx,cp,reg,parent,child):
+        stack=contextlib.ExitStack()
+        for target,value in [('sealed',(self.cfg,reg)),('inspect',ctx),('budget',self.before)]:stack.enter_context(mock.patch.object(d,target,return_value=value))
+        stack.enter_context(mock.patch.object(d,'process',side_effect=lambda p:child if p==4 else parent))
+        stack.enter_context(mock.patch.object(d.os,'getpid',return_value=4));stack.enter_context(mock.patch.object(d.os,'getppid',return_value=1))
+        stack.enter_context(mock.patch.object(d.os,'sched_getaffinity',return_value={0,1},create=True))
+        stack.enter_context(mock.patch.object(d.os,'getpriority',return_value=15,create=True));stack.enter_context(mock.patch.object(d.os,'PRIO_PROCESS',0,create=True))
+        stack.enter_context(mock.patch.dict(d.os.environ,dict(CUDA_VISIBLE_DEVICES='',**{k:'2' for k in d.THREADS})))
+        return stack
+
+    def test_worker_full_synthetic_grid_preserves_old_mean_values(self):
+        ctx,cp,reg,parent,child=self.worker_setup();original=d.load_rows
+        # All eighteen fake metrics intentionally have identical source arrays.
+        # Execute the original10000-draw interval for each distinct array once;
+        # reuse only exact duplicate fake inputs to keep CPU qualification small.
+        intervals={}
+        def interval(a,samples):
+            key=a.tobytes()
+            if key not in intervals:intervals[key]=f.s.interval(a,samples)
+            return dict(intervals[key])
+        ctx['statistics']=SimpleNamespace(original100=f.s.original100,point_contract=f.s.point_contract,
+            source_means=f.s.source_means,draws=f.s.draws,interval=interval)
+        def load(checked):
+            self.assertTrue((self.out/'comparison_plan.json').is_file());return original(checked)
+        with self.worker_patches(ctx,cp,reg,parent,child),mock.patch.object(d,'load_rows',side_effect=load):result=d.worker(cp)
+        self.assertEqual(result['source_mean_cells'],43200);self.assertEqual(result['paired_cells'],1044)
+        d.verify(result['outputs']);self.assertFalse(result['success_gate_evaluated']);self.assertEqual(result['new_metric_calls'],0)
+        with (self.out/'source_means.csv').open(newline='') as handle:got=list(csv.DictReader(handle))
+        old=[r for r in got if not r['point_id'].startswith('MAIN')]
+        self.assertEqual(old,[{k:str(v) for k,v in r.items()} for r in self.means])
+        self.assertTrue(d.read(self.out/'provenance.json')['old_means_reused'])
+        self.assertTrue(intervals);self.assertTrue(all(v['bootstrap_replicates']==10000 for v in intervals.values()))
+
+    def test_worker_missing_input_retains_failure_without_completion(self):
+        ctx,cp,reg,parent,child=self.worker_setup();put(ctx['H_rows'],[])
+        with self.worker_patches(ctx,cp,reg,parent,child),self.assertRaisesRegex(RuntimeError,'every source'):d.worker(cp)
+        self.assertTrue((self.out/'failure.json').exists());self.assertFalse((self.out/'completion.json').exists())
+
+    def normal_fixture(self):
+        self.e.mkdir(exist_ok=True);self.out.mkdir(exist_ok=True)
+        cp=put(self.e/'config.json',self.cfg);reg=dict(status=d.REGISTERED,config_sha256=d.sha(cp),budget_before=self.before,source_bindings={},input_bindings={},
+            predecessors=[],lock_paths=[str(self.root/'H.owner.lock'),str(self.root/'MAIN.owner.lock')])
+        put(self.cfg['registration'],reg);rh=d.sha(self.cfg['registration'])
+        parent=dict(pid=1,start_ticks=2,uid=3,argv=d.command(self.cfg,cp,'run'))
+        child=dict(pid=4,start_ticks=5,uid=3,argv=d.command(self.cfg,cp,'worker'))
+        put(self.e/'registration_completion.json',dict(status=d.SEALED,registration_sha256=rh,outputs=d.bind([cp,self.cfg['registration']])))
+        put(self.e/'owner_start.json',dict(identity=parent,registration_sha256=rh))
+        put(self.e/'worker_launch.json',dict(identity=child,owner_identity=parent,registration_sha256=rh))
+        (self.e/'worker.log').write_text('closed fake worker\n')
+        data=put(self.out/'table.json',{'synthetic':True})
+        science=dict(status=d.SCIENCE,registration_sha256=rh,config_sha256=d.sha(cp),worker_identity=child,
+            budget_before=self.before,budget_after=self.before,outputs=d.bind([data]),point_count=24,comparison_count=58,source_count=100,
+            admitted_metric_count=18,source_mean_cells=43200,paired_cells=1044,new_packet_decodes=0,new_metric_calls=0,new_noise_draws=0,
+            GPU_used=False,policy_selection=False,success_gate_evaluated=False,source_bindings={},input_bindings={},
+            missing_P_metric_count=3,MAIN_frames=1200,bootstrap_seed=2026100605,bootstrap_replicates=10000,
+            automatic_successor=False,old_H_P_source_means_preserved=True)
+        sp=put(self.out/'completion.json',science)
+        put(self.e/'worker_exit.json',dict(identity=child,exit_code=0,wait_completed=True,log_sha256=d.sha(self.e/'worker.log'),completion_sha256=d.sha(sp)))
+        done=dict(status=d.DONE,registration_sha256=rh,owner_identity=parent,worker_identity=child,budget_before=self.before,budget_after=self.before,
+            outputs=d.combine(science['outputs'],d.bind([sp,self.e/'owner_start.json',self.e/'worker_launch.json',self.e/'worker_exit.json',self.e/'worker.log'])))
+        put(self.e/'completion.json',done);return dict(config=cp,completion=str(self.e/'completion.json')),reg,parent,child
+
+    def test_closed_normal_worker_requires_waited_exit_identity_and_closed_log(self):
+        spec,reg,parent,child=self.normal_fixture()
+        with mock.patch.object(d,'absent',return_value=True):
+            normal=d.closed_batch(spec);self.assertEqual(normal['science']['paired_cells'],1044)
+            self.assertIn(self.cfg['registration'],normal['bindings'])
+            p=self.e/'worker_exit.json';x=d.read(p);x['exit_code']=1;put(p,x)
+            with self.assertRaisesRegex(RuntimeError,'waited normal'):d.closed_batch(spec)
+
+    def test_normal_receipt_refuses_owner_still_live_or_budget_drift(self):
+        spec,reg,parent,child=self.normal_fixture()
+        with mock.patch.object(d,'absent',return_value=False),self.assertRaisesRegex(RuntimeError,'waited normal'):d.closed_batch(spec)
+        p=Path(spec['completion']);done=d.read(p);done['budget_after']['H']['charged']+=1;put(p,done)
+        with mock.patch.object(d,'absent',return_value=True),self.assertRaisesRegex(RuntimeError,'immutable budget'):d.closed_batch(spec)
+
+    def test_stop_write_failure_still_drains_child_before_unlock(self):
+        self.e.mkdir();cp=put(self.e/'config.json',self.cfg);put(self.cfg['registration'],{})
+        reg=dict(predecessors=[],lock_paths=[str(self.root/'H.owner.lock')]);order=[];parent=dict(pid=1,uid=2,argv=d.command(self.cfg,cp,'run'))
+        class Locks(contextlib.ExitStack):
+            def close(self):order.append('unlock');super().close()
+        class Child:
+            pid=9;returncode=1
+            def poll(self):return None
+            def wait(self):order.append('wait');return 1
+        with mock.patch.object(d,'process',side_effect=[dict(pid=9,uid=2,argv=['pre_exec_parent']),dict(pid=9,uid=2,argv=['target'])]),mock.patch.object(d.time,'sleep'):
+            self.assertEqual(d.capture(Child(),['target'],2)['argv'],['target'])
+        with mock.patch.object(Child,'poll',return_value=1),self.assertRaisesRegex(RuntimeError,'before identity'):
+            d.capture(Child(),['target'],2)
+        original=d.save
+        def save(path,value):
+            if Path(path).name=='STOP':order.append('stop_failed');raise OSError('marker disk error')
+            return original(path,value)
+        def process(pid):
+            if pid==9:raise RuntimeError('identity capture failed')
+            return parent
+        with mock.patch.object(d.sys,'platform','linux'),mock.patch.object(d,'sealed',return_value=(self.cfg,reg)),\
+             mock.patch.object(d,'process',side_effect=process),mock.patch.object(d,'save',side_effect=save),\
+             mock.patch.object(d.contextlib,'ExitStack',Locks),mock.patch.object(d.subprocess,'Popen',return_value=Child()),\
+             mock.patch.object(d.os,'sched_setaffinity',create=True),mock.patch.object(d.os,'setpriority',create=True),\
+             mock.patch.object(d.os,'PRIO_PROCESS',0,create=True),mock.patch.dict(sys.modules,{'fcntl':SimpleNamespace(flock=lambda *a:None,LOCK_EX=1,LOCK_NB=2)}),\
+             self.assertRaisesRegex(RuntimeError,'identity capture failed'):d.run(cp)
+        self.assertEqual(order,['stop_failed','wait','unlock']);self.assertTrue(d.read(self.e/'worker_exit.json')['wait_completed'])
+        self.assertIn('STOP write failed',d.read(self.e/'failure.json')['traceback']);self.assertFalse((self.e/'completion.json').exists())
+
+    def test_readonly_budget_rejects_any_other_stage_charge(self):
+        now=deepcopy(self.before);ctx=dict(before=self.before,visual_ctx={},visual_owner=SimpleNamespace(w=SimpleNamespace(budget_snapshot=lambda _:now)))
+        self.assertEqual(d.budget(ctx),self.before);now['MAIN']['charged']+=1
+        with self.assertRaisesRegex(RuntimeError,'either ledger'):d.budget(ctx)
+
+if __name__=='__main__':unittest.main()

@@ -1,0 +1,81 @@
+from copy import deepcopy
+import hashlib
+import importlib.util
+from pathlib import Path
+from types import SimpleNamespace
+import unittest
+import numpy as np
+import main_development_image_metric_core_r1 as c
+
+def digest(a):return hashlib.sha256(np.ascontiguousarray(a).tobytes()).hexdigest()
+def pixels(a):
+    a=np.asarray(a);assert a.dtype==np.float32 and a.shape==(3,256,256) and np.isfinite(a).all();return a
+M=SimpleNamespace(REPLAY_SHA='frozen',REQUIRED=('lpips_alex','dinov2_vitl14_cosine'),pixels=pixels,rgb_sha=digest)
+W=SimpleNamespace(wire=SimpleNamespace(array_sha=digest))
+class Backend:
+    identity='evaluator'
+    def __init__(self):self.calls=0
+    def score(self,*_):
+        self.calls+=1
+        return dict(lpips_alex=.2,dinov2_vitl14_cosine=.4,label_conditioned=False,convnext_used_for_selection=False,legacy_quality_psnr_db=13.)
+
+def fixture():
+    u=np.full((3,256,256),64,dtype=np.uint8);target=u.astype(np.float32)/np.float32(255)
+    record=dict(source_index=0,source_id='source0',class_index=17,preprocessing_id=digest(u))
+    schedule=[dict(development_slot=slot,snr_db=snr,modulation=mod,candidate_id='candidate'+str(slot),profile_id=slot,wire_key=str(slot),m=6,K=40)for slot,snr,mod in c.ORDER]
+    frames=[dict(p,source_index=0,source_id='source0',population_role='development',noise_seed=seed,public_frame_counter=p['development_slot']*300+i,
+        source_decode_complete=True,image_reconstruction_complete=False,policy_selection=False,physical_ledger_branch='H',phase='development',header_truth_forbidden='TX_ONLY')for p in schedule for i,seed in enumerate(c.SEEDS)]
+    images=np.stack([np.full((3,256,256),.5,dtype=np.float32),np.full((3,256,256),.1,dtype=np.float32)])
+    rows=[dict(f,image_reconstruction_complete=True,image_slot=i%2,image_sha256=digest(images[i%2]))for i,f in enumerate(frames)]
+    feature=np.zeros(4,dtype=np.float32)
+    refs=[dict(source_id='source'+str(i),reference_sha256=digest(target),evaluator_identity='evaluator',prepared={'dino_feature':feature.copy()},feature_sha256=digest(feature))for i in range(100)]
+    mismatch=dict(source_ids=['source'+str(i)for i in range(100)],permutation=list(range(1,100))+[0],replay_source_sha256='frozen')
+    return record,schedule,frames,images,rows,refs,mismatch,u,target
+
+class Tests(unittest.TestCase):
+    def setUp(self):self.f=fixture()
+    def score(self,rows=None,images=None,backend=None):
+        r,s,f,im,rs,refs,mm,u,t=self.f
+        return c.score_source(r,rs if rows is None else rows,im if images is None else images,t,backend or Backend(),refs,mm,M,W)
+    def test_fixed_grid_counter_and_tx_identity(self):
+        r,s,f,*_=self.f;c.validate_frames(r,f,s)
+        for mutate in (lambda x:x.reverse(),lambda x:x[0].update(noise_seed=2001),lambda x:x[0].update(public_frame_counter=0),lambda x:x[0].update(profile_id=999)):
+            v=deepcopy(f);mutate(v)
+            with self.assertRaises(ValueError):c.validate_frames(r,v,s)
+    def test_all12_scored_with_exact_cache_float64_and_legacy_retained(self):
+        b=Backend();rows,cost=self.score(backend=b);self.assertEqual(len(rows),12);self.assertEqual(b.calls,2);self.assertEqual(cost['metric_cache_hits'],10)
+        target=self.f[-1];image=self.f[3][0];mse=float(np.mean((image.astype(np.float64)-target.astype(np.float64))**2))
+        self.assertEqual(rows[0]['mse'],mse);self.assertEqual(rows[0]['psnr_db'],float(-10*np.log10(mse)));self.assertEqual(rows[0]['legacy_quality_psnr_db'],13.)
+        self.assertIsNone(rows[0]['F_recovery_error']);self.assertFalse(rows[0]['used_for_selection']);self.assertEqual(rows[0]['mismatch_source_id'],'source1')
+    def test_changed_received_rgb_rejected_before_metric(self):
+        images=self.f[3].copy();images[0,0,0,0]=.6;b=Backend()
+        with self.assertRaisesRegex(ValueError,'RGB changed'):self.score(images=images,backend=b)
+        self.assertEqual(b.calls,0)
+    def test_changed_reference_and_mismatch_feature_rejected(self):
+        self.f[5][0]['reference_sha256']='wrong'
+        with self.assertRaises(ValueError):self.score()
+        self.f=fixture();self.f[5][1]['prepared']['dino_feature'][0]=1
+        with self.assertRaisesRegex(ValueError,'feature changed'):self.score()
+    def test_incomplete_metric_or_selected_classifier_rejected(self):
+        for values in (dict(lpips_alex=float('nan'),dinov2_vitl14_cosine=.4),dict(lpips_alex=.2,dinov2_vitl14_cosine=.4,label_conditioned=False,convnext_used_for_selection=True,legacy_quality_psnr_db=12.)):
+            b=Backend();b.score=lambda *_:values
+            with self.assertRaises(ValueError):self.score(backend=b)
+    def test_metrics_cannot_override_wire_fields(self):
+        b=Backend();original=b.score;b.score=lambda *a:dict(original(*a),profile_id=12)
+        with self.assertRaisesRegex(ValueError,'overwrite'):self.score(backend=b)
+    def test_receiver_gets_only_rx_view_and_preserves_gray(self):
+        r,s,f,im,*_=self.f;u=self.f[-2]
+        class RX:
+            cache={};hits=0;misses=0
+            def reconstruct(self,view):
+                assert set(view)=={'allowed_RX'}
+                self.misses+=1
+                return dict(image=im[0],summary=dict(status='COMPLETE',image_sha256=digest(im[0]),image_reconstruction_complete=True,gray=True,policy_selection=False))
+        adapter=SimpleNamespace(CLAIMS=(),receiver_view=lambda frame:{'allowed_RX':True},metric_inputs=lambda result,target,**kw:{'image':result['image']})
+        out,images,cost=c.reconstruct_source(r,f,u,s,RX(),adapter)
+        self.assertEqual(len(out),12);self.assertEqual(images.shape[0],1);self.assertTrue(all(x['gray']for x in out));self.assertTrue(all(x['header_truth_forbidden']=='TX_ONLY'for x in out))
+    def test_target_binding_checked_before_generation(self):
+        r,s,f,*_=self.f;u=self.f[-2].copy();u[0,0,0]=1
+        with self.assertRaisesRegex(ValueError,'uint8 reference'):c.reconstruct_source(r,f,u,s,SimpleNamespace(cache={}),None)
+
+if __name__=='__main__':unittest.main()

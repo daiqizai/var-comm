@@ -1,0 +1,200 @@
+"""Seal one MAIN actual-KEEP visual batch after normal CPU completion.
+
+Metadata and immutable file admission only. No models, channel calls, policy
+selection, launch or automatic successor are implemented here.
+"""
+from __future__ import annotations
+import argparse
+from pathlib import Path
+import sys
+import time
+import traceback
+import main_actual_visual_owner_r1 as owner
+import main_actual_calibration_owner_r1 as cpu_owner
+
+d=owner.w
+require=d.require;read=d.read;sha=d.sha;save=d.save;verify=d.verify;combine=d.combine
+SCHEMA='MAIN_ACTUAL_VISUAL_REGISTRATION_REQUEST_R1'
+QUALIFIED='MAIN_ACTUAL_VISUAL_CPU_INTERFACE_QUALIFICATION_PASS_R1'
+TEST_MODULES=['test_main_visual_keep_adapter','test_main_actual_visual_driver_r1',
+    'test_main_actual_visual_owner_r1','test_register_main_actual_visual_r1']
+TEST_COUNT=56
+DEADLINE=1791564605.9549868
+
+
+def bind(paths):return {str(Path(p).absolute()):sha(p) for p in paths}
+
+
+def visual_closed(spec):
+    """Validate the original successful source GPU job without reading codec arrays.
+
+    Its owner/stage/worker/science receipt chain authenticates loader settings
+    and interpreter. Only consumed source/model metadata is revalidated; its
+    thousands of unused historical bit/image outputs are not traversed.
+    """
+    require(set(spec)=={'config','owner_config','completion'},'Exact original visual reference specification')
+    cfg=read(spec['config']);oc=read(spec['owner_config']);reg=read(oc['registration']);e=Path(oc['owner_out']);done=read(spec['completion'])
+    require(cfg['schema']=='H_FULL1000_SOURCE_CODEC_CONFIG_V1' and cfg['source_owner_config']==spec['owner_config']
+        and cfg['registration']==oc['registration'] and spec['completion']==str(e/'completion.json')
+        and reg['status']=='H_EXECUTION_REVISION_REGISTERED' and reg['owner_config_sha256']==sha(spec['owner_config'])
+        and reg['input_bindings'].get(spec['config'])==sha(spec['config']), 'Original source configuration is not registered')
+    require(done['status']=='REGISTERED_H_STAGE_BATCH_COMPLETE' and done['registration_sha256']==sha(oc['registration'])
+        and done['allowed_stage_ids']==reg['allowed_stage_ids']==['source'] and done['qualification_passed'] is True
+        and done['future_stages_started'] is False and done['budget']['failed']==done['budget']['unresolved']==0,
+        'Original visual source batch was not normally completed')
+    require(len(oc['stages'])==1 and oc['stages'][0]['id']=='source' and oc['stages'][0]['resource']=='gpu'
+        and len(oc['stages'][0]['jobs'])==1,'One original source GPU job required')
+    job=oc['stages'][0]['jobs'][0];require(job['id']=='full1000_source' and job['argv'][-2:]==['--config',spec['config']]
+        and job['argv'][1]=='-B' and len(job['argv'])==5 and job['out']==cfg['out'],'Original source worker differs')
+    launch=read(e/'launch.json');ident=read(e/'owner_identity.json');me=launch['identity']
+    require(launch['registration_sha256']==ident['registration_sha256']==sha(oc['registration'])
+        and launch['owner_config_sha256']==ident['config_sha256']==sha(spec['owner_config'])
+        and all(me[k]==ident[k] for k in ('pid','start_ticks','uid','argv')) and cpu_owner.w.exited(me),
+        'Original source owner must have exited normally')
+    stagep=e/'stages/source/completion.json';stage=read(stagep);folder=stagep.parent/'workers/full1000_source'
+    start=read(folder/'launch.json');end=read(folder/'exit_receipt.json');sciencep=Path(job['completion']);science=read(sciencep)
+    require(done['completed']==[dict(completion=str(stagep),sha256=sha(stagep),stage='source')]
+        and stage['status']=='REGISTERED_STAGE_COMPLETE' and stage['jobs']==[end], 'Original stage receipt link differs')
+    require(end['exit_code']==0 and end['identity']==start['identity'] and end['identity']['argv']==job['argv']
+        and end['registration_sha256']==start['registration_sha256']==stage['registration_sha256']==sha(oc['registration'])
+        and end['completion']==str(sciencep) and end['completion_sha256']==sha(sciencep)
+        and end['closed_log_sha256']==sha(folder/'worker.log') and cpu_owner.w.exited(end['identity']),
+        'Original GPU worker zero-exit proof differs')
+    require(science['status']=='H_FULL1000_SOURCE_CODEC_COMPLETE' and science['registration_sha256']==sha(oc['registration'])
+        and science['config_sha256']==sha(spec['config']) and science['source_count']==1000
+        and science['source1000_codec_complete'] is True and science['pending_source_encoding_count']==0
+        and science['new_packet_decodes']==0 and science['new_image_renders']==science['new_metric_calls']==0
+        and science['development_used'] is False and science['holdout_used'] is False,'Original source result scope differs')
+    for k,v in job['receipt_expect'].items():require(science.get(k)==v,'Original source receipt expectation differs: '+k)
+    require(science['budget_before']==science['budget_after']==done['budget'], 'Original visual source modified paid calls')
+    require(not any((p/n).exists() for p in (e,sciencep.parent,folder) for n in ('failure.json','owner_failure.json','STOP')),
+        'Unresolved original visual failure/STOP')
+    sources={}
+    for argv in (me['argv'],job['argv']):
+        require(argv[1]=='-B' and reg['source_bindings'].get(argv[2])==sha(argv[2]),'Original visual executable is unbound')
+        sources[argv[2]]=sha(argv[2])
+    paths=[*spec.values(),oc['registration'],e/'launch.json',e/'owner_identity.json',stagep,
+        folder/'launch.json',folder/'exit_receipt.json',folder/'worker.log',sciencep]
+    return dict(cfg=cfg,owner=oc,reg=reg,science=science,bindings=bind(paths),python=job['argv'][0],source_bindings=sources)
+
+
+def manifest_pins(value):
+    """Use the admitted worker parser for the same exact manifest asset closure."""
+    result=d.metric_asset_bindings(value);require(result,'Manifest contains no admitted files')
+    for p,s in result.items():
+        require(Path(p).is_absolute() and isinstance(s,str) and len(s)==64
+            and all(c in '0123456789abcdef' for c in s),'Invalid immutable metric asset identity')
+    verify(result);return result
+
+
+def inspect_inputs(r,*,require_fresh=True):
+    """Reusable pre-admission context. No registration file or GPU is required."""
+    require(r['schema']==SCHEMA and sys.platform.startswith('linux'),'Independent Linux MAIN visual request required')
+    verify(r['source_bindings']);verify(r['input_bindings']);sources=dict(r['source_bindings']);inputs=dict(r['input_bindings'])
+    for p in (Path(__file__).absolute(),Path(owner.__file__).absolute(),Path(d.__file__).absolute()):
+        require(sources.get(str(p))==sha(p),'Executed registration/admission source unbound: '+str(p))
+    closed=cpu_owner.closed_phase(r['cpu_batch']);cc=closed['ctx'];cfg=cc['cfg'];before=closed['done']['budget']
+    p=str(Path(cpu_owner.__file__).absolute());require(cc['reg']['source_bindings'].get(p)==sha(p),'Original CPU owner source unbound')
+    audit=cpu_owner.w.audit_inventory(cc,read(cfg['merge_admission']))
+    require(audit['frame_count']==closed['done']['frame_count']==30000 and len(cc['schedule'])==10
+        and len(cc['records'])==1000 and audit['packet_calls']==closed['done']['packet_calls']
+        and audit['budget']==before,'Actual closed30000-frame paid CPU evidence required')
+    visual=visual_closed(r['visual_reference']);vc=visual['cfg'];vo=visual['owner'];vr=visual['reg'];vs=visual['science']
+    root=Path(r['root']).absolute();main=root/'outputs/CONTENT-REAL-64QAM-20261006/MAIN'
+    require(cfg['root']==vc['root']==str(root) and cfg['deadline_unix']==vc['overall_deadline_unix']==DEADLINE
+        and vc['calibration_registration']==cfg['calibration_registration'] and time.time()<DEADLINE,'Original source/deadline differs')
+    require(visual['python']==str(root/'outputs/UNIFIED-METRICS-20261002/environment/bin/python'),'Original UM venv path required, not resolved system Python')
+    require(not any(p.exists() for p in (Path(cfg['stop_file']),main.parent/'STOP',main.parent/'H/STOP')),'Unresolved study/MAIN/H STOP')
+    inherited=d.combine(vr['source_bindings'],vr['input_bindings'])
+    for k in ('source_driver_module','static_closure_module','numerical_reference','calibration_registration'):
+        p=vc[k];require(inherited.get(p)==sha(p),'Original native dependency changed: '+k);inputs[p]=sha(p)
+    quality=str(Path(vc['uep_runtime'])/'quality_driver.py');phy=str(Path(vc['uep_runtime'])/'uep_phy.py')
+    for p in (quality,phy):require(inherited.get(p)==sha(p),'Original quality/CRC source differs');sources[p]=sha(p)
+    numerical=read(vc['numerical_reference']);cal=read(cfg['calibration_registration']);flags=numerical['numerical_runtime']
+    require(numerical['status']=='REAL_NATIVE_QUALIFICATION_PASS' and numerical['synthetic'] is False
+        and numerical['frozen_identity']==cal['identity']==vs['frozen_visual_identity'] and flags==vs['numerical_runtime'],
+        'Original native calibration identity/qualification differs')
+    require(flags['threads']==vo['gpu_threads']==6 and flags['interop_threads']==2 and flags['deterministic'] is True
+        and flags['matmul_tf32'] is flags['cudnn_tf32'] is flags['cudnn_benchmark'] is False
+        and flags['precision']=='highest' and flags['cudnn_deterministic'] is True,'Original FP32 numerical flags required')
+    frozen=cal['identity'];gate=frozen['decoder_gate'];require(sha(gate)==frozen['decoder_gate_sha256'],'Original decoder gate changed')
+    selected=read(gate)['selection'];checkpoint=selected['checkpoint']
+    require(sha(checkpoint)==selected['checkpoint_sha256'],'Original Dc checkpoint changed')
+    statistics=root/'outputs/RX-POSTERIOR-STEP1-20260929/calibration_statistics.pt'
+    require(sha(statistics)==frozen['calibration_statistics_sha256'],'Original native calibration statistics changed')
+    inputs=combine(inputs,bind([gate,checkpoint,statistics]))
+    helper=d.module(vc['static_closure_module'],'main_visual_registration_static_closure')
+    native=helper.collect_bindings(str(root),vc['native_runtime'],vc['var_source'],vc['dino_source'],vc['uep_runtime'])
+    for p,s in vs['visual_source_bindings'].items():require(native.get(p)==s,'Historical native source changed or omitted: '+p)
+    metric=read(r['metric_registration']);batch=read(r['metric_batch_qualification']);mi=metric['score_identity']
+    require(metric['population']=='calibration' and metric['source_count']==1000 and metric['development_read'] is False
+        and metric['source_ids']==[x['source_id'] for x in cc['records']]
+        and metric['renderer_identity']['frozen_identity']==cal['identity'],'Original L14 registration population/renderer differs')
+    manifests=[p for p,s in mi['source_bindings'].items() if Path(p).name=='modelmanifest.json' and s==mi['modelmanifest_sha256']]
+    require(len(manifests)==1,'Unique original metric manifest required');mp=manifests[0]
+    sources=combine(sources,closed['ctx']['reg']['source_bindings'],visual['source_bindings'],native,mi['source_bindings'])
+    inputs=combine(inputs,closed['bindings'],audit['outputs'],visual['bindings'],
+        bind([r['metric_registration'],r['metric_batch_qualification'],mp,vo['nvidia_smi']]),manifest_pins(read(mp)))
+    bound=combine(sources,inputs)
+    identity=d.original_metric_identity(metric,batch,quality,r['metric_batch_qualification'],flags,registered_bindings=bound)
+    require(batch['binding']['context']['visual_identity']==cal['identity'],'Original batch8 visual identity differs')
+    resources=r['resources'];require(resources['gpu_device']==vo['gpu_device']==0 and resources['gpu_threads']==6
+        and resources['gpu_affinity']==vo['gpu_affinity']==[4,5,6,7,8,9] and resources['nice']==15
+        and type(resources['max_seconds'])is int and 0<resources['max_seconds']<=86400
+        and resources['max_archive_bytes']==d.MAX_ARCHIVE_BYTES,'Single original GPU/resource envelope required')
+    require(vo['visual_lock_path']==str(main.parent/'shared_visual.lock'),'Original shared visual lock required')
+    e,out=Path(r['execution_dir']),Path(r['out']);require(e.parent==out.parent==main and e!=out,
+        'Nonoverlapping MAIN visual execution/output required')
+    if require_fresh:require(not e.exists() and not out.exists(),'Fresh MAIN visual execution/output required')
+    require(Path(r['runtime_dir']).absolute()==Path(__file__).absolute().parent,'New private visual runtime must be explicit')
+    verify(sources);verify(inputs)
+    return dict(request=r,cpu_closed=closed,cpu_ctx=cc,visual=visual,before=before,sources=sources,inputs=inputs,
+        native_bindings=native,flags=flags,metric_identity=identity,resources=resources,quality=quality,phy=phy)
+
+
+def make_configs(ctx):
+    r=ctx['request'];v=ctx['visual'];vc=v['cfg'];e=Path(r['execution_dir']);cp=e/'worker_config.json';op=e/'owner_config.json';rp=e/'execution_registration.json'
+    cfg={k:vc[k] for k in ('root','uep_runtime','native_runtime','var_source','dino_source','source_driver_module','static_closure_module')}
+    cfg.update(schema=d.SCHEMA,runtime_dir=r['runtime_dir'],out=r['out'],registration=str(rp),worker_module=str(Path(d.__file__).absolute()),
+        visual_owner_module=str(Path(owner.__file__).absolute()),visual_owner_config=str(op),cpu_owner_module=str(Path(cpu_owner.__file__).absolute()),
+        cpu_batch=r['cpu_batch'],python=v['python'],quality_driver_module=ctx['quality'],legacy_phy_module=ctx['phy'],
+        native_qualification=vc['numerical_reference'],metric_registration=r['metric_registration'],metric_batch_qualification=r['metric_batch_qualification'],
+        stop_file=ctx['cpu_ctx']['cfg']['stop_file'],deadline_unix=DEADLINE,**ctx['resources'])
+    oc=dict(schema=owner.SCHEMA,owner_out=str(e),registration=str(rp),worker_config=str(cp),
+        worker_argv=d.command(dict(cfg,_path=str(cp))),python=cfg['python'],gpu_device=0,gpu_threads=6,
+        gpu_affinity=cfg['gpu_affinity'],cpu_affinity=sorted(cfg['gpu_affinity']),nice=15,max_seconds=cfg['max_seconds'],deadline_unix=DEADLINE,
+        visual_lock_path=v['owner']['visual_lock_path'],nvidia_smi=v['owner']['nvidia_smi'],automatic_successor=False)
+    return cfg,oc
+
+
+def register(request_path):
+    request_path=str(Path(request_path).absolute());r=read(request_path);ctx=inspect_inputs(r);e=Path(r['execution_dir'])
+    q=read(r['prepared_qualification']);require(q['status']==QUALIFIED and q['python']==ctx['visual']['python']
+        and q['test_modules']==TEST_MODULES and q['test_count']==TEST_COUNT and q['all_tests_passed'] is True
+        and q['new_packet_decodes']==0 and q['GPU_used'] is False and q['model_imports'] is False,'Exact pure visual interface qualification required')
+    for key in ('source_bindings','input_bindings','outputs'):verify(q[key])
+    required=[Path(__file__).absolute(),Path(owner.__file__).absolute(),Path(d.__file__).absolute()]
+    required += [Path(__file__).parent/(n+'.py') for n in TEST_MODULES]
+    required += [Path(__file__).parent/'main_visual_keep_adapter.py']
+    for p in required:require(q['source_bindings'].get(str(p))==ctx['sources'].get(str(p))==sha(p),'Qualification misses new visual source '+str(p))
+    for p,s in ctx['inputs'].items():require(q['input_bindings'].get(p)==s,'Qualification did not bind admitted visual input: '+p)
+    ctx['inputs']=combine(ctx['inputs'],q['outputs'],bind([request_path,r['prepared_qualification']]))
+    e.mkdir(parents=True)
+    try:
+        cfg,oc=make_configs(ctx);cp=e/'worker_config.json';op=e/'owner_config.json';rp=e/'execution_registration.json'
+        save(cp,cfg);save(op,oc);inputs=combine(ctx['inputs'],bind([cp,op]))
+        reg=dict(status=d.REG,owner_scope='MAIN_ACTUAL_VISUAL_ONLY',config_sha256=sha(cp),owner_config_sha256=sha(op),
+            source_bindings=ctx['sources'],input_bindings=inputs,native_source_bindings=ctx['native_bindings'],budget_before=ctx['before'],
+            source_count=1000,frame_count=30000,noise_seeds=[4101,4102,4103],metric_objective=d.PRIMARY,receiver_rule='KEEP',
+            GPU_jobs=1,new_packet_decodes=0,noise_generated=0,policy_selection=False,development_used=False,automatic_successor=False)
+        verify(ctx['sources']);verify(inputs);save(rp,reg)
+        checked=owner.load(op,require_seal=False);require(d.budget_snapshot(checked)==ctx['before'],'MAIN budget changed while registering visual stage')
+        done=dict(status=owner.REGISTERED,registration_sha256=sha(rp),owner_config_sha256=sha(op),outputs=bind([cp,op,rp]),
+            budget_before=ctx['before'],worker_started=False,GPU_used=False,new_packet_decodes=0)
+        save(e/'registration_completion.json',done);return done
+    except BaseException:
+        save(e/'registration_failure.json',dict(status='FAILED_PRESERVE_NO_LAUNCH',traceback=traceback.format_exc()));raise
+
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--request',required=True);a=p.parse_args();print(register(a.request)['status'])

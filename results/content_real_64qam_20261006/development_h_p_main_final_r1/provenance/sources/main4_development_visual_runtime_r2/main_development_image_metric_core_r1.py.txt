@@ -1,0 +1,97 @@
+"""MAIN4 actual received images and original metric suite; injected frozen models.
+
+No model loading, packet calls, policy selection, persistence or execution entry.
+The registered caller authenticates the complete CPU closure and original assets.
+"""
+from copy import deepcopy
+import hashlib
+import math
+import numpy as np
+
+ORDER=((18,13,'QPSK'),(19,13,'16QAM'),(20,19,'QPSK'),(21,19,'16QAM'))
+SEEDS=(6201,6202,6203)
+
+def require(ok,message):
+    if not ok:raise ValueError(message)
+
+def validate_frames(record,frames,schedule):
+    i,sid=record['source_index'],record['source_id']
+    require(type(i)is int and 0<=i<100 and isinstance(sid,str) and sid,'Original development source required')
+    require([(p['development_slot'],p['snr_db'],p['modulation'])for p in schedule]==list(ORDER),'Exactly four frozen MAIN references required')
+    require([(r['development_slot'],r['noise_seed'])for r in frames]==[(p['development_slot'],s)for p in schedule for s in SEEDS],'Complete fixed twelve-frame grid required')
+    for r in frames:
+        p=next(p for p in schedule if p['development_slot']==r['development_slot'])
+        require(r['source_index']==i and r['source_id']==sid and r['population_role']=='development'
+            and r['source_decode_complete'] is True and r['image_reconstruction_complete'] is False
+            and r['policy_selection'] is False and r['physical_ledger_branch']=='H' and r['phase']=='development',
+            'Normal actual MAIN4 development CPU evidence required')
+        require(all(r[k]==p[k]for k in ('snr_db','modulation','candidate_id','profile_id','wire_key','m','K')),'Frozen TX identity differs')
+        expected=((r['development_slot']*100+i)*3+SEEDS.index(r['noise_seed']))
+        require(r['public_frame_counter']==expected,'Original reserved development counter differs')
+    return frames
+
+def reconstruct_source(record,frames,target,schedule,receiver,adapter,boundary=lambda:None):
+    """Pass only original receiver_view into reconstruction; target follows it."""
+    validate_frames(record,frames,schedule)
+    require(not receiver.cache,'Fresh same-source receiver cache required')
+    target=np.asarray(target)
+    require(target.dtype==np.uint8 and target.shape==(3,256,256)
+        and hashlib.sha256(target.tobytes()).hexdigest()==record['preprocessing_id'],'Original development uint8 reference required')
+    images=[];by_hash={};rows=[]
+    for frame in frames:
+        boundary()
+        result=receiver.reconstruct(adapter.receiver_view({'rx':frame}))
+        scored=adapter.metric_inputs(result,target,expected_preprocessing_sha256=record['preprocessing_id'])
+        summary=result['summary'];digest=summary['image_sha256'];image=scored['image']
+        require(all(summary[k]==frame[k]for k in adapter.CLAIMS),'Actual paid RX evidence changed')
+        if digest not in by_hash:by_hash[digest]=len(images);images.append(image.copy())
+        else:require(np.array_equal(images[by_hash[digest]],image),'RGB digest collision')
+        row=deepcopy(frame)
+        for k,v in summary.items():
+            if k in adapter.CLAIMS or k=='status':continue
+            if k=='image_reconstruction_complete':
+                require(row[k] is False and v is True,'Wrong CPU-to-image transition');row['cpu_image_reconstruction_complete']=False;row[k]=True;continue
+            require(k not in row or row[k]==v,'Visual field replaces CPU evidence: '+k);row[k]=deepcopy(v)
+        row.update(visual_status=summary['status'],image_slot=by_hash[digest],preprocessing_id=record['preprocessing_id'],synthetic=False)
+        rows.append(row)
+    return rows,np.stack(images),dict(frame_count=12,unique_images=len(images),receiver_cache_hits=receiver.hits,
+        receiver_cache_misses=receiver.misses,new_packet_decodes=0,policy_selection=False)
+
+def score_source(record,rows,images,target,backend,references,mismatch,metric_adapter,wire_adapter,boundary=lambda:None):
+    """Same original H SuiteBackend, batch1 and source mismatch; no metric tuning.
+
+    Main-table PSNR uses the H float64 definition on this actual RGB. Original
+    Suite float32 PSNR remains legacy_quality_psnr_db; no old value is replaced.
+    """
+    i,sid=record['source_index'],record['source_id'];label=record['class_index']
+    require(type(label)is int and 0<=label<1000 and len(rows)==12,'Original label/twelve received frames required')
+    require(len(references)==len(mismatch['source_ids'])==100 and mismatch['source_ids'][i]==sid
+        and mismatch['replay_source_sha256']==metric_adapter.REPLAY_SHA,'Original development mismatch registration required')
+    target=metric_adapter.pixels(target);ref=references[i];negative=references[mismatch['permutation'][i]]
+    require(ref['source_id']==sid and negative['source_id']==mismatch['source_ids'][mismatch['permutation'][i]]
+        and ref['reference_sha256']==metric_adapter.rgb_sha(target)
+        and ref['evaluator_identity']==negative['evaluator_identity']==backend.identity,'Original source reference/evaluator changed')
+    for r in (ref,negative):
+        require(hashlib.sha256(r['prepared']['dino_feature'].tobytes()).hexdigest()==r['feature_sha256'],'Source feature changed')
+    result=[];cache={}
+    for row in rows:
+        boundary();require(row['source_index']==i and row['source_id']==sid and row['image_reconstruction_complete'] is True,'Wrong actual reconstructed source')
+        require(type(row['image_slot'])is int and 0<=row['image_slot']<len(images),'Invalid stored image slot')
+        image=metric_adapter.pixels(images[row['image_slot']]);digest=metric_adapter.rgb_sha(image)
+        require(wire_adapter.wire.array_sha(image)==row['image_sha256'],'Original received RGB changed before scoring')
+        if digest not in cache:
+            values=backend.score(target,image,label,ref['prepared'],negative['prepared']['dino_feature'])
+            require(all(k in values and values[k] is not None and math.isfinite(float(values[k]))for k in metric_adapter.REQUIRED),'Missing/nonfinite original metric')
+            require(values['label_conditioned'] is False and values['convnext_used_for_selection'] is False,'Independent metrics/labels cannot condition reconstruction')
+            require(math.isfinite(values['legacy_quality_psnr_db']),'Original float32 PSNR diagnostic required')
+            cache[digest]=deepcopy(values)
+        values=deepcopy(cache[digest]);mse=float(np.mean(np.square(image.astype(np.float64)-target.astype(np.float64))))
+        require(mse>0 and math.isfinite(mse),'Unexpected exact/nonfinite reconstruction')
+        psnr=float(-10*np.log10(mse))
+        require(not(set(values)&set(row)),'Metrics may not overwrite original received fields')
+        result.append(dict(row,**values,mse=mse,psnr_db=psnr,class_index=label,reference_sha256=ref['reference_sha256'],
+            reference_preprocessing_sha256=record['preprocessing_id'],metric_rgb_sha256=digest,metric_evaluator_identity=backend.identity,
+            metric_batch_size=1,metric_psnr_precision='float64 MSE and log10; original Suite float32 kept in legacy_quality_psnr_db',
+            mismatch_source_id=negative['source_id'],mismatch_reference_sha256=negative['reference_sha256'],
+            used_for_selection=False,F_recovery_error=None,F_recovery_error_status='NOT_MEASURED_NO_IMAGE_REENCODING'))
+    return result,dict(unique_metric_pairs=len(cache),metric_cache_hits=12-len(cache),new_packet_decodes=0,new_quality_population=0)

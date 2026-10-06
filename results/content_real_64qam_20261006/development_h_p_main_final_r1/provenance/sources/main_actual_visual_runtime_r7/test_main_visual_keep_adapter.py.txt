@@ -1,0 +1,179 @@
+"""Fake rendering plus AST execution of the unchanged raster loop; no model/PHY."""
+import ast
+from contextlib import nullcontext
+import copy
+import hashlib
+import os
+from pathlib import Path
+from types import SimpleNamespace
+import unittest
+import numpy as np
+import main_visual_keep_adapter as a
+import test_main_raw_keep_receiver as fixture
+
+BASE = Path(__file__).resolve().parent.parent
+SOURCE = Path(os.environ.get('MAIN_TEST_SOURCE_RENDERER', BASE/'h_source_driver.py'))
+
+
+class Tensor:
+    def __init__(self, values): self.values = np.asarray(values)
+    def __getitem__(self, index): return Tensor(self.values[index])
+    def clamp(self, lo, hi): return Tensor(self.values.clip(lo, hi))
+    def cpu(self): return self
+    def numpy(self): return self.values.copy()
+
+
+class Logits:
+    def __init__(self, scale): self.scale = scale
+    def __getitem__(self, index): assert index == 0; return self
+    def argmax(self, axis):
+        assert axis == -1
+        return Tensor(np.full(a.SIZES[self.scale]**2, 3000+self.scale, dtype=np.int64))
+
+
+class Prior:
+    made = []
+    def __init__(self, *unused):
+        self.chosen = []; self.closed = False; self.fhat = None; self.calls = []
+        self.made.append(self)
+    def logits(self, scale): self.calls.append(scale); return Logits(scale)
+    def advance(self, tokens, scale):
+        assert scale == len(self.chosen)
+        self.chosen.append(np.asarray(tokens).copy()); self.fhat = self.chosen
+    def close(self): self.closed = True
+
+
+def frozen_loop():
+    tree = ast.parse(SOURCE.read_text(encoding='utf-8'))
+    node = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'render_received')
+    env = dict(np=np, require=a.require, SIZES=a.SIZES,
+        token_count=lambda m,K=0: a.PREFIX[m]+K)
+    exec(compile(ast.Module(body=[node],type_ignores=[]),str(SOURCE),'exec'),env)
+    return env['render_received']
+
+
+def native():
+    def decoder(chosen):
+        image = np.full((1,3,256,256), int(sum(int(v.sum()) for v in chosen))%4096/4095., dtype=np.float32)
+        return Tensor(image)
+    return SimpleNamespace(receiver=SimpleNamespace(_Prior=Prior),
+        loaded=dict(vae=SimpleNamespace(quantize=SimpleNamespace(v_patch_nums=a.SIZES)),
+                    var=object(),device='fake',decoder=decoder,identity={'frozen':'fixture'}),
+        flags={'FP32':True},torch=SimpleNamespace(no_grad=nullcontext))
+
+
+class Visual(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.profiles, cls.aliases = fixture.metadata(); cls.cat = fixture.admitted(cls.profiles,cls.aliases)
+        cls.loop = staticmethod(frozen_loop())
+
+    def received(self, m=1, K=0, *, accepted=False, crc=True, legal=True):
+        p = next(p for p in self.profiles if p['m']==m and p['K']==K)
+        rx, ledger, _, _ = fixture.setup(p['profile_id'],accepted=accepted,crc=crc,legal=legal,catalogue=self.cat)
+        event = rx.receive(np.zeros((1024,2),np.float64),13,12,phase='actual_calibration',event_prefix='fake')
+        return dict(rx=event,tx={'intended_profile_id':999},evaluation_only={'truth':'never enter generation'}), ledger
+
+    def renderer(self):
+        n = native()
+        return a.frozen_native_receiver(n,self.cat,frozen_render_received=self.loop,
+            crc_accept=fixture.original.crc_accept_batch,
+            model_identity=dict(frozen_visual_identity=n.loaded['identity'],numerical_runtime=n.flags,
+                source_bindings={'frozen_renderer_sha256':hashlib.sha256(SOURCE.read_bytes()).hexdigest()}))
+
+    def test_actual_supported_catalogue_includes_m1_to_m8_not_unpaid_ids(self):
+        self.assertEqual(set(p['m'] for p in self.profiles),set(range(1,9)))
+        self.assertTrue(any(p['m']==8 and p['K']>0 for p in self.profiles))
+        self.assertEqual(len(self.cat.header_map()),270)
+
+    def test_frozen_exact_loop_m1_m2_m3_clamps_then_generates_all_finer_scales(self):
+        for m in (1,2,3):
+            frame,_ = self.received(m); result=self.renderer().reconstruct(a.receiver_view(frame))
+            prior=Prior.made[-1];state=frame['rx']['receiver_state']
+            self.assertEqual(prior.calls,list(range(10)));self.assertTrue(prior.closed)
+            for s in range(m):np.testing.assert_array_equal(prior.chosen[s],state['prefix'][s])
+            for s in range(m,10):np.testing.assert_array_equal(prior.chosen[s],np.full(a.SIZES[s]**2,3000+s))
+            self.assertFalse(result['summary']['gray']);self.assertFalse(result['summary']['body_crc_accept'])
+
+    def test_every_canonical_parser_endpoint_m1_to_m10_and_partial_with_old_loop(self):
+        n=native()
+        for m in range(1,11):
+            for K in ([0,a.SIZES[m]**2-1] if m<10 else [0]):
+                tokens=np.arange(a.PREFIX[m]+K,dtype=np.int64)%4096
+                image=self.loop(n,tokens,m,K);prior=Prior.made[-1]
+                flat=np.concatenate(prior.chosen)
+                np.testing.assert_array_equal(flat[:len(tokens)],tokens)
+                self.assertEqual(image.dtype,np.float32);self.assertTrue(prior.closed)
+        # Generic renderer capability is not catalogue admission for m9/m10.
+        self.assertFalse(any(p['m']>8 for p in self.profiles))
+
+    def test_m8_partial_raster_kept_even_crc_reject_no_entropy_order(self):
+        K=max(p['K'] for p in self.profiles if p['m']==8)
+        frame,_=self.received(8,K);out=self.renderer().reconstruct(a.receiver_view(frame))
+        prior=Prior.made[-1];np.testing.assert_array_equal(prior.chosen[8][:K],frame['rx']['receiver_state']['partial_values'])
+        np.testing.assert_array_equal(prior.chosen[8][K:],np.full(a.SIZES[8]**2-K,3008))
+        self.assertFalse(out['summary']['body_crc_accept']);self.assertFalse(out['summary']['gray'])
+
+    def test_truth_source_labels_or_intended_profile_cannot_change_rx_or_output(self):
+        frame,_=self.received(2);rx=self.renderer();first=rx.reconstruct(a.receiver_view(frame))
+        changed=copy.deepcopy(frame);changed.update(source_id='different',target=[1,2,3],class_index=999,
+            tx={'intended_profile_id':0},evaluation_only={'tokens':list(range(680))})
+        second=rx.reconstruct(a.receiver_view(changed))
+        np.testing.assert_array_equal(first['image'],second['image']);self.assertTrue(second['summary']['visual_cache_hit'])
+
+    def test_legal_received_wrong_id_uses_actual_m_not_tx_target(self):
+        frame,_=self.received(1);frame['tx']={'m':8,'K':100,'profile_id':999}
+        out=self.renderer().reconstruct(a.receiver_view(frame))
+        self.assertEqual(out['summary']['receiver_state']['m'],1)
+        self.assertEqual(len(out['received_tokens']),1)
+
+    def test_unknown_ID_and_failed_header_are_gray_with_no_renderer_or_body(self):
+        for crc,legal in ((True,False),(False,True)):
+            frame,ledger=self.received(1,crc=crc,legal=legal);rx=self.renderer();before=len(Prior.made)
+            out=rx.reconstruct(a.receiver_view(frame))
+            self.assertEqual(len(Prior.made),before);self.assertEqual(ledger.charged,1)
+            self.assertTrue(out['summary']['gray']);np.testing.assert_array_equal(out['image'],np.full((3,256,256),.5,np.float32))
+
+    def test_cache_hit_still_revalidates_this_frame_crc_state_and_bounds(self):
+        frame,_=self.received(2);rx=self.renderer();view=a.receiver_view(frame);rx.reconstruct(view)
+        for change in (lambda v:v['receiver_state'].update(m=4),
+                       lambda v:v['body'].update(crc_accept=True),
+                       lambda v:v['body']['hard_payload'].__setitem__(0,2)):
+            bad=copy.deepcopy(view);change(bad)
+            with self.assertRaises(ValueError):rx.reconstruct(bad)
+        self.assertEqual(rx.hits,0)
+
+    def test_changed_actual_hard_tokens_cannot_reuse_clean_or_other_rx_cache(self):
+        frame,_=self.received(2);rx=self.renderer();first=rx.reconstruct(a.receiver_view(frame))
+        bad=copy.deepcopy(frame['rx']);hard=np.asarray(bad['body']['hard_payload'],np.uint8);hard[0]^=1
+        decoded=fixture.original.append_crc_batch(hard)
+        if decoded.ndim==2:decoded=decoded[0]
+        bad['body'].update(hard_payload=hard.tolist(),decoded_bits=decoded.tolist(),crc_accept=True)
+        bad.update(a.wire.present_actual(bad['header'],bad['body'],self.cat))
+        second=rx.reconstruct(a.receiver_view({'rx':bad}))
+        self.assertFalse(second['summary']['visual_cache_hit']);self.assertNotEqual(first['summary']['visual_cache_key'],second['summary']['visual_cache_key'])
+
+    def test_model_error_is_preserved_and_not_gray_or_cached(self):
+        frame,_=self.received(1)
+        def fail(*args):raise RuntimeError('frozen model failure')
+        rx=a.Receiver(self.cat,crc_accept=fixture.original.crc_accept_batch,render_tokens=fail,model_identity={'x':'y'})
+        with self.assertRaisesRegex(RuntimeError,'model failure'):rx.reconstruct(a.receiver_view(frame))
+        self.assertEqual(rx.cache,{})
+
+    def test_post_generation_target_only_metric_input_requires_original_pixels(self):
+        frame,_=self.received(3);out=self.renderer().reconstruct(a.receiver_view(frame))
+        target=np.zeros((3,256,256),np.uint8);digest=hashlib.sha256(target.tobytes()).hexdigest()
+        scored=a.metric_inputs(out,target,expected_preprocessing_sha256=digest)
+        self.assertEqual(scored['primary_metric'],'dinov2_vitl14_cosine');self.assertEqual(scored['target'].dtype,np.float32)
+        with self.assertRaises(ValueError):a.metric_inputs(out,target,expected_preprocessing_sha256='0'*64)
+        self.assertFalse(out['summary']['target_used_for_generation'])
+
+    def test_bad_partial_shape_dtype_or_native_identity_refused(self):
+        frame,_=self.received(1);state=copy.deepcopy(frame['rx']['receiver_state']);state['K']=4
+        with self.assertRaises(ValueError):a.flatten_state(state)
+        n=native()
+        with self.assertRaises(ValueError):a.frozen_native_receiver(n,self.cat,frozen_render_received=self.loop,
+            crc_accept=fixture.original.crc_accept_batch,model_identity=dict(frozen_visual_identity={},numerical_runtime=n.flags))
+
+
+if __name__=='__main__':unittest.main()

@@ -1,0 +1,142 @@
+"""Metadata-only registration tests; no backend, process launch or image read."""
+import copy
+import json
+from pathlib import Path
+import tempfile
+import unittest
+from unittest import mock
+import register_main_actual_calibration_r1 as r
+from test_main_actual_calibration_owner_r1 import budget as snapshot
+
+
+def put(path,value):
+    p=Path(path);p.parent.mkdir(parents=True,exist_ok=True);p.write_text(json.dumps(value),encoding='utf8');return str(p)
+
+
+def prescreen_fixture(base):
+    root=Path(base);e=root/'execution';out=root/'science';ops=root/'ops/launch';code=root/'code.py';code.write_text('# fixture')
+    cfg=dict(schema='MAIN_PSNR_FREEZE_CONFIG_R1',root=str(root),execution=str(e),out=str(out),registration=str(e/'registration.json'))
+    cp=put(e/'config.json',cfg);reg=dict(status='MAIN_PSNR_FREEZE_EXECUTION_REGISTERED_R1',config_sha256=r.sha(cp),source_bindings={str(code):r.sha(code)})
+    put(cfg['registration'],reg);rs=r.sha(cfg['registration'])
+    parent=dict(pid=1,start_ticks=2,uid=1002,argv=['/venv/python','-B',str(code),'--root',str(root),'--stage','launch'])
+    child=dict(pid=3,start_ticks=4,uid=1002,argv=['/venv/python','-B',str(code),'--root',str(root),'--stage','worker'])
+    short=put(out/'shortlist.json',{'already_frozen':True});before=snapshot(0)
+    science=dict(status='MAIN_PSNR_SHORTLIST_FROZEN_R1',registration_sha256=rs,config_sha256=r.sha(cp),proxy_rows=540,source_count=200,
+        new_packet_decodes=0,GPU_used=False,development_used=False,budget_before=before,budget_after=before,
+        worker_identity=child,outputs={short:r.sha(short)})
+    sp=put(out/'completion.json',science);put(e/'worker_admission.json',dict(parent_identity=parent,identity=child,registration_sha256=rs))
+    lp=put(ops/'launch.json',dict(identity=child));log=ops/'process.log';log.write_text('closed\n')
+    xp=put(ops/'exit.json',dict(identity=child,exit_code=0,wait_completed=True,log_sha256=r.sha(log)))
+    done=dict(status='MAIN_PSNR_FREEZE_NORMALLY_CLOSED_R1',registration_sha256=rs,new_packet_decodes=0,GPU_used=False,
+        automatic_successor_started=False,budget_before=before,budget_after=before,outputs=r.bind([sp,short,lp,xp,log]))
+    dp=put(e/'completion.json',done);return dict(config=cp,completion=dp)
+
+
+def assets_fixture(base):
+    base=Path(base);e=base/'asset-execution';out=base/'assets';code=base/'asset.py';code.write_text('# cpu fixture')
+    ids=[f'cal{i}' for i in range(1000)];cal=dict(stage='m1_calibration',calibration_or_development='m1_calibration',
+        source_ids=ids,preprocessing_ids=[f'pre{i}' for i in range(1000)],identity={'exact':'original'})
+    calp=put(base/'calibration.json',cal);cfg=dict(out=str(out),calibration_registration=calp)
+    cfgp=put(e/'assets_config.json',cfg);argv=['/venv/python','-B',str(code),'--config',cfgp]
+    job=dict(id='full1000_assets',argv=argv,out=str(out),completion=str(out/'completion.json'))
+    oc=dict(owner_out=str(e),registration=str(e/'registration.json'),stages=[dict(resource='cpu',jobs=[job])])
+    ocp=put(e/'owner_config.json',oc);reg=dict(allowed_stage_ids=['source'],owner_config_sha256=r.sha(ocp),
+        input_bindings=r.bind([calp,cfgp]),source_bindings={str(code):r.sha(code)})
+    put(oc['registration'],reg);rs=r.sha(oc['registration']);owner=dict(pid=1,start_ticks=2,uid=1002,argv=['/system/python','-B',str(code),'--config',ocp])
+    put(e/'launch.json',dict(identity=owner,registration_sha256=rs,owner_config_sha256=r.sha(ocp)))
+    put(e/'owner_identity.json',dict(owner,registration_sha256=rs,config_sha256=r.sha(ocp)))
+    records=[];outputs={}
+    for i,sid in enumerate(ids):
+        ap=out/'sources'/f'{i:04d}.npz';ap.parent.mkdir(parents=True,exist_ok=True);ap.write_bytes(b'opaque token archive bound only')
+        cp=out/'source_checkpoints'/f'{i:04d}.json';c=dict(status='H_FULL1000_SOURCE_ASSET_READY',registration_sha256=rs,
+            source_index=i,original_calibration_index=i,source_id=sid,preprocessing_id=cal['preprocessing_ids'][i],tokens_sha256='a'*64,
+            archive=str(ap),outputs={str(ap):r.sha(ap)})
+        put(cp,c);outputs.update(r.bind([cp,ap]));records.append(dict(source_index=i,source_id=sid,preprocessing_id=c['preprocessing_id'],
+            tokens_sha256='a'*64,checkpoint=str(cp),checkpoint_sha256=r.sha(cp),archive=str(ap)))
+    mp=put(out/'manifest.json',dict(source_ids=ids,records=records,visual_identity=cal['identity']));outputs[mp]=r.sha(mp)
+    sp=put(out/'completion.json',dict(status='H_FULL1000_CPU_ASSETS_READY_SOURCE_ENCODING_INCOMPLETE',registration_sha256=rs,
+        source_count=1000,new_packet_decodes=0,development_used=False,outputs=outputs))
+    folder=e/'stages/source/workers/full1000_assets';folder.mkdir(parents=True);(folder/'worker.log').write_text('closed')
+    worker=dict(pid=3,start_ticks=4,uid=1002,argv=argv)
+    end=dict(identity=worker,exit_code=0,registration_sha256=rs,closed_log_sha256=r.sha(folder/'worker.log'),completion=sp,completion_sha256=r.sha(sp))
+    put(folder/'exit_receipt.json',end);put(folder/'launch.json',dict(identity=worker,registration_sha256=rs))
+    stage=put(e/'stages/source/completion.json',dict(status='REGISTERED_STAGE_COMPLETE',registration_sha256=rs,jobs=[end]))
+    dp=put(e/'completion.json',dict(status='REGISTERED_H_STAGE_BATCH_COMPLETE',registration_sha256=rs,allowed_stage_ids=['source'],
+        qualification_passed=True,future_stages_started=False,budget={'unresolved':0,'failed':0},
+        completed=[dict(completion=stage,sha256=r.sha(stage))]))
+    return dict(owner_config=ocp,completion=dp)
+
+
+def config_context(base):
+    e=Path(base)/'e';request=dict(root='/repo',out=str(Path(base)/'out'),ledger='/repo/MAIN.sqlite',budget_registration='/repo/budget.json',
+        profiles='/repo/profiles.json',aliases='/repo/aliases.json',legacy_runtime='/repo/old',legacy_qualification='/repo/qualification.json',
+        python='/repo/ldpc_environment/bin/python',stop_file='/repo/STOP',deadline_unix=r.w.DEADLINE,
+        resources=dict(cpu_affinity=[[24,25],[26,27]],max_seconds=14400))
+    return dict(request=request,e=e,out=Path(request['out']),short='/repo/frozen_shortlist.json',spec={'frozen':'spec'},schedule=[{'slot':0}],
+        assets=dict(manifest='/repo/assets/manifest.json',completion='/repo/assets/completion.json',calibration_registration='/repo/calibration.json'),
+        sources={},inputs={},before=snapshot(0),catalogue=type('Cat',(),{'digest':'a'*64})())
+
+
+class Tests(unittest.TestCase):
+    def test_real_owner_config_interface_and_scope(self):
+        with tempfile.TemporaryDirectory() as td:
+            ctx=config_context(td);cfg,owner=r.make_configs(ctx)
+            r.o.validate_shape(owner,dict(cfg,_path=str(ctx['e']/'worker_config.json')))
+            self.assertEqual(cfg['engineering'],r.w.ENGINEERING);self.assertEqual(owner['cpu_affinity'],[24,25,26,27])
+            self.assertFalse(owner['development_allowed']);self.assertFalse(owner['quality_selection_allowed'])
+            self.assertEqual(cfg['shortlist'],'/repo/frozen_shortlist.json')
+
+    def test_normal_prescreen_actual_parent_and_worker_required(self):
+        with tempfile.TemporaryDirectory() as td:
+            spec=prescreen_fixture(td)
+            with mock.patch.object(r.w,'exited',return_value=True):c=r.prescreen_closed(spec,{})
+            self.assertEqual(c['science']['proxy_rows'],540)
+            with mock.patch.object(r.w,'exited',return_value=False),self.assertRaisesRegex(ValueError,'both exit'):r.prescreen_closed(spec,{})
+
+    def test_prescreen_changed_output_or_failed_exit_refused(self):
+        with tempfile.TemporaryDirectory() as td:
+            spec=prescreen_fixture(td);cp=Path(td)/'science/shortlist.json';cp.write_text('changed')
+            with mock.patch.object(r.w,'exited',return_value=True),self.assertRaises(ValueError):r.prescreen_closed(spec,{})
+        with tempfile.TemporaryDirectory() as td:
+            spec=prescreen_fixture(td);(Path(td)/'ops/launch/failure.json').write_text('{}')
+            with mock.patch.object(r.w,'exited',return_value=True),self.assertRaisesRegex(ValueError,'failure'):r.prescreen_closed(spec,{})
+
+    def test_real1000_asset_metadata_only_closure(self):
+        with tempfile.TemporaryDirectory() as td:
+            spec=assets_fixture(td)
+            with mock.patch.object(r.w,'exited',return_value=True):ctx=r.assets_closed(spec,{})
+            self.assertEqual(len(ctx['records']),1000);self.assertTrue(ctx['records'][-1]['archive'] in ctx['bindings'])
+
+    def test_asset_incomplete_or_changed_original_source_refused(self):
+        with tempfile.TemporaryDirectory() as td:
+            spec=assets_fixture(td);(Path(td)/'assets/source_checkpoints/0999.json').write_text('{}')
+            with mock.patch.object(r.w,'exited',return_value=True),self.assertRaisesRegex(ValueError,'checkpoint'):r.assets_closed(spec,{})
+
+    def test_registration_seal_only_after_new_owner_preflight(self):
+        with tempfile.TemporaryDirectory() as td:
+            ctx=config_context(td)
+            original=r.sha
+            with mock.patch.object(r,'context',return_value=ctx),mock.patch.object(r,'readonly_budget',return_value=ctx['before']),\
+                 mock.patch.object(r,'verify'),mock.patch.object(r,'sha',wraps=r.sha) as digest,\
+                 mock.patch.object(r.o,'load') as load:
+                # Only the external frozen budget file is synthetic here.
+                digest.side_effect=lambda p:'b'*64 if str(p)=='/repo/budget.json' else original(p)
+                result=r.register('not-read-in-this-isolated-test')
+            self.assertEqual(result['status'],r.REGISTERED);load.assert_called_once()
+            reg=r.read(ctx['e']/'execution_registration.json');self.assertFalse(reg['H_development_reserve_touched'])
+            self.assertEqual(reg['phase_packet_cap'],60000);self.assertFalse(result['workers_started'])
+
+    def test_failed_registration_preserves_failure_without_launch(self):
+        with tempfile.TemporaryDirectory() as td:
+            ctx=config_context(td)
+            with mock.patch.object(r,'context',return_value=ctx),mock.patch.object(r,'make_configs',side_effect=ValueError('bad shape')):
+                with self.assertRaises(ValueError):r.register('unused')
+            self.assertTrue((ctx['e']/'registration_failure.json').exists());self.assertFalse((ctx['e']/'registration_completion.json').exists())
+
+    def test_wrong_scheme_or_nonlinux_cannot_create_registration(self):
+        with tempfile.TemporaryDirectory() as td:
+            request=put(Path(td)/'request.json',{'schema':'wrong'})
+            with self.assertRaisesRegex(ValueError,'Linux calibration'):r.context(request)
+
+
+if __name__=='__main__':unittest.main()

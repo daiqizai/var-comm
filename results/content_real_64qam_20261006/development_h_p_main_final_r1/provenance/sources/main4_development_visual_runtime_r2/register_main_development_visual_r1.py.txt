@@ -1,0 +1,217 @@
+"""Register one MAIN4 received-image/metric job after its normal CPU closure.
+
+No model construction, process launch, policy selection or ledger writes.
+The request names real predecessor files; it cannot substitute a planned result.
+"""
+from __future__ import annotations
+import argparse
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import re
+import sys
+import time
+import traceback
+
+SCHEMA='MAIN4_ACTUAL_RX_METRICS_REGISTRATION_REQUEST_R1'
+QUALIFIED='MAIN4_ACTUAL_RX_METRICS_CPU_QUALIFICATION_PASS_R1'
+DEADLINE=1791564605.9549868
+TEST_MODULES=['test_main_development_image_metric_core_r1','test_main_development_visual_driver_r1',
+    'test_main_development_visual_owner_r1','test_register_main_development_visual_r1']
+# Original core8 + worker8 + owner17 + registrar10; CPU-only qualification.
+TEST_COUNT=43
+MODULE_KEYS=('worker_module','visual_owner_module','core_module','rx_adapter_module','metric_adapter_module',
+    'metric_driver_module','cpu_owner_module','env_compatibility_module')
+NATIVE_KEYS=('root','runtime_dir','uep_runtime','native_runtime','var_source','dino_source',
+    'source_driver_module','static_closure_module','quality_driver_module','legacy_phy_module','native_qualification')
+
+
+def require(ok,message):
+    if not ok:raise RuntimeError(message)
+def read(path):return json.loads(Path(path).read_text(encoding='utf-8-sig'))
+def sha(path):
+    h=hashlib.sha256()
+    with Path(path).open('rb') as f:
+        for chunk in iter(lambda:f.read(1048576),b''):h.update(chunk)
+    return h.hexdigest()
+def save(path,value):
+    path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
+    with path.open('x',encoding='utf-8',newline='\n') as f:
+        json.dump(value,f,sort_keys=True,indent=2,allow_nan=False);f.write('\n');f.flush();os.fsync(f.fileno())
+def bind(paths):return {str(Path(p).absolute()):sha(p) for p in paths}
+def combine(*maps):
+    result={}
+    for values in maps:
+        for p,s in values.items():require(p not in result or result[p]==s,'Conflicting SHA: '+p);result[p]=s
+    return result
+def verify(pins):
+    for p,s in pins.items():require(Path(p).is_absolute() and re.fullmatch('[0-9a-f]{64}',s) and sha(p)==s,'Changed bound file: '+p)
+def module(path,name,bound):
+    path=str(Path(path).absolute());require(bound.get(path)==sha(path),'Dependency must be bound before import: '+path)
+    spec=importlib.util.spec_from_file_location(name,path);m=importlib.util.module_from_spec(spec);sys.modules[name]=m;spec.loader.exec_module(m);return m
+
+
+def shape(r,*,fresh=True):
+    require(r['schema']==SCHEMA and r['automatic_successor'] is False and r['policy_selection'] is False,
+        'One separate received-image job, no successor or policy selection')
+    root=Path(r['root']);base=root/'outputs/CONTENT-REAL-64QAM-20261006';e=Path(r['execution_dir']);out=Path(r['out'])
+    require(root.is_absolute() and e.parent==out.parent==base/'MAIN' and e!=out,'Separate MAIN execution/output siblings required')
+    if fresh:require(not e.exists() and not out.exists(),'Fresh execution/output required; preserve every old attempt')
+    require(r['deadline_unix']==DEADLINE and time.time()<DEADLINE,'Original overall deadline required')
+    require(r['python']==str(root/'outputs/UNIFIED-METRICS-20261002/environment/bin/python'),
+        'Original UM interpreter path required without resolving its symlink')
+    p=r['pythonpath'];require(p and p[0]==str(Path(__file__).absolute().parent) and len(p)==len(set(p))
+        and all(Path(x).is_absolute() for x in p),'Explicit new/original import order required')
+    require(set(r['cpu_batch'])=={'owner_config','completion'} and set(r['historical_H_metrics'])=={'config','registration','completion','owner_completion'},
+        'Exact actual CPU and historical metric receipt specifications required')
+    resources=r['resources']
+    require(resources['gpu_device']==0 and resources['gpu_threads']==6 and resources['gpu_affinity']==[4,5,6,7,8,9]
+        and resources['nice']==15 and type(resources['max_seconds'])is int and 0<resources['max_seconds']<=86400
+        and resources['max_archive_bytes']==2*1024**3,'Original single-GPU resources and bounded float32 archive required')
+    require(r['visual_lock_path']==str(base/'shared_visual.lock') and Path(r['nvidia_smi']).is_absolute(),'Original shared GPU lock and executable required')
+    for folder in (base,base/'H',base/'MAIN',e,out):
+        require(not (folder/'STOP').exists(),'Unresolved STOP: '+str(folder/'STOP'))
+    return e,out
+
+
+def cpu_closed(r,bound):
+    """Check explicit self-registration before importing the original CPU owner."""
+    for p in r['cpu_batch'].values():require(bound.get(p)==sha(p),'Normal CPU owner/completion must be bound before reading')
+    oc=read(r['cpu_batch']['owner_config']);rp=oc['registration']
+    require(bound.get(rp)==sha(rp),'CPU self-registration must be explicitly bound before import')
+    reg=read(rp)
+    for p,s in reg['source_bindings'].items():require(bound.get(p)==s==sha(p),'Original CPU verifier source changed: '+p)
+    owner=module(r['cpu_owner_module'],'main4_visual_registration_CPU_owner',bound)
+    closed=owner.closed_batch(r['cpu_batch'])
+    require(closed['ctx']['cfg']['owner_module']==r['cpu_owner_module'],'Wrong CPU owner implementation')
+    return owner,closed
+
+
+def inspect_inputs(request,*,fresh=True):
+    """One metadata context, reusable by qualification and registration tools."""
+    r=read(request) if isinstance(request,(str,Path)) else request
+    e,out=shape(r,fresh=fresh);verify(r['source_bindings']);verify(r['input_bindings'])
+    sources=dict(r['source_bindings']);inputs=dict(r['input_bindings']);bound=combine(sources,inputs)
+    for p in [str(Path(__file__).absolute()),*[r[k] for k in MODULE_KEYS]]:
+        require(sources.get(p)==sha(p),'Executed registration/visual source must be explicit: '+p)
+    sys.path[:0]=[p for p in r['pythonpath'] if p not in sys.path]
+    cpu_owner,closed=cpu_closed(r,bound);cc=closed['ctx'];nativep=r['native_reference_config']
+    require(cc['predecessor']['bindings'].get(nativep)==bound.get(nativep)==sha(nativep),
+        'Native reference must be from the normally sealed R8 predecessor')
+    native=read(nativep);nrp=native['registration']
+    require(cc['predecessor']['bindings'].get(nrp)==bound.get(nrp)==sha(nrp),'Native self-registration must be sealed before reading')
+    nr=read(nrp);original=combine(nr['source_bindings'],nr['input_bindings'])
+    sources=combine(sources,cc['reg']['source_bindings'],nr['source_bindings'])
+    inputs=combine(inputs,closed['bindings'],bind([nativep,nrp]))
+    d=module(r['worker_module'],'main4_visual_registration_worker',combine(sources,inputs))
+    prior=d.historical_metrics(r['historical_H_metrics'],cc,combine(sources,inputs))
+    hc=prior['config'];hr=prior['registration'];historic=combine(hr['source_bindings'],hr['input_bindings'])
+    require(r['metric_assets']==hc['metric_assets'] and r['metric_driver_module']==hc['metric_driver_module']
+        and r['metric_adapter_module']==hc['metric_adapter_module'],'Original H evaluator modules/assets required')
+    for p in (r['metric_assets'],r['metric_driver_module'],r['metric_adapter_module']):
+        require(historic.get(p)==sha(p),'Original metric dependency changed: '+p)
+    hd=module(r['metric_driver_module'],'main4_visual_registration_H_metrics',combine(sources,inputs))
+    assets,assetpins,metricflags=hd.metric_assets(r['metric_assets'])
+    sources=combine(sources,hr['source_bindings']);inputs=combine(inputs,assetpins,bind([r['metric_assets'],r['metric_policy']]))
+    require(sha(r['metric_policy'])==prior['done']['metric_metadata']['independent']['policy_sha256'],
+        'Original classifier policy provenance required, never MAIN development selection')
+    # These are previously admitted native loader model/state files, not old
+    # source RGB/codec archives. Their original registration remains pinned.
+    native_models={p:s for p,s in original.items() if Path(p).suffix.lower() in ('.pt','.pth','.safetensors','.bin')}
+    require(native_models,'Original native checkpoint/state closure missing');inputs=combine(inputs,native_models)
+    for key in ('source_driver_module','static_closure_module','quality_driver_module','legacy_phy_module','native_qualification'):
+        p=native[key];require(original.get(p)==sha(p),'Original native loader dependency missing: '+key);inputs[p]=sha(p)
+    graphp=r['native_source_graph'];require(bound.get(graphp)==sha(graphp),'Current native graph must be explicitly SHA-bound')
+    graph=read(graphp);static=graph['source_bindings'];sources=combine(sources,static)
+    helper=module(native['static_closure_module'],'main4_visual_registration_native_graph',combine(sources,inputs))
+    require(helper.collect_bindings(native['root'],native['native_runtime'],native['var_source'],native['dino_source'],native['uep_runtime'])==static,
+        'Current source graph differs; do not change sources while visual worker is active')
+    for p,s in nr['native_source_bindings'].items():require(static.get(p)==s,'Historical native source changed: '+p)
+    require(native['python']==r['python'] and native['gpu_affinity']==r['resources']['gpu_affinity']
+        and native['gpu_threads']==r['resources']['gpu_threads'] and native['deadline_unix']==DEADLINE,
+        'Original normal R8 interpreter/resource provenance differs')
+    inputs=combine(inputs,bind([r['nvidia_smi'],graphp]))
+    require(original.get(r['nvidia_smi'])==inputs[r['nvidia_smi']],'Original GPU query executable changed')
+    env=module(r['env_compatibility_module'],'main4_visual_registration_environment',combine(sources,inputs))
+    preflight=str(Path(r['root'])/env.PREFLIGHT)
+    require(sources.get(preflight)==env.PREFLIGHT_SHA==sha(preflight),'Exact original before6/afterOPENBLAS2 loader must be sealed')
+    before=dict(H=closed['done']['budget_after'],MAIN=closed['done']['MAIN_budget_after'])
+    require(before['H']['charged']==164760+before['H']['MAIN4_calls'] and 1200<=before['H']['MAIN4_calls']<=2400
+        and before['H']['unresolved']==0 and before['MAIN']['charged']==105176 and before['MAIN']['unresolved']==0,
+        'Actual MAIN4 H fees and unchanged calibration budget required')
+    owner=module(r['visual_owner_module'],'main4_visual_registration_owner',combine(sources,inputs))
+    verify(sources);verify(inputs)
+    return dict(request=r,e=e,out=out,sources=sources,inputs=inputs,driver=d,owner=owner,cpu_owner=cpu_owner,
+        cpu_closed=closed,cpu_ctx=cc,native=native,static=static,before=before,historical_metrics=prior,metric_flags=metricflags)
+
+
+def make_configs(ctx):
+    r=ctx['request'];e=ctx['e'];cp=e/'worker_config.json';op=e/'owner_config.json';rp=e/'execution_registration.json'
+    cfg={k:ctx['native'][k] for k in NATIVE_KEYS}
+    cfg.update({k:r[k] for k in MODULE_KEYS})
+    cfg.update({k:r[k] for k in ('python','pythonpath','cpu_batch','historical_H_metrics','native_reference_config',
+        'native_source_graph','metric_assets','metric_policy','prepared_qualification')})
+    cfg.update(schema=ctx['driver'].SCHEMA,out=str(ctx['out']),registration=str(rp),visual_owner_config=str(op),
+        deadline_unix=DEADLINE,stop_file=str(e.parent/'STOP'),**r['resources'])
+    oc=dict(schema=ctx['owner'].SCHEMA,registration=str(rp),worker_config=str(cp),worker_argv=ctx['driver'].command(dict(cfg,_path=str(cp))),
+        owner_out=str(e),python=r['python'],pythonpath=r['pythonpath'],prepared_qualification=r['prepared_qualification'],
+        gpu_device=0,gpu_threads=6,gpu_affinity=cfg['gpu_affinity'],cpu_affinity=cfg['gpu_affinity'],nice=15,
+        max_seconds=cfg['max_seconds'],deadline_unix=DEADLINE,automatic_successor=False,
+        visual_lock_path=r['visual_lock_path'],nvidia_smi=r['nvidia_smi'])
+    return cfg,oc
+
+
+def qualification(ctx):
+    r=ctx['request'];p=r['prepared_qualification'];q=read(p)
+    require(TEST_COUNT>0 and q['status']==QUALIFIED and q['python']==r['python'] and q['pythonpath']==r['pythonpath']
+        and q['tests_run']==TEST_COUNT and q['test_modules']==TEST_MODULES and q['process_waited'] is True and q['exit_code']==0
+        and q['new_packet_decodes']==0 and q['GPU_used'] is False and q['model_imports'] is False,'Exact original-environment CPU qualification required')
+    for key in ('source_bindings','input_bindings','outputs'):verify(q[key])
+    for p,s in ctx['sources'].items():require(q['source_bindings'].get(p)==s,'Qualification omitted executed source: '+p)
+    for p,s in ctx['inputs'].items():require(q['input_bindings'].get(p)==s,'Qualification omitted admitted input: '+p)
+    for name in TEST_MODULES:
+        path=str(Path(__file__).absolute().parent/(name+'.py'))
+        require(q['source_bindings'].get(path)==ctx['sources'].get(path)==sha(path),'Formal test source must be directly bound: '+path)
+    text=Path(q['log']).read_text(encoding='utf-8',errors='replace')
+    require(q['outputs'].get(q['log'])==sha(q['log']) and re.search(r'Ran '+str(TEST_COUNT)+r' tests in .*\n\s*OK\s*$',text)
+        and not re.search(r'\bskipped\b',text,re.I),'Complete closed qualification log without skips required')
+    return q
+
+
+def register(request_path):
+    require(sys.platform.startswith('linux'),'Actual original Linux predecessor identities required')
+    request_path=str(Path(request_path).absolute());ctx=inspect_inputs(request_path);q=qualification(ctx);e=ctx['e'];r=ctx['request']
+    e.mkdir(parents=True)
+    try:
+        cfg,oc=make_configs(ctx);cp=e/'worker_config.json';op=e/'owner_config.json';rp=e/'execution_registration.json'
+        save(cp,cfg);save(op,oc)
+        inputs=combine(ctx['inputs'],q['outputs'],bind([request_path,r['prepared_qualification'],cp,op]))
+        bound=combine(ctx['sources'],inputs)
+        checked=ctx['driver'].inspect(dict(cfg,_path=str(cp)),bound,closed=ctx['cpu_closed'])
+        require(ctx['driver'].budget_snapshot(checked)==ctx['before'],'Physical accounting changed during metadata registration')
+        reg=dict(status=ctx['driver'].REGISTERED,owner_scope='MAIN4_ACTUAL_RX_METRICS_ONLY',config_sha256=sha(cp),owner_config_sha256=sha(op),
+            source_bindings=ctx['sources'],input_bindings=inputs,budget_before=ctx['before'],native_source_bindings=ctx['static'],
+            qualification_test_count=TEST_COUNT,qualification_test_modules=TEST_MODULES,source_count=100,frame_count=1200,
+            noise_seeds=[6201,6202,6203],slots=[18,19,20,21],new_packet_decodes=0,noise_generated=0,GPU_jobs=1,
+            policy_selection=False,development_used=True,holdout_used=False,automatic_successor=False)
+        save(rp,reg)
+        # Reuse the actual closed CPU audit from this admission. These are the
+        # exact metadata consumers of owner.load(require_seal=False); the later
+        # independent owner launch still performs its complete load itself.
+        verified=dict(checked,reg=reg,regsha=sha(rp));owner_cfg=dict(oc,_path=str(op))
+        ctx['owner'].validate_shape(owner_cfg,verified)
+        require(reg['owner_config_sha256']==sha(op) and reg['config_sha256']==sha(cp)
+            and reg['owner_scope']=='MAIN4_ACTUAL_RX_METRICS_ONLY','New owner/config registration differs')
+        ctx['owner'].qualification(verified)
+        require(ctx['driver'].budget_snapshot(verified)==ctx['before'],'Original ledgers changed before registration seal')
+        done=dict(status=ctx['owner'].REGISTERED,registration_sha256=sha(rp),owner_config_sha256=sha(op),outputs=bind([cp,op,rp]),
+            budget_before=ctx['before'],worker_started=False,GPU_used=False,new_packet_decodes=0)
+        save(e/'registration_completion.json',done);return done
+    except BaseException:
+        save(e/'registration_failure.json',dict(status='FAILED_PRESERVE_NO_LAUNCH',traceback=traceback.format_exc()));raise
+
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--request',required=True);a=p.parse_args();print(register(a.request)['status'])

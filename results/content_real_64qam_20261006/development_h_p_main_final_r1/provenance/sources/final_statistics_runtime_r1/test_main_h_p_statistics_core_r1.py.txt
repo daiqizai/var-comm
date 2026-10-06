@@ -1,0 +1,65 @@
+import copy
+import sys
+import unittest
+from pathlib import Path
+import numpy as np
+import main_h_p_statistics_core_r1 as c
+sys.path.insert(0,str(Path(__file__).parent.parent/'development_prep'))
+import h_p_main_source_statistics as s
+
+def fixture():
+    ids=[f's{i}'for i in range(100)];metrics={f'm{i}':f'definition{i}'for i in range(18)}
+    def pt(branch,snr):return dict(branch=branch,snr_db=snr,noise_seeds=list(s.NOISE[branch]),policy_sha256='a'*64,metric_identity=metrics)
+    old={f'H18_SLOT_{i:02d}':pt('H',13 if i<9 else 19)for i in range(18)}
+    old.update({f'P1024_SNR_{snr}':pt('P',snr)for snr in (13,19)})
+    pairs=[(p,'P1024_SNR_'+str(v['snr_db']))for p,v in old.items()if v['branch']=='H']
+    schedule=[dict(development_slot=slot,snr_db=snr,modulation=mod,candidate_id='frozen'+mod,profile_id=88 if mod=='QPSK'else 243,wire_key='wire'+mod,m=6 if mod=='QPSK'else 8,K=40 if mod=='QPSK'else 9)for slot,snr,mod in c.ORDER]
+    plan=c.plan(old,pairs,schedule,'b'*64,metrics)
+    bridge=[dict(source_index=i,source_id=sid,original_reference_sha256={'H':'c'*64},true_class=i,preprocessing_sha256={'H':'d'*64},reference_sha256='e'*64)for i,sid in enumerate(ids)]
+    refs=[dict(source_index=i,source_id=sid,reference_sha256='c'*64,true_class=i,resnet50_source_prediction=i,convnext_source_prediction=i)for i,sid in enumerate(ids)]
+    rows=[]
+    for i,sid in enumerate(ids):
+        for p in schedule:
+            for n in c.SEEDS:rows.append(dict(p,source_index=i,source_id=sid,noise_seed=n,N=1024,population_role='development',source_decode_complete=True,image_reconstruction_complete=True,used_for_selection=False,policy_selection=False,public_frame_counter=(p['development_slot']*100+i)*3+c.SEEDS.index(n),reference_sha256='c'*64,reference_preprocessing_sha256='d'*64,class_index=i,resnet50_source_prediction=i,convnext_source_prediction=i,**{m:.25+i*.001 for m in metrics}))
+    means=[dict(point_id=p,metric=m,source_index=i,source_id=sid,mean=i*.001)for p in old for m in metrics for i,sid in enumerate(ids)]
+    return ids,metrics,schedule,plan,bridge,refs,rows,means
+
+class Tests(unittest.TestCase):
+    def setUp(self):self.ids,self.metrics,self.schedule,self.plan,self.bridge,self.refs,self.rows,self.means=fixture()
+    def normalize(self):return c.normalize_main(self.rows,self.ids,self.schedule,self.plan['points'],self.bridge,self.refs,self.metrics)
+    def test_frozen_pairs_include_both_modulations_without_score_ranking(self):
+        self.assertEqual(len(self.plan['points']),24);self.assertEqual(len(self.plan['comparisons']),58)
+        self.assertIn(('H18_SLOT_00','MAIN_SLOT_18'),self.plan['comparisons']);self.assertIn(('H18_SLOT_00','MAIN_SLOT_19'),self.plan['comparisons'])
+        self.assertEqual(self.plan['points']['P1024_SNR_13']['noise_seeds'],[2001,2002,2003])
+    def test_complete_grid_and_reference_bridge(self):
+        out=self.normalize();self.assertEqual(len(out),1200)
+        self.assertEqual(out[0]['reference_sha256'],'e'*64);self.assertEqual(out[0]['original_reference_sha256'],'c'*64)
+        self.assertEqual(out[0]['true_class'],0);self.assertFalse(out[0]['used_for_selection'])
+    def test_reject_population_noise_counter_or_policy_change(self):
+        for key,bad in [('noise_seed',2001),('public_frame_counter',0),('candidate_id','alternate'),('used_for_selection',True),('source_id','wrong')]:
+            rows=copy.deepcopy(self.rows);rows[0][key]=bad
+            with self.assertRaises(ValueError):c.normalize_main(rows,self.ids,self.schedule,self.plan['points'],self.bridge,self.refs,self.metrics)
+    def test_reject_reference_and_classifier_change(self):
+        for key,bad in [('reference_sha256','f'*64),('reference_preprocessing_sha256','f'*64),('resnet50_source_prediction',999),('class_index',999)]:
+            rows=copy.deepcopy(self.rows);rows[0][key]=bad
+            with self.assertRaises(ValueError):c.normalize_main(rows,self.ids,self.schedule,self.plan['points'],self.bridge,self.refs,self.metrics)
+    def test_reject_duplicate_missing_or_nan_metric(self):
+        for rows in [self.rows[:-1],self.rows[:-1]+[self.rows[0]],copy.deepcopy(self.rows)]:
+            if len(rows)==1200 and rows[-1]is not self.rows[0]:rows[0]['m0']=float('nan')
+            with self.assertRaises(ValueError):c.normalize_main(rows,self.ids,self.schedule,self.plan['points'],self.bridge,self.refs,self.metrics)
+    def test_unchanged_old_means_and_original_bootstrap(self):
+        # Keep original10000 source draws; run a single-metric projection here.
+        rows=self.normalize();contract=copy.deepcopy(self.plan)
+        for p in contract['points'].values():p['metric_identity']={'m0':p['metric_identity']['m0']}
+        for r in rows:r['metric_identity']={'m0':r['metric_identity']['m0']}
+        old=[r for r in self.means if r['metric']=='m0']
+        result=c.combine_summary(old,rows,self.ids,contract,s)
+        oldback=[r for r in result['source_means']if not r['point_id'].startswith('MAIN')]
+        self.assertEqual(old,oldback);self.assertEqual(len(result['summary']),24);self.assertEqual(len(result['paired']),58)
+        r=next(r for r in result['paired']if r['method']=='MAIN_SLOT_18')
+        self.assertAlmostEqual(r['mean'],.25);self.assertAlmostEqual(r['ci_low'],.25);self.assertEqual(r['bootstrap_replicates'],10000)
+        self.assertFalse(r['frame_level_noise_pairing_claimed'])
+    def test_incomplete_old_sources_rejected_not_intersected(self):
+        with self.assertRaises(ValueError):c.combine_summary(self.means[:-1],self.normalize(),self.ids,self.plan,s)
+
+if __name__=='__main__':unittest.main()

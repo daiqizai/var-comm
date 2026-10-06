@@ -1,0 +1,421 @@
+"""R8 predecessor adapter for the unchanged finite-shortlist DINO-L selector.
+
+This new CPU wrapper calls the original finite-shortlist selector unchanged.
+It never constructs a model, opens H/C accounting, or starts development.
+Qualify, register and launch are separate single-attempt operations.
+"""
+from __future__ import annotations
+import argparse
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import re
+import signal
+import subprocess
+import sys
+import time
+import traceback
+
+REQUEST='MAIN_ACTUAL_SELECTION_REQUEST_R8'
+CONFIG='MAIN_ACTUAL_SELECTION_CONFIG_R8'
+REG='MAIN_ACTUAL_SELECTION_EXECUTION_REGISTERED_R8'
+QUALIFIED='MAIN_ACTUAL_SELECTION_CPU_INTERFACE_QUALIFICATION_PASS_R8'
+REGISTERED='MAIN_ACTUAL_SELECTION_REGISTERED_NOT_LAUNCHED_R8'
+DONE='MAIN_ACTUAL_DINO_L_SELECTION_COMPLETE_R8'
+CLOSED='MAIN_ACTUAL_SELECTION_NORMALLY_COMPLETE_R8'
+OWNER_SHA='b8582de7bf1fb1bfc7da7bfa6d5fb2e70078d9ad1bf7c3ac325af9b156e998df'
+ORIGINAL_WRAPPER_SHA='07e66831f2a78a19e952785bd118b7967e98d8ff80a0fad194c0c984ffe59cdd'
+SELECTOR_SHA='aedd71d7a10774ec4d3e8f7c57704fc34c10bcb83d464277cef9e51deaec9b4b'
+SELECTOR_TEST_SHA='afc3d6ee102512fe2ae231624154a62cdb0fa765d926d1a6d452a158b6bc3972'
+DEADLINE=1791564605.9549868
+CPU=[24,25]
+THREADS=('OMP_NUM_THREADS','MKL_NUM_THREADS','OPENBLAS_NUM_THREADS','NUMEXPR_NUM_THREADS')
+TESTS=['test_main_calibration_select_13_19_r1','test_main_actual_selection_r8']
+TEST_COUNT=22
+
+
+def require(ok,message):
+    if not ok:raise RuntimeError(message)
+
+
+def read(path):return json.loads(Path(path).read_text(encoding='utf-8-sig'))
+def sha(path):
+    h=hashlib.sha256()
+    with Path(path).open('rb') as f:
+        for block in iter(lambda:f.read(1048576),b''):h.update(block)
+    return h.hexdigest()
+
+
+def save(path,value):
+    path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
+    with path.open('x',encoding='utf-8',newline='\n') as f:
+        json.dump(value,f,ensure_ascii=False,sort_keys=True,indent=2,allow_nan=False)
+        f.write('\n');f.flush();os.fsync(f.fileno())
+
+
+def verify(mapping):
+    for p,s in mapping.items():require(Path(p).is_absolute() and sha(p)==s,'Bound file changed: '+p)
+
+
+def combine(*maps):
+    result={}
+    for values in maps:
+        for p,s in values.items():
+            require(p not in result or result[p]==s,'Conflicting binding: '+p);result[p]=s
+    return result
+
+
+def bind(paths):return {str(Path(p).absolute()):sha(p) for p in paths}
+def module(path,name):
+    spec=importlib.util.spec_from_file_location(name,path);m=importlib.util.module_from_spec(spec)
+    sys.modules[name]=m;spec.loader.exec_module(m);return m
+
+
+def validate_request(r):
+    require(r['schema']==REQUEST,'Independent selection request required')
+    root=Path(r['root']);main=root/'outputs/CONTENT-REAL-64QAM-20261006/MAIN'
+    require(root.is_absolute() and set(r['visual_batch'])=={'owner_config','completion'},'Exact visual predecessor required')
+    visual=main/'actual_visual_execution_r8'
+    require(r['visual_batch']==dict(owner_config=str(visual/'owner_config.json'),completion=str(visual/'completion.json'))
+        and set(r['visual_registration'])=={'path','sha256'}
+        and r['visual_registration']['path']==str(visual/'execution_registration.json'),
+        'Only original normally completed R8 visual batch is admissible')
+    paths=[Path(r[k]) for k in ('execution_dir','out','operations_dir','qualification_dir')]
+    require(all(p.is_absolute() and main in p.parents for p in paths) and len(set(paths))==4
+        and not any(a in b.parents for a in paths for b in paths if a!=b),'Four disjoint new MAIN directories required')
+    require(r['resources']['cpu_affinity']==CPU and r['resources']['threads']==2 and r['resources']['nice']==15
+        and 0<r['resources']['max_seconds']<=7200 and r['resources']['deadline_unix']==DEADLINE,
+        'Bounded two-core CPU selection required')
+    dirs=r['runtime_dirs'];require(len(dirs)==len(set(dirs))==5 and all(Path(p).is_absolute() for p in dirs),
+        'Explicit selection/visual/actual/physical/PSNR runtime order required')
+    require(dirs[0]==str(Path(__file__).absolute().parent) and dirs[1]==str(Path(r['visual_owner_module']).parent),
+        'Selection and visual runtime paths differ')
+    require(r['automatic_successor'] is False,'No automatic development or other successor')
+    original=r['original_selection_wrapper']
+    require(set(original)=={'path','sha256'} and Path(original['path']).is_absolute()
+        and original['sha256']==ORIGINAL_WRAPPER_SHA,'Explicit unchanged original selection wrapper test input required')
+
+
+def context(request_path):
+    path=str(Path(request_path).absolute());r=read(path);validate_request(r)
+    require(sha(r['visual_owner_module'])==OWNER_SHA,'Frozen normal visual owner changed')
+    oc=read(r['visual_batch']['owner_config']);pin=r['visual_registration']
+    require(oc['registration']==pin['path'] and sha(pin['path'])==pin['sha256'],'Explicit original visual self-registration pin required')
+    vr=read(pin['path'])
+    require(vr['owner_config_sha256']==sha(r['visual_batch']['owner_config'])
+        and vr['source_bindings'].get(r['visual_owner_module'])==OWNER_SHA,'Visual owner not sealed by its original registration')
+    require(Path(r['visual_batch']['completion']).is_file(),'Normal R8 visual owner completion is required before selection admission')
+    verify(vr['source_bindings']) # Original closed_batch verifies all inputs once it is safely imported.
+    sys.path[:0]=[p for p in r['runtime_dirs'] if p not in sys.path]
+    owner=module(r['visual_owner_module'],'_main_selection_visual_owner')
+    closed=owner.closed_batch(r['visual_batch']);vc=closed['ctx'];cc=vc['cpu_ctx'];done=closed['done']
+    require(vc['cfg']['root']==r['root'] and oc['python']==vc['cfg']['python']
+        and Path(oc['python']).is_absolute(),'Original actual GPU interpreter required without symlink resolution')
+    selector=vc['cpu'].selection
+    require(sha(selector.__file__)==SELECTOR_SHA,'Frozen DINO-L selector changed')
+    tp=Path(selector.__file__).with_name('test_main_calibration_select_13_19_r1.py')
+    require(sha(tp)==SELECTOR_TEST_SHA,'Original selector fixture changed')
+    require(done['frame_count']==30000 and len(cc['schedule'])==10 and len(cc['records'])==1000
+        and done['budget_before']==done['budget_after']==vc['before'],'Exact normally completed finite1000 grid required')
+    original=r['original_selection_wrapper'];require(sha(original['path'])==ORIGINAL_WRAPPER_SHA,'Original selection wrapper changed')
+    sources=combine(vr['source_bindings'],bind([__file__,Path(__file__).with_name('test_main_actual_selection_r8.py'),tp,original['path']]))
+    inputs=combine(closed['bindings'],bind([path,pin['path'],Path(r['visual_batch']['owner_config']).parent/'registration_completion.json']))
+    # Imported old code must be one of the original sealed paths, not a copied shadow.
+    bound=combine(sources,inputs)
+    for m in list(sys.modules.values()):
+        p=getattr(m,'__file__',None)
+        if p and Path(p).suffix=='.py' and Path(p).absolute().parent in map(Path,r['runtime_dirs']):
+            p=str(Path(p).absolute())
+            require(bound.get(p)==sha(p),'Loaded runtime is not bound: '+p)
+    for p in [r[k] for k in ('execution_dir','out','operations_dir','qualification_dir')]:
+        require(Path(p)!=Path(vc['cfg']['out']) and Path(p)!=Path(oc['owner_out']),'New selection overlaps original visual evidence')
+    ctx=dict(request=r,request_path=path,owner=owner,visual=vc,closed=closed,selector=selector,cpu=cc,
+        sources=sources,inputs=inputs,before=vc['before'],python=oc['python'])
+    boundary(ctx);return ctx
+
+
+def boundary(ctx,*,budget=True,deadline=True):
+    r=ctx['request'];main=Path(r['root'])/'outputs/CONTENT-REAL-64QAM-20261006/MAIN'
+    require(not deadline or time.time()<DEADLINE,'Original deadline reached')
+    require(not any(p.exists() for p in (main/'STOP',main.parent/'STOP',main.parent/'H/STOP',
+        Path(r['execution_dir'])/'STOP',Path(r['out'])/'STOP')),'STOP preserved; no successor')
+    if budget:require(ctx['owner'].w.budget_snapshot(ctx['visual'])==ctx['before'],'Readonly MAIN budget changed')
+
+
+def environment(ctx):
+    return dict(os.environ,CUDA_VISIBLE_DEVICES='',PYTHONDONTWRITEBYTECODE='1',PYTHONUNBUFFERED='1',
+        MAIN_SELECTION_R8_ORIGINAL_SOURCE=ctx['request']['original_selection_wrapper']['path'],
+        MAIN_SELECTION_R8_VISUAL_METADATA=str(Path(ctx['request']['visual_batch']['owner_config']).parent),
+        PYTHONPATH=os.pathsep.join(ctx['request']['runtime_dirs']),**{k:'2' for k in THREADS})
+
+
+def resources():
+    require(set(CPU)<=os.sched_getaffinity(0),'Registered CPU24/25 unavailable')
+    os.sched_setaffinity(0,CPU);os.setpriority(os.PRIO_PROCESS,0,15)
+
+
+def command(ctx,stage):
+    return [ctx['python'],'-B',str(Path(__file__).absolute()),'--request',ctx['request_path'],'--stage',stage]
+
+
+def operation(request_path,stage):
+    r=read(request_path);validate_request(r);folder=Path(r['operations_dir'])/stage
+    require(not folder.exists(),'Prior operation preserved; no retry')
+    folder.mkdir(parents=True);save(folder/'attempt.json',dict(stage=stage,request_sha256=sha(request_path),pid=os.getpid()))
+    return folder
+
+
+def invoke(ctx,folder,argv,admit=None):
+    """Never inspect a child as live after poll reports exit; wait then bind log."""
+    owner=ctx['owner'];p=None;identity=None;failed=False;began=time.monotonic();error=None;handlers={};rc=None
+    log=(folder/'process.log').open('xb')
+    def request_stop(*_):
+        nonlocal failed
+        failed=True;stop_path=Path(ctx['request']['execution_dir'])/'STOP'
+        if not stop_path.exists():save(stop_path,dict(status='SELECTION_STOP_PRESERVE',pid=p.pid if p is not None else None))
+    for n in (signal.SIGTERM,signal.SIGINT):handlers[n]=signal.signal(n,request_stop)
+    try:
+        p=subprocess.Popen(argv,cwd=ctx['request']['runtime_dirs'][0],env=environment(ctx),stdin=subprocess.DEVNULL,
+            stdout=log,stderr=subprocess.STDOUT,preexec_fn=resources)
+        save(folder/'spawn_pending_identity.json',dict(pid=p.pid,argv=argv,identity_verified=False))
+        for _ in range(100):
+            require(p.poll() is None,'Child exited before verified identity capture')
+            try:
+                identity=owner.ids.process_identity(p.pid)
+                if identity['argv']==argv:break
+            except (FileNotFoundError,ProcessLookupError):pass
+            time.sleep(.01)
+        require(identity is not None and identity['argv']==argv,'Spawned child argv differs')
+        save(folder/'launch.json',dict(identity=identity,argv=argv,threads=2,cpu_affinity=CPU,nice=15))
+        if admit is not None:admit(identity)
+        while p.poll() is None:
+            try:
+                boundary(ctx,budget=False)
+                require(time.monotonic()-began<ctx['request']['resources']['max_seconds'],'CPU wall cap reached')
+            except BaseException:
+                request_stop()
+            time.sleep(.2)
+        rc=p.wait()
+    except BaseException:
+        error=sys.exc_info()
+        if p is not None:
+            request_stop();rc=p.wait()
+    finally:
+        log.close()
+        for n,h in handlers.items():signal.signal(n,h)
+    if p is not None:save(folder/'exit.json',dict(identity=identity,exit_code=rc,wait_completed=True,
+        launch_sha256=sha(folder/'launch.json') if (folder/'launch.json').exists() else None,log_sha256=sha(folder/'process.log')))
+    if error is not None:raise error[1].with_traceback(error[2])
+    require(not failed and rc==0 and owner.exited(identity),'Child must wait/exit0; failure evidence retained')
+    return bind([folder/n for n in ('spawn_pending_identity.json','launch.json','exit.json','process.log')])
+
+
+def qualify(ctx,folder):
+    q=Path(ctx['request']['qualification_dir']);require(not q.exists(),'Fresh qualification required');q.mkdir()
+    outputs=invoke(ctx,folder,[ctx['python'],'-B','-m','unittest','-v',*TESTS])
+    log=(folder/'process.log').read_text(encoding='utf-8',errors='replace')
+    require(re.search(r'Ran '+str(TEST_COUNT)+r' tests in .*\n\s*OK\s*$',log)
+        and not re.search(r'\bskipped\b',log,re.I),'Exact pure test inventory with no skips required')
+    boundary(ctx)
+    value=dict(status=QUALIFIED,python=ctx['python'],test_modules=TESTS,test_count=TEST_COUNT,
+        source_bindings=ctx['sources'],input_bindings=ctx['inputs'],outputs=outputs,budget_before=ctx['before'],
+        budget_after=ctx['before'],actual_quality_rows_read=False,new_packet_decodes=0,new_metric_calls=0,GPU_used=False)
+    save(q/'completion.json',value);return value
+
+
+def qualified(ctx):
+    q=Path(ctx['request']['qualification_dir'])/'completion.json';value=read(q)
+    require(value['status']==QUALIFIED and value['python']==ctx['python'] and value['test_modules']==TESTS
+        and value['test_count']==TEST_COUNT and value['source_bindings']==ctx['sources']
+        and value['input_bindings']==ctx['inputs'] and value['budget_before']==value['budget_after']==ctx['before']
+        and value['actual_quality_rows_read'] is False and value['new_packet_decodes']==value['new_metric_calls']==0
+        and value['GPU_used'] is False,
+        'Actual qualification is not bound to this request/closure')
+    folder=Path(ctx['request']['operations_dir'])/'qualify';require(not(folder/'failure.json').exists(),'Qualification failed')
+    verify(value['outputs']);end=read(folder/'exit.json');launch=read(folder/'launch.json')
+    require(end['identity']==launch['identity'] and end['exit_code']==0 and end['wait_completed'] is True
+        and end['launch_sha256']==sha(folder/'launch.json') and end['log_sha256']==sha(folder/'process.log')
+        and ctx['owner'].exited(end['identity']),'Actual qualification process not closed')
+    return value
+
+
+def config(ctx):
+    r=ctx['request'];e=Path(r['execution_dir'])
+    return dict(schema=CONFIG,request_path=ctx['request_path'],out=r['out'],execution_dir=str(e),
+        registration=str(e/'execution_registration.json'),python=ctx['python'],resources=r['resources'],
+        visual_batch=r['visual_batch'],automatic_successor=False)
+
+
+def register(ctx,folder):
+    q=qualified(ctx);boundary(ctx);r=ctx['request'];e=Path(r['execution_dir'])
+    require(not e.exists() and not Path(r['out']).exists(),'Fresh selection execution/output required')
+    e.mkdir();cp=e/'config.json';save(cp,config(ctx))
+    snapshot=e/'normal_visual_closure.json';save(snapshot,dict(status='ORIGINAL_VISUAL_NORMAL_CLOSURE_VERIFIED',
+        visual_batch=r['visual_batch'],bindings=ctx['closed']['bindings'],budget=ctx['before'],
+        source_count=1000,frame_count=30000,actual_quality_rows_read=False))
+    inputs=combine(ctx['inputs'],q['outputs'],bind([cp,snapshot,Path(r['qualification_dir'])/'completion.json']))
+    rp=e/'execution_registration.json';save(rp,dict(status=REG,config_sha256=sha(cp),source_bindings=ctx['sources'],
+        input_bindings=inputs,budget_before=ctx['before'],scope='ACTUAL_KEEP_DINO_L_FINITE_SHORTLIST_TWO_AXES',
+        selector_sha256=SELECTOR_SHA,new_packet_decodes=0,new_metric_calls=0,GPU_used=False,development_used=False,
+        deferred_SNRs=[1,4,7,10],automatic_successor=False))
+    boundary(ctx);done=dict(status=REGISTERED,registration_sha256=sha(rp),config_sha256=sha(cp),
+        outputs=bind([cp,rp,snapshot]),actual_quality_rows_read=False,new_packet_decodes=0,GPU_used=False)
+    save(e/'registration_completion.json',done);return done
+
+
+def load_registered(ctx):
+    r=ctx['request'];e=Path(r['execution_dir']);cp=e/'config.json';rp=e/'execution_registration.json'
+    require(not(Path(r['operations_dir'])/'register/failure.json').exists(),'Registration failure preserved')
+    seal=read(e/'registration_completion.json');verify(seal['outputs']);reg=read(rp)
+    require(seal['status']==REGISTERED and seal['registration_sha256']==sha(rp) and seal['config_sha256']==sha(cp)
+        and read(cp)==config(ctx) and reg['status']==REG and reg['config_sha256']==sha(cp)
+        and reg['source_bindings']==ctx['sources'] and reg['budget_before']==ctx['before'], 'Exact sealed CPU selection required')
+    require(all(reg['input_bindings'].get(p)==s for p,s in ctx['inputs'].items()),'Original normal closure omitted')
+    verify(reg['source_bindings']);verify(reg['input_bindings']);boundary(ctx)
+    return reg,sha(rp),sha(cp)
+
+
+def streamed_rows(ctx,checkpoint=lambda:None):
+    """Per-source30 rows; reproduce the original full-inventory JSON byte hash."""
+    vc=ctx['visual'];done=ctx['closed']['done'];out=Path(vc['cfg']['out']);count=0;digest=hashlib.sha256(b'[\n')
+    expected=done['outputs'][str(out/'frame_metrics.json')]
+    for index,rec in enumerate(ctx['cpu']['records']):
+        checkpoint();cp=out/'source_checkpoints'/f'{index:04d}.json';rp=out/'sources'/f'{index:04d}.json'
+        archive=out/'images'/f'{index:04d}.npz'
+        for p in (cp,rp):require(done['outputs'].get(str(p))==sha(p),'Source checkpoint/rows differ from completed visual')
+        c=read(cp)
+        require(c['status']==ctx['owner'].w.SOURCE_DONE and c['registration_sha256']==vc['regsha']
+            and c['source_index']==index and c['source_id']==rec['source_id'] and c['frame_count']==30
+            and c['noise_seeds']==[4101,4102,4103] and c['new_packet_decodes']==0
+            and c['source_decode_complete'] is True and c['image_reconstruction_complete'] is True
+            and c['images_scored'] is True and c['primary_metric']=='dinov2_vitl14_cosine','Actual visual source receipt differs')
+        require(set(c['outputs'])=={str(rp),str(archive)} and all(done['outputs'].get(p)==s for p,s in c['outputs'].items())
+            and all(ctx['closed']['bindings'].get(p)==s for p,s in c['input_bindings'].items()), 'Original per-source evidence chain differs')
+        rows=read(rp);ctx['owner'].w.validate_grid(rows,index,rec['source_id'],ctx['cpu']['schedule'])
+        for row in rows:
+            require(row['image_archive']==str(archive) and type(row['image_slot']) is int and row['image_slot']>=0,
+                'Actual image archive/slot differs')
+            if count:digest.update(b',\n')
+            digest.update(json.dumps(row,ensure_ascii=False,allow_nan=False).encode('utf-8'));count+=1
+            yield row
+    digest.update(b'\n]\n')
+    require(count==30000 and digest.hexdigest()==expected,'Full row inventory not identical to the sealed per-source rows')
+
+
+def select(ctx,rows):
+    cc=ctx['cpu'];cfg=cc['cfg'];s=ctx['selector']
+    result=s.select_actual(cc['profiles'],read(cfg['aliases']),read(cfg['shortlist']),rows,
+        [r['source_id'] for r in cc['records']],[4101,4102,4103],read(cfg['selection_spec']))
+    require(result['frame_count']==30000 and result['unique_candidate_snr_count']==10
+        and len(result['family_selected_profiles'])==len(result['H_reference_profiles'])==4,
+        'Original two-axis output incomplete')
+    return result
+
+
+def worker(ctx):
+    reg,regsha,cfgsha=load_registered(ctx);r=ctx['request'];e=Path(r['execution_dir']);out=Path(r['out'])
+    require(os.environ.get('CUDA_VISIBLE_DEVICES')=='' and all(os.environ.get(k)=='2' for k in THREADS)
+        and os.sched_getaffinity(0)==set(CPU) and os.getpriority(os.PRIO_PROCESS,0)==15,'Registered CPU-only environment required')
+    ap=e/'worker_admission.json';began=time.monotonic()
+    while not ap.exists():require(time.monotonic()-began<15,'No registered parent admission');time.sleep(.05)
+    admission=read(ap);me=ctx['owner'].ids.process_identity(os.getpid());parent=ctx['owner'].ids.process_identity(os.getppid())
+    require(admission['identity']==me and admission['parent_identity']==parent and admission['registration_sha256']==regsha
+        and admission['config_sha256']==cfgsha and me['argv']==command(ctx,'worker'), 'Exact parent/worker admission required')
+    require(ctx['owner'].lock_is_held(str(Path(ctx['cpu']['cfg']['ledger']).with_suffix('.owner.lock'))),'MAIN accounting owner lock not held')
+    require(not out.exists(),'Fresh selection outputs; no retry');out.mkdir();save(out/'attempt.json',dict(identity=me,registration_sha256=regsha))
+    def check():
+        boundary(ctx,budget=False)
+        require(time.monotonic()-began<r['resources']['max_seconds'],'Registered selection wall cap')
+        require(ctx['owner'].ids.process_identity(os.getppid())==parent,'Parent owner changed')
+    def signal_stop(*_):raise RuntimeError('Signal at CPU selection; preserve evidence')
+    signal.signal(signal.SIGTERM,signal_stop);signal.signal(signal.SIGINT,signal_stop)
+    try:
+        result=select(ctx,streamed_rows(ctx,check));check();boundary(ctx);outputs={}
+        for name,value in (('selection.json',result),('family_selected_profiles.json',result['family_selected_profiles']),
+            ('H_reference_profiles.json',result['H_reference_profiles']),('candidate_summaries.json',result['candidate_summaries']),
+            ('per_source.json',result['per_source'])):
+            p=out/name;save(p,value);outputs[str(p)]=sha(p)
+        done=dict(status=DONE,registration_sha256=regsha,config_sha256=cfgsha,outputs=outputs,
+            source_bindings=reg['source_bindings'],input_bindings=reg['input_bindings'],worker_identity=me,supervision=admission,
+            source_count=1000,frame_count=30000,noise_seeds=[4101,4102,4103],unique_candidate_snr_count=10,
+            family_selected_count=4,H_reference_count=4,primary='dinov2_vitl14_cosine',selection_scope=result['selection_scope'],
+            active_SNRs=[13,19],deferred_SNRs=[1,4,7,10],budget_before=ctx['before'],budget_after=ctx['before'],
+            new_packet_decodes=0,new_metric_calls=0,noise_generated=0,GPU_used=False,development_used=False,holdout_used=False,
+            shortlist_reselected=False,main_six_SNR_complete=False,automatic_successor_started=False)
+        boundary(ctx);save(out/'completion.json',done);return done
+    except BaseException:save(out/'failure.json',dict(traceback=traceback.format_exc(),new_packet_decodes=0));raise
+
+
+def science_receipt(ctx,regsha,cfgsha,identity):
+    r=ctx['request'];out=Path(r['out']);done=read(out/'completion.json')
+    require(not(out/'failure.json').exists() and done['status']==DONE and done['registration_sha256']==regsha
+        and done['config_sha256']==cfgsha and done['worker_identity']==identity
+        and done['source_count']==1000 and done['frame_count']==30000 and done['unique_candidate_snr_count']==10
+        and done['family_selected_count']==done['H_reference_count']==4 and done['noise_seeds']==[4101,4102,4103]
+        and done['primary']=='dinov2_vitl14_cosine' and done['budget_before']==done['budget_after']==ctx['before'],
+        'Complete actual DINO-L selection receipt required')
+    require(all(done[k] is False for k in ('GPU_used','development_used','holdout_used','shortlist_reselected',
+        'main_six_SNR_complete','automatic_successor_started')) and done['new_packet_decodes']==done['new_metric_calls']==done['noise_generated']==0,
+        'Selection-only zero-resource-call scope changed')
+    reg=read(Path(r['execution_dir'])/'execution_registration.json')
+    require(done['source_bindings']==reg['source_bindings'] and done['input_bindings']==reg['input_bindings'],'Worker dependencies differ')
+    verify(done['outputs']);return done
+
+
+def launch(ctx,folder):
+    qualified(ctx);reg,regsha,cfgsha=load_registered(ctx);r=ctx['request'];e=Path(r['execution_dir'])
+    require(not Path(r['out']).exists() and not(e/'worker_admission.json').exists() and not(e/'completion.json').exists(),'No prior selection launch')
+    import fcntl
+    with Path(ctx['cpu']['cfg']['ledger']).with_suffix('.owner.lock').open('a+') as lock:
+        fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB);boundary(ctx)
+        parent=ctx['owner'].ids.process_identity(os.getpid());require(parent['argv']==command(ctx,'launch'),'Exact CPU owner command required')
+        save(e/'owner_start.json',dict(identity=parent,registration_sha256=regsha,config_sha256=cfgsha))
+        outputs=invoke(ctx,folder,command(ctx,'worker'),lambda me:ctx['owner'].atomic_save(e/'worker_admission.json',
+            dict(identity=me,parent_identity=parent,registration_sha256=regsha,config_sha256=cfgsha)))
+        end=read(folder/'exit.json');done=science_receipt(ctx,regsha,cfgsha,end['identity'])
+        require(done['supervision']==read(e/'worker_admission.json'),'Worker used a different admission');boundary(ctx)
+        outputs=combine(outputs,done['outputs'],bind([Path(r['out'])/'completion.json',e/'owner_start.json',e/'worker_admission.json']))
+        value=dict(status=CLOSED,registration_sha256=regsha,config_sha256=cfgsha,owner_identity=parent,
+            outputs=outputs,budget_before=ctx['before'],budget_after=ctx['before'],source_count=1000,frame_count=30000,
+            family_selected_count=4,H_reference_count=4,new_packet_decodes=0,GPU_used=False,development_used=False,
+            automatic_successor_started=False)
+        save(e/'completion.json',value);return value
+
+
+def closed_batch(request_path):
+    ctx=context(request_path);reg,regsha,cfgsha=load_registered(ctx);r=ctx['request'];e=Path(r['execution_dir'])
+    folder=Path(r['operations_dir'])/'launch';require(not(folder/'failure.json').exists(),'Original selection owner failed')
+    done=read(e/'completion.json');verify(done['outputs']);start=read(e/'owner_start.json')
+    launch_rec=read(folder/'launch.json');end=read(folder/'exit.json');parent=start['identity'];child=end['identity']
+    require(done['status']==CLOSED and done['registration_sha256']==regsha and done['config_sha256']==cfgsha
+        and done['owner_identity']==parent and parent['argv']==command(ctx,'launch') and ctx['owner'].exited(parent)
+        and start['registration_sha256']==regsha and start['config_sha256']==cfgsha,'Normal owner exit required')
+    require(end['identity']==launch_rec['identity'] and child['argv']==command(ctx,'worker') and end['exit_code']==0
+        and end['wait_completed'] is True and end['launch_sha256']==sha(folder/'launch.json')
+        and end['log_sha256']==sha(folder/'process.log') and ctx['owner'].exited(child),'Waited worker exit0 and closed log required')
+    science=science_receipt(ctx,regsha,cfgsha,child);a=read(e/'worker_admission.json')
+    require(science['supervision']==a and a['identity']==child and a['parent_identity']==parent
+        and a['registration_sha256']==regsha and a['config_sha256']==cfgsha
+        and done['budget_before']==done['budget_after']==ctx['before'],'Normal selection supervision/budget differs')
+    return dict(ctx=ctx,done=science,owner_done=done,bindings=combine(reg['source_bindings'],reg['input_bindings'],
+        done['outputs'],bind([e/'completion.json',e/'execution_registration.json',e/'config.json',e/'registration_completion.json'])))
+
+
+def main():
+    p=argparse.ArgumentParser();p.add_argument('--request',required=True)
+    p.add_argument('--stage',choices=('qualify','register','launch','worker'),required=True);a=p.parse_args()
+    require(sys.platform.startswith('linux'),'Authentic Linux process identity required for operations')
+    folder=None
+    try:
+        if a.stage!='worker':folder=operation(a.request,a.stage)
+        ctx=context(a.request)
+        result=worker(ctx) if a.stage=='worker' else globals()[a.stage](ctx,folder)
+        print(result['status'],flush=True)
+    except BaseException:
+        if folder is not None:save(folder/'failure.json',dict(traceback=traceback.format_exc(),new_packet_decodes=0,GPU_used=False))
+        raise
+
+
+if __name__=='__main__':main()

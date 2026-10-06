@@ -1,0 +1,170 @@
+"""Prepared MAIN4 fixed16 component replay; no launcher, model or PHY loader.
+
+The future owner authenticates normal MAIN4 image completion, historical H
+timing evidence and the exact source files before injecting their objects.
+Source pixels enter only TX; RX receives the original narrow received view.
+"""
+from contextlib import nullcontext
+from copy import deepcopy
+import hashlib
+from pathlib import Path
+import time
+import numpy as np
+
+H_TIMING_SHA='31bb602e0204ffd16c1ee213f822ca1339a3df78950fd14775e580f6e4b71e5f'
+ORDER=((18,13,'QPSK'),(19,13,'16QAM'),(20,19,'QPSK'),(21,19,'16QAM'))
+IDENTITY=('source_index','source_id','development_slot','snr_db','modulation','noise_seed','candidate_id','profile_id','wire_key','m','K','public_frame_counter')
+
+
+def require(ok,message):
+    if not ok:raise RuntimeError(message)
+
+
+def token_sha(tokens):
+    a=np.asarray(tokens)
+    require(a.dtype==np.dtype('int64') and a.shape==(680,) and ((a>=0)&(a<4096)).all(),
+        'Fresh original680 int64 Encoder/VQ output required')
+    return hashlib.sha256(b'int64:680\0'+a.astype('<i8',copy=False).tobytes()).hexdigest()
+
+
+def design(h_config,h_done,source_ids,schedule,*,timing):
+    """Read sealed H timing identities only; never choose sixteen new sources."""
+    require(hashlib.sha256(Path(timing.__file__).read_bytes()).hexdigest()==H_TIMING_SHA,
+        'Unchanged original H timing implementation required')
+    require(h_config['schema']=='H_ONLINE_COMPONENTS_CONFIG_V1'
+        and Path(h_config['timing_core_module']).name=='h_online_components.py'
+        and h_done['status']=='H_FIXED16_ONLINE_COMPONENTS_COMPLETE'
+        and h_done['source_count']==16 and h_done['component_case_count']==288
+        and h_done['noise_seed']==timing.NOISE==6201
+        and h_done['warmup_repetitions']==timing.WARMUP==1
+        and h_done['measured_repetitions']==timing.REPEATS==3
+        and h_done['batch_size']==1 and h_done['new_packet_decodes']==0,
+        'Original completed H timing definition required')
+    require(len(source_ids)==len(set(source_ids))==100
+        and h_done['source_indices']==list(timing.FIXED)
+        and h_done['source_ids']==[source_ids[i] for i in h_done['source_indices']],
+        'Use original H fixed16 source order and original development population')
+    require([(p['development_slot'],p['snr_db'],p['modulation']) for p in schedule]==list(ORDER),
+        'Exactly four frozen MAIN modulation references; no ranking')
+    return dict(status='PREPARED_COMPONENT_REPLAY_REQUIRES_NORMAL_CLOSURE_AND_EXCLUSIVE_REGISTRATION',
+        source_indices=list(h_done['source_indices']),source_ids=list(h_done['source_ids']),
+        schedule_sha256=timing.digest(schedule),slots=[p[0] for p in ORDER],noise_seed=6201,
+        source_count=16,component_case_count=64,warmup_repetitions=1,measured_repetitions=3,
+        per_direction_call_count=256,batch_size=1,new_packet_decodes=0,new_noise_draws=0,
+        new_quality_samples=0,new_metric_calls=0,policy_selection=False,automatic_launch=False,
+        TX_visual_encoding='Fresh original Encoder/VQ from uint8 pixels each repetition',
+        TX_source_total='Original raw12 raster serialization only; excludes Encoder, CRC/FEC, header, modulation and channel',
+        RX_source_and_image_total='Reparse actual saved RX; fresh uncached KEEP Receiver and original suffix VAR/Dc, or actual header-reject gray',
+        PHY_latency='NOT_MEASURED; original concurrent CPU event windows may be reported separately',
+        end_to_end_latency='NOT_MEASURED; component timings must not be added to concurrent PHY event windows')
+
+
+def tx_once(pixels,profile,*,encoder,split_tokens,wire,timing,synchronize,clock=time.perf_counter):
+    """Raw transmitter has no VAR probability model, receiver, ledger or backend."""
+    require(pixels.dtype==np.uint8 and pixels.shape==(3,256,256),'Original uint8 source pixels required')
+    meter=timing.Meter(synchronize,clock)
+    tokens=meter.call('TX_visual_encoding',lambda:encoder(pixels.copy()))
+    checksum=token_sha(tokens);scales=split_tokens(tokens)
+    payload=meter.call('TX_source_total',lambda:wire.serialize_raw(scales,profile))
+    bits_sha=wire.array_sha(payload)
+    return dict(tokens=tokens.copy(),tx=dict(payload=payload,profile=deepcopy(profile)),
+        tokens_sha256=checksum,payload_sha256=bits_sha,seconds=dict(meter.seconds),
+        component_calls=dict(meter.counts),fingerprint=timing.digest(dict(tokens=checksum,
+            payload=bits_sha,profile_id=profile['profile_id'],wire_key=profile['wire_key'])),
+        new_packet_decodes=0,sender_VAR_probability_calls=0,cross_frame_cache=False)
+
+
+def rx_once(view,catalogue,*,adapter,timing,crc_accept,render_tokens,model_identity,synchronize,
+            inference_context=nullcontext,clock=time.perf_counter):
+    """No source pixels/tokens, TX profile or saved image enters timed recovery."""
+    require(set(view)==set(adapter.WIRE_FIELDS),'Narrow actual received view required')
+    meter=timing.Meter(synchronize,clock)
+    receiver=adapter.Receiver(catalogue,crc_accept=crc_accept,
+        render_tokens=lambda tokens,m,K:meter.call('RX_suffix_VAR_and_Dc',lambda:render_tokens(tokens,m,K)),
+        model_identity=model_identity,inference_context=inference_context)
+    require(not receiver.cache,'Fresh uncached Receiver required for every repeat')
+    result=meter.call('RX_source_and_image_total',lambda:receiver.reconstruct(deepcopy(view)))
+    summary=result['summary']
+    require(receiver.hits==0 and receiver.misses==1 and summary['visual_cache_hit'] is False,
+        'Online repeat cannot reuse reconstruction cache')
+    return dict(image=result['image'],receiver_summary=summary,seconds=dict(meter.seconds),
+        component_calls=dict(meter.counts),fingerprint=timing.digest(dict(
+            image_sha256=summary['image_sha256'],actual_state_sha256=summary['actual_state_sha256'],
+            actual_received_tokens_sha256=summary['actual_received_tokens_sha256'],source_status=summary['source_status'])),
+        new_packet_decodes=0,final_output_cache=False)
+
+
+def verify_tx(result,frame,expected_tokens_sha256):
+    """Post-timing parity only; actual CPU proof cannot affect serialization."""
+    profile=result['tx']['profile']
+    require(all(profile[k]==frame[k] for k in ('profile_id','wire_key','m','K'))
+        and result['tokens_sha256']==expected_tokens_sha256
+        and result['payload_sha256']==frame['transmitted_payload_sha256'],
+        'Fresh raw TX differs from original paid transmission; no retry or correction')
+
+
+def verify_rx(result,frame,expected,adapter):
+    """After generation, compare every actual RX claim and original RGB digest."""
+    summary=result['receiver_summary']
+    require(all(summary[k]==frame[k]==expected[k] for k in adapter.CLAIMS)
+        and summary['image_sha256']==expected['image_sha256']
+        and summary['actual_received_tokens_sha256']==expected['actual_received_tokens_sha256']
+        and summary['receiver_view_sha256']==expected['receiver_view_sha256']
+        and summary['model_identity_sha256']==expected['model_identity_sha256'],
+        'Actual received replay differs from normal original image; no truth substitution')
+    # Keep only bounded parity metadata in measured records, not token arrays.
+    result['receiver_summary']={k:deepcopy(summary[k]) for k in ('image_sha256','actual_state_sha256',
+        'actual_received_tokens_sha256','source_status','gray','rx_profile_id','model_identity_sha256')}
+
+
+def measure_case(record,pixels,point,frame,expected,*,catalogue,components,timing,adapter,synchronize,guard):
+    require(frame['noise_seed']==expected['noise_seed']==6201
+        and all(frame[k]==expected[k] for k in IDENTITY)
+        and frame['source_index']==record['source_index'] and frame['source_id']==record['source_id']
+        and all(frame[k]==point[k] for k in ('development_slot','snr_db','modulation','candidate_id','profile_id','wire_key','m','K'))
+        and frame['population_role']=='development' and frame['physical_ledger_branch']=='H'
+        and frame['image_reconstruction_complete'] is False and expected['image_reconstruction_complete'] is True,
+        'Exact normal MAIN4 CPU/image trial6201 pair required')
+    require(hashlib.sha256(pixels.tobytes()).hexdigest()==record['preprocessing_id']
+        and expected['reference_preprocessing_sha256']==record['preprocessing_id'],
+        'Original same-source reference pixels required')
+    profile=catalogue.entry(point['profile_id']);view=adapter.receiver_view({'rx':frame})
+    def tx():
+        value=components['tx'](pixels,profile);verify_tx(value,frame,record['tokens_sha256']);return value
+    def rx():
+        value=components['rx'](view);verify_rx(value,frame,expected,adapter);return value
+    tx_result=timing.repetitions(tx,synchronize=synchronize,guard=guard)
+    rx_result=timing.repetitions(rx,synchronize=synchronize,guard=guard)
+    return dict({k:deepcopy(frame[k]) for k in IDENTITY},TX=tx_result,RX=rx_result,gray=frame['gray'],
+        received_m=frame['receiver_state']['m'],received_K=frame['receiver_state']['K'],
+        image_sha256=expected['image_sha256'],reference_preprocessing_sha256=record['preprocessing_id'],
+        new_packet_decodes=0,new_quality_samples=0,policy_selection=False,
+        online_source_visual_components_measured=True,exclusive_PHY_latency_measured=False,end_to_end_latency_measured=False)
+
+
+def measure_source(plan,record,pixels,frames,expected_rows,schedule,**injected):
+    """Bounded four-case worker unit; loader/owner remains a separate future gate."""
+    timing=injected['timing'];index=record['source_index']
+    require(index in plan['source_indices'] and plan['source_ids'][plan['source_indices'].index(index)]==record['source_id']
+        and plan['schedule_sha256']==timing.digest(schedule),'Exact fixed16 source and frozen schedule required')
+    require(len(frames)==len(expected_rows)==12 and
+        [(x['development_slot'],x['noise_seed']) for x in frames]==[(p['development_slot'],s) for p in schedule for s in (6201,6202,6203)]
+        and [(x['development_slot'],x['noise_seed']) for x in expected_rows]==[(x['development_slot'],x['noise_seed']) for x in frames],
+        'Complete original12 CPU/image records required before selecting timing seed')
+    return [measure_case(record,pixels,p,frames[j*3],expected_rows[j*3],**injected) for j,p in enumerate(schedule)]
+
+
+def native_components(native,catalogue,*,source_api,legacy_phy,adapter,timing,model_identity):
+    """Inject already admitted original Native; no construction or asset download."""
+    require(tuple(native.loaded['vae'].quantize.v_patch_nums)==adapter.SIZES
+        and model_identity['frozen_visual_identity']==native.loaded['identity']
+        and model_identity['numerical_runtime']==native.flags,'Same original native identity and FP32 flags required')
+    def tx(pixels,profile):
+        with native.torch.no_grad():
+            return tx_once(pixels,profile,encoder=lambda x:timing.native_encoder(native,x),
+                split_tokens=source_api.split_tokens,wire=adapter.wire,timing=timing,synchronize=native.torch.cuda.synchronize)
+    def rx(view):
+        return rx_once(view,catalogue,adapter=adapter,timing=timing,crc_accept=legacy_phy.crc_accept_batch,
+            render_tokens=lambda tokens,m,K:source_api.render_received(native,tokens,m,K),model_identity=model_identity,
+            synchronize=native.torch.cuda.synchronize,inference_context=native.torch.no_grad)
+    return dict(tx=tx,rx=rx)

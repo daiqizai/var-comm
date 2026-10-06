@@ -1,0 +1,213 @@
+"""Pure fixtures; no actual source assets, decoder, model or registration."""
+import copy
+from contextlib import closing
+import inspect
+import json
+import os
+from pathlib import Path
+import sqlite3
+import sys
+import tempfile
+import unittest
+import numpy as np
+
+HERE=Path(__file__).resolve().parent
+support=os.environ.get('MAIN4_TEST_SUPPORT_PATHS')
+paths=json.loads(support) if support else [str(HERE.parent/x) for x in ('development_prep','phy_codec','payload','full_calibration','runner')]
+for path in paths:
+    if not Path(path).is_dir():raise RuntimeError('Explicit original test dependency directory missing: '+str(path))
+    sys.path.insert(0,str(path))
+import main_development_cpu_r1 as c
+import test_main_raw_keep_receiver as f
+from budget_ledger import BudgetLedger,BudgetError
+
+LIMITS=dict(qualification=2000,coarse=49152,refine=12288,initial_true200=20000,
+    whole_calibration=48000,partial_calibration=36000,development=13200,engineering_reserve=19360)
+
+
+def inputs():
+    cat=f.admitted();refs=[]
+    for _,snr,mod in c.ORDER:
+        p=next(p for p in cat._profiles if p['m']==2 and p['K']==0 and p['groups'][0]['modulation']==mod)
+        refs.append(dict(selection_axis='modulation_projection',snr_db=snr,modulation_reference=mod,
+            modulation=mod,**{k:copy.deepcopy(p[k]) for k in ('candidate_id','profile_id','wire_key','m','K')},
+            selection_set_ids=[p['candidate_id']],family_memberships=['WHOLE'],source_count=1000,
+            noise_count=3,primary='dinov2_vitl14_cosine',tie_epsilon=0.,
+            development_used=False,actual_metrics={'synthetic_DINO':.5}))
+    selected=dict(schema='MAIN13_19_ACTUAL_CALIBRATION_TWO_AXES_R1',source_count=1000,noise_count=3,
+        primary='dinov2_vitl14_cosine',tie_epsilon=0.,active_SNRs=[13,19],development_used=False,
+        new_packet_decodes=0,new_metric_calls=0,H_development_policy_points=4,
+        H_development_frame_cap=1200,H_development_packet_cap=2400,H_reference_profiles=refs,
+        catalogue_digest=cat.digest,aliases_digest=cat.aliases_digest)
+    pop=dict(stage='m1_development',calibration_or_development='m1_development',
+        source_ids=[f'dev_{i:03d}' for i in range(100)],preprocessing_ids=['b'*64]*100,
+        data_bindings=[dict(index=i,rgb_sha256='c'*64,source_npz_sha256='d'*64) for i in range(100)])
+    budget=dict(schema='H_PACKET_BUDGET_V1',status='FROZEN',branch='H',total_cap=200000,
+        phase_limits=LIMITS.copy(),no_automatic_transfers=True,no_automatic_reserve_spending=True)
+    return dict(selected=selected,catalogue=cat,development_registration=pop,budget=budget)
+
+
+def seal(a):
+    cat=a['catalogue']
+    value=dict(status='MAIN4_H_DEVELOPMENT_CORE_REGISTERED_R1',execution_registration_sha256='e'*64,
+        original_H_budget_registration_sha256='a'*64,
+        accounting_audit_sha256=c.ACCOUNTING_AUDIT_SHA,
+        selected_canonical_sha256=c.identity(a['selected']),development_registration_canonical_sha256=c.identity(a['development_registration']),
+        budget_canonical_sha256=c.identity(a['budget']),catalogue_digest=cat.digest,aliases_digest=cat.aliases_digest,
+        public_schedule_canonical_sha256=c.identity(c.schedule(a['selected'],cat)),engineering_canonical_sha256=c.identity(c.ENGINEERING))
+    for name,path in [('core',c.__file__),('original_H_development',c.h.__file__),('original_MAIN_receiver',c.raw.__file__)]:
+        value[name+'_source_sha256']=c.file_sha(path)
+    return value
+
+
+class FakeH(f.FakeLedger):
+    branch='H'
+    def __init__(self):super().__init__();self.binding='a'*64;self.limits=LIMITS.copy()
+    def decode_once(self,phase,event_id,kind,phy_key,request,decode):
+        return super().decode_once(phase,event_id,kind=kind,phy_key=phy_key,request=request,decode=decode)
+
+
+class FakeTX:
+    def __init__(self,cat,header):self.cat,self.header=cat,header;self.calls=[]
+    def transmit(self,pid,payloads,counter):
+        p=self.cat.entry(pid);self.calls.append((pid,[x.copy() for x in payloads],counter))
+        wave=np.ones((1024,2),dtype=np.float64);wave[68:68+p['groups'][0]['symbols'],0]=-1
+        return wave,dict(N=1024,E=float(np.square(wave).sum()),header_uses=68,
+            body_uses=p['groups'][0]['symbols'],idle_uses=p['idle_symbols'],groups=[],
+            waveform_sha256=c.raw.array_sha(wave),profile_id=pid,frame_counter=counter)
+
+
+class MainDevelopmentTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):cls.args=inputs();cls.ctx=c.prepare(**cls.args,contract=seal(cls.args))
+    def setUp(self):
+        self.ledger=FakeH();self.cat=self.ctx['catalogue'];self.backend=f.FakeBackend(self.cat)
+        self.header=f.FakeHeader(0,self.ledger);self.phy=f.FakePhy(self.ledger)
+        self.tx=FakeTX(self.cat,self.header)
+        self.scales=[(np.arange(n*n)*11+i)%4096 for i,n in enumerate(c.raw.SIZES)]
+    def frame(self,slot=18,**kwargs):
+        values=dict(ctx=self.ctx,development_slot=slot,source_id='dev_099',source_index=99,noise_seed=6201,
+            scales=self.scales,transmitter=self.tx,backend=self.backend,phy=self.phy,ledger=self.ledger)
+        values.update(kwargs);return c.run_frame(**values)
+
+    def test_four_fixed_modulation_references_no_development_ranking(self):
+        rows=self.ctx['schedule']
+        self.assertEqual([(r['development_slot'],r['snr_db'],r['modulation']) for r in rows],list(c.ORDER))
+        selected=copy.deepcopy(self.args['selected'])
+        for row in selected['H_reference_profiles']:row['actual_metrics']={'synthetic_DINO':-1e200}
+        self.assertEqual(c.schedule(selected,self.cat),rows)
+        for mutate in (lambda s:s.update(primary='dino_cosine'),lambda s:s.update(development_used=True),
+            lambda s:s['H_reference_profiles'][0].update(selection_axis='family_projection'),
+            lambda s:s['H_reference_profiles'].pop(),lambda s:s['H_reference_profiles'][0].update(profile_id=269)):
+            bad=copy.deepcopy(selected);mutate(bad)
+            with self.assertRaises((ValueError,KeyError)):c.schedule(bad,self.cat)
+
+    def test_only_original_development100_and_exact_sealed_inputs(self):
+        a=dict(self.args);a['development_registration']=copy.deepcopy(a['development_registration'])
+        a['development_registration']['stage']='m1_calibration'
+        with self.assertRaises(ValueError):c.prepare(**a,contract=seal(a))
+        contract=seal(self.args);contract['core_source_sha256']='0'*64
+        with self.assertRaisesRegex(ValueError,'source changed'):c.prepare(**self.args,contract=contract)
+        with self.assertRaisesRegex(ValueError,'source order'):self.frame(source_id='dev_000')
+        self.assertFalse(self.ledger.events)
+
+    def test_exact_original_noise_and_reserved_counter_namespace(self):
+        a=self.frame(18);b=self.frame(19)
+        self.assertEqual(a['noise_sha256'],b['noise_sha256'])
+        self.assertEqual(a['noise_sha256'],c.raw.array_sha(c.h.standard_noise('dev_099',13,6201)))
+        counters={c.h.frame_counter(s,i,n) for s in range(18,22) for i in range(100) for n in c.h.SEEDS}
+        self.assertEqual(counters,set(range(5400,6600)))
+        self.assertEqual(len({c.frame_event(s,i,n)+'.'+k for s in range(18,22) for i in range(100)
+            for n in c.h.SEEDS for k in ('header','body')}),2400)
+        for args in ((17,0,6201),(22,0,6201),(18,100,6201),(18,0,4101)):
+            with self.assertRaises(ValueError):c.frame_event(*args)
+
+    def test_real_branch_never_relabelled_and_full_budget_enforced(self):
+        with self.assertRaisesRegex(ValueError,'Never charge H/C'):
+            c.raw.Receiver(self.cat,header=self.header,backend=self.backend,phy=self.phy,ledger=self.ledger)
+        self.assertEqual(self.ledger.branch,'H')
+        bounded=c.MainFrameLedger(self.ledger,18,0,6201,budget_sha='a'*64,phase_limits=LIMITS)
+        for args in (('actual_calibration',bounded.event+'.header','header'),
+            ('development','H:development:MAINslot17:src0000:seed6201.header','header'),
+            ('development',bounded.event+'.body','header')):
+            with self.assertRaises(ValueError):bounded.decode_once(args[0],args[1],kind=args[2],phy_key='x',request={},decode=lambda:0)
+        self.assertFalse(self.ledger.events)
+        self.ledger.limits=dict(LIMITS,coarse=49153)
+        with self.assertRaises(ValueError):bounded.check()
+
+    def test_known_wrong_header_and_crc_rejected_hard_tokens_survive(self):
+        p=next(p for p in self.cat._profiles if p['m']==2 and p['K']>0 and p['groups'][0]['modulation']=='16QAM')
+        self.header.pid=p['profile_id'];row=self.frame()
+        self.assertNotEqual(row['profile_id'],row['rx_profile_id'])
+        self.assertEqual(row['rx_profile_id'],p['profile_id']);self.assertFalse(row['body_crc_accept'])
+        self.assertFalse(row['gray']);self.assertEqual(row['source_status'],'KEEP_ACTUAL_HARD_TOKENS')
+        self.assertEqual(row['receiver_state'],c.raw.parse_raw(row['body']['hard_payload'],p['m'],p['K']))
+        self.assertEqual(row['logical_packet_calls'],2);self.assertEqual(self.ledger.charged,2)
+        self.assertEqual(row['actual_new_call_count_authority'],'original_H_ledger_development_reserve')
+        self.assertEqual(row['original_receiver_accounting_annotation'],'independent_MAIN_ledger')
+        self.assertEqual(row['public_frame_counter'],c.h.frame_counter(18,99,6201))
+        self.assertEqual(self.phy.calls[0]['session'],'actual-body')
+        y=self.header.calls[0][0];self.assertEqual(y.dtype,np.float64)
+        self.assertFalse(np.array_equal(y,y.astype(np.float32).astype(np.float64)))
+
+    def test_header_rejection_one_charge_and_software_error_is_not_gray(self):
+        self.header.crc=False;row=self.frame()
+        self.assertTrue(row['gray']);self.assertEqual(row['logical_packet_calls'],1)
+        self.assertEqual(self.ledger.charged,1);self.assertFalse(self.phy.calls)
+        self.header.crc=True;self.phy.malformed='exception'
+        with self.assertRaisesRegex(RuntimeError,'backend'):self.frame(19)
+        self.assertEqual(self.ledger.charged,3)
+        with self.assertRaises(ValueError):self.frame(19)
+        self.assertEqual(self.ledger.charged,3)
+
+    def test_completed_event_reuse_is_logical_only_and_context_change_rejected(self):
+        first=self.frame();again=self.frame()
+        self.assertEqual(first,again);self.assertEqual(self.ledger.charged,2)
+        self.assertEqual(len(self.header.calls),1);self.assertEqual(len(self.phy.calls),1)
+        self.assertEqual(first['logical_packet_calls'],2)
+        self.assertNotIn('actual_packet_attempts',first)
+        for key in ('source_id','scales','reference','truth','tx_profile','noise'):
+            self.assertNotIn(key,inspect.signature(c.HReservedReceiver.receive).parameters)
+
+    def test_reused_receiver_reuses_only_registered_catalogue_not_RX_calls(self):
+        boundary=c.MainFrameLedger(self.ledger,18,99,6201,budget_sha='a'*64,phase_limits=LIMITS)
+        receiver=c.HReservedReceiver(self.cat,header=self.header,backend=self.backend,phy=self.phy,ledger=boundary)
+        a=self.frame(receiver=receiver);b=self.frame(19,receiver=receiver)
+        self.assertEqual(self.ledger.charged,4);self.assertNotEqual(a['packet_event_ids'],b['packet_event_ids'])
+        self.assertEqual(self.ledger.branch,'H')
+        with self.assertRaises(ValueError):receiver.for_frame(c.MainFrameLedger(FakeH(),18,0,6201,budget_sha='a'*64,phase_limits=LIMITS))
+
+    def test_real_original_H_sqlite_ledger_precharge_reuse_and_failed_evidence(self):
+        class Proof:
+            def __init__(self,real):self.real=real;self.active=None;self.events={}
+            @property
+            def branch(self):return self.real.branch
+            @property
+            def binding(self):return self.real.binding
+            @property
+            def limits(self):return self.real.limits
+            def register_configuration(self,*args):return self.real.register_configuration(*args)
+            def decode_once(self,phase,event_id,kind,phy_key,request,decode):
+                def prepaid():
+                    with closing(sqlite3.connect(self.real.path)) as db:
+                        assert db.execute('SELECT status FROM events WHERE event_id=?',(event_id,)).fetchone()==('RESERVED',)
+                    self.active=event_id;self.events[event_id]={'status':'RESERVED'}
+                    try:return decode()
+                    finally:self.active=None
+                return self.real.decode_once(phase,event_id,kind,phy_key,request,prepaid)
+        who=dict(pid=20001,start_ticks=1,uid=1002,argv=['fake-pure-test'])
+        with tempfile.TemporaryDirectory() as tmp:
+            actual=BudgetLedger(Path(tmp)/'H.sqlite','a'*64,'H',LIMITS,worker_identity=who,identity_reader=lambda pid:who)
+            self.ledger=Proof(actual);self.header=f.FakeHeader(0,self.ledger);self.phy=f.FakePhy(self.ledger);self.tx=FakeTX(self.cat,self.header)
+            self.frame();self.frame();snapshot=actual.snapshot()
+            self.assertEqual(snapshot['branch'],'H');self.assertEqual(snapshot['charged'],2)
+            self.assertEqual(snapshot['phase_charged']['development'],2)
+            self.assertTrue(all(v==0 for k,v in snapshot['phase_charged'].items() if k!='development'))
+            self.phy.malformed='exception'
+            with self.assertRaises(RuntimeError):self.frame(19)
+            self.assertEqual(actual.snapshot()['charged'],4);self.assertEqual(actual.snapshot()['unresolved'],1)
+            with self.assertRaises(BudgetError):self.frame(19)
+            self.assertEqual(actual.snapshot()['charged'],4)
+
+
+if __name__=='__main__':unittest.main()

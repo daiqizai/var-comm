@@ -1,0 +1,182 @@
+"""Register one actual MAIN1000 CPU batch; never launch or score images."""
+from __future__ import annotations
+import argparse
+from pathlib import Path
+import sys
+import time
+import traceback
+import main_actual_calibration_owner_r1 as o
+import main_cpu_phase_owner_r2 as predecessor
+from register_main_cpu_phase_r2 import readonly_budget
+
+w=o.w;require=w.require;read=w.read;sha=w.sha;save=w.save;verify=w.verify
+combine=o.combine;bind=o.bind
+REGISTERED='MAIN_ACTUAL_CALIBRATION_REGISTERED_NOT_LAUNCHED_R1'
+QUALIFIED='MAIN_ACTUAL_CALIBRATION_CPU_INTERFACE_QUALIFICATION_PASS_R1'
+TEST_MODULES=['test_main_actual_calibration_driver_r1','test_main_actual_calibration_owner_r1','test_register_main_actual_calibration_r1']
+
+
+def prescreen_closed(spec,source_bindings):
+    """Seal normal zero-decoder predecessor, including its actual parent exit."""
+    require(set(spec)=={'config','completion'},'Exact prescreen config/completion specification required')
+    cfg=read(spec['config']);e=Path(cfg['execution']);reg=read(cfg['registration']);done=read(spec['completion'])
+    require(spec['completion']==str(e/'completion.json') and reg['status']=='MAIN_PSNR_FREEZE_EXECUTION_REGISTERED_R1'
+        and reg['config_sha256']==sha(spec['config']) and cfg['schema']=='MAIN_PSNR_FREEZE_CONFIG_R1'
+        and done['status']=='MAIN_PSNR_FREEZE_NORMALLY_CLOSED_R1' and done['registration_sha256']==sha(cfg['registration'])
+        and done['new_packet_decodes']==0 and done['GPU_used'] is False and done['automatic_successor_started'] is False,
+        'Normally completed table-only prescreen required')
+    verify(done['outputs']);science_path=Path(cfg['out'])/'completion.json';science=read(science_path)
+    require(done['outputs'].get(str(science_path))==sha(science_path)
+        and science['status']=='MAIN_PSNR_SHORTLIST_FROZEN_R1' and science['registration_sha256']==sha(cfg['registration'])
+        and science['config_sha256']==sha(spec['config']) and science['proxy_rows']==540 and science['source_count']==200
+        and science['new_packet_decodes']==0 and science['GPU_used'] is False and science['development_used'] is False,
+        'Full540-row frozen shortlist receipt required')
+    verify(science['outputs']);o.require_budget(done['budget_before']);require(done['budget_before']==done['budget_after']==science['budget_before']==science['budget_after'],'Prescreen changed budget')
+    admission=read(e/'worker_admission.json');parent=admission['parent_identity'];child=admission['identity']
+    require(w.exited(parent) and w.exited(child) and child==science['worker_identity']
+        and admission['registration_sha256']==sha(cfg['registration']),'Prescreen parent and child must both exit')
+    launches=[Path(p) for p in done['outputs'] if Path(p).name=='launch.json']
+    exits=[Path(p) for p in done['outputs'] if Path(p).name=='exit.json']
+    require(len(launches)==len(exits)==1,'Unique prescreen launch/exit required')
+    launch=read(launches[0]);end=read(exits[0]);log=exits[0].parent/'process.log'
+    require(launch['identity']==end['identity']==child and end['exit_code']==0 and end['wait_completed'] is True
+        and end['log_sha256']==done['outputs'].get(str(log))==sha(log),'Prescreen waited zero exit/log required')
+    for identity,stage in ((parent,'launch'),(child,'worker')):
+        argv=identity['argv'];require(len(argv)==7 and argv[1]=='-B' and argv[-2:]==['--stage',stage]
+            and argv[3:5]==['--root',cfg['root']] and reg['source_bindings'].get(argv[2])==sha(argv[2]),'Original bound prescreen command differs')
+    require(not any((p/n).exists() for p in (e,Path(cfg['out']),exits[0].parent) for n in ('failure.json','STOP')),'Unresolved prescreen failure/STOP')
+    needed=combine(done['outputs'],science['outputs'],bind([*spec.values(),cfg['registration'],e/'worker_admission.json']))
+    source_bindings.update(reg['source_bindings'])
+    return dict(cfg=cfg,done=done,science=science,bindings=needed)
+
+
+def assets_closed(spec,sources):
+    """Original CPU asset owner proof, with only consumed scalar/token outputs.
+
+    The historical registration is retained as provenance. Unused image/model
+    ancestors are not reloaded, and no current H ledger is opened.
+    """
+    require(set(spec)=={'owner_config','completion'},'Exact source asset owner specification required')
+    oc=read(spec['owner_config']);reg=read(oc['registration']);e=Path(oc['owner_out']);done=read(spec['completion'])
+    require(spec['completion']==str(e/'completion.json') and done['status']=='REGISTERED_H_STAGE_BATCH_COMPLETE'
+        and done['registration_sha256']==sha(oc['registration']) and done['allowed_stage_ids']==reg['allowed_stage_ids']==['source']
+        and done['qualification_passed'] is True and done['future_stages_started'] is False
+        and done['budget']['unresolved']==done['budget']['failed']==0 and reg['owner_config_sha256']==sha(spec['owner_config']),
+        'Original asset export must be normally completed')
+    require(len(oc['stages'])==1 and oc['stages'][0]['resource']=='cpu' and len(oc['stages'][0]['jobs'])==1,'Original CPU-only asset stage required')
+    job=oc['stages'][0]['jobs'][0];require(job['id']=='full1000_assets','Wrong original source job')
+    launch=read(e/'launch.json');ident=read(e/'owner_identity.json');me=launch['identity']
+    require(launch['registration_sha256']==ident['registration_sha256']==sha(oc['registration'])
+        and launch['owner_config_sha256']==ident['config_sha256']==sha(spec['owner_config'])
+        and all(me[k]==ident[k] for k in ('pid','start_ticks','uid','argv')) and w.exited(me), 'Original source owner still live or mismatched')
+    stagep=e/'stages/source/completion.json';link=done['completed']
+    require(len(link)==1 and link[0]['completion']==str(stagep) and link[0]['sha256']==sha(stagep),'Source stage binding missing')
+    stage=read(stagep);folder=stagep.parent/'workers/full1000_assets';end=read(folder/'exit_receipt.json');start=read(folder/'launch.json')
+    require(stage['status']=='REGISTERED_STAGE_COMPLETE' and stage['jobs']==[end] and end['exit_code']==0
+        and end['registration_sha256']==stage['registration_sha256']==start['registration_sha256']==sha(oc['registration'])
+        and end['identity']==start['identity'] and end['identity']['argv']==job['argv'] and w.exited(end['identity'])
+        and end['closed_log_sha256']==sha(folder/'worker.log'),'Original asset worker zero-exit evidence required')
+    cp=Path(job['completion']);cfgpath=job['argv'][-1];cfg=read(cfgpath);science=read(cp)
+    require(job['argv'][-2]=='--config' and cfg['out']==job['out']==str(cp.parent) and end['completion']==str(cp)
+        and end['completion_sha256']==sha(cp) and science['registration_sha256']==sha(oc['registration'])
+        and reg['input_bindings'].get(cfgpath)==sha(cfgpath),'Source science receipt/config unbound')
+    mp=cp.parent/'manifest.json';manifest=read(mp);calpath=cfg['calibration_registration']
+    require(science['outputs'].get(str(mp))==sha(mp) and reg['input_bindings'].get(calpath)==sha(calpath), 'Asset manifest/calibration registration differs')
+    cal=read(calpath);records=w.asset_records(science,manifest,cal)
+    require(manifest['visual_identity']==cal['identity'],'Original source visual identity differs')
+    inputs=bind([*spec.values(),oc['registration'],e/'launch.json',e/'owner_identity.json',stagep,
+        folder/'launch.json',folder/'exit_receipt.json',folder/'worker.log',cp,mp,cfgpath,calpath])
+    for rec in records:
+        path=rec['checkpoint'];require(science['outputs'].get(path)==rec['checkpoint_sha256']==sha(path),'Asset checkpoint binding differs')
+        c=read(path);archive=rec['archive'];require(c['status']=='H_FULL1000_SOURCE_ASSET_READY'
+            and c['registration_sha256']==sha(oc['registration']) and c['source_index']==c['original_calibration_index']==rec['source_index']
+            and c['source_id']==rec['source_id'] and c['preprocessing_id']==rec['preprocessing_id']
+            and c['tokens_sha256']==rec['tokens_sha256'] and c['outputs'].get(archive)==science['outputs'].get(archive)==sha(archive),
+            'Original calibration token output differs')
+        inputs[path]=sha(path);inputs[archive]=sha(archive)
+    for argv in (me['argv'],job['argv']):
+        require(argv[1]=='-B' and reg['source_bindings'].get(argv[2])==sha(argv[2]),'Original asset execution source unbound')
+        sources[argv[2]]=sha(argv[2])
+    require(not any((p/n).exists() for p in (e,cp.parent) for n in ('failure.json','registration_failure.json','STOP')),'Historical source failure/STOP remains')
+    return dict(cfg=cfg,manifest=str(mp),completion=str(cp),calibration_registration=calpath,records=records,bindings=inputs)
+
+
+def context(request):
+    rp=Path(request).absolute();r=read(rp)
+    require(r['schema']=='MAIN_ACTUAL_CALIBRATION_REGISTRATION_REQUEST_R1' and sys.platform.startswith('linux'),'Registered Linux calibration request required')
+    verify(r['source_bindings']);verify(r['input_bindings']);sources=dict(r['source_bindings']);inputs=dict(r['input_bindings'])
+    e,out=Path(r['execution_dir']),Path(r['out']);root=Path(r['root']);main=root/'outputs/CONTENT-REAL-64QAM-20261006/MAIN'
+    require(e.parent==out.parent==main and e!=out and not e.exists() and not out.exists(),'Fresh independent MAIN execution/output required')
+    require(r['deadline_unix']==w.DEADLINE and time.time()<w.DEADLINE and not Path(r['stop_file']).exists(),'Original deadline/STOP gate')
+    prior=predecessor.closed_phase(r['proxy_predecessor']);pc=prior['ctx']['cfg'];o.require_budget(prior['done']['budget'])
+    for k in ('root','ledger','budget_registration','profiles','aliases','legacy_runtime','legacy_qualification','python','stop_file','deadline_unix'):
+        require(r[k]==pc[k],'Actual calibration cannot change qualified dependency '+k)
+    require(r['python']==str(root/'outputs/PRIOR-AWARE-UEP-20261004-V1/ldpc_environment/bin/python'),'Original LDPC venv required without symlink resolution')
+    for p,s in prior['ctx']['reg']['source_bindings'].items():require(sources.get(p)==s,'Original qualified physical source omitted')
+    pre=prescreen_closed(r['prescreen_predecessor'],sources);assets=assets_closed(r['asset_predecessor'],sources)
+    for k in ('ledger','budget_registration','python'):
+        require(pre['cfg'][k]==r[k],'Prescreen uses another qualified MAIN chain')
+    require(pre['cfg']['paths']['profiles']==r['profiles'] and pre['cfg']['paths']['aliases']==r['aliases']
+        and pre['cfg']['paths']['calibration_registration']==assets['calibration_registration'],'Frozen source/catalogue changed')
+    short=Path(pre['cfg']['out'])/'shortlist.json';require(pre['science']['outputs'].get(str(short))==sha(short),'Actual shortlist not bound')
+    profiles=read(r['profiles']);aliases=read(r['aliases']);spec=pre['cfg']['selection_spec']
+    points=w.schedule(profiles,aliases,read(short),spec)
+    require(r['engineering']==w.ENGINEERING,'Noise/counter engineering must be explicitly registered before calls')
+    required=[Path(__file__).absolute(),Path(o.__file__).absolute(),Path(w.__file__).absolute()]
+    required += [Path(__file__).parent/(n+'.py') for n in TEST_MODULES]
+    for p in required:require(sources.get(str(p))==sha(p),'New runtime/test source not bound '+str(p))
+    q=read(r['prepared_qualification']);require(q['status']==QUALIFIED and q['all_tests_passed'] is True
+        and q['python']==r['python'] and q['test_modules']==TEST_MODULES and q['test_count']==r['qualification_test_count']==30
+        and q['new_packet_decodes']==0 and q['GPU_used'] is False and q['actual_backend_called'] is False,
+        'Actual new pure interface qualification required')
+    for mapping in (q['source_bindings'],q['input_bindings'],q['outputs']):verify(mapping)
+    for p in required:require(q['source_bindings'].get(str(p))==sources[str(p)],'Qualification misses executed source')
+    inputs=combine(inputs,prior['bindings'],pre['bindings'],assets['bindings'],q['input_bindings'],q['outputs'],bind([rp,r['prepared_qualification']]))
+    before=readonly_budget(r['ledger'],sha(r['budget_registration']));o.require_budget(before)
+    require(before==prior['done']['budget']==pre['done']['budget_after'],'Predecessor/current budget differs')
+    resources=r['resources'];require(resources['cpu_affinity']==[[24,25],[26,27]] and resources['threads']==2
+        and resources['nice']==15 and resources['GPU_jobs']==0 and 0<resources['max_seconds']<=14400,'Frozen two-worker CPU limit')
+    return dict(request=r,e=e,out=out,sources=sources,inputs=inputs,before=before,assets=assets,
+        short=str(short),spec=spec,schedule=points,catalogue=prior['ctx']['catalogue'])
+
+
+def make_configs(ctx):
+    r,e=ctx['request'],ctx['e'];cp=e/'worker_config.json';op=e/'owner_config.json';reg=e/'execution_registration.json'
+    cfg={k:r[k] for k in ('root','out','ledger','budget_registration','profiles','aliases','legacy_runtime',
+        'legacy_qualification','python','stop_file','deadline_unix')}
+    cfg.update(schema=w.SCHEMA,phase=w.PHASE,registration=str(reg),engineering=w.ENGINEERING,
+        owner_module=str(Path(o.__file__).absolute()),owner_config=str(op),workers=2,
+        cpu_affinity=r['resources']['cpu_affinity'],threads=2,nice=15,GPU_jobs=0,maximum_packet_calls=60000,
+        admission=str(e/'worker_admission.json'),merge_admission=str(e/'merge_admission.json'),worker_closure=str(e/'workers_closed.json'),
+        shortlist=ctx['short'],selection_spec=str(e/'selection_spec.json'),schedule=ctx['schedule'],
+        asset_manifest=ctx['assets']['manifest'],asset_completion=ctx['assets']['completion'],calibration_registration=ctx['assets']['calibration_registration'])
+    cfg['owner_argv']=[r['python'],'-B',cfg['owner_module'],'--config',str(op)]
+    owner=dict(schema=o.SCHEMA,phase=w.PHASE,owner_out=str(e),worker_config=str(cp),registration=str(reg),
+        wrapper=str(Path(w.__file__).absolute()),python=r['python'],cpu_affinity=sorted(sum(cfg['cpu_affinity'],[])),
+        threads=2,nice=15,GPU_jobs=0,max_packet_calls=60000,max_seconds=r['resources']['max_seconds'],deadline_unix=r['deadline_unix'],
+        automatic_successor=False,development_allowed=False,quality_selection_allowed=False)
+    o.validate_shape(owner,dict(cfg,_path=str(cp)));return cfg,owner
+
+
+def register(request):
+    ctx=context(request);r=ctx['request'];e=ctx['e'];e.mkdir(parents=True)
+    try:
+        cfg,owner=make_configs(ctx);cp=e/'worker_config.json';op=e/'owner_config.json';rp=e/'execution_registration.json';sp=e/'selection_spec.json'
+        save(cp,cfg);save(op,owner);save(sp,ctx['spec']);inputs=combine(ctx['inputs'],bind([cp,op,sp]))
+        reg=dict(status=w.REG,phase=w.PHASE,owner_scope='ONE_MAIN_ACTUAL_CALIBRATION_CPU_BATCH_ONLY',
+            owner_config_sha256=sha(op),source_bindings=ctx['sources'],input_bindings=inputs,budget_before=ctx['before'],
+            budget_registration_sha256=sha(r['budget_registration']),phase_packet_cap=60000,MAIN_total_cap=105176,
+            H_development_reserve_touched=False,development_allowed=False,automatic_successor=False,GPU_jobs=0,
+            catalogue_digest=ctx['catalogue'].digest,wire_count=270,candidate_count=329,source_count=1000,
+            frame_count=len(ctx['schedule'])*3000,engineering=w.ENGINEERING,policy_selection=False,images_scored=False)
+        verify(ctx['sources']);verify(inputs);require(readonly_budget(r['ledger'],sha(r['budget_registration']))==ctx['before'],'Budget changed during registration')
+        save(rp,reg);o.load(op,require_seal=False)
+        done=dict(status=REGISTERED,registration_sha256=sha(rp),owner_config_sha256=sha(op),outputs=bind([cp,op,sp,rp]),
+            budget_before=ctx['before'],workers_started=False,new_packet_decodes=0,GPU_used=False)
+        save(e/'registration_completion.json',done);return done
+    except BaseException:
+        save(e/'registration_failure.json',dict(status='FAILED_PRESERVE_NO_LAUNCH',traceback=traceback.format_exc()));raise
+
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--request',required=True);a=p.parse_args();print(register(a.request)['status'])

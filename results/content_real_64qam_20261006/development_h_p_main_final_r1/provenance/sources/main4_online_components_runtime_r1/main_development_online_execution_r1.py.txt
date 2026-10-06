@@ -1,0 +1,445 @@
+"""Independent MAIN4 fixed16 timing: prepare, qualify, seal and waited GPU job.
+
+Only the original successful MAIN4 images are replayed. Historical H timing
+receipts are immutable metadata; their old live H164760 gate is never called.
+"""
+from __future__ import annotations
+import argparse
+from contextlib import ExitStack
+import csv
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import re
+import signal
+import statistics
+import subprocess
+import sys
+import time
+import traceback
+import main_development_online_components_r1 as core
+
+REQUEST='MAIN4_FIXED16_COMPONENT_REQUEST_R1'
+CONFIG='MAIN4_FIXED16_COMPONENT_CONFIG_R1'
+PREPARED='MAIN4_FIXED16_COMPONENT_INPUTS_PREPARED_R1'
+QPASS='MAIN4_FIXED16_COMPONENT_CPU_QUALIFICATION_PASS_R1'
+REG='MAIN4_FIXED16_COMPONENT_REGISTERED_R1'
+SEALED='MAIN4_FIXED16_COMPONENT_REGISTERED_NOT_LAUNCHED_R1'
+SCIENCE='MAIN4_FIXED16_COMPONENT_MEASUREMENT_COMPLETE_R1'
+DONE='MAIN4_FIXED16_COMPONENT_NORMALLY_COMPLETE_R1'
+ADMITTED='MAIN4_FIXED16_COMPONENT_WORKER_ADMITTED_R1'
+DEADLINE=1791564605.9549868
+TEST_MODULES=['test_main_development_online_components_r1','test_main_development_online_execution_r1']
+TEST_COUNT=25  # Frozen original-component11 + independent-execution14 CPU tests.
+SOURCES=['main_development_online_components_r1.py','test_main_development_online_components_r1.py',
+    'main_development_online_execution_r1.py','test_main_development_online_execution_r1.py']
+STOP=False
+
+
+def require(v,m):
+    if not v:raise RuntimeError(m)
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p):
+    h=hashlib.sha256()
+    with Path(p).open('rb') as f:
+        for b in iter(lambda:f.read(1048576),b''):h.update(b)
+    return h.hexdigest()
+def bind(paths):return {str(Path(p).absolute()):sha(p) for p in paths}
+def verify(pins):
+    for p,s in pins.items():require(Path(p).is_absolute() and re.fullmatch('[0-9a-f]{64}',s) and sha(p)==s,'Changed input '+p)
+def combine(*maps):
+    result={}
+    for values in maps:
+        for p,s in values.items():require(p not in result or result[p]==s,'Conflicting SHA '+p);result[p]=s
+    return result
+def save(p,v):
+    p=Path(p);p.parent.mkdir(parents=True,exist_ok=True)
+    with p.open('x',encoding='utf-8',newline='\n') as f:json.dump(v,f,sort_keys=True,indent=2,allow_nan=False);f.write('\n');f.flush();os.fsync(f.fileno())
+def module(p,name,bound):
+    p=str(Path(p).absolute());require(bound.get(p)==sha(p),'Source must be bound before import '+p)
+    spec=importlib.util.spec_from_file_location(name,p);m=importlib.util.module_from_spec(spec);sys.modules[name]=m;spec.loader.exec_module(m);return m
+def stop(*_):
+    global STOP
+    STOP=True
+def command(cfg,path,stage):return [cfg['python'],'-B',str(Path(__file__).absolute()),'--stage',stage,'--config',str(path)]
+def check_stop(cfg):
+    base=Path(cfg['root'])/'outputs/CONTENT-REAL-64QAM-20261006'
+    require(not STOP and time.time()<DEADLINE and not any((p/'STOP').exists() for p in
+        (base,base/'H',base/'MAIN',Path(cfg['execution_dir']),Path(cfg['out']))),'STOP or finite original deadline')
+
+
+def historical_h(spec,closed,timing):
+    require(set(spec)=={'config','registration','completion','owner_completion'},'Four exact historical H timing pins required')
+    sealed=closed['ctx']['cpu_ctx']['predecessor']['bindings']
+    for key in ('registration','completion','owner_completion'):
+        p=spec[key];require(sealed.get(p)==sha(p),'Historical H timing not in normal MAIN4 predecessor seal')
+    reg=read(spec['registration'])
+    require(reg['input_bindings'].get(spec['config'])==sha(spec['config']),
+        'Historical H timing config must be bound by the sealed original registration')
+    cfg,done,owner=[read(spec[k]) for k in ('config','completion','owner_completion')]
+    require(cfg['registration']==spec['registration'] and reg['input_bindings'].get(spec['config'])==sha(spec['config'])
+        and done['registration_sha256']==owner['registration_sha256']==sha(spec['registration'])
+        and done['config_sha256']==sha(spec['config']) and owner['status']=='REGISTERED_H_STAGE_BATCH_COMPLETE'
+        and owner['budget']==done['budget_before']==done['budget_after'] and owner['budget']['charged']==164760
+        and owner['budget']['failed']==owner['budget']['unresolved']==0,'Original normally closed H timing identity differs')
+    require(reg['source_bindings'].get(cfg['timing_core_module'])==core.H_TIMING_SHA
+        and sha(timing.__file__)==core.H_TIMING_SHA,'Original H timing source differs')
+    cc=closed['ctx']['cpu_ctx']
+    return core.design(cfg,done,cc['source_ids'],cc['context']['schedule'],timing=timing)
+
+
+def inspect(request,closed=None):
+    require(request['schema'] in (REQUEST,CONFIG) and request['deadline_unix']==DEADLINE
+        and request['automatic_successor'] is False and request['policy_selection'] is False,'Independent bounded timing request required')
+    check_stop(request);verify(request['source_bindings']);verify(request['input_bindings'])
+    bound=combine(request['source_bindings'],request['input_bindings']);sources=dict(request['source_bindings'])
+    for n in SOURCES:
+        p=str(Path(__file__).with_name(n).absolute());require(sources.get(p)==sha(p),'New timing source missing '+n)
+    for p in request['visual_batch'].values():require(bound.get(p)==sha(p),'Actual normal MAIN4 batch missing')
+    oc=read(request['visual_batch']['owner_config']);rp=oc['registration']
+    require(rp in bound and bound[rp]==sha(rp),'MAIN4 visual self-registration must be explicit before import')
+    vr=read(rp);verify(vr['source_bindings']);sources=combine(sources,vr['source_bindings']);bound=combine(bound,vr['source_bindings'])
+    oldcfg=read(oc['worker_config']);require(vr['input_bindings'].get(oc['worker_config'])==sha(oc['worker_config'])
+        and oldcfg['visual_owner_module']==request['visual_owner_module'],'Original visual worker/owner identity differs')
+    paths=list(dict.fromkeys([str(Path(__file__).absolute().parent)]+oldcfg['pythonpath']))
+    sys.path[:0]=[p for p in paths if p not in sys.path]
+    old=module(request['visual_owner_module'],'main4_timing_normal_visual_owner',bound)
+    if closed is None:closed=old.closed_batch(request['visual_batch'])
+    prior=closed['ctx'];require(closed['done']['status']=='MAIN4_VISUAL_NORMALLY_COMPLETE_R1'
+        and closed['science']['status']=='MAIN4_DEVELOPMENT_ACTUAL_RX_METRICS_COMPLETE_R1'
+        and closed['science']['source_count']==100 and closed['science']['frame_count']==1200,'Original MAIN4 image/metric stage must normally finish')
+    bound=combine(bound,closed['bindings']);require(bound.get(request['h_timing_module'])==core.H_TIMING_SHA,
+        'Original H timing module must be in the immutable inherited closure')
+    timing=module(request['h_timing_module'],'main4_timing_original_H_core',bound)
+    scope=historical_h(request['H_timing'],closed,timing)
+    # The old config is authenticated through the sealed old registration; bind
+    # its consumed bytes directly in this new execution without rewriting the
+    # original predecessor snapshot or traversing unrelated old image arrays.
+    bound=combine(bound,bind(request['H_timing'].values()))
+    require(0<request['max_seconds']<=14400,'Bounded fixed16 timing duration required')
+    base=Path(request['root'])/'outputs/CONTENT-REAL-64QAM-20261006/MAIN';e=Path(request['execution_dir']);out=Path(request['out'])
+    require(e.parent==out.parent==base and e!=out and request['root']==prior['cfg']['root'],'Independent timing evidence/output directories required')
+    before=old.w.budget_snapshot(prior)
+    sources=combine(sources,prior['reg']['source_bindings'])
+    return dict(request=request,old=old,prior=prior,closed=closed,timing=timing,scope=scope,before=before,
+        sources=sources,bound=bound,python=prior['cfg']['python'],pythonpath=paths,e=e,out=out)
+
+
+def budget(ctx):
+    value=ctx['old'].w.budget_snapshot(ctx['prior']);require(value==ctx['before'],'Timing cannot change H or MAIN ledger');return value
+
+
+def prepare(path):
+    request=read(path);ctx=inspect(request);e,out=ctx['e'],ctx['out']
+    require(not e.exists() and not out.exists(),'Fresh timing directories only; no retry')
+    sources=ctx['sources'];inputs=combine(ctx['bound'],bind([path]))
+    vc=ctx['prior']['cfg'];closure=module(vc['static_closure_module'],'main4_timing_current_native_closure',inputs)
+    native=closure.collect_bindings(vc['root'],vc['native_runtime'],vc['var_source'],vc['dino_source'],vc['uep_runtime'])
+    require(all(native.get(p)==s for p,s in ctx['prior']['static_bindings'].items()),'Original successful native source changed')
+    sources=combine(sources,native);e.mkdir()
+    try:
+        save(e/'native_source_graph.json',dict(status='EXACT_SOURCE_CLOSURE_MATCH',source_bindings=native))
+        adapter=ctx['prior']['adapter'];wire=adapter.wire
+        action=sys.modules[wire.canonical.__module__]
+        fixture={name:dict(path=str(Path(mod.__file__).absolute()),sha256=None) for name,mod in
+            [('main_action_space',action),('main_raw_keep_receiver',wire),('main_visual_keep_adapter',adapter)]}
+        fixture['h_online_components']=dict(path=request['h_timing_module'],sha256=core.H_TIMING_SHA)
+        for v in fixture.values():v['sha256']=sha(v['path']);require(sources.get(v['path'])==v['sha256'],'Original test support unbound')
+        save(e/'test_sources.json',fixture)
+        cfg=dict(request,schema=CONFIG,request=str(Path(path).absolute()),python=ctx['python'],pythonpath=ctx['pythonpath'],
+            native_source_graph=str(e/'native_source_graph.json'),test_sources=str(e/'test_sources.json'),
+            registration=str(e/'execution_registration.json'),qualification=str(e/'qualification/completion.json'),
+            source_bindings=sources,input_bindings=combine(inputs,bind([e/'native_source_graph.json',e/'test_sources.json'])))
+        save(e/'config.json',cfg);verify(sources);verify(cfg['input_bindings']);require(budget(ctx)==ctx['before'],'Budget changed during preparation')
+        done=dict(status=PREPARED,config_sha256=sha(e/'config.json'),budget_before=ctx['before'],timing_design=ctx['scope'],
+            original_owner_identity=ctx['closed']['done']['owner_identity'],original_worker_identity=ctx['closed']['done']['worker_identity'],
+            outputs=bind([e/'config.json',e/'native_source_graph.json',e/'test_sources.json']),new_packet_decodes=0,GPU_used=False)
+        save(e/'preparation_completion.json',done);return done
+    except BaseException:save(e/'preparation_failure.json',dict(status='FAILED_PRESERVE_NO_RETRY',traceback=traceback.format_exc()));raise
+
+
+def prepared(path):
+    cfg=read(path);e=Path(cfg['execution_dir']);proof=read(e/'preparation_completion.json')
+    require(cfg['schema']==CONFIG and proof['status']==PREPARED and proof['config_sha256']==sha(path)
+        and not(e/'preparation_failure.json').exists(),'Normal independent timing preparation required');verify(proof['outputs'])
+    return cfg,proof
+
+
+def qualification(cfg,ctx):
+    require(not(Path(cfg['qualification']).parent/'failure.json').exists(),'Failed qualification remains blocked')
+    q=read(cfg['qualification']);require(TEST_COUNT>0 and q['status']==QPASS and q['tests_run']==TEST_COUNT
+        and q['test_modules']==TEST_MODULES and q['python']==ctx['python'] and q['pythonpath']==ctx['pythonpath']
+        and q['exit_code']==0 and q['process_waited'] is True and q['new_packet_decodes']==q['new_GPU_calls']==0,
+        'Actual original UM CPU-only timing qualification required')
+    for k in ('source_bindings','input_bindings','outputs'):verify(q[k])
+    for p,s in ctx['sources'].items():require(q['source_bindings'].get(p)==s,'Qualification source missing '+p)
+    for p in [cfg['test_sources'],cfg['request'],*cfg['visual_batch'].values(),*cfg['H_timing'].values()]:
+        require(q['input_bindings'].get(p)==ctx['bound'].get(p)==sha(p),'Qualification input missing '+p)
+    require(q['outputs'].get(q['log'])==sha(q['log']) and re.search(r'Ran '+str(TEST_COUNT)+r' tests in .*\n\s*OK\s*$',Path(q['log']).read_text())
+        and not re.search(r'\bskipped\b',Path(q['log']).read_text(),re.I),'Exact completed no-skip test inventory required')
+    return q
+
+
+def resources(affinity,nice=15):os.sched_setaffinity(0,affinity);os.setpriority(os.PRIO_PROCESS,0,nice)
+
+
+def qualify(path):
+    cfg,proof=prepared(path);ctx=inspect(cfg);folder=Path(cfg['qualification']).parent
+    require(not folder.exists(),'Preserve earlier qualification; no retry');folder.mkdir()
+    log=folder/'tests.log';child=None
+    argv=[ctx['python'],'-B','-m','unittest',*TEST_MODULES]
+    env=dict(os.environ,PYTHONPATH=os.pathsep.join(ctx['pythonpath']),PYTHONDONTWRITEBYTECODE='1',
+        MAIN4_TIMING_TEST_SOURCES=cfg['test_sources'],CUDA_VISIBLE_DEVICES='',
+        OMP_NUM_THREADS='2',MKL_NUM_THREADS='2',OPENBLAS_NUM_THREADS='2',NUMEXPR_NUM_THREADS='2')
+    try:
+        save(folder/'attempt.json',dict(argv=argv,config_sha256=sha(path),expected_tests=TEST_COUNT))
+        with log.open('xb') as h:
+            child=subprocess.Popen(argv,cwd=cfg['root'],env=env,stdout=h,stderr=subprocess.STDOUT,stdin=subprocess.DEVNULL,
+                preexec_fn=lambda:resources([0,1]));save(folder/'launch.json',dict(pid=child.pid,argv=argv))
+            code=ctx['old'].drain_wait(child)
+        require(code==0,'CPU-only qualification failed; preserve log')
+        q=dict(status=QPASS,tests_run=TEST_COUNT,test_modules=TEST_MODULES,python=ctx['python'],pythonpath=ctx['pythonpath'],
+            exit_code=code,process_waited=True,new_packet_decodes=0,new_GPU_calls=0,source_bindings=ctx['sources'],
+            input_bindings=combine(ctx['bound'],bind([path])),outputs=bind([log,folder/'attempt.json',folder/'launch.json']),log=str(log))
+        save(cfg['qualification'],q);qualification(cfg,ctx);require(budget(ctx)==proof['budget_before'],'Budget changed during pure tests');return q
+    except BaseException:
+        if child is not None:ctx['old'].drain_wait(child)
+        save(folder/'failure.json',dict(status='FAILED_PRESERVE_NO_RETRY',traceback=traceback.format_exc(),GPU_used=False));raise
+
+
+def register(path):
+    cfg,proof=prepared(path);ctx=inspect(cfg);e=ctx['e'];require(not Path(cfg['registration']).exists(),'No retry of registered timing')
+    q=qualification(cfg,ctx)
+    try:
+        inputs=combine(ctx['bound'],q['outputs'],bind([path,cfg['qualification'],e/'preparation_completion.json']))
+        verify(ctx['sources']);verify(inputs);require(budget(ctx)==proof['budget_before'],'Budget changed since preparation')
+        reg=dict(status=REG,config_sha256=sha(path),source_bindings=ctx['sources'],input_bindings=inputs,
+            budget_before=ctx['before'],timing_design=ctx['scope'],source_count=16,component_case_count=64,
+            new_packet_decodes=0,new_metric_calls=0,policy_selection=False,automatic_successor=False)
+        save(cfg['registration'],reg);done=dict(status=SEALED,registration_sha256=sha(cfg['registration']),budget_before=ctx['before'],
+            outputs=bind([path,cfg['registration']]),worker_started=False);require(budget(ctx)==ctx['before'],'Budget changed before seal')
+        save(e/'registration_completion.json',done);return done
+    except BaseException:save(e/'registration_failure.json',dict(status='FAILED_PRESERVE_NO_RETRY',traceback=traceback.format_exc()));raise
+
+
+def load(path):
+    cfg,_=prepared(path);ctx=inspect(cfg);reg=read(cfg['registration']);seal=read(ctx['e']/'registration_completion.json')
+    require(reg['status']==REG and reg['config_sha256']==sha(path) and seal['status']==SEALED
+        and seal['registration_sha256']==sha(cfg['registration']) and reg['budget_before']==ctx['before']
+        and reg['timing_design']==ctx['scope'] and not(ctx['e']/'registration_failure.json').exists(),'Normal timing registration required')
+    verify(seal['outputs']);verify(reg['source_bindings']);verify(reg['input_bindings']);qualification(cfg,ctx)
+    ctx.update(cfg=cfg,reg=reg,regsha=sha(cfg['registration']),path=str(Path(path).absolute()),
+        bound=combine(reg['source_bindings'],reg['input_bindings']));return ctx
+
+
+def lock_paths(ctx):
+    p=ctx['prior'];cc=p['cpu_ctx']['cfg']
+    return [p['owner']['visual_lock_path'],str(Path(cc['ledger']).with_suffix('.owner.lock')),str(Path(cc['main_ledger']).with_suffix('.owner.lock'))]
+
+
+def check_live(ctx,proof):
+    cfg=ctx['cfg'];old=ctx['old'];e=ctx['e'];me=old.identity(os.getpid());parent=old.identity(os.getppid())
+    require(proof==read(e/'worker_admission.json') and proof['status']==ADMITTED
+        and proof['registration_sha256']==ctx['regsha'] and proof['config_sha256']==sha(ctx['path'])
+        and me==proof['worker_identity'] and parent==proof['owner_identity']
+        and me['argv']==command(cfg,ctx['path'],'worker') and parent['argv']==command(cfg,ctx['path'],'run'),
+        'Exact current registered timing parent and worker required')
+    prior=ctx['prior'];require(me['uid']==parent['uid'] and os.environ.get('CUDA_VISIBLE_DEVICES')=='0'
+        and os.sched_getaffinity(0)==set(prior['cfg']['gpu_affinity']) and os.getpriority(os.PRIO_PROCESS,0)==15
+        and old.environment_compatible(dict(cfg=prior['cfg'],bound=ctx['bound']))
+        and all(old.lock_is_held(p) for p in lock_paths(ctx)),'Exclusive original GPU/numeric environment and all locks required')
+    verify(proof['bindings']);check_stop(cfg)
+
+
+def admission(ctx):
+    until=time.monotonic()+120;p=ctx['e']/'worker_admission.json'
+    while not p.exists():check_stop(ctx['cfg']);require(time.monotonic()<until,'Timing parent admission absent');time.sleep(.1)
+    proof=read(p);check_live(ctx,proof);budget(ctx);return proof
+
+
+def summarize(rows,scope,timing):
+    require([(r['source_index'],r['development_slot']) for r in rows]==[(i,s) for i in scope['source_indices'] for s in scope['slots']]
+        and all(r['noise_seed']==6201 for r in rows),'Exact original fixed16 x MAIN4 timing grid required')
+    for row in rows:
+        for side in ('TX','RX'):
+            values=row[side]
+            require(values['status']=='MEASURED_UNCACHED_COMPONENTS' and len(values['warmups'])==1 and len(values['measured'])==3,
+                'Exactly original1+3 uncached repetitions required')
+            repeated=values['warmups']+values['measured']
+            require([(v['phase'],v['repetition']) for v in repeated]==[('warmup',0),('measured',0),('measured',1),('measured',2)]
+                and len({v['fingerprint'] for v in repeated})==1 and all(v['new_packet_decodes']==0 for v in repeated),
+                'Repetition identity/parity differs')
+            require(all(isinstance(value,(int,float)) and value>=0 and value<float('inf') for r in repeated for value in r['seconds'].values()),
+                'Finite nonnegative synchronized durations required')
+            if side=='RX':require(all(v['receiver_summary']['image_sha256']==row['image_sha256'] for v in repeated),'Repeated actual RGB fingerprint differs')
+    components=[]
+    for slot in scope['slots']:
+        group=[r for r in rows if r['development_slot']==slot]
+        for side in ('TX','RX'):
+            summaries=[timing.summarize_repetitions(r[side]) for r in group]
+            for name in sorted(set().union(*(x.keys() for x in summaries))):
+                values=[s.get(name,{}).get('mean_seconds',0.) for s in summaries]
+                components.append(dict(development_slot=slot,side=side,component=name,source_count=16,repetitions_per_source=3,
+                    mean_seconds=statistics.mean(values),median_source_seconds=statistics.median(values),source_means=values,
+                    warmups_excluded=True,inclusive=name in ('TX_source_total','RX_source_and_image_total')))
+    return dict(status='MAIN4_FIXED16_COMPONENT_SUMMARY_R1',source_count=16,component_case_count=64,components=components,
+        actual_gray_case_count=sum(r['gray'] for r in rows),warmups_excluded=True,uncached=True,policy_selection=False,
+        PHY_encode=None,exclusive_PHY_decode=None,end_to_end_latency=None,historical_PHY_can_be_added_to_GPU_totals=False)
+
+
+def build_native(ctx):
+    p=ctx['prior'];vc=p['cfg'];graph=read(ctx['cfg']['native_source_graph'])['source_bindings']
+    closure=module(vc['static_closure_module'],'main4_timing_actual_source_closure',ctx['bound'])
+    require(closure.collect_bindings(vc['root'],vc['native_runtime'],vc['var_source'],vc['dino_source'],vc['uep_runtime'])==graph,'Current complete native closure differs')
+    for path in (vc['runtime_dir'],vc['uep_runtime'],vc['native_runtime'],str(Path(vc['source_driver_module']).parent),
+        str(Path(vc['quality_driver_module']).parent),str(Path(vc['root'])/'src')):
+        if path not in sys.path:sys.path.append(path)
+    os.environ.setdefault('CUBLAS_WORKSPACE_CONFIG',':4096:8')
+    quality=module(vc['quality_driver_module'],'quality_driver',ctx['bound']);native=quality.build_native(Path(vc['root']),vc['native_runtime'],stop)
+    require(json.loads(json.dumps(native.loaded['identity']))==p['native_identity'] and native.flags==p['expected_flags']
+        and native.driver_bindings==graph,'Actual native model/precision/source identity differs')
+    source=module(vc['source_driver_module'],'main4_timing_original_source',ctx['bound']);phy=module(vc['legacy_phy_module'],'main4_timing_original_crc',ctx['bound'])
+    model_identity=dict(frozen_visual_identity=native.loaded['identity'],numerical_runtime=native.flags,
+        renderer_sha256=sha(vc['source_driver_module']),native_source_bindings=p['static_bindings'])
+    parts=core.native_components(native,p['cpu_ctx']['catalogue'],source_api=source,legacy_phy=phy,
+        adapter=p['adapter'],timing=ctx['timing'],model_identity=model_identity)
+    return native,quality,parts
+
+
+def worker(path):
+    ctx=load(path);cfg=ctx['cfg'];out=ctx['out'];proof=admission(ctx);started=time.monotonic();native=None
+    require(not out.exists(),'Fresh timing output; no retry');out.mkdir();save(out/'attempt.json',dict(registration_sha256=ctx['regsha']))
+    try:
+        def guard():
+            check_live(ctx,proof);require(time.monotonic()-started<cfg['max_seconds'],'Timing wall limit reached')
+            if native is not None:require(not quality.boundary(native),'Original native health guard requested stop')
+        guard();native,quality,parts=build_native(ctx);guard();rows=[];outputs={};p=ctx['prior'];vc=p['cfg']
+        for index in ctx['scope']['source_indices']:
+            guard();record,frames,pixels,pins=ctx['old'].w.source_inputs(p,index)
+            rp=Path(vc['out'])/f'sources/{index:04d}.json';cp=Path(vc['out'])/f'source_checkpoints/{index:04d}.json'
+            require(all(ctx['bound'].get(str(x))==sha(x) for x in (rp,cp)),'Original actual image parity rows changed')
+            values=core.measure_source(ctx['scope'],record,pixels,frames,read(rp),p['cpu_ctx']['context']['schedule'],
+                catalogue=p['cpu_ctx']['catalogue'],components=parts,timing=ctx['timing'],adapter=p['adapter'],
+                synchronize=native.torch.cuda.synchronize,guard=guard)
+            rowpath=out/f'sources/{index:04d}.json';cppath=out/f'source_checkpoints/{index:04d}.json';save(rowpath,values)
+            save(cppath,dict(status='MAIN4_FIXED16_COMPONENT_SOURCE_COMPLETE_R1',registration_sha256=ctx['regsha'],source_index=index,
+                source_id=record['source_id'],component_case_count=4,noise_seed=6201,outputs=bind([rowpath]),input_bindings=combine(pins,bind([rp,cp])),new_packet_decodes=0))
+            outputs.update(bind([rowpath,cppath]));rows.extend(values)
+        guard();native.frozen();summary=summarize(rows,ctx['scope'],ctx['timing'])
+        save(out/'component_cases.json',rows);save(out/'component_summary.json',summary);outputs.update(bind([out/'component_cases.json',out/'component_summary.json']))
+        verify(ctx['reg']['source_bindings']);verify(ctx['reg']['input_bindings']);verify(outputs);after=budget(ctx)
+        done=dict(status=SCIENCE,registration_sha256=ctx['regsha'],config_sha256=sha(path),supervision=proof,
+            source_count=16,component_case_count=64,source_indices=ctx['scope']['source_indices'],source_ids=ctx['scope']['source_ids'],timing_design=ctx['scope'],
+            source_bindings=ctx['reg']['source_bindings'],input_bindings=ctx['reg']['input_bindings'],outputs=outputs,
+            numerical_runtime=native.flags,frozen_visual_identity=native.loaded['identity'],native_source_bindings=native.driver_bindings,
+            budget_before=ctx['before'],budget_after=after,new_packet_decodes=0,new_noise_draws=0,new_quality_samples=0,new_metric_calls=0,
+            policy_selection=False,automatic_successor=False,exclusive_PHY_latency_measured=False,end_to_end_latency_measured=False,
+            GPU_used=True,own_owner_success_not_yet_certified=True,elapsed_seconds=time.monotonic()-started)
+        save(out/'completion.json',done);return done
+    except BaseException:save(out/'failure.json',dict(status='FAILED_PRESERVE_NO_RETRY',traceback=traceback.format_exc(),new_packet_decodes=0));raise
+
+
+def validate_output(ctx):
+    done=read(ctx['out']/'completion.json');require(done['status']==SCIENCE and done['registration_sha256']==ctx['regsha']
+        and done['config_sha256']==sha(ctx['path']) and done['timing_design']==ctx['scope']
+        and done['source_count']==16 and done['component_case_count']==64
+        and done['source_indices']==ctx['scope']['source_indices'] and done['source_ids']==ctx['scope']['source_ids']
+        and done['new_packet_decodes']==done['new_noise_draws']==done['new_quality_samples']==done['new_metric_calls']==0
+        and done['policy_selection'] is False and done['budget_before']==done['budget_after']==ctx['before'],'Exact completed timing scope required')
+    require(done['source_bindings']==ctx['reg']['source_bindings'] and done['input_bindings']==ctx['reg']['input_bindings'], 'Timing provenance changed')
+    require(done['numerical_runtime']==ctx['prior']['expected_flags']
+        and done['frozen_visual_identity']==ctx['prior']['native_identity']
+        and done['native_source_bindings']==read(ctx['cfg']['native_source_graph'])['source_bindings'],
+        'Timing numerical/model/source identity changed')
+    verify(done['outputs']);rows=[]
+    for i,sid in zip(ctx['scope']['source_indices'],ctx['scope']['source_ids']):
+        cp=ctx['out']/f'source_checkpoints/{i:04d}.json';rp=ctx['out']/f'sources/{i:04d}.json';c=read(cp)
+        require(done['outputs'].get(str(cp))==sha(cp) and done['outputs'].get(str(rp))==sha(rp)
+            and c['status']=='MAIN4_FIXED16_COMPONENT_SOURCE_COMPLETE_R1'
+            and c['source_index']==i and c['source_id']==sid and c['component_case_count']==4 and c['noise_seed']==6201
+            and c['registration_sha256']==ctx['regsha'] and c['outputs']==bind([rp]) and c['new_packet_decodes']==0,
+            'Incomplete timing source checkpoint')
+        verify(c['input_bindings']);rows.extend(read(rp))
+    require(all(done['outputs'].get(str(ctx['out']/n))==sha(ctx['out']/n) for n in ('component_cases.json','component_summary.json'))
+        and rows==read(ctx['out']/'component_cases.json') and summarize(rows,ctx['scope'],ctx['timing'])==read(ctx['out']/'component_summary.json'),
+        'Complete fixed64 rows and summary required');budget(ctx);return done
+
+
+def marker(ctx,text):
+    p=ctx['e']/'STOP'
+    if not p.exists():save(p,dict(reason=text,registration_sha256=ctx['regsha']))
+
+
+def finish(ctx,rec):
+    code=ctx['old'].drain_wait(rec['child'])
+    if not rec['log'].closed:rec['log'].flush();rec['log'].close()
+    p=ctx['e']/'worker_exit.json';cp=ctx['out']/'completion.json'
+    value=dict(identity=rec.get('identity'),pid=rec['child'].pid,exit_code=code,wait_completed=True,
+        log_sha256=sha(ctx['e']/'worker.log'),completion_sha256=sha(cp) if cp.exists() else None)
+    if p.exists():require(read(p)==value,'Original closed exit changed')
+    else:save(p,value)
+    return value
+
+
+def run(path):
+    ctx=load(path);cfg=ctx['cfg'];e=ctx['e'];old=ctx['old'];prior=ctx['prior'];me=old.identity(os.getpid());rec=None;stack=ExitStack()
+    require(me['argv']==command(cfg,path,'run') and not any((e/n).exists() for n in ('run_attempt.json','failure.json','completion.json','worker_launch.json'))
+        and not ctx['out'].exists(),'Exact fresh timing supervisor required')
+    try:
+        require(set(prior['cfg']['gpu_affinity'])<=os.sched_getaffinity(0),'Registered six host CPUs unavailable')
+        resources(prior['cfg']['gpu_affinity']);stack.enter_context(old.visual_lock(prior['owner']))
+        import fcntl
+        for lp in lock_paths(ctx)[1:]:
+            h=stack.enter_context(Path(lp).open('a+'));fcntl.flock(h,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        require(budget(ctx)==ctx['before'],'Budget changed before timing admission');check_stop(cfg)
+        gpu=old.gpu_idle(prior['owner']);save(e/'gpu_admission.json',gpu);save(e/'run_attempt.json',dict(identity=me,registration_sha256=ctx['regsha']))
+        env=old.environment(dict(prior['owner'],pythonpath=ctx['pythonpath']));cmd=command(cfg,path,'worker');h=(e/'worker.log').open('xb')
+        try:child=subprocess.Popen(cmd,cwd=cfg['root'],env=env,stdin=subprocess.DEVNULL,stdout=h,stderr=subprocess.STDOUT,
+            preexec_fn=lambda:resources(prior['cfg']['gpu_affinity']))
+        except BaseException:h.close();raise
+        rec=dict(child=child,log=h);save(e/'spawn_pending_identity.json',dict(pid=child.pid,argv=cmd));rec['identity']=old.capture(child,cmd)
+        launch=dict(identity=rec['identity'],owner_identity=me,registration_sha256=ctx['regsha'],config_sha256=sha(path));save(e/'worker_launch.json',launch)
+        proof=dict(status=ADMITTED,owner_identity=me,worker_identity=rec['identity'],registration_sha256=ctx['regsha'],config_sha256=sha(path),
+            bindings=bind([e/'run_attempt.json',e/'worker_launch.json',e/'gpu_admission.json']));save(e/'worker_admission.json',proof)
+        began=time.monotonic()
+        while child.poll() is None:
+            check_stop(cfg);require(time.monotonic()-began<cfg['max_seconds'],'Timing wall limit');time.sleep(.2)
+        result=finish(ctx,rec);require(result['exit_code']==0 and old.exited(rec['identity']),'Original timing child must wait/reap exit0')
+        check_stop(cfg);science=validate_output(ctx);require(science['supervision']==proof,'Worker used wrong admission')
+        outputs=combine(science['outputs'],bind([ctx['out']/'completion.json']+[e/n for n in
+            ('run_attempt.json','spawn_pending_identity.json','worker_launch.json','worker_admission.json','worker_exit.json','worker.log','gpu_admission.json')]))
+        done=dict(status=DONE,registration_sha256=ctx['regsha'],config_sha256=sha(path),owner_identity=me,worker_identity=rec['identity'],
+            worker_reaped=True,exit_code=0,source_count=16,component_case_count=64,budget_before=ctx['before'],budget_after=budget(ctx),outputs=outputs,
+            source_bindings=ctx['reg']['source_bindings'],input_bindings=ctx['reg']['input_bindings'],new_packet_decodes=0,automatic_successor=False)
+        save(e/'completion.json',done);return done
+    except BaseException:
+        error=traceback.format_exc()
+        try:marker(ctx,'Timing failure; preserve and drain before locks release')
+        except BaseException:error+='\nSTOP marker error:\n'+traceback.format_exc()
+        if rec is not None:finish(ctx,rec)
+        save(e/'failure.json',dict(status='FAILED_PRESERVE_NO_RETRY',traceback=error,owner_identity=me,worker_pid=None if rec is None else rec['child'].pid));raise
+    finally:stack.close()
+
+
+def closed_batch(spec):
+    require(set(spec)=={'config','completion'},'Exact timing closure spec required');ctx=load(spec['config']);e=ctx['e'];old=ctx['old']
+    require(spec['completion']==str(e/'completion.json') and not any((p/n).exists() for p in (e,ctx['out']) for n in ('failure.json','STOP')),'Normal timing evidence only')
+    done=read(spec['completion']);launch=read(e/'worker_launch.json');x=read(e/'worker_exit.json');proof=read(e/'worker_admission.json')
+    require(done['status']==DONE and done['registration_sha256']==ctx['regsha'] and done['config_sha256']==sha(spec['config'])
+        and done['owner_identity']==launch['owner_identity']==proof['owner_identity']
+        and done['worker_identity']==launch['identity']==proof['worker_identity']==x['identity']
+        and done['owner_identity']['argv']==command(ctx['cfg'],spec['config'],'run')
+        and done['worker_identity']['argv']==command(ctx['cfg'],spec['config'],'worker')
+        and done['worker_reaped'] is True and done['exit_code']==x['exit_code']==0 and x['wait_completed'] is True
+        and old.exited(done['owner_identity']) and old.exited(done['worker_identity'])
+        and x['log_sha256']==sha(e/'worker.log') and x['completion_sha256']==sha(ctx['out']/'completion.json'), 'Actual owner/worker normal exits and closed log required')
+    science=validate_output(ctx);require(science['supervision']==proof and done['budget_before']==done['budget_after']==ctx['before'],'Normal timing budget/admission differs')
+    verify(done['outputs']);return dict(ctx=ctx,done=done,science=science,bindings=combine(ctx['bound'],done['outputs'],bind([spec['config'],spec['completion'],ctx['cfg']['registration']])))
+
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--stage',choices=('prepare','qualify','register','run','worker'),required=True);p.add_argument('--request');p.add_argument('--config');a=p.parse_args()
+    signal.signal(signal.SIGTERM,stop);signal.signal(signal.SIGINT,stop)
+    print(globals()[a.stage](a.request if a.stage=='prepare' else a.config)['status'],flush=True)

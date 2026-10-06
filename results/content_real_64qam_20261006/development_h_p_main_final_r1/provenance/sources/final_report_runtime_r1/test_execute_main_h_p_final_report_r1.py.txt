@@ -1,0 +1,149 @@
+import copy
+import csv
+import json
+import os
+from pathlib import Path
+import tempfile
+import types
+import unittest
+from unittest import mock
+
+import execute_main_h_p_final_report_r1 as e
+import main_h_p_final_report_r1 as projection
+import main_development_distributions_r1 as distribution
+from test_main_h_p_final_report_r1 import fixture as report_fixture
+from test_main_development_distributions_r1 import fixture as rows_fixture
+
+
+def emit(p,v):
+    p=Path(p);p.parent.mkdir(parents=True,exist_ok=True)
+    if p.suffix=='.csv':
+        with p.open('w',encoding='utf-8',newline='') as f:
+            names=list(v[0]) if v else ['empty'];w=csv.DictWriter(f,fieldnames=names);w.writeheader()
+            for row in v:w.writerow({k:json.dumps(x) if isinstance(x,(list,dict)) else x for k,x in row.items()})
+    else:p.write_text(json.dumps(v,ensure_ascii=False),encoding='utf-8')
+    return str(p)
+
+
+def fixture(root):
+    data=report_fixture();rows,_,row_schedule=rows_fixture();schedule=copy.deepcopy(data['schedule'])
+    for p,q in zip(schedule,row_schedule):p['wire_key']=q['wire_key']
+    ids=data['final']['completion']['source_ids']
+    for row in rows:
+        row.update(schedule[row['development_slot']-18]);row['source_id']=ids[row['source_index']]
+    selected=emit(root/'selected.json',{});selection=e.sha(selected)
+    for point in data['final']['point_identity'].values():
+        if point['branch']=='MAIN':point['policy_sha256']=selection
+    data['final']['comparison_plan']['points']=data['final']['point_identity']
+    data['hp']['source_means']=[dict(value=1)];data['hp']['normalization_proof']={}
+    data['hp']['metric_availability']=[];data['hp']['target_pixel_bridge']={}
+    data['h18'].update(metric_provenance={},cost_scope={})
+    data['final'].update(source_means=[dict(value=2)],metric_availability=[])
+    data['h_timing']['component_cases']=[];data['main_timing']['component_cases']=[]
+    batches={};bound=e.bind([selected]);before=data['final']['completion']['budget_after']
+    def batch(label,d,names):
+        folder=root/label;outputs=e.bind(emit(folder/name,d[name.rsplit('.',1)[0]]) for name in names)
+        d['completion']['outputs']=outputs;bound.update(outputs)
+        return dict(directory=folder,outputs=outputs,science=d['completion'])
+    batches['H']=batch('H',data['h18'],e.H_TABLES)
+    batches['HP']=batch('HP',data['hp'],e.HP_TABLES)
+    batches['H_timing']=batch('H_timing',data['h_timing'],('component_summary.json','component_cases.json','historical_phy_event_windows.json'))
+    hp=batches['HP']['directory'];bridge=str(hp/'target_pixel_bridge.json')
+    data['final']['completion']['input_bindings']={bridge:e.sha(bridge)}
+    data['final']['provenance'].update(H_P_source_means_sha256=e.sha(hp/'source_means.csv'),normalization_proof_sha256=e.sha(hp/'normalization_proof.json'))
+    final=batch('final',data['final'],e.F_TABLES);mt=batch('MAIN_timing',data['main_timing'],e.T_TABLES)
+    sp=emit(root/'stats_config.json',dict(out=str(final['directory'])))
+    rp=emit(root/'MAIN/frame_metrics.json',rows);bound.update(e.bind([sp,rp]))
+    criteria=root/'criteria.json';criteria.write_bytes(data['criteria_bytes']);bound.update(e.bind([criteria]))
+    request=dict(execution_dir=str(root/'execution'),out=str(root/'report'),python='/original/python',criteria=str(criteria),
+        statistics_batch=dict(config=sp),source_bindings=e.bind([e.__file__]),input_bindings={})
+    prior=dict(cfg=dict(out=str(root/'MAIN')))
+    ctx=dict(request=request,e=root/'execution',out=root/'report',stats=dict(science=final['science']),
+        timing=dict(science=mt['science'],ctx=dict(cfg=dict(out=str(mt['directory'])),closed=dict(science=dict(outputs=e.bind([rp]))))),
+        timing_api=types.SimpleNamespace(budget=lambda _:before),prior=prior,
+        cc=dict(cfg=dict(selected=selected),context=dict(schedule=schedule)),before=before,batches=batches,
+        bound=bound,used={},normal_evidence=dict(fixture=True),projection=projection,distribution=distribution)
+    return request,ctx
+
+
+class Contracts(unittest.TestCase):
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.root=Path(self.temp.name)
+
+    def test_full_dataset_real_projection_and_exact_original_copies(self):
+        r,c=fixture(self.root);rp=emit(self.root/'request.json',r)
+        with mock.patch.object(e,'preflight',return_value=c):e.register(rp)
+        config=str(c['e']/'config.json');who=dict(pid=42,start_ticks=100,uid=2,argv=[r['python'],'-B',str(Path(e.__file__).absolute()),'--stage','run','--config',config])
+        env={k:'2' for k in ('OMP_NUM_THREADS','MKL_NUM_THREADS','OPENBLAS_NUM_THREADS','NUMEXPR_NUM_THREADS')};env['CUDA_VISIBLE_DEVICES']=''
+        with mock.patch.object(e,'preflight',return_value=c),mock.patch.object(e,'identity',return_value=who),mock.patch.object(e.sys,'platform','linux'),mock.patch.object(e.os,'sched_setaffinity',create=True),mock.patch.object(e.os,'setpriority',create=True),mock.patch.object(e.os,'PRIO_PROCESS',0,create=True),mock.patch.dict(os.environ,env):
+            done=e.run(config)
+            with self.assertRaisesRegex(RuntimeError,'no retry'):e.run(config)
+        view=e.read(c['out']/'view.json');self.assertEqual(len(view['summary']),432);self.assertEqual(len(view['paired']),1044)
+        inventory=e.read(c['out']/'table_inventory.json');self.assertEqual(len(inventory),32)
+        for p,v in inventory.items():self.assertEqual(Path(p).read_bytes(),Path(v['original']).read_bytes())
+        log=self.root/'closed.log';log.write_bytes(b'normal report exit\n')
+        launch=emit(self.root/'launch.json',dict(identity=who));end=emit(self.root/'exit.json',dict(identity=who,exit_code=0,process_waited=True,log_sha256=e.sha(log)))
+        spec=dict(config=config,completion=str(c['out']/'completion.json'),launch=launch,exit=end,log=str(log))
+        with mock.patch.object(e,'absent',return_value=True):
+            value=e.closed_report(spec);self.assertEqual(value['receipt'],done)
+            self.assertIn(str(c['e']/'execution_registration.json'),value['bindings'])
+            for key,bad in [('exit_code',1),('process_waited',False),('log_sha256','0'*64)]:
+                original=e.read(end);emit(end,dict(original,**{key:bad}))
+                with self.assertRaises(RuntimeError):e.closed_report(spec)
+                emit(end,original)
+        with mock.patch.object(e,'absent',return_value=False),self.assertRaises(RuntimeError):e.closed_report(spec)
+
+    def test_consumed_table_tamper_fails_before_projection(self):
+        _,ctx=fixture(self.root);p=ctx['batches']['HP']['directory']/'paired.csv';p.write_bytes(p.read_bytes()+b'\n')
+        with self.assertRaisesRegex(RuntimeError,'table output'):e.datasets(ctx)
+
+    def test_missing_normal_receipt_rejects_before_import(self):
+        root=self.root;base=root/'outputs/CONTENT-REAL-64QAM-20261006/MAIN'
+        paths={key:emit(self.root/(key+'.py'),{}) for key in e.PINS};paths['success']=emit(self.root/'success.py',{})
+        sources=e.bind([e.__file__,*paths.values()]);r=dict(schema=e.REQUEST,root=str(root),execution_dir=str(base/'e'),out=str(base/'o'),
+            policy_selection=False,automatic_successor=False,source_bindings=sources,input_bindings={},modules=paths,
+            statistics_batch=dict(config='never',completion=str(self.root/'missing.json')))
+        with mock.patch.object(e,'PINS',{k:sources[p] for k,p in paths.items() if k!='success'}),mock.patch.object(e,'module') as imported:
+            with self.assertRaisesRegex(RuntimeError,'normal statistics'):e.preflight(r)
+            imported.assert_not_called()
+
+    def test_missing_self_registration_rejects_before_import(self):
+        base=self.root/'outputs/CONTENT-REAL-64QAM-20261006/MAIN';paths={key:emit(self.root/(key+'.py'),{}) for key in e.PINS};paths['success']=emit(self.root/'success.py',{})
+        sources=e.bind([e.__file__,*paths.values()]);reg=emit(self.root/'prior_registration.json',{})
+        config=emit(self.root/'prior_config.json',dict(registration=reg));completion=emit(self.root/'normal.json',{})
+        r=dict(schema=e.REQUEST,root=str(self.root),execution_dir=str(base/'e'),out=str(base/'o'),policy_selection=False,automatic_successor=False,
+            source_bindings=sources,input_bindings=e.bind([config,completion]),modules=paths,statistics_batch=dict(config=config,completion=completion))
+        with mock.patch.object(e,'PINS',{k:sources[p] for k,p in paths.items() if k!='success'}),mock.patch.object(e,'module') as imported:
+            with self.assertRaisesRegex(RuntimeError,'Unsealed'):e.preflight(r)
+            imported.assert_not_called()
+
+    def test_actual_historical_metadata_sparse_ancestry_and_envelope(self):
+        default=Path(__file__).parent/'FINAL_REPORT_TEST_METADATA_LOCAL.json'
+        manifest=e.read(os.environ.get('FINAL_REPORT_TEST_METADATA',default))
+        records={x['remote']:x for x in manifest['files']}
+        for v in records.values():self.assertEqual(e.sha(v['path']),v['sha256'])
+        original_read=e.read;original_sha=e.sha;original_exact=e.exact
+        def lookup(p):return records[str(p).replace('\\','/')]['path']
+        def metadata(p):return original_read(lookup(p))
+        def digest(p):return original_sha(lookup(p))
+        self.assertEqual(e.sha(manifest['predecessor']),manifest['predecessor_sha256']);self.assertEqual(e.sha(manifest['cpu_request']),manifest['cpu_request_sha256'])
+        pred=original_read(manifest['predecessor']);request=original_read(manifest['cpu_request'])
+        with mock.patch.object(e,'read',side_effect=metadata),mock.patch.object(e,'sha',side_effect=digest),mock.patch.object(e,'exact',side_effect=lambda p,b,u:original_exact(str(p).replace('\\','/'),b,u)),mock.patch.object(e,'bind',side_effect=lambda ps:{str(p).replace('\\','/'):digest(p) for p in ps}):
+            for role,key in [('H','H_aggregation'),('HP','HP_statistics'),('H_timing','H_timing')]:
+                used={};out=e.historical(role,request['H_zero_PHY_batches'][key],pred,{},used)
+                self.assertTrue(out['outputs']);self.assertIn(request['H_zero_PHY_batches'][key]['registration'],used)
+                if role=='H':self.assertEqual(len(out['outputs']),18);self.assertTrue(str(out['directory']).endswith('statistics'))
+            bad=copy.deepcopy(pred);bad['bindings'].pop(request['H_zero_PHY_batches']['HP_statistics']['registration'])
+            with self.assertRaisesRegex(RuntimeError,'Unsealed'):e.historical('HP',request['H_zero_PHY_batches']['HP_statistics'],bad,{}, {})
+
+    def test_failed_projection_preserved_and_no_completion(self):
+        r,c=fixture(self.root);rp=emit(self.root/'request.json',r)
+        with mock.patch.object(e,'preflight',return_value=c):e.register(rp)
+        config=str(c['e']/'config.json');who=dict(pid=1,start_ticks=2,uid=3,argv=[r['python'],'-B',str(Path(e.__file__).absolute()),'--stage','run','--config',config])
+        env={k:'2' for k in ('OMP_NUM_THREADS','MKL_NUM_THREADS','OPENBLAS_NUM_THREADS','NUMEXPR_NUM_THREADS')};env['CUDA_VISIBLE_DEVICES']=''
+        with mock.patch.object(e,'preflight',side_effect=RuntimeError('normal changed')),mock.patch.object(e,'identity',return_value=who),mock.patch.object(e.sys,'platform','linux'),mock.patch.object(e.os,'sched_setaffinity',create=True),mock.patch.object(e.os,'setpriority',create=True),mock.patch.object(e.os,'PRIO_PROCESS',0,create=True),mock.patch.dict(os.environ,env):
+            with self.assertRaisesRegex(RuntimeError,'normal changed'):e.run(config)
+        self.assertTrue((c['out']/'failure.json').is_file());self.assertFalse((c['out']/'completion.json').exists())
+
+
+if __name__=='__main__':unittest.main()

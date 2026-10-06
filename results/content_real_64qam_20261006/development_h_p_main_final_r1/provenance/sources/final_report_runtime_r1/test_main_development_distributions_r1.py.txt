@@ -1,0 +1,75 @@
+from copy import deepcopy
+import math
+import unittest
+import main_development_distributions_r1 as d
+
+def fixture():
+    ids=['source-'+str(i) for i in range(100)]
+    schedule=[dict(development_slot=slot,snr_db=snr,modulation=mod,candidate_id=f'candidate-{slot}',
+        profile_id=88 if mod=='QPSK' else 243,wire_key=f'wire-{mod}',m=6 if mod=='QPSK' else 8,K=40 if mod=='QPSK' else 9)
+        for slot,snr,mod in d.ORDER]
+    rows=[]
+    for i,sid in enumerate(ids):
+        for p in schedule:
+            for j,seed in enumerate(d.SEEDS):
+                counter=(p['development_slot']*100+i)*3+j;energy=1936.+2*j
+                rows.append(dict(p,source_index=i,source_id=sid,noise_seed=seed,public_frame_counter=counter,
+                    population_role='development',physical_ledger_branch='H',phase='development',source_decode_complete=True,
+                    policy_selection=False,frame_normalized=False,N=1024,header_energy=136.,body_and_idle_energy=energy-136.,total_energy=energy,
+                    transmission=dict(N=1024,header_uses=68,body_uses=950,idle_uses=6,profile_id=p['profile_id'],frame_counter=counter,E=energy),
+                    header=dict(header_ok=True,profile_id=p['profile_id']),header_ok=True,rx_profile_id=p['profile_id'],gray=False,
+                    body=dict(profile_id=p['profile_id'],crc_accept=True),body_crc_accept=True,body_decode_complete=True,
+                    source_status='KEEP_ACTUAL_HARD_TOKENS',receiver_state=dict(kind='tokens',m=p['m'],K=p['K'])))
+    return rows,ids,schedule
+
+class Distributions(unittest.TestCase):
+    def test_TX100_RX300_gray_and_wrong_received_endpoint_all_retained(self):
+        rows,ids,schedule=fixture();r=rows[0]
+        r.update(gray=True,header_ok=False,rx_profile_id=None,body=None,body_crc_accept=False,body_decode_complete=False,
+            source_status='HEADER_REJECT_GRAY',receiver_state=dict(kind='gray',m=0,K=0),header=dict(header_ok=False,profile_id=None))
+        rows[1]['body_crc_accept']=False;rows[1]['body']['crc_accept']=False
+        r=rows[12];r['rx_profile_id']=r['header']['profile_id']=r['body']['profile_id']=222;r['receiver_state']=dict(kind='tokens',m=7,K=0)
+        before=deepcopy(rows);result=d.summarize(rows,ids,schedule);p=result['points'][0]
+        self.assertEqual(rows,before);self.assertEqual(p['TX_endpoints'][0]['source_count'],100)
+        self.assertEqual(sum(x['frame_count']for x in p['RX_endpoints']),300)
+        gray=next(x for x in p['RX_endpoints']if x['outcome']=='GRAY');self.assertIsNone(gray['m']);self.assertIsNone(gray['K']);self.assertEqual(gray['frame_count'],1)
+        self.assertEqual(p['RX_categories']['KEEP_CRC_REJECT']['frame_count'],1)
+        self.assertEqual(p['accepted_different_public_profile_frames'],1)
+        self.assertTrue(any(x['m']==7 and x['profile_id']==222 for x in p['RX_endpoints']))
+        self.assertFalse(result['policy_selection']);self.assertEqual(result['bootstrap_calls'],0)
+
+    def test_all_three_noise_frame_energies_population_std_linear_quantiles(self):
+        rows,ids,schedule=fixture();p=d.summarize(rows,ids,schedule)['points'][0];e=p['energy']['total_energy']
+        self.assertEqual(e['count'],300);self.assertEqual(e['mean'],1938)
+        self.assertAlmostEqual(e['std_population'],math.sqrt(8/3));self.assertEqual(e['p05'],1936);self.assertEqual(e['median'],1938);self.assertEqual(e['p95'],1940)
+        self.assertEqual(p['symbol_uses']['N']['minimum'],1024);self.assertEqual(p['symbol_uses']['idle_uses']['mean'],6)
+        self.assertEqual(set(p['energy']),{'header_energy','body_and_idle_energy','total_energy'})
+
+    def test_missing_duplicate_and_wrong_source_rejected_without_intersection(self):
+        rows,ids,schedule=fixture()
+        with self.assertRaisesRegex(ValueError,'All1200'):d.summarize(rows[:-1],ids,schedule)
+        bad=deepcopy(rows);bad[-1]=deepcopy(rows[0])
+        with self.assertRaisesRegex(ValueError,'Duplicate'):d.summarize(bad,ids,schedule)
+        bad=deepcopy(rows);bad[-1]['source_id']='other'
+        with self.assertRaisesRegex(ValueError,'identity'):d.summarize(bad,ids,schedule)
+
+    def test_three_noise_TX_endpoint_must_match_the_same_frozen_reference(self):
+        rows,ids,schedule=fixture();rows[1]['m']=7
+        with self.assertRaisesRegex(ValueError,'TX reference'):d.summarize(rows,ids,schedule)
+
+    def test_KEEP_rejected_crc_remains_tokens_and_gray_cannot_mask_body(self):
+        rows,ids,schedule=fixture();rows[0]['body_crc_accept']=rows[0]['body']['crc_accept']=False
+        p=d.summarize(rows,ids,schedule)['points'][0]
+        self.assertEqual(p['RX_categories']['KEEP_CRC_REJECT']['frame_count'],1);self.assertEqual(p['RX_categories']['HEADER_REJECT_GRAY']['frame_count'],0)
+        rows[0]['gray']=True
+        with self.assertRaisesRegex(ValueError,'rejected headers'):d.summarize(rows,ids,schedule)
+
+    def test_actual_energy_and_full_paid_symbols_required(self):
+        rows,ids,schedule=fixture()
+        for key,value in [('total_energy',float('nan')),('body_and_idle_energy',3.),('frame_normalized',True)]:
+            bad=deepcopy(rows);bad[0][key]=value
+            with self.assertRaises(ValueError):d.summarize(bad,ids,schedule)
+        rows[0]['transmission']['idle_uses']=0
+        with self.assertRaisesRegex(ValueError,'fully paid'):d.summarize(rows,ids,schedule)
+
+if __name__=='__main__':unittest.main()

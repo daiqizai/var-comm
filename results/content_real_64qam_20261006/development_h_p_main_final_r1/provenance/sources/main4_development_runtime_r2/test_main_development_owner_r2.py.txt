@@ -1,0 +1,227 @@
+"""CPU-only identity/ledger-boundary/normal-exit fixtures; no PHY or source data."""
+from contextlib import ExitStack, contextmanager, nullcontext
+from copy import deepcopy
+import json
+import os
+from pathlib import Path
+import sys
+import tempfile
+import unittest
+from unittest.mock import patch
+
+HERE=Path(__file__).absolute().parent
+support=os.environ.get('MAIN4_TEST_SUPPORT_PATHS')
+paths=json.loads(support) if support else [str(HERE.parent/x) for x in ('development_prep','phy_codec','payload','full_calibration','runner')]
+for p in paths:
+    if not Path(p).is_dir():raise RuntimeError('Explicit test support missing: '+p)
+    if p not in sys.path:sys.path.append(p)
+import main_development_owner_r2 as s
+
+
+class Child:
+    def __init__(self,pid,code=0,polls=None):
+        self.pid=pid;self.code=code;self.returncode=None;self.waits=0;self.polls=list(polls or [code])
+    def poll(self):
+        result=self.polls.pop(0) if self.polls else self.code
+        if result is not None:self.returncode=result
+        return result
+    def wait(self,timeout=None):self.waits+=1;self.returncode=self.code;return self.code
+
+
+class OwnerTests(unittest.TestCase):
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.root=Path(self.temp.name);self.e=self.root/'execution';self.e.mkdir()
+        self.cfg=dict(root=str(self.root),out=str(self.root/'science'),registration=str(self.e/'execution_registration.json'),
+            _path=str(self.e/'worker_config.json'),owner_config=str(self.e/'owner_config.json'),owner_module=str(Path(s.__file__).absolute()),
+            python='/original/ldpc_environment/bin/python',pythonpath=[str(HERE),*paths],cpu_affinities=[[24,25],[26,27]],nice=15,
+            max_worker_seconds=100,deadline_unix=s.d.DEADLINE,visual_lock=str(self.root/'visual.lock'),ledger=str(self.root/'H.sqlite'),
+            main_ledger=str(self.root/'MAIN.sqlite'),budget_registration=str(self.root/'H_budget.json'),stop_file=str(self.root/'H_STOP'),
+            main_budget_module=str(self.root/'main_budget_reader.py'),main_budget_registration=str(self.root/'MAIN_budget.json'),
+            predecessor_closure=str(self.e/'predecessor_closure.json'),selected=str(self.root/'selection.json'),
+            prepared_qualification=str(self.root/'qualification/completion.json'))
+        self.owner={k:self.cfg[k] for k in ('root','registration','python','pythonpath','cpu_affinities','nice','max_worker_seconds','deadline_unix','visual_lock','ledger','stop_file','prepared_qualification')}
+        self.owner.update(schema=s.SCHEMA,execution_dir=str(self.e),worker_config=self.cfg['_path'],driver_module=str(Path(s.d.__file__).absolute()),automatic_successor=False)
+        for p,v in [(self.cfg['owner_config'],self.owner),(self.cfg['_path'],self.cfg),(self.cfg['budget_registration'],{'branch':'H'}),
+            (self.cfg['selected'],{'already_selected':True}),(self.cfg['main_budget_registration'],{'branch':'MAIN'})]:s.save(p,v)
+        Path(self.cfg['main_budget_module']).write_text('# readonly fixture\n');Path(self.cfg['main_ledger']).write_bytes(b'fixture only')
+        self.before=dict(charged=164760,phase_charged=deepcopy(s.d.BEFORE),MAIN4_calls=0,unresolved=0,historic_events_sha256='a'*64)
+        self.after=deepcopy(self.before);self.after.update(charged=166000,MAIN4_calls=1240);self.after['phase_charged']['development']+=1240
+        self.main=dict(branch='MAIN',charged=105176,phase_charged=dict(qualification=2168,proxy_phy=43008,actual_calibration=60000),
+            unresolved=0,counts=[dict(status='COMPLETE')])
+        self.me=dict(pid=900,start_ticks=7,uid=1002,argv=[self.cfg['python'],'-B',str(Path(s.__file__).absolute()),'--config',self.cfg['owner_config']])
+        self.proof=dict(status='MAIN4_NORMAL_PREDECESSORS_VERIFIED_R2',normal_roles=s.ROLES,MAIN_calibration_calls=105176,
+            automatic_successors_active=False,selected=dict(path=self.cfg['selected'],sha256=s.sha(self.cfg['selected'])),
+            identities=[dict(pid=300,start_ticks=2,uid=1002,argv=['old'])],bindings=s.bind([self.cfg['selected']]),
+            main_budget_before=self.main,H_budget_before=self.before)
+        s.save(self.cfg['predecessor_closure'],self.proof)
+        sourcepaths=[s.__file__,s.d.__file__,s.d.core.__file__];sources=s.bind(sourcepaths)
+        log=self.root/'qualification/tests.log';log.parent.mkdir();log.write_text('Ran 15 tests in 0.1s\n\nOK\n')
+        q=dict(status=s.QUALIFIED,python=self.cfg['python'],pythonpath=self.cfg['pythonpath'],process_waited=True,exit_code=0,
+            new_packet_decodes=0,GPU_used=False,tests_run=15,test_modules=['test_main_development_owner_r2'],
+            source_bindings=sources,input_bindings={},outputs=s.bind([log]),log=str(log))
+        s.save(self.cfg['prepared_qualification'],q)
+        inputs=s.bind([self.cfg[k] for k in ('owner_config','_path','budget_registration','main_budget_module','main_budget_registration','selected','predecessor_closure','prepared_qualification')])
+        self.reg=dict(source_bindings=sources,input_bindings=inputs,budget_before=self.before,qualification_test_count=15,
+            qualification_test_modules=q['test_modules']);s.save(self.cfg['registration'],self.reg)
+        self.ctx=dict(cfg=self.cfg,reg=self.reg,regsha=s.sha(self.cfg['registration']),bound=s.combine(sources,inputs),owner_config=self.owner,
+            predecessor=self.proof,source_ids=[f'source{i:03}' for i in range(100)],_active=[])
+        s.save(self.e/'registration_completion.json',dict(status=s.REGISTERED,registration_sha256=self.ctx['regsha'],outputs={}))
+        s.STOP=False;self.addCleanup(setattr,s,'STOP',False)
+    def replace(self,p,v):Path(p).unlink();s.save(p,v)
+    def update_bound(self,p):self.ctx['bound'][str(p)]=s.sha(p)
+    def start(self):s.save(self.e/'owner_identity.json',dict(identity=self.me,registration_sha256=self.ctx['regsha'],config_sha256=s.sha(self.cfg['owner_config'])))
+    def fake_launch(self,ctx,index,owner,code=0,polls=None):
+        f=s.folder(self.cfg,index);f.mkdir(parents=True);handle=(f/'worker.log').open('xb');handle.write(b'fixture complete\n')
+        me=dict(pid=1000+(2 if index is None else index),start_ticks=50,uid=1002,argv=s.command(self.cfg,index))
+        record=dict(child=Child(me['pid'],code,polls),handle=handle,folder=f,index=index,identity=me,closed=False);ctx['_active'].append(record)
+        s.save(f/'launch.json',dict(identity=me,argv=me['argv'],registration_sha256=ctx['regsha']))
+        s.save(f/'admission.json',dict(status='MAIN4_CPU_ADMISSION_VERIFIED_R2',registration_sha256=ctx['regsha'],config_sha256=s.sha(self.cfg['_path']),
+            worker_identity=me,owner_identity=owner,worker_index=index,phase='development',owner_locks_held=['shared_visual','H_ledger_owner'],
+            affinity=self.cfg['cpu_affinities'][0 if index is None else index],source_indices=[] if index is None else s.d.indices(index)))
+        done=dict(status=s.d.DONE if index is None else s.d.WORKER_DONE,worker_index=index,worker_identity=me,
+            source_indices=list(range(100)) if index is None else s.d.indices(index),source_count=100 if index is None else 50,
+            frame_count=1200 if index is None else 600,source_ids=ctx['source_ids'],registration_sha256=ctx['regsha'],
+            config_sha256=s.sha(self.cfg['_path']),source_bindings=ctx['reg']['source_bindings'],input_bindings=ctx['reg']['input_bindings'],outputs={})
+        if index is None:done.update(new_packet_decodes=1240,budget_before=self.before,budget_after=self.after)
+        s.save(Path(self.cfg['out'])/('merge' if index is None else f'worker_{index}')/'completion.json',done)
+        return record
+    def pair(self):
+        self.start();rs=[self.fake_launch(self.ctx,i,self.me) for i in (0,1)]
+        for r in rs:s.finish(self.ctx,r)
+        return rs
+    def run_patches(self,stack):
+        stack.enter_context(patch.object(s,'load',return_value=self.ctx));stack.enter_context(patch.object(s.sys,'platform','linux'))
+        stack.enter_context(patch.object(s.os,'sched_getaffinity',return_value={24,25,26,27},create=True))
+        stack.enter_context(patch.object(s,'identity',return_value=self.me));stack.enter_context(patch.object(s,'owner_locks',return_value=nullcontext()))
+        stack.enter_context(patch.object(s,'main_budget',return_value=self.main));stack.enter_context(patch.object(s.d,'stable_budget',side_effect=lambda *a,**k:dict(self.after if self.ctx['_active'] else self.before,events={})))
+        stack.enter_context(patch.object(s,'absent',return_value=True));stack.enter_context(patch.object(s,'launch',side_effect=self.fake_launch))
+        stack.enter_context(patch.object(s,'audit_merge',side_effect=lambda ctx:(s.read(Path(self.cfg['out'])/'merge/completion.json'),self.after)))
+
+    def test_contract_qualification_and_venv_spelling(self):
+        self.assertEqual(s.validate_contract(self.cfg,self.ctx),self.owner)
+        self.assertEqual(s.command(self.cfg,1)[0],'/original/ldpc_environment/bin/python')
+        self.assertEqual(s.command(self.cfg,1)[-4:],['--stage','worker','--worker-index','1'])
+        self.assertEqual(s.command(self.cfg)[-2:],['--stage','merge'])
+        q=s.read(self.cfg['prepared_qualification']);q['python']='/different/python';self.replace(self.cfg['prepared_qualification'],q);self.update_bound(self.cfg['prepared_qualification'])
+        with self.assertRaisesRegex(ValueError,'qualification'):s.qualification(self.cfg,self.ctx)
+
+    def test_closed_snapshot_does_not_reopen_H_historical_gate(self):
+        with patch.object(s,'absent',return_value=True),patch.object(s,'main_budget',return_value=self.main),patch.object(s.d,'ledger_view',side_effect=AssertionError('historical H gate')):
+            self.assertEqual(s.inspect_predecessors(self.cfg,self.reg,self.ctx['bound']),self.proof)
+        with patch.object(s,'absent',return_value=False),self.assertRaisesRegex(ValueError,'unreaped'):s.inspect_predecessors(self.cfg,self.reg,self.ctx['bound'])
+        with patch.object(s,'absent',return_value=True),patch.object(s,'main_budget',return_value=dict(self.main,charged=105177)),self.assertRaisesRegex(ValueError,'MAIN ledger'):s.inspect_predecessors(self.cfg,self.reg,self.ctx['bound'])
+
+    def test_snapshot_or_selected_pin_changes_fail(self):
+        self.replace(self.cfg['selected'],{'changed':True})
+        with patch.object(s,'absent',return_value=True),self.assertRaises(ValueError):s.inspect_predecessors(self.cfg,self.reg,self.ctx['bound'])
+
+    def test_exact_normal_wait_logs_and_disjoint_source_indices(self):
+        rs=self.pair()
+        with patch.object(s,'absent',return_value=True):closed=s.closed_workers(self.ctx)
+        self.assertEqual([r['worker_index'] for r in closed],[0,1]);self.assertTrue(all(r['child'].waits==1 and r['handle'].closed for r in rs))
+        self.assertEqual(set(s.d.indices(0))|set(s.d.indices(1)),set(range(100)));self.assertFalse(set(s.d.indices(0))&set(s.d.indices(1)))
+        (s.folder(self.cfg,0)/'worker.log').write_bytes(b'tamper')
+        with patch.object(s,'absent',return_value=True),self.assertRaisesRegex(ValueError,'closed log'):s.closed_workers(self.ctx)
+
+    def test_live_worker_or_wrong_partition_fails(self):
+        self.pair()
+        with patch.object(s,'absent',return_value=False),self.assertRaises(ValueError):s.closed_workers(self.ctx)
+        p=Path(self.cfg['out'])/'worker_0/completion.json';done=s.read(p);done['source_indices'][0]=1;self.replace(p,done)
+        ep=s.folder(self.cfg,0)/'exit.json';end=s.read(ep);end['completion_sha256']=s.sha(p);self.replace(ep,end)
+        with patch.object(s,'absent',return_value=True),self.assertRaisesRegex(ValueError,'50-source'):s.closed_workers(self.ctx)
+
+    def test_poll_wait_zombie_window_never_queries_exiting_child(self):
+        r=self.fake_launch(self.ctx,0,self.me,polls=[None,0])
+        with patch.object(s,'identity',side_effect=AssertionError('identity in poll/wait race')),patch.object(s.time,'sleep'):
+            s.wait_group(self.ctx,[r],s.time.monotonic())
+        self.assertEqual(r['child'].waits,1);self.assertTrue(r['handle'].closed)
+
+    def test_merge_needs_current_admission_not_just_old_workers(self):
+        self.start();r=self.fake_launch(self.ctx,None,self.me)
+        with patch.object(s,'check_live_admission') as live,patch.object(s,'closed_workers',return_value=[]) as closed:
+            value=s.admit_worker(self.ctx,None);self.assertEqual(value['worker_identity'],r['identity']);live.assert_called_once();closed.assert_called_once_with(self.ctx)
+        s.finish(self.ctx,r)
+
+    def test_actual_cpu_environment_two_locks_and_identity(self):
+        value=dict(registration_sha256=self.ctx['regsha'],worker_identity={'pid':1},owner_identity={'pid':2},affinity=[24,25])
+        with ExitStack() as stack:
+            stack.enter_context(patch.object(s,'identity',side_effect=lambda p:{'pid':1} if p==os.getpid() else {'pid':2}))
+            stack.enter_context(patch.object(s.os,'sched_getaffinity',return_value={24,25},create=True));stack.enter_context(patch.object(s.os,'getpriority',return_value=15,create=True));stack.enter_context(patch.object(s.os,'PRIO_PROCESS',0,create=True))
+            stack.enter_context(patch.dict(os.environ,dict(CUDA_VISIBLE_DEVICES='',**{k:'2' for k in s.THREAD_KEYS})))
+            lock=stack.enter_context(patch.object(s,'lock_held',return_value=True));s.check_live_admission(self.ctx,value)
+            self.assertEqual(lock.call_count,2)
+            with patch.dict(os.environ,CUDA_VISIBLE_DEVICES='0'),self.assertRaises(ValueError):s.check_live_admission(self.ctx,value)
+            lock.return_value=False
+            with self.assertRaisesRegex(ValueError,'locks'):s.check_live_admission(self.ctx,value)
+
+    def test_capture_failure_keeps_PID_and_closed_log(self):
+        child=Child(777)
+        with patch.object(s.subprocess,'Popen',return_value=child),patch.object(s,'capture',side_effect=RuntimeError('capture failed')):
+            with self.assertRaisesRegex(RuntimeError,'capture'):s.launch(self.ctx,0,self.me)
+        self.assertEqual(s.read(s.folder(self.cfg,0)/'pending_pid.json')['pid'],777)
+        s.drain(self.ctx);self.assertTrue(self.ctx['_active'][0]['handle'].closed)
+
+    def test_stop_drains_both_without_success_or_refund(self):
+        marker=self.root/'outputs/CONTENT-REAL-64QAM-20261006/MAIN/STOP';s.save(marker,{'stop':True})
+        with self.assertRaisesRegex(ValueError,'STOP'):s.check_stop(self.cfg)
+        marker.unlink()
+        rs=[self.fake_launch(self.ctx,i,self.me,polls=[None,0]) for i in (0,1)];s.STOP=True
+        with self.assertRaisesRegex(ValueError,'STOP'):s.wait_group(self.ctx,rs,s.time.monotonic())
+        s.marker(self.cfg,'test STOP')
+        with patch.object(s.os,'killpg',create=True):s.drain(self.ctx)
+        self.assertTrue(all(r['handle'].closed and r['closed'] for r in rs));self.assertFalse((self.e/'completion.json').exists())
+        self.assertTrue(Path(self.cfg['stop_file']).is_file())
+
+    def test_nonzero_worker_does_not_launch_merge(self):
+        def start(ctx,index,owner):return self.fake_launch(ctx,index,owner,code=1 if index==0 else 0)
+        with ExitStack() as stack:
+            self.run_patches(stack);stack.enter_context(patch.object(s,'launch',side_effect=start))
+            with self.assertRaisesRegex(ValueError,'child failed'):s.run(self.cfg['owner_config'])
+        self.assertEqual([r['index'] for r in self.ctx['_active']],[0,1]);self.assertFalse((self.e/'completion.json').exists())
+        self.assertTrue((self.e/'owner_failure.json').exists());self.assertTrue(all(r['handle'].closed for r in self.ctx['_active']))
+
+    def test_normal_worker_merge_owner_and_downstream_closure(self):
+        with ExitStack() as stack:
+            self.run_patches(stack);done=s.run(self.cfg['owner_config'])
+            self.assertEqual(done['status'],s.COMPLETE);self.assertEqual(done['new_packet_decodes'],1240)
+            self.assertEqual(done['budget_after']['charged'],166000);self.assertEqual(done['MAIN_budget_after']['charged'],105176)
+            closed=s.closed_batch(dict(owner_config=self.cfg['owner_config'],completion=str(self.e/'completion.json')))
+            self.assertEqual(closed['bindings'][self.cfg['registration']],self.ctx['regsha'])
+            bad=deepcopy(done);bad['worker_identities'][0]['start_ticks']+=1;self.replace(self.e/'completion.json',bad)
+            with self.assertRaisesRegex(ValueError,'evidence differ'):s.closed_batch(dict(owner_config=self.cfg['owner_config'],completion=str(self.e/'completion.json')))
+            self.replace(self.e/'completion.json',done)
+            s.save(self.e/'owner_failure.json',{'retained':True})
+            with self.assertRaisesRegex(ValueError,'failure'):s.closed_batch(dict(owner_config=self.cfg['owner_config'],completion=str(self.e/'completion.json')))
+
+    def test_union_affinity_refuses_before_launch(self):
+        with patch.object(s,'load',return_value=self.ctx),patch.object(s.sys,'platform','linux'),patch.object(s.os,'sched_getaffinity',return_value={24,25},create=True),patch.object(s,'launch') as start:
+            with self.assertRaisesRegex(ValueError,'Both registered'):s.run(self.cfg['owner_config'])
+            start.assert_not_called()
+
+    def test_owner_locks_stay_held_during_failed_launch_drain(self):
+        held=[];events=[];original=s.drain
+        @contextmanager
+        def locks(cfg):
+            held.append(True);events.append('lock')
+            try:yield
+            finally:held.pop();events.append('unlock')
+        def launch(ctx,index,owner):
+            if index==1:raise RuntimeError('second spawn failure')
+            return self.fake_launch(ctx,index,owner)
+        def drain(ctx):self.assertTrue(held);events.append('wait');return original(ctx)
+        with ExitStack() as stack:
+            self.run_patches(stack);stack.enter_context(patch.object(s,'owner_locks',side_effect=locks));stack.enter_context(patch.object(s,'launch',side_effect=launch));stack.enter_context(patch.object(s,'drain',side_effect=drain))
+            stack.enter_context(patch.object(s,'marker',side_effect=OSError('STOP file write failed')))
+            with self.assertRaisesRegex(RuntimeError,'spawn'):s.run(self.cfg['owner_config'])
+        self.assertEqual(events,['lock','wait','unlock']);self.assertTrue(self.ctx['_active'][0]['handle'].closed)
+        self.assertIn('STOP file write failed',s.read(self.e/'owner_failure.json')['stop_marker_error'])
+
+    def test_h_before_changed_refuses_every_spawn(self):
+        with ExitStack() as stack:
+            self.run_patches(stack);stack.enter_context(patch.object(s.d,'stable_budget',return_value=dict(self.after,events={})))
+            start=stack.enter_context(patch.object(s,'launch'))
+            with self.assertRaisesRegex(ValueError,'untouched'):s.run(self.cfg['owner_config'])
+            start.assert_not_called();self.assertTrue((self.e/'owner_failure.json').exists())
+
+
+if __name__=='__main__':unittest.main()

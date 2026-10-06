@@ -1,0 +1,399 @@
+"""One registered MAIN visual worker, with waited exit and immutable evidence.
+
+This supervisor never constructs a decoder/model or changes any packet ledger.
+The original native GPU guard remains inside the worker. The monitoring parent
+does not turn a completed child's brief zombie state into a foreign-PID error.
+"""
+from __future__ import annotations
+import argparse
+import contextlib
+import os
+from pathlib import Path
+import signal
+import subprocess
+import sys
+import time
+import traceback
+import main_development_visual_driver_r1 as w
+import re
+import math
+
+SCHEMA='MAIN4_VISUAL_OWNER_CONFIG_R1'
+DONE='MAIN4_VISUAL_NORMALLY_COMPLETE_R1'
+REGISTERED='MAIN4_VISUAL_REGISTERED_NOT_LAUNCHED_R1'
+QUALIFIED='MAIN4_ACTUAL_RX_METRICS_CPU_QUALIFICATION_PASS_R1'
+ADMITTED='MAIN4_VISUAL_WORKER_ADMITTED_R1'
+THREAD_KEYS=('OMP_NUM_THREADS','MKL_NUM_THREADS','OPENBLAS_NUM_THREADS','NUMEXPR_NUM_THREADS')
+require=w.require;read=w.read;sha=w.sha;save=w.save;verify=w.verify;combine=w.combine
+
+
+def bind(paths):return {str(Path(p).absolute()):sha(p) for p in paths}
+def argv(owner):return [owner['python'],'-B',str(Path(__file__).absolute()),'--config',owner['_path']]
+
+
+def identity(pid):
+    p=Path('/proc')/str(pid);f=(p/'stat').read_text().rsplit(')',1)[1].split()
+    require(f[0] not in ('Z','X'),'Live worker identity required')
+    return dict(pid=pid,start_ticks=int(f[19]),uid=p.stat().st_uid,
+        argv=(p/'cmdline').read_bytes().decode().rstrip('\0').split('\0'))
+
+
+def same_identity(a,b):return all(a[k]==b[k] for k in ('pid','start_ticks','uid'))
+
+
+def exited(old):
+    p=Path('/proc')/str(old['pid'])
+    try:
+        f=(p/'stat').read_text().rsplit(')',1)[1].split()
+        return int(f[19])!=old['start_ticks'] or p.stat().st_uid!=old['uid']
+    except FileNotFoundError:return True
+
+
+def environment_compatible(ctx):
+    path=ctx['cfg']['env_compatibility_module'];name='main4_original_preflight_environment'
+    require(ctx['bound'].get(path)==sha(path),'Bound original phase-aware resource guard required')
+    m=sys.modules.get(name)
+    if m is None:m=w.module(path,name,ctx['bound'])
+    require(str(Path(m.__file__).absolute())==path,'Environment helper module path differs')
+    return m.check(ctx['bound'],ctx['cfg']['root'])
+
+
+def lock_paths(ctx):
+    c=ctx['cpu_ctx']['cfg']
+    return [ctx['owner']['visual_lock_path'] if 'owner' in ctx else read(ctx['cfg']['visual_owner_config'])['visual_lock_path'],
+        str(Path(c['ledger']).with_suffix('.owner.lock')),str(Path(c['main_ledger']).with_suffix('.owner.lock'))]
+
+
+def qualification(ctx):
+    cfg=ctx['cfg'];p=cfg['prepared_qualification'];q=read(p)
+    require(ctx['bound'].get(p)==sha(p) and q['status']==QUALIFIED and q['python']==cfg['python']
+        and q['pythonpath']==cfg['pythonpath'] and q['tests_run']==ctx['reg']['qualification_test_count']>0
+        and q['test_modules']==ctx['reg']['qualification_test_modules'] and q['exit_code']==0
+        and q['process_waited'] is True and q['new_packet_decodes']==0 and q['GPU_used'] is False
+        and q['model_imports'] is False,'Actual bound UM CPU interface qualification required')
+    for k in ('source_bindings','input_bindings','outputs'):verify(q[k])
+    for k in ('worker_module','core_module','visual_owner_module','env_compatibility_module'):
+        p=cfg[k];require(q['source_bindings'].get(p)==ctx['bound'].get(p)==sha(p),'Qualification dependency omitted '+k)
+    log=q['log'];require(q['outputs'].get(log)==sha(log),'Closed qualification log required')
+    text=Path(log).read_text(encoding='utf-8')
+    require(re.search(r'Ran '+str(q['tests_run'])+r' tests in .*\n\s*OK\s*$',text)
+        and not re.search(r'\bskipped\b',text,re.I),'Exact successful test inventory required')
+    return q
+
+
+def atomic_save(path,value):
+    path=Path(path);tmp=path.with_name(path.name+'.pending-'+str(os.getpid()));save(tmp,value)
+    try:os.link(tmp,path)
+    finally:tmp.unlink()
+
+
+def validate_shape(owner,ctx):
+    cfg=ctx['cfg'];e=Path(owner['owner_out']);study=Path(cfg['root'])/'outputs/CONTENT-REAL-64QAM-20261006'
+    require(owner['schema']==SCHEMA and owner['registration']==cfg['registration']
+        and owner['worker_config']==cfg['_path'] and owner['_path']==cfg['visual_owner_config'], 'Exact visual owner/config required')
+    require(owner['worker_argv']==w.command(cfg) and owner['python']==cfg['python']
+        and cfg['visual_owner_module']==str(Path(__file__).absolute())
+        and owner['pythonpath']==cfg['pythonpath'] and owner['prepared_qualification']==cfg['prepared_qualification'],'Registered original GPU interpreter/entry required')
+    require(owner['gpu_device']==cfg['gpu_device']==0 and owner['gpu_threads']==cfg['gpu_threads']==6
+        and owner['gpu_affinity']==cfg['gpu_affinity'] and owner['cpu_affinity']==sorted(cfg['gpu_affinity'])
+        and len(set(owner['cpu_affinity']))==6 and owner['nice']==cfg['nice']==15,
+        'One GPU and exact original six CPU threads required')
+    require(owner['max_seconds']==cfg['max_seconds'] and 0<owner['max_seconds']<=86400
+        and owner['deadline_unix']==cfg['deadline_unix'] and owner['automatic_successor'] is False,
+        'Bounded visual-only owner required')
+    require(e.is_absolute() and e.parent==study/'MAIN' and e!=Path(cfg['out'])
+        and owner['visual_lock_path']==str(study/'shared_visual.lock')
+        and Path(owner['nvidia_smi']).is_absolute(), 'Original shared study GPU lock and separate execution directory required')
+    require(ctx['bound'].get(cfg['visual_owner_config'])==sha(cfg['visual_owner_config'])
+        and ctx['bound'].get(cfg['visual_owner_module'])==sha(__file__)
+        and ctx['bound'].get(owner['nvidia_smi'])==sha(owner['nvidia_smi']), 'Actual GPU inventory executable must be bound')
+
+
+def load(config,require_seal=True):
+    path=str(Path(config).absolute());owner=read(path);owner['_path']=path
+    ctx=w.load_registered(owner['worker_config']);validate_shape(owner,ctx)
+    require(ctx['reg']['owner_config_sha256']==sha(path) and ctx['reg']['owner_scope']=='MAIN4_ACTUAL_RX_METRICS_ONLY',
+        'Owner must belong to the independent visual registration')
+    if require_seal:
+        e=Path(owner['owner_out']);require(not(e/'registration_failure.json').exists(),'Registration failure retained')
+        seal=read(e/'registration_completion.json');require(seal['status']==REGISTERED
+            and seal['registration_sha256']==ctx['regsha'] and seal['owner_config_sha256']==sha(path), 'Successful visual registration seal required')
+        verify(seal['outputs'])
+    require(w.budget_snapshot(ctx)==ctx['reg']['budget_before'],'Readonly MAIN budget differs before visual stage')
+    qualification(ctx)
+    return dict(ctx,owner=owner)
+
+
+def check_stop(ctx,*,enforce_deadline=True):
+    cfg=ctx['cfg'];study=Path(cfg['root'])/'outputs/CONTENT-REAL-64QAM-20261006'
+    require((not enforce_deadline or time.time()<cfg['deadline_unix']) and not any(p.exists() for p in
+        (Path(cfg['stop_file']),Path(cfg['out'])/'STOP',Path(cfg['visual_owner_config']).parent/'STOP',study/'STOP',study/'H/STOP',study/'MAIN/STOP')), 'STOP or original deadline blocks visual stage')
+
+
+def request_stop(ctx,cause):
+    p=Path(ctx['cfg']['stop_file'])
+    if not p.exists():
+        try:save(p,dict(status='MAIN_VISUAL_STOP_PRESERVE',cause=cause,registration_sha256=ctx['regsha']))
+        except FileExistsError:pass
+
+
+def gpu_idle(owner,runner=subprocess.run):
+    exe=owner['nvidia_smi']
+    def query(fields,kind='gpu'):
+        return runner([exe,'--query-'+kind+'='+fields,'--format=csv,noheader,nounits'],
+            check=True,capture_output=True,text=True,timeout=15).stdout.strip()
+    lines=query('index,uuid').splitlines()
+    require(len(lines)==1,'Exactly one physical GPU required')
+    fields=[x.strip() for x in lines[0].split(',')]
+    require(len(fields)==2 and fields[0]=='0' and fields[1].startswith('GPU-'),'Unexpected GPU identity')
+    pids=query('pid','compute-apps')
+    require(not pids,'GPU compute PID present; no historical or foreign exception')
+    return dict(status='GPU_IDLE_CONFIRMED',gpu_device=0,uuid=fields[1],compute_pids=[],
+        nvidia_smi_sha256=sha(exe),observed_unix=time.time())
+
+
+@contextlib.contextmanager
+def visual_lock(owner):
+    import fcntl
+    p=Path(owner['visual_lock_path']);p.parent.mkdir(parents=True,exist_ok=True)
+    with p.open('a+') as f:
+        fcntl.flock(f,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        try:yield
+        finally:fcntl.flock(f,fcntl.LOCK_UN)
+
+
+def lock_is_held(path):
+    """Worker proves another process holds the shared lock; never acquires it."""
+    import fcntl
+    with Path(path).open('r+') as f:
+        try:fcntl.flock(f,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        except BlockingIOError:return True
+        fcntl.flock(f,fcntl.LOCK_UN);return False
+
+
+def environment(owner):
+    return dict(os.environ,CUDA_VISIBLE_DEVICES='0',PYTHONDONTWRITEBYTECODE='1',PYTHONUNBUFFERED='1',
+        PYTHONPATH=os.pathsep.join(owner['pythonpath']),
+        **{k:'6' for k in THREAD_KEYS})
+
+
+def admission_paths(owner):
+    e=Path(owner['owner_out']);return e/'worker_admission.json',e/'worker/launch.json',e/'gpu_admission.json'
+
+
+def check_live_admission(ctx,supervision):
+    """Called by the still-running worker only; never by parent's poll loop."""
+    cfg=ctx['cfg'];owner=read(cfg['visual_owner_config']);owner['_path']=cfg['visual_owner_config'];validate_shape(owner,ctx)
+    p,lp,gp=admission_paths(owner);require(supervision==read(p),'Worker admission changed')
+    me=identity(os.getpid());parent=supervision['owner_identity']
+    require(supervision['status']==ADMITTED and supervision['registration_sha256']==ctx['regsha']
+        and supervision['config_sha256']==sha(cfg['_path']) and same_identity(me,supervision['worker_identity'])
+        and me['argv']==w.command(cfg) and me['argv']==supervision['worker_identity']['argv'] and me['uid']==parent['uid'] and os.getppid()==parent['pid']
+        and parent['argv']==argv(owner) and same_identity(parent,identity(parent['pid'])),
+        'Exact registered live parent/worker required')
+    require(os.environ.get('CUDA_VISIBLE_DEVICES')=='0' and environment_compatible(ctx)
+        and os.sched_getaffinity(0)==set(cfg['gpu_affinity']) and os.getpriority(os.PRIO_PROCESS,0)==15,
+        'Exact admitted GPU resources required')
+    verify(supervision['bindings']);launch=read(lp);gpu=read(gp)
+    require(launch['identity']==supervision['worker_identity'] and launch['owner_identity']==parent
+        and launch['registration_sha256']==ctx['regsha'] and launch['config_sha256']==sha(cfg['_path'])
+        and gpu==supervision['gpu_admission'] and gpu['status']=='GPU_IDLE_CONFIRMED'
+        and gpu['owner_identity']==parent and gpu['registration_sha256']==ctx['regsha']
+        and gpu['visual_lock_path']==owner['visual_lock_path'] and all(lock_is_held(p) for p in lock_paths(ctx)),
+        'Live lock/launch/GPU admission proof differs')
+    check_stop(ctx)
+
+
+def admit_worker(config_path,ctx):
+    require(str(Path(config_path).absolute())==ctx['cfg']['_path'],'Wrong visual worker config')
+    owner=read(ctx['cfg']['visual_owner_config']);owner['_path']=ctx['cfg']['visual_owner_config'];validate_shape(owner,ctx)
+    path,_,_=admission_paths(owner);began=time.monotonic()
+    while not path.is_file():
+        check_stop(ctx);require(time.monotonic()-began<120,'Owner admission timed out before any GPU loading');time.sleep(.1)
+    value=read(path);check_live_admission(ctx,value)
+    # The parent holds both accounting-owner locks throughout this stage.
+    # Audit the budget at admission/terminal boundaries, not every image frame.
+    require(w.budget_snapshot(ctx)==ctx['reg']['budget_before'],'MAIN budget changed before admitted visual worker')
+    return value
+
+
+def capture(child,command):
+    for _ in range(100):
+        value=identity(child.pid)
+        if value['argv']==command:return value
+        require(child.poll() is None,'Child exited before argv capture');time.sleep(.02)
+    raise RuntimeError('Child argv did not settle')
+
+
+def drain_wait(process):
+    while True:
+        try:return process.wait()
+        except InterruptedError:continue
+
+
+def spawn(ctx,parent):
+    owner=ctx['owner'];cfg=ctx['cfg'];folder=Path(owner['owner_out'])/'worker';folder.mkdir()
+    logpath=folder/'worker.log';log=logpath.open('xb');command=w.command(cfg)
+    def resources():os.sched_setaffinity(0,owner['gpu_affinity']);os.setpriority(os.PRIO_PROCESS,0,15)
+    try:
+        p=subprocess.Popen(command,cwd=cfg['root'],env=environment(owner),stdin=subprocess.DEVNULL,stdout=log,
+            stderr=subprocess.STDOUT,preexec_fn=resources)
+        save(folder/'spawn_pending_identity.json',dict(pid=p.pid,argv=command,identity_verified=False))
+        child=capture(p,command)
+        require(child['argv']==command and child['uid']==parent['uid'],'Actual visual child identity differs')
+        launch=dict(status='MAIN_VISUAL_WORKER_LAUNCHED',registration_sha256=ctx['regsha'],config_sha256=sha(cfg['_path']),
+            owner_identity=parent,identity=child,gpu_device=0,threads=6,affinity=owner['gpu_affinity'])
+        save(folder/'launch.json',launch)
+        return dict(process=p,log=log,folder=folder,logpath=logpath,launch=launch)
+    except BaseException:
+        try:request_stop(ctx,'Spawn/identity failure; preserve child evidence')
+        except BaseException:pass  # A failed marker write must never skip reaping.
+        if 'p' in locals():
+            code=drain_wait(p);log.flush();log.close()
+            save(folder/'spawn_failure_exit.json',dict(pid=p.pid,argv=command,exit_code=code,wait_completed=True,log_sha256=sha(logpath)))
+        else:log.close()
+        raise
+
+
+def wait_child(ctx,child,began):
+    """Poll only the process handle; wait/reap before inspecting terminal proof."""
+    failed=False;cfg=ctx['cfg']
+    while child['process'].poll() is None:
+        if time.monotonic()-began>=ctx['owner']['max_seconds'] or time.time()>=cfg['deadline_unix']:
+            request_stop(ctx,'Registered visual deadline');failed=True
+        if Path(cfg['stop_file']).exists() or (Path(cfg['out'])/'STOP').exists():failed=True
+        time.sleep(.2)
+    code=drain_wait(child['process']);child['log'].flush();child['log'].close()
+    cp=Path(cfg['out'])/'completion.json';folder=child['folder'];identity=child['launch']['identity']
+    result=dict(status='MAIN_VISUAL_WORKER_EXITED',registration_sha256=ctx['regsha'],config_sha256=sha(cfg['_path']),
+        identity=identity,exit_code=code,wait_completed=True,launch_sha256=sha(folder/'launch.json'),
+        log_sha256=sha(child['logpath']),completion_sha256=sha(cp) if cp.is_file() else None)
+    if (folder/'exit.json').exists():require(read(folder/'exit.json')==result,'Original closed exit proof differs')
+    else:save(folder/'exit.json',result)
+    require(exited(identity),'Waited worker identity must no longer be live')
+    require(not failed and code==0 and cp.is_file() and not Path(cfg['stop_file']).exists()
+        and not(Path(cfg['out'])/'STOP').exists(), 'Worker/STOP failure preserved; no normal completion')
+    return result
+
+
+def receipt(ctx):
+    cfg=ctx['cfg'];out=Path(cfg['out']);done=read(out/'completion.json');cc=ctx['cpu_ctx']
+    require(done['status']==w.DONE and done['registration_sha256']==ctx['regsha'] and done['config_sha256']==sha(cfg['_path'])
+        and done['source_count']==100 and done['frame_count']==1200 and done['source_ids']==cc['source_ids']
+        and done['schedule']==cc['context']['schedule'] and done['noise_seeds']==[6201,6202,6203],
+        'All100 development sources and exact1200 actual-RX frames required')
+    require(all(done[k] is False for k in ('policy_selection','holdout_used','automatic_successor','statistical_aggregation_run','MAIN_final_delivery','online_timing_measured'))
+        and all(done[k] is True for k in ('source_decode_complete','image_reconstruction_complete','images_scored','GPU_used','development_used','unified_neural_metrics_run'))
+        and done['new_packet_decodes']==done['noise_generated']==0,'Only received image/metric stage complete')
+    require(done['source_bindings']==ctx['reg']['source_bindings'] and done['input_bindings']==ctx['reg']['input_bindings']
+        and done['budget_before']==done['budget_after']==ctx['reg']['budget_before']==w.budget_snapshot(ctx),
+        'Source/input proof or zero-PHY budget differs')
+    prior=ctx['historical_metrics']['done']
+    require(done['native_source_bindings']==ctx['static_bindings'] and done['numerical_runtime']==ctx['expected_flags']
+        and done['frozen_visual_identity']==ctx['native_identity'] and done['metric_batch_size']==1
+        and done['metric_evaluator_identity']==prior['metric_evaluator_identity']
+        and w.jsonable(done['metric_metadata'])==prior['metric_metadata'],'Actual original Native/metric identities differ')
+    verify(done['outputs']);flatten=[]
+    for i,sid in enumerate(cc['source_ids']):
+        cp=out/'source_checkpoints'/f'{i:04d}.json';require(done['outputs'].get(str(cp))==sha(cp),'Source completion missing')
+        p=read(cp);rp=out/'sources'/f'{i:04d}.json';ap=out/'images'/f'{i:04d}.npz';rows=read(rp)
+        require(p['status']==w.SOURCE_DONE and p['registration_sha256']==ctx['regsha'] and p['source_index']==i and p['source_id']==sid
+            and p['preprocessing_id']==cc['records'][i]['preprocessing_id'] and p['frame_count']==12
+            and p['rows']==str(rp) and p['archive']==str(ap) and p['outputs']==bind([rp,ap]),'Source output checkpoint differs')
+        require(all(done['outputs'].get(k)==h for k,h in p['outputs'].items())
+            and all(ctx['bound'].get(k)==h for k,h in p['input_bindings'].items()),'Source input/output map omitted')
+        require([(r['development_slot'],r['noise_seed']) for r in rows]==[(s,n) for s in (18,19,20,21) for n in (6201,6202,6203)],'Incomplete source grid')
+        for r in rows:
+            require(r['source_index']==i and r['source_id']==sid and r['image_archive']==str(ap)
+                and r['metric_evaluator_identity']==prior['metric_evaluator_identity'] and r['metric_batch_size']==1
+                and r['image_reconstruction_complete'] is True and r['used_for_selection'] is False
+                and r['F_recovery_error'] is None,'Received metric row/source identity differs')
+            require(all(k in r and r[k] is not None and math.isfinite(float(r[k])) for k in (*ctx['metric'].REQUIRED,'mse','psnr_db','legacy_quality_psnr_db')),
+                'Complete finite actual metric fields required')
+        flatten.extend(rows)
+    require(read(out/'frame_metrics.json')==flatten,'Flattened1200 rows differ from immutable source rows')
+    return done
+
+
+def closed_batch(spec):
+    require(set(spec)=={'owner_config','completion'},'Exact normal visual predecessor specification')
+    ctx=load(spec['owner_config']);owner=ctx['owner'];cfg=ctx['cfg'];e=Path(owner['owner_out'])
+    require(spec['completion']==str(e/'completion.json') and not any((p/n).exists() for p in (e,Path(cfg['out']))
+        for n in ('failure.json','STOP')),'Original visual failure cannot be accepted as normal success')
+    check_stop(ctx,enforce_deadline=False);done=read(spec['completion']);verify(done['outputs']);start=read(e/'owner_start.json')
+    parent=start['identity'];launch=read(e/'worker/launch.json');end=read(e/'worker/exit.json');science=receipt(ctx)
+    require(done['status']==DONE and done['registration_sha256']==ctx['regsha'] and done['owner_config_sha256']==sha(spec['owner_config'])
+        and start['registration_sha256']==ctx['regsha'] and start['owner_config_sha256']==sha(spec['owner_config'])
+        and parent['argv']==argv(owner) and parent==done['owner_identity']==launch['owner_identity'] and exited(parent),
+        'Original successful owner must normally exit')
+    require(end['status']=='MAIN_VISUAL_WORKER_EXITED' and end['identity']==launch['identity'] and exited(end['identity'])
+        and launch['identity']['argv']==w.command(cfg) and end['exit_code']==0 and end['wait_completed'] is True
+        and end['launch_sha256']==sha(e/'worker/launch.json') and end['log_sha256']==sha(e/'worker/worker.log')
+        and end['completion_sha256']==sha(Path(cfg['out'])/'completion.json'), 'Original worker waited exit0 and closed log required')
+    admission=read(e/'worker_admission.json')
+    require(science['supervision']==admission and admission['owner_identity']==parent and admission['worker_identity']==end['identity']
+        and admission['registration_sha256']==ctx['regsha'] and admission['config_sha256']==sha(cfg['_path']), 'Original supervision differs')
+    verify(admission['bindings'])
+    require(done['budget_before']==done['budget_after']==ctx['reg']['budget_before'] and done['frame_count']==science['frame_count']
+        and done['source_count']==100 and done['worker_identity']==end['identity']
+        and done['source_bindings']==ctx['reg']['source_bindings'] and done['input_bindings']==ctx['reg']['input_bindings']
+        and done['new_packet_decodes']==0 and done['automatic_successor_started'] is False, 'Owner scope/budget differs')
+    bindings=combine(ctx['bound'],done['outputs'],science['outputs'],bind([spec['completion'],Path(cfg['out'])/'completion.json',cfg['registration'],spec['owner_config']]))
+    return dict(ctx=ctx,done=done,science=science,bindings=bindings)
+
+
+def run(config):
+    require(sys.platform.startswith('linux'),'Authentic Linux process identity required')
+    ctx=load(config);owner=ctx['owner'];cfg=ctx['cfg'];e=Path(owner['owner_out']);check_stop(ctx)
+    require(not any((e/n).exists() for n in ('attempt.json','owner_start.json','failure.json','completion.json','worker_admission.json','worker'))
+        and not Path(cfg['out']).exists(),'Fresh registered visual batch only; no retry')
+    me=identity(os.getpid());require(me['argv']==argv(owner),'Actual owner argv differs')
+    require(set(owner['cpu_affinity'])<=os.sched_getaffinity(0),'Registered parent CPU union unavailable')
+    os.sched_setaffinity(0,owner['cpu_affinity']);os.setpriority(os.PRIO_PROCESS,0,15)
+    child=None;started=time.monotonic();handlers={};locks=contextlib.ExitStack()
+    for n in (signal.SIGTERM,signal.SIGINT):handlers[n]=signal.signal(n,lambda *_:request_stop(ctx,'Owner signal; safe worker drain'))
+    try:
+        locks.enter_context(visual_lock(owner))
+        # Shared visual first, then H and MAIN accounting-owner locks.
+        import fcntl
+        for p in lock_paths(ctx)[1:]:
+            handle=locks.enter_context(Path(p).open('a+'));fcntl.flock(handle,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        save(e/'attempt.json',dict(status='MAIN_VISUAL_OWNER_ATTEMPT_NO_RETRY',identity=me,registration_sha256=ctx['regsha']))
+        save(e/'owner_start.json',dict(identity=me,registration_sha256=ctx['regsha'],owner_config_sha256=sha(config)))
+        gpu=dict(gpu_idle(owner),owner_identity=me,registration_sha256=ctx['regsha'],visual_lock_path=owner['visual_lock_path'])
+        save(e/'gpu_admission.json',gpu);require(w.budget_snapshot(ctx)==ctx['reg']['budget_before'],'Budget changed before worker')
+        Path(cfg['out']).mkdir();child=spawn(ctx,me)
+        supervision=dict(status=ADMITTED,registration_sha256=ctx['regsha'],config_sha256=sha(cfg['_path']),
+            owner_identity=me,worker_identity=child['launch']['identity'],gpu_device=0,threads=6,affinity=owner['gpu_affinity'],
+            gpu_admission=gpu,bindings=bind([e/'owner_start.json',e/'gpu_admission.json',e/'worker/launch.json']))
+        atomic_save(e/'worker_admission.json',supervision)
+        wait_child(ctx,child,started);child=None
+        science=receipt(ctx);require(science['supervision']==supervision,'Scientific worker used a different admission')
+        verify(ctx['bound']);check_stop(ctx)
+        outputs=combine(science['outputs'],bind([Path(cfg['out'])/'completion.json',e/'attempt.json',e/'owner_start.json',
+            e/'gpu_admission.json',e/'worker_admission.json',e/'worker/launch.json',e/'worker/exit.json',e/'worker/worker.log']))
+        done=dict(status=DONE,registration_sha256=ctx['regsha'],owner_config_sha256=sha(config),owner_identity=me,worker_identity=supervision['worker_identity'],
+            frame_count=science['frame_count'],source_count=100,budget_before=ctx['reg']['budget_before'],budget_after=w.budget_snapshot(ctx),
+            source_bindings=ctx['reg']['source_bindings'],input_bindings=ctx['reg']['input_bindings'],outputs=outputs,
+            new_packet_decodes=0,noise_generated=0,GPU_used=True,automatic_successor_started=False,
+            policy_selection=False,development_used=True,elapsed_seconds=time.monotonic()-started)
+        require(done['budget_after']==ctx['reg']['budget_before'],'Visual owner changed MAIN ledger');save(e/'completion.json',done);return done
+    except BaseException:
+        failure=traceback.format_exc()
+        try:request_stop(ctx,'Visual owner failed; preserve all evidence')
+        except BaseException:failure+='\nSTOP marker write also failed:\n'+traceback.format_exc()
+        if child is not None:
+            drain_wait(child['process'])
+            if not child['log'].closed:
+                try:wait_child(ctx,child,started)
+                except BaseException:pass
+        if not(e/'failure.json').exists():save(e/'failure.json',dict(status='MAIN_VISUAL_OWNER_FAILED_PRESERVE',registration_sha256=ctx['regsha'],identity=me,traceback=failure))
+        raise
+    finally:
+        # Locks remain held while an exceptional child drains and logs close.
+        locks.close()
+        for n,handler in handlers.items():signal.signal(n,handler)
+
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--config',required=True);a=p.parse_args();print(run(a.config)['status'],flush=True)

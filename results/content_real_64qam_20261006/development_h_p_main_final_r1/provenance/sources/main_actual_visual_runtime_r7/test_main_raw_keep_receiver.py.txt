@@ -1,0 +1,268 @@
+"""Pure metadata/fake PHY tests; no real decoder, source assets or model calls."""
+import copy
+from contextlib import closing
+import importlib.util
+import inspect
+import json
+import os
+from pathlib import Path
+import sqlite3
+import sys
+import tempfile
+import unittest
+
+import numpy as np
+import main_raw_keep_receiver as r
+import main_calibration_select_13_19_r1 as selection
+
+BASE = Path(__file__).resolve().parent.parent
+PLAN = Path(os.environ.get('MAIN_TEST_PLAN_SUMMARY', str(BASE/'current/main_plan_only/MAIN/plan_only_v1/result/summary')))
+UEP = Path(os.environ.get('MAIN_TEST_UEP_RUNTIME', str(BASE.parent/'prior_aware_uep_20261004/runtime')))
+sys.path.insert(0, str(UEP))
+spec = importlib.util.spec_from_file_location('main_test_original_uep_phy', UEP/'uep_phy.py')
+original = importlib.util.module_from_spec(spec); spec.loader.exec_module(original)
+
+
+def metadata():
+    profiles = json.loads((PLAN/'candidate_profiles.json').read_text(encoding='utf-8'))
+    aliases = json.loads((PLAN/'wire_aliases.json').read_text(encoding='utf-8'))
+    return profiles, aliases
+
+
+def admitted(profiles=None, aliases=None):
+    if profiles is None: profiles, aliases = metadata()
+    return r.PublicCatalogue(profiles, aliases, catalogue_digest=r.identity(profiles),
+        aliases_digest=r.identity(aliases), backend_identity=profiles[0]['groups'][0]['layout']['implementation'])
+
+
+class FakeLedger:
+    branch = 'MAIN'
+    def __init__(self): self.configs={}; self.events={}; self.active=None; self.charged=0
+    def register_configuration(self, key, definition):
+        if key in self.configs: assert self.configs[key] == definition
+        self.configs[key] = copy.deepcopy(definition)
+    def decode_once(self, phase, event_id, *, kind, phy_key, request, decode):
+        assert phy_key in self.configs
+        request_key = r.identity([phase, kind, phy_key, request])
+        if event_id in self.events:
+            old = self.events[event_id]
+            if old['request_key'] != request_key or old['status'] != 'COMPLETE': raise ValueError('Event collision or unresolved event')
+            return copy.deepcopy(old['value'])
+        self.charged += 1
+        row = self.events[event_id] = dict(request_key=request_key, status='RESERVED')
+        self.active = event_id
+        try: value = decode()
+        except BaseException:
+            row['status']='FAILED'; raise
+        else:
+            row.update(status='COMPLETE', value=copy.deepcopy(value)); return value
+        finally: self.active=None
+
+
+class FakeTorch:
+    float32 = np.float32
+    @staticmethod
+    def as_tensor(a, *, dtype, device):
+        assert device == 'cpu'
+        return np.asarray(a, dtype=dtype)
+
+
+class FakeBackend:
+    device='cpu'; torch=FakeTorch
+    def __init__(self, catalogue): self.identity=copy.deepcopy(catalogue.backend_identity)
+
+
+class FakeHeader:
+    def __init__(self, pid, ledger, *, crc=True, legal=True):
+        self.pid, self.ledger, self.crc, self.legal = pid, ledger, crc, legal
+        self.calls=[]
+    def receive(self, y, snr, codebook):
+        assert self.ledger.active and self.ledger.events[self.ledger.active]['status']=='RESERVED'
+        assert len(codebook)==270 and set(codebook)==set(map(str, range(270)))
+        assert y.dtype==np.float64 and y.shape==(68,2)
+        self.calls.append((y.copy(),snr))
+        return dict(profile_id=self.pid if self.crc and self.legal else None,
+            header_crc_ok=self.crc,header_fields_legal=self.legal,
+            header_ok=self.crc and self.legal,score=1.)
+
+
+class FakePhy:
+    crc_accept_batch=staticmethod(original.crc_accept_batch)
+    def __init__(self, ledger, *, accepted=False):
+        self.ledger, self.accepted, self.calls, self.malformed = ledger, accepted, [], None
+    def receive_packet(self, backend, y, k, n, q, snr, counters, group, session):
+        assert self.ledger.active and self.ledger.events[self.ledger.active]['status']=='RESERVED'
+        assert y.dtype==np.float32 and y.shape==(1,n//q,2)
+        self.calls.append(dict(y=y.copy(),k=k,n=n,q=q,snr=snr,counters=counters,group=group,session=session))
+        values=(np.arange((k-16)//12)*73+4095)%4096
+        hard=((values[:,None]>>np.arange(11,-1,-1))&1).astype(np.uint8).reshape(1,-1)
+        decoded=original.append_crc_batch(hard)
+        if not self.accepted: decoded[0,-1]^=1
+        accepted=np.asarray(original.crc_accept_batch(decoded))
+        if self.malformed=='bits': hard[0,0]=2
+        if self.malformed=='shape': hard=hard[:,:-1]
+        if self.malformed=='crc': accepted=~accepted
+        if self.malformed=='exception': raise RuntimeError('Original backend execution failure')
+        return hard, accepted, decoded
+
+
+def setup(pid, *, accepted=False, crc=True, legal=True, catalogue=None):
+    cat = catalogue or admitted(); ledger=FakeLedger(); backend=FakeBackend(cat)
+    header=FakeHeader(pid,ledger,crc=crc,legal=legal); phy=FakePhy(ledger,accepted=accepted)
+    rx=r.Receiver(cat,header=header,backend=backend,phy=phy,ledger=ledger)
+    return rx,ledger,header,phy
+
+
+class MainRawReceiverTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls): cls.profiles,cls.aliases=metadata();cls.cat=admitted(cls.profiles,cls.aliases)
+
+    def test_complete_original_catalogue_and_actual_supported_domain(self):
+        self.assertEqual(len(self.cat.header_map()),270)
+        self.assertEqual(set(p['m'] for p in self.profiles),set(range(1,9)))
+        self.assertEqual(len({p['groups'][0]['phy_key'] for p in self.profiles}),270)
+        # m9/10 were enumerated but not admitted at N1024; never fabricate IDs.
+        with self.assertRaises(ValueError): self.cat.entry(270)
+        with self.assertRaises(ValueError): admitted(self.profiles[:-1],self.aliases)
+
+    def test_exact_layout_wire_alias_and_backend_mutations_rejected(self):
+        for mutate in (
+            lambda ps,a: ps[0]['groups'][0].update(information_bits=149),
+            lambda ps,a: ps[0]['groups'][0]['layout'].update(n=200),
+            lambda ps,a: ps[0].update(order='entropy'),
+            lambda ps,a: ps[0].update(profile_id=269),
+            lambda ps,a: a[0].update(profile_id=(a[0]['profile_id']+1)%270),
+        ):
+            ps=copy.deepcopy(self.profiles);a=copy.deepcopy(self.aliases);mutate(ps,a)
+            with self.assertRaises((ValueError,KeyError)): admitted(ps,a)
+        with self.assertRaises(ValueError):
+            r.PublicCatalogue(self.profiles,self.aliases,catalogue_digest='a'*64,
+                aliases_digest=r.identity(self.aliases),backend_identity=self.cat.backend_identity)
+
+    def test_parser_full_m1_through_m10_and_canonical_partial(self):
+        scales=[(np.arange(n*n)*37+i)%4096 for i,n in enumerate(r.SIZES)]
+        for m in range(1,11):
+            for K in ([0,r.SIZES[m]**2-1] if m<10 else [0]):
+                raw=r.serialize_raw(scales,dict(m=m,K=K))
+                state=r.parse_raw(raw,m,K)
+                self.assertEqual(state['prefix'],[v.tolist() for v in scales[:m]])
+                self.assertEqual(state['partial_values'],[] if not K else scales[m][:K].tolist())
+        for m,K in ((0,1),(1,4),(9,256),(10,1)):
+            with self.assertRaises(ValueError):r.parse_raw([],m,K)
+
+    def test_raw_bits_parity_with_original_serializer_all_270_profiles(self):
+        spec=importlib.util.spec_from_file_location('main_test_original_actual_phy',UEP/'actual_phy.py')
+        old=importlib.util.module_from_spec(spec);spec.loader.exec_module(old)
+        scales=[(np.arange(n*n)*73+i)%4096 for i,n in enumerate(r.SIZES)]
+        for p in self.profiles:
+            expected=old.serialize_groups(scales,p,np.arange(p['K']) if p['K'] else None)[0]
+            np.testing.assert_array_equal(r.serialize_raw(scales,p),expected)
+
+    def test_rejected_and_crc_pass_unknown_header_never_decode_body(self):
+        for crc,legal in ((False,True),(False,False),(True,False)):
+            rx,ledger,header,phy=setup(None,crc=crc,legal=legal,catalogue=self.cat)
+            out=rx.receive(np.ones((1024,2)),13,22,phase='actual_calibration',event_prefix='shared')
+            self.assertEqual(ledger.charged,1);self.assertEqual(phy.calls,[])
+            self.assertEqual(out['source_status'],'HEADER_REJECT_GRAY')
+            self.assertEqual(out['rx_profile_id'],None);self.assertFalse(out['body_decode_complete'])
+            self.assertEqual(out['header_crc_ok'],crc);self.assertTrue(out['gray'])
+
+    def test_actual_known_wrong_id_uses_actual_layout_and_preserves_rejected_bits(self):
+        p=next(p for p in self.profiles if p['m']==2 and p['K']>0 and p['groups'][0]['modulation']=='16QAM')
+        rx,ledger,header,phy=setup(p['profile_id'],catalogue=self.cat)
+        y=np.linspace(-1,1,2048).reshape(1024,2)+1e-10
+        out=rx.receive(y,19,34,phase='actual_calibration',event_prefix='one-K0-observation')
+        g=p['groups'][0];call=phy.calls[0]
+        self.assertEqual((call['k'],call['n'],call['q'],call['group'],call['session']),
+            (g['information_bits'],g['transmitted_bits'],4,0,'actual-body'))
+        np.testing.assert_array_equal(call['y'][0],y[68:68+g['symbols']].astype(np.float32))
+        self.assertEqual(out['receiver_state'],r.parse_raw(out['body']['hard_payload'],p['m'],p['K']))
+        self.assertFalse(out['body_crc_accept']);self.assertFalse(out['gray']);self.assertEqual(ledger.charged,2)
+        self.assertEqual(out['source_status'],'KEEP_ACTUAL_HARD_TOKENS')
+        self.assertNotIn('source_id',inspect.signature(rx.receive).parameters)
+        for key in ('tx_profile','reference','source_tokens','truth','noise','h'):
+            self.assertNotIn(key,inspect.signature(rx.receive).parameters)
+
+    def test_new_receiver_to_frozen_selector_including_unknown_and_body_failure(self):
+        pool={p['candidate_id']:p for p in self.profiles}
+        for accepted,crc,legal in ((False,True,True),(True,True,True),(False,True,False)):
+            rx,*_=setup(0,accepted=accepted,crc=crc,legal=legal,catalogue=self.cat)
+            row=rx.receive(np.ones((1024,2)),13,0,phase='actual_calibration',event_prefix='fixture')
+            row.update(synthetic=False,image_sha256='a'*64,dinov2_vitl14_cosine=.5,psnr_db=25.,lpips_alex=.2)
+            selection.validate_actual_receiver(row,pool)
+
+    def test_shared_observation_reuses_completed_events_without_second_call(self):
+        rx,ledger,header,phy=setup(0,catalogue=self.cat)
+        args=dict(phase='actual_calibration',event_prefix='same-wire-source-snr-noise')
+        y=np.ones((1024,2));first=rx.receive(y,13,5,**args);again=rx.receive(y.copy(),13,5,**args)
+        self.assertEqual(first,again);self.assertEqual(ledger.charged,2)
+        self.assertEqual(len(header.calls),1);self.assertEqual(len(phy.calls),1)
+        with self.assertRaises(ValueError):rx.receive(y,13,6,**args)
+        with self.assertRaises(ValueError):rx.receive(y*2,13,5,**args)
+
+    def test_malformed_known_body_stops_and_retains_paid_failure(self):
+        for bad in ('bits','shape','crc','exception'):
+            rx,ledger,header,phy=setup(0,catalogue=self.cat);phy.malformed=bad
+            with self.assertRaises((ValueError,RuntimeError)):
+                rx.receive(np.ones((1024,2)),13,0,phase='actual_calibration',event_prefix='failed')
+            self.assertEqual(ledger.charged,2);self.assertEqual(ledger.events['failed.body']['status'],'FAILED')
+            with self.assertRaises(ValueError):
+                rx.receive(np.ones((1024,2)),13,0,phase='actual_calibration',event_prefix='failed')
+            self.assertEqual(ledger.charged,2)
+
+    def test_wrong_backend_H_ledger_and_bad_frame_refused_before_calls(self):
+        cat=self.cat;backend=FakeBackend(cat);ledger=FakeLedger();header=FakeHeader(0,ledger);phy=FakePhy(ledger)
+        ledger.branch='H'
+        with self.assertRaises(ValueError):r.Receiver(cat,header=header,backend=backend,phy=phy,ledger=ledger)
+        ledger.branch='MAIN';backend.identity['version']='changed'
+        with self.assertRaises(ValueError):r.Receiver(cat,header=header,backend=backend,phy=phy,ledger=ledger)
+        rx,ledger,_,_=setup(0,catalogue=cat)
+        for y in (np.ones((100,2)),np.full((1024,2),np.nan)):
+            with self.assertRaises(ValueError):rx.receive(y,13,0,phase='actual_calibration',event_prefix='x')
+        self.assertEqual(ledger.charged,0)
+
+    def test_header_contradiction_is_metered_failure_not_gray(self):
+        rx,ledger,header,_=setup(0,catalogue=self.cat)
+        header.receive=lambda *args:dict(profile_id=0,header_crc_ok=False,header_fields_legal=True,header_ok=True,score=1.)
+        with self.assertRaises(ValueError):rx.receive(np.ones((1024,2)),13,0,phase='actual_calibration',event_prefix='bad-header')
+        self.assertEqual(ledger.charged,1);self.assertEqual(ledger.events['bad-header.header']['status'],'FAILED')
+
+    def test_real_MAIN_ledger_receiver_interop_and_failed_decode_is_not_refunded(self):
+        import main_budget_ledger as budget
+        class MeterProof:
+            branch='MAIN'
+            def __init__(self, ledger):self.real=ledger;self.active=None;self.events={}
+            def register_configuration(self,*args):return self.real.register_configuration(*args)
+            def decode_once(self,phase,event_id,**kwargs):
+                callback=kwargs.pop('decode')
+                def prepaid():
+                    with closing(sqlite3.connect(self.real.path)) as db:
+                        assert db.execute('SELECT status FROM events WHERE event_id=?',(event_id,)).fetchone()==('RESERVED',)
+                        assert db.execute('SELECT charged FROM counters WHERE phase=?',(phase,)).fetchone()[0]>0
+                    self.active=event_id;self.events[event_id]={'status':'RESERVED'}
+                    try:return callback()
+                    finally:self.active=None
+                return self.real.decode_once(phase,event_id,decode=prepaid,**kwargs)
+        who=dict(pid=19001,start_ticks=1,uid=1002,argv=['fake-pure-test'])
+        with tempfile.TemporaryDirectory() as tmp:
+            actual=budget.BudgetLedger(Path(tmp)/'MAIN.sqlite','a'*64,
+                worker_identity=who,identity_reader=lambda pid:who)
+            ledger=MeterProof(actual);phy=FakePhy(ledger);header=FakeHeader(0,ledger)
+            rx=r.Receiver(self.cat,header=header,backend=FakeBackend(self.cat),phy=phy,ledger=ledger)
+            y=np.ones((1024,2));args=dict(phase='actual_calibration',event_prefix='one-shared-observation')
+            first=rx.receive(y,13,9,**args);again=rx.receive(y,13,9,**args)
+            self.assertEqual(first,again);self.assertEqual(actual.assert_quiescent()['charged'],2)
+            self.assertEqual(actual.snapshot()['phase_remaining']['development'],2400)
+            self.assertEqual(len(phy.calls),1)
+            phy.malformed='exception'
+            with self.assertRaises(RuntimeError):
+                rx.receive(y,13,10,phase='actual_calibration',event_prefix='preserved-failure')
+            self.assertEqual(actual.snapshot()['charged'],4)
+            self.assertEqual(actual.snapshot()['unresolved'],1)
+            with self.assertRaises(budget.BudgetError):actual.assert_quiescent()
+            with self.assertRaises(budget.BudgetError):
+                rx.receive(y,13,11,phase='actual_calibration',event_prefix='do-not-auto-retry')
+            self.assertEqual(actual.snapshot()['charged'],4)
+
+
+if __name__=='__main__':unittest.main()

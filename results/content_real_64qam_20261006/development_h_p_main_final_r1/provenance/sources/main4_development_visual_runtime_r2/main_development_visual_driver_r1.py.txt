@@ -1,0 +1,296 @@
+"""MAIN4 received RGB and the original H metric suite in one registered GPU job.
+
+Historical H metrics are immutable provenance, never a live H164760 gate.
+The separately registered owner admits this worker after normal MAIN4 CPU exit.
+"""
+from __future__ import annotations
+import argparse
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import shutil
+import signal
+import sys
+import time
+import traceback
+import numpy as np
+
+SCHEMA='MAIN4_ACTUAL_RX_METRICS_CONFIG_R1'
+REGISTERED='MAIN4_ACTUAL_RX_METRICS_REGISTERED_R1'
+DONE='MAIN4_DEVELOPMENT_ACTUAL_RX_METRICS_COMPLETE_R1'
+SOURCE_DONE='MAIN4_DEVELOPMENT_ACTUAL_RX_METRICS_SOURCE_COMPLETE_R1'
+MAX_ARCHIVE_BYTES=2*1024**3
+STORAGE_RESERVE_BYTES=8*1024**3
+STOP=False
+
+def require(v,m):
+    if not v:raise RuntimeError(m)
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p):
+    h=hashlib.sha256()
+    with Path(p).open('rb') as f:
+        for b in iter(lambda:f.read(1048576),b''):h.update(b)
+    return h.hexdigest()
+def save(p,v):
+    p=Path(p);p.parent.mkdir(parents=True,exist_ok=True)
+    with p.open('x',encoding='utf-8',newline='\n') as f:
+        json.dump(v,f,ensure_ascii=False,sort_keys=True,indent=2,allow_nan=False);f.write('\n');f.flush();os.fsync(f.fileno())
+def bind(paths):return {str(Path(p).absolute()):sha(p) for p in paths}
+def verify(pins):
+    for p,s in pins.items():require(Path(p).is_absolute() and len(s)==64 and sha(p)==s,'Changed bound input: '+p)
+def combine(*maps):
+    out={}
+    for values in maps:
+        for p,s in values.items():require(p not in out or out[p]==s,'Conflicting SHA: '+p);out[p]=s
+    return out
+def module(path,name,bound):
+    path=str(Path(path).absolute());require(bound.get(path)==sha(path),'Module must be pinned before import: '+path)
+    spec=importlib.util.spec_from_file_location(name,path);m=importlib.util.module_from_spec(spec);sys.modules[name]=m;spec.loader.exec_module(m);return m
+def jsonable(v):return json.loads(json.dumps(v,allow_nan=False))
+def command(cfg):return [cfg['python'],'-B',cfg['worker_module'],'--config',cfg['_path']]
+
+
+def historical_metrics(spec,cpu_ctx,bound):
+    """Reuse the normal history sealed before MAIN4 fees, without its old budget gate."""
+    require(set(spec)=={'config','registration','completion','owner_completion'},'Exact historical H metric receipt paths required')
+    sealed=cpu_ctx['predecessor']['bindings']
+    rp=spec['registration']
+    require(sealed.get(rp)==bound.get(rp)==sha(rp),'H metric registration was not in the MAIN4 predecessor seal')
+    historical=read(rp)
+    inherited=combine(sealed,historical.get('source_bindings',{}),historical['input_bindings'])
+    for p in spec.values():require(inherited.get(p)==bound.get(p)==sha(p),'H metric history was not in the MAIN4 predecessor seal')
+    cfg,reg,done,owner=[read(spec[k]) for k in ('config','registration','completion','owner_completion')]
+    require(cfg['schema']=='H_DEVELOPMENT_METRICS_CONFIG_V1' and cfg['registration']==spec['registration']
+        and reg['input_bindings'].get(spec['config'])==sha(spec['config'])
+        and done['status']=='H_DEVELOPMENT_METRICS_COMPLETE' and done['registration_sha256']==sha(spec['registration'])
+        and done['config_sha256']==sha(spec['config']) and done['source_count']==100 and done['frame_count']==5400
+        and done['source_ids']==cpu_ctx['source_ids'] and done['noise_seeds']==[6201,6202,6203]
+        and done['metric_batch_size']==1 and done['new_packet_decodes']==0 and done['policy_selection'] is False,
+        'Original complete H18 development metric provenance differs')
+    require(owner['status']=='REGISTERED_H_STAGE_BATCH_COMPLETE' and owner['registration_sha256']==sha(spec['registration'])
+        and owner['budget']['charged']==164760 and owner['budget']['unresolved']==owner['budget']['failed']==0,
+        'Historical H metric owner was not normally complete')
+    require(done['metric_evaluator_identity']==hashlib.sha256(json.dumps(done['metric_metadata'],sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest(),
+        'Historical metric metadata identity differs')
+    return dict(config=cfg,registration=reg,done=done)
+
+
+def budget_snapshot(ctx):
+    h=ctx['cpu'].stable_budget(ctx['cpu_ctx']);h={k:v for k,v in h.items() if k!='events'}
+    main=ctx['cpu_owner'].main_budget(ctx['cpu_ctx']['cfg'],ctx['cpu_ctx']['bound'])
+    require(h==ctx['before_H'] and main==ctx['before_MAIN'],'GPU stage must not change either physical ledger')
+    return dict(H=h,MAIN=main)
+
+
+def inspect(cfg,bound,closed=None):
+    """Metadata only. Registration may pass the already audited CPU closure once."""
+    verify(bound)
+    required=('worker_module','core_module','rx_adapter_module','metric_adapter_module','metric_driver_module',
+        'cpu_owner_module','visual_owner_module','visual_owner_config','native_source_graph','native_reference_config',
+        'native_qualification','static_closure_module','metric_assets','metric_policy')
+    for p in [cfg[k] for k in required]:require(bound.get(p)==sha(p),'Required MAIN4 visual dependency unbound: '+p)
+    require(cfg['worker_module']==str(Path(__file__).absolute()) and cfg['schema']==SCHEMA,'Separate MAIN4 visual worker required')
+    for p in cfg['cpu_batch'].values():require(bound.get(p)==sha(p),'Current normal MAIN4 CPU batch unbound')
+    oc=read(cfg['cpu_batch']['owner_config']);require(bound.get(oc['registration'])==sha(oc['registration']),'CPU self-registration must be explicit')
+    cr=read(oc['registration'])
+    for p,s in cr['source_bindings'].items():require(bound.get(p)==s==sha(p),'CPU verifier source changed before import')
+    for p in cfg['pythonpath']:
+        if p not in sys.path:sys.path.append(p)
+    cpu_owner=module(cfg['cpu_owner_module'],'main4_visual_closed_CPU',bound)
+    if closed is None:closed=cpu_owner.closed_batch(cfg['cpu_batch'])
+    cc=closed['ctx'];science=closed['science'];cpu=cpu_owner.d
+    require(science['status']==cpu.DONE and science['source_count']==100 and science['frame_count']==1200
+        and science['source_ids']==cc['source_ids'] and science['images_scored'] is False
+        and science['source_decode_complete'] is True and science['new_packet_decodes']<=2400,
+        'Normally complete actual MAIN4 CPU evidence required')
+    require(all(bound.get(p)==s for p,s in closed['bindings'].items()),'Normal CPU evidence must be inherited')
+    before_H=closed['done']['budget_after'];before_MAIN=closed['done']['MAIN_budget_after']
+    require(before_H['charged']==164760+before_H['MAIN4_calls'] and 1200<=before_H['MAIN4_calls']<=2400
+        and before_H['unresolved']==0 and before_MAIN['charged']==105176 and before_MAIN['unresolved']==0,
+        'Actual completed MAIN4 fees and unchanged MAIN calibration ledger required')
+    prior=historical_metrics(cfg['historical_H_metrics'],cc,bound)
+    require(all(cfg[k]==prior['config'][k] for k in ('metric_driver_module','metric_adapter_module')),
+        'Reuse the original H scoring implementation without replacement')
+    hd=module(cfg['metric_driver_module'],'main4_original_H_metrics_metadata',bound)
+    assets,assetpins,metric_flags=hd.metric_assets(cfg['metric_assets'])
+    require(all(bound.get(p)==s for p,s in assetpins.items()) and cfg['metric_assets']==prior['config']['metric_assets'],
+        'Only the original complete H metric asset manifest is permitted')
+    require(all(prior['config'][k]==p for k,p in assets['paths'].items()),'Original H metric path identity differs')
+    require(metric_flags==prior['done']['numerical_runtime']
+        and sha(cfg['metric_policy'])==prior['done']['metric_metadata']['independent']['policy_sha256'],
+        'Original independent B1 classifier/metric precision provenance differs')
+    native_ref=read(cfg['native_reference_config']);sealed=cc['predecessor']['bindings']
+    require(sealed.get(cfg['native_reference_config'])==sha(cfg['native_reference_config']),
+        'Native reference must come from normally closed R8 calibration evidence')
+    for k in ('quality_driver_module','source_driver_module','legacy_phy_module','native_qualification','static_closure_module'):
+        require(cfg[k]==native_ref[k] and bound.get(cfg[k])==sha(cfg[k]),'Original native implementation changed: '+k)
+    for k in ('root','native_runtime','runtime_dir','uep_runtime','var_source','dino_source'):
+        require(cfg[k]==native_ref[k],'Native path provenance changed: '+k)
+    nativeq=read(cfg['native_qualification']);pop=read(cc['cfg']['development_registration'])
+    require(nativeq['status']=='REAL_NATIVE_QUALIFICATION_PASS' and nativeq['synthetic'] is False
+        and nativeq['frozen_identity']==pop['identity'],'Original dev100 visual model identity differs')
+    graph=read(cfg['native_source_graph']);static=graph['source_bindings']
+    require(static and all(bound.get(p)==s==sha(p) for p,s in static.items()),'Current sealed native source graph incomplete')
+    require(cfg['gpu_device']==0 and cfg['gpu_threads']==6 and len(set(cfg['gpu_affinity']))==len(cfg['gpu_affinity'])==6
+        and cfg['nice']==15 and 0<cfg['max_seconds']<=86400 and cfg['deadline_unix']==cpu.DEADLINE
+        and 0<cfg['max_archive_bytes']<=MAX_ARCHIVE_BYTES,'Original single-GPU bounds required')
+    out=Path(cfg['out']);base=Path(cfg['root'])/'outputs/CONTENT-REAL-64QAM-20261006/MAIN'
+    require(out.is_absolute() and base in out.parents and out!=Path(cc['cfg']['out'])
+        and out not in Path(cc['cfg']['out']).parents and Path(cc['cfg']['out']) not in out.parents,'Independent immutable MAIN4 visual output required')
+    core=module(cfg['core_module'],'main4_registered_image_metric_core',bound)
+    adapter=module(cfg['rx_adapter_module'],'main4_registered_KEEP_adapter',bound)
+    metric=module(cfg['metric_adapter_module'],'main4_original_H_metric_adapter',bound)
+    for loaded in (adapter.wire,metric):require(bound.get(str(Path(loaded.__file__).absolute()))==sha(loaded.__file__),'Loaded shared scientific dependency unbound')
+    require(metric.REPLAY_SHA==sha(assets['paths']['replay_module']) and metric.CONVNEXT_SHA==sha(assets['paths']['convnext_weights']),
+        'Original mismatch/ConvNeXt identity differs')
+    ctx=dict(cfg=cfg,bound=bound,cpu_owner=cpu_owner,cpu=cpu,cpu_ctx=cc,cpu_closed=closed,before_H=before_H,before_MAIN=before_MAIN,
+        historical_metrics=prior,metric_assets=assets,metric_flags=metric_flags,expected_flags=nativeq['numerical_runtime'],
+        native_identity=pop['identity'],static_bindings=static,core=core,adapter=adapter,metric=metric)
+    budget_snapshot(ctx);return ctx
+
+
+def load_registered(path):
+    path=str(Path(path).absolute());cfg=read(path);reg=read(cfg['registration'])
+    require(reg['status']==REGISTERED and reg['owner_scope']=='MAIN4_ACTUAL_RX_METRICS_ONLY'
+        and reg['config_sha256']==sha(path),'Separate normally sealed visual registration required')
+    bound=combine(reg['source_bindings'],reg['input_bindings'])
+    require(bound.get(path)==sha(path),'Worker config must be registered');cfg['_path']=path
+    ctx=inspect(cfg,bound)
+    require(reg['budget_before']==budget_snapshot(ctx),'Registered MAIN4 visual budget differs')
+    ctx.update(reg=reg,regsha=sha(cfg['registration']));return ctx
+
+
+def source_inputs(ctx,index):
+    cc=ctx['cpu_ctx'];rec=cc['records'][index];out=Path(cc['cfg']['out'])/f'worker_{index%2}'
+    tp=out/'traces'/f'{index:04d}.json';cp=out/'source_checkpoints'/f'{index:04d}.json'
+    pins=bind([tp,cp,rec['checkpoint'],rec['archive']])
+    require(all(ctx['bound'].get(p)==s for p,s in pins.items()),'Actual received source input changed')
+    proof=read(cp);doc=read(tp);asset=read(rec['checkpoint'])
+    require(proof['source_index']==doc['source_index']==asset['source_index']==index
+        and proof['source_id']==doc['source_id']==asset['source_id']==rec['source_id']
+        and proof['outputs']==bind([tp]) and doc['registration_sha256']==cc['regsha'], 'CPU/source checkpoint pairing differs')
+    require(asset['archive']==rec['archive'] and asset['preprocessing_id']==rec['preprocessing_id']
+        and asset['evaluation_class_index']==rec['evaluation_class_index']
+        and asset['outputs'].get(rec['archive'])==pins[rec['archive']], 'Original development pixels/label provenance differs')
+    with np.load(rec['archive'],allow_pickle=False) as z:
+        require(set(z.files)=={'tokens','pixels'},'Original development asset format required');target=z['pixels'].copy()
+    require(target.dtype==np.uint8 and target.shape==(3,256,256)
+        and hashlib.sha256(target.tobytes()).hexdigest()==rec['preprocessing_id'],'Reference pixels changed')
+    record=dict(rec,class_index=asset['evaluation_class_index']);frames=doc['frames']
+    ctx['core'].validate_frames(record,frames,cc['context']['schedule'])
+    return record,frames,target,pins
+
+
+def build_models(ctx):
+    cfg=ctx['cfg'];bound=ctx['bound'];paths=ctx['metric_assets']['paths']
+    for p in [cfg['runtime_dir'],cfg['uep_runtime'],cfg['native_runtime'],str(Path(cfg['source_driver_module']).parent),
+        str(Path(cfg['quality_driver_module']).parent),str(Path(cfg['root'])/'src'),str(Path(paths['suite_module']).parent),
+        str(Path(paths['replay_module']).parent),str(Path(paths['validation_module']).parent)]:
+        if p not in sys.path:sys.path.append(p)
+    os.environ.setdefault('CUBLAS_WORKSPACE_CONFIG',':4096:8')
+    quality=module(cfg['quality_driver_module'],'quality_driver',bound)
+    source=module(cfg['source_driver_module'],'main4_original_render_received',bound)
+    phy=module(cfg['legacy_phy_module'],'main4_original_crc',bound)
+    native=quality.build_native(Path(cfg['root']),cfg['native_runtime'],stop)
+    require(jsonable(native.loaded['identity'])==ctx['native_identity'] and native.flags==ctx['expected_flags']
+        and native.driver_bindings==ctx['static_bindings'],'Loaded native identity/flags/source graph changed')
+    suite_module=module(paths['suite_module'],'main4_original_suite',bound)
+    import torch
+    with quality.verify_repeated_interop(native.torch):suite=suite_module.load_suite(Path(cfg['root']),'cuda:0')
+    require(suite[6]==ctx['metric_flags'] and all(bound.get(p)==s for p,s in suite[5].items()),'Loaded H suite flags/bindings differ')
+    validation=module(paths['validation_module'],'main4_original_ConvNeXt',bound)
+    classifier=validation.ConvNeXtValidation(paths['convnext_weights'],ctx['metric'].CONVNEXT_SHA,device='cuda:0',
+        stage='development',policy_path=cfg['metric_policy'],policy_sha256=sha(cfg['metric_policy']))
+    backend=ctx['metric'].SuiteBackend(suite,classifier,torch,suite_module.numeric_flags)
+    require(backend.identity==ctx['historical_metrics']['done']['metric_evaluator_identity']
+        and jsonable(backend.metadata)==ctx['historical_metrics']['done']['metric_metadata'],
+        'Original H evaluator identity/metadata must match after JSON canonicalization')
+    replay=module(paths['replay_module'],'main4_original_mismatch',bound)
+    mismatch=ctx['metric'].frozen_mismatch(replay,ctx['cpu_ctx']['source_ids'])
+    return dict(native=native,quality=quality,source=source,phy=phy,backend=backend,mismatch=mismatch)
+
+
+def write_source(out,record,rows,images,pins,cost,regsha):
+    require(images.dtype==np.float32 and images.ndim==4 and images.shape[1:]==(3,256,256)
+        and len(images)<=12 and len(rows)==12 and np.isfinite(images).all(),'Only complete original floatRGB output')
+    i=record['source_index'];archive=Path(out)/'images'/f'{i:04d}.npz';archive.parent.mkdir(parents=True,exist_ok=True)
+    require(not archive.exists(),'Preserve prior image output')
+    with archive.open('xb') as f:np.savez(f,images=images);f.flush();os.fsync(f.fileno())
+    rows=[dict(r,image_archive=str(archive)) for r in rows];rp=Path(out)/'sources'/f'{i:04d}.json';save(rp,rows)
+    cp=Path(out)/'source_checkpoints'/f'{i:04d}.json'
+    save(cp,dict(status=SOURCE_DONE,registration_sha256=regsha,source_index=i,source_id=record['source_id'],
+        preprocessing_id=record['preprocessing_id'],frame_count=12,archive=str(archive),rows=str(rp),
+        outputs=bind([archive,rp]),input_bindings=pins,cost=cost,source_decode_complete=True,
+        image_reconstruction_complete=True,images_scored=True,new_packet_decodes=0,policy_selection=False))
+    return rows,bind([archive,rp,cp]),archive.stat().st_size
+
+
+def stop(*_):
+    global STOP
+    STOP=True
+
+
+def run(path):
+    ctx=load_registered(path);cfg=ctx['cfg'];out=Path(cfg['out']);began=time.monotonic();models=None
+    require(not out.exists() or out.is_dir() and not out.is_symlink() and not any(out.iterdir()),'Fresh owner-created output required; no retry')
+    out.mkdir(parents=True,exist_ok=True);save(out/'attempt.json',dict(registration_sha256=ctx['regsha'],automatic_retry=False,new_packet_decodes=0))
+    try:
+        owner=module(cfg['visual_owner_module'],'main4_current_visual_owner',ctx['bound']);proof=owner.admit_worker(path,ctx)
+        require(proof['status']=='MAIN4_VISUAL_WORKER_ADMITTED_R1' and proof['registration_sha256']==ctx['regsha']
+            and proof['config_sha256']==sha(path),'Actual separately registered single-GPU admission required')
+        closure=module(cfg['static_closure_module'],'main4_static_native_closure',ctx['bound'])
+        require(closure.collect_bindings(cfg['root'],cfg['native_runtime'],cfg['var_source'],cfg['dino_source'],cfg['uep_runtime'])==ctx['static_bindings'],
+            'Current complete native source graph differs before models')
+        require(shutil.disk_usage(out).free>=cfg['max_archive_bytes']+STORAGE_RESERVE_BYTES,'Original float32 archive reserve unavailable')
+        def boundary(source_boundary=False):
+            require(not STOP and time.monotonic()-began<cfg['max_seconds'] and time.time()<cfg['deadline_unix']
+                and not any(Path(p).exists() for p in [cfg['stop_file'],str(out/'STOP')]),'STOP/deadline: retain all completed evidence')
+            owner.check_live_admission(ctx,proof)
+            if models is not None:
+                if source_boundary:require(not models['quality'].boundary(models['native']),'Original GPU safety stop')
+                else:models['native'].common.check()
+        boundary();models=build_models(ctx);boundary(True)
+        references_input=[]
+        for i in range(100):
+            boundary(True);record,_,target,_=source_inputs(ctx,i);rgb=np.ascontiguousarray(target.astype(np.float32)/255.)
+            references_input.append(dict(source_index=i,source_id=record['source_id'],target=rgb,reference_sha256=ctx['metric'].rgb_sha(rgb)))
+        references=ctx['metric'].reference_table(references_input,models['backend'],models['mismatch'])
+        outputs={};allrows=[];costs=[];size=0
+        for i in range(100):
+            boundary(True);record,frames,target,pins=source_inputs(ctx,i)
+            receiver=ctx['adapter'].frozen_native_receiver(models['native'],ctx['cpu_ctx']['catalogue'],
+                frozen_render_received=models['source'].render_received,crc_accept=models['phy'].crc_accept_batch,
+                model_identity=dict(frozen_visual_identity=models['native'].loaded['identity'],numerical_runtime=models['native'].flags,
+                    renderer_sha256=sha(cfg['source_driver_module']),native_source_bindings=ctx['static_bindings']))
+            rows,images,rendercost=ctx['core'].reconstruct_source(record,frames,target,ctx['cpu_ctx']['context']['schedule'],receiver,ctx['adapter'],boundary)
+            rows,scorecost=ctx['core'].score_source(record,rows,images,references_input[i]['target'],models['backend'],references,
+                models['mismatch'],ctx['metric'],ctx['adapter'],boundary)
+            cost=dict(render=rendercost,metrics=scorecost,scope='CACHED_STAGE_COUNTS_NOT_ONLINE_TIMING')
+            rows,published,n=write_source(out,record,rows,images,pins,cost,ctx['regsha']);outputs.update(published);allrows.extend(rows);costs.append(cost);size+=n
+            require(size<=cfg['max_archive_bytes'],'Registered image archive cap exceeded')
+        require(len(allrows)==1200 and len(costs)==100,'Complete original MAIN4 development population required')
+        rp=out/'frame_metrics.json';save(rp,allrows);mp=out/'metric_metadata.json';save(mp,models['backend'].metadata)
+        cp=out/'cache_cost_counts.json';save(cp,costs);xp=out/'mismatch.json';save(xp,models['mismatch']);outputs.update(bind([rp,mp,cp,xp]))
+        boundary(True);models['native'].frozen();models['backend'].check();after=budget_snapshot(ctx)
+        verify(ctx['reg']['source_bindings']);verify(ctx['reg']['input_bindings']);verify(outputs)
+        done=dict(status=DONE,registration_sha256=ctx['regsha'],config_sha256=sha(path),source_count=100,frame_count=1200,
+            source_ids=ctx['cpu_ctx']['source_ids'],noise_seeds=[6201,6202,6203],schedule=ctx['cpu_ctx']['context']['schedule'],
+            source_bindings=ctx['reg']['source_bindings'],input_bindings=ctx['reg']['input_bindings'],outputs=outputs,supervision=proof,
+            budget_before=ctx['reg']['budget_before'],budget_after=after,numerical_runtime=models['native'].flags,
+            frozen_visual_identity=models['native'].loaded['identity'],native_source_bindings=models['native'].driver_bindings,
+            metric_evaluator_identity=models['backend'].identity,metric_metadata=models['backend'].metadata,metric_batch_size=1,
+            source_decode_complete=True,image_reconstruction_complete=True,images_scored=True,unified_neural_metrics_run=True,
+            GPU_used=True,new_packet_decodes=0,noise_generated=0,policy_selection=False,development_used=True,holdout_used=False,
+            automatic_successor=False,statistical_aggregation_run=False,MAIN_final_delivery=False,online_timing_measured=False,
+            image_archive_bytes=size,elapsed_seconds=time.monotonic()-began)
+        save(out/'completion.json',done);return done
+    except BaseException:
+        if not(out/'failure.json').exists():save(out/'failure.json',dict(status='FAILED_PRESERVE_NO_RETRY',traceback=traceback.format_exc(),new_packet_decodes=0))
+        raise
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--config',required=True);a=p.parse_args()
+    signal.signal(signal.SIGTERM,stop);signal.signal(signal.SIGINT,stop)
+    print(run(a.config)['status'],flush=True)

@@ -1,0 +1,145 @@
+"""Pure private/E deployment and operations gates; never invoke actual context."""
+import ast
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tempfile
+from types import SimpleNamespace
+import unittest
+from unittest import mock
+import operate_main_actual_visual_r1 as p
+
+
+HERE=Path(__file__).absolute().parent
+BASE=HERE.parent
+
+
+def fake(root):
+    loc=p.locations(root);loc['code'].mkdir(parents=True);bp=Path(root)/'budget.json';bp.write_text('{}',encoding='utf-8')
+    reg=SimpleNamespace(owner=SimpleNamespace(exited=lambda identity:True,ids=SimpleNamespace(process_identity=lambda pid:None)))
+    return dict(loc=loc,python='/actual/original/UM/environment/bin/python',reg=reg,sources={},inputs={},before={'charged':60000},
+        cpu={'ctx':{'cfg':{'ledger':'unused-ledger','budget_registration':str(bp)}}},readonly_budget=lambda *args:{'charged':60000},
+        source_renderer='/sealed/h_source_driver.py',plan_summary='/sealed/plan/summary',uep_runtime='/sealed/UEP',request=p.fixed_request(loc))
+
+
+def qualified_fixture(c):
+    f=c['loc']['ops']/'qualify';f.mkdir(parents=True);(f/'process.log').write_bytes(b'pure tests complete')
+    identity=dict(pid=4,start_ticks=100,uid=1002,argv=[c['python'],'-B','-m','unittest'])
+    p.save(f/'launch.json',{'identity':identity});p.save(f/'exit.json',dict(identity=identity,exit_code=0,wait_completed=True,log_sha256=p.sha(f/'process.log')))
+    q=dict(status=p.QUALIFIED,python=c['python'],test_count=p.TEST_COUNT,test_modules=p.TEST_MODULES,all_tests_passed=True,
+        real_metric_calls=0,new_packet_decodes=0,GPU_used=False,model_imports=False,budget_before=c['before'],budget_after=c['before'],source_bindings={},input_bindings={},
+        outputs=p.bind([f/n for n in ('process.log','launch.json','exit.json')]))
+    p.save(c['loc']['q']/'completion.json',q);return q
+
+
+class Operations(unittest.TestCase):
+    def test_exact_scope_request_and_known_original_metric_receipts(self):
+        with tempfile.TemporaryDirectory() as td:
+            c=fake(td);r=c['request'];self.assertEqual(r['resources']['gpu_threads'],6);self.assertEqual(r['resources']['gpu_affinity'],list(range(4,10)))
+            self.assertEqual(r['runtime_dir'],str(c['loc']['code']));self.assertIn('/MAIN/actual_calibration_execution_r1/',r['cpu_batch']['completion'].replace('\\','/'))
+            self.assertIn('/H/full1000_source_execution_v1/',r['visual_reference']['config'].replace('\\','/'))
+            self.assertEqual(set(p.METRIC_PINS),{'registration.json','metric_batch8_qualification.json'})
+            self.assertEqual(p.TEST_COUNT,56);self.assertEqual(len(p.NEW_SOURCES),11)
+            self.assertIn('test_main_raw_keep_receiver.py',p.NEW_SOURCES)
+
+    def test_exact_environment_four_runtime_precedence_and_explicit_ast_fixtures(self):
+        with tempfile.TemporaryDirectory() as td:
+            c=fake(td);env=p.environment(c)
+            self.assertEqual(env['PYTHONPATH'].split(os.pathsep),[str(c['loc'][k]) for k in ('code','actual','physical','prescreen')])
+            self.assertEqual(env['CUDA_VISIBLE_DEVICES'],'');self.assertTrue(all(env[k]=='2' for k in p.THREAD_KEYS))
+            self.assertEqual(env['MAIN_TEST_SOURCE_RENDERER'],c['source_renderer']);self.assertEqual(env['MAIN_TEST_PLAN_SUMMARY'],c['plan_summary'])
+            self.assertEqual(env['MAIN_TEST_UEP_RUNTIME'],c['uep_runtime'])
+
+    def test_qualification_requires_exact_closed_count_and_full_pins(self):
+        with tempfile.TemporaryDirectory() as td:
+            c=fake(td);q=qualified_fixture(c);self.assertEqual(p.qualified(c),q)
+            q['test_count']-=1;(c['loc']['q']/'completion.json').write_text(json.dumps(q),encoding='utf-8')
+            with self.assertRaisesRegex(RuntimeError,'qualification'):p.qualified(c)
+
+    def test_original_cpu_owner_pin_is_checked_before_import_and_closure(self):
+        with tempfile.TemporaryDirectory() as td:
+            c=fake(td);loc=c['loc'];loc['actual'].mkdir();loc['cpu_execution'].mkdir(parents=True)
+            source=loc['actual']/'main_actual_calibration_owner_r1.py';source.write_text('# original CPU owner\n',encoding='utf-8')
+            for name in p.NEW_SOURCES:(loc['code']/name).write_text('# new explicitly pinned module\n',encoding='utf-8')
+            rp=loc['cpu_execution']/'execution_registration.json';op=loc['cpu_execution']/'owner_config.json';p.save(op,{'registration':str(rp)})
+            reg=dict(status='MAIN_ACTUAL_CALIBRATION_EXECUTION_REGISTERED_R1',owner_scope='ONE_MAIN_ACTUAL_CALIBRATION_CPU_BATCH_ONLY',
+                owner_config_sha256=p.sha(op),input_bindings={str(op):p.sha(op)},source_bindings={str(source):p.sha(source)})
+            p.save(rp,reg);pins=p.initial_sources(loc);self.assertEqual(pins[str(source)],p.sha(source));self.assertEqual(len(pins),12)
+            source.write_text('# changed owner\n',encoding='utf-8')
+            with self.assertRaisesRegex(RuntimeError,'CPU owner must be bound'):p.initial_sources(loc)
+
+    def test_request_does_not_require_qualification_to_hash_itself(self):
+        with tempfile.TemporaryDirectory() as td:
+            c=fake(td);qualified_fixture(c);c['request']['input_bindings']={};c['request']['source_bindings']={}
+            request=p.make_request(c);self.assertEqual(request['input_bindings'],{})
+            self.assertEqual(request['prepared_qualification'],str(c['loc']['q']/'completion.json'))
+            self.assertNotIn(str(c['loc']['q']/'completion.json'),request['input_bindings'])
+
+    def test_budget_stop_and_original_deadline_block_without_action(self):
+        with tempfile.TemporaryDirectory() as td:
+            c=fake(td)
+            with mock.patch.object(p.time,'time',return_value=p.DEADLINE-1):
+                p.unchanged(c);c['readonly_budget']=lambda *a:{'charged':60001}
+                with self.assertRaisesRegex(RuntimeError,'budget changed'):p.unchanged(c)
+                c['readonly_budget']=lambda *a:c['before'];p.save(c['loc']['stop'],{'STOP':True})
+                with self.assertRaisesRegex(RuntimeError,'STOP'):p.unchanged(c)
+            with mock.patch.object(p.time,'time',return_value=p.DEADLINE+1),self.assertRaisesRegex(RuntimeError,'deadline'):p.unchanged(c)
+
+    def test_attempt_one_shot_and_conflicting_source_sha_rejected(self):
+        with tempfile.TemporaryDirectory() as td:
+            c=fake(td);p.attempt(c,'qualify')
+            with self.assertRaisesRegex(RuntimeError,'no retry'):p.attempt(c,'qualify')
+            with self.assertRaisesRegex(RuntimeError,'Conflicting'):p.combine({'x':'a'},{'x':'b'})
+
+    def test_identity_capture_failure_keeps_pending_actual_pid(self):
+        with tempfile.TemporaryDirectory() as td:
+            c=fake(td);f=Path(td)/'operation';f.mkdir();child=mock.Mock(pid=4321)
+            with mock.patch.object(p.subprocess,'Popen',return_value=child),mock.patch.object(p,'capture',side_effect=RuntimeError('identity failed')):
+                with self.assertRaisesRegex(RuntimeError,'identity failed'):p.invoke(c,f,[c['python'],'-B','test'])
+            pending=p.read(f/'spawn_pending_identity.json');self.assertEqual(pending['pid'],4321);self.assertFalse(pending['identity_verified'])
+            self.assertFalse((f/'exit.json').exists());child.kill.assert_not_called();child.terminate.assert_not_called()
+
+    def test_parent_gpu_union_and_no_native_load_no_hidden_successor(self):
+        text=Path(p.__file__).read_text(encoding='utf-8');tree=ast.parse(text)
+        launch=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='launch')
+        self.assertIn('resources(list(range(4, 10)))',ast.unparse(launch))
+        calls={n.func.attr for n in ast.walk(tree) if isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute)}
+        self.assertTrue({'build_native','decode_once','MetricScorer','resolve'}.isdisjoint(calls))
+        self.assertNotIn('while True',text);self.assertEqual(p.TEST_MODULES[-1],'test_register_main_actual_visual_r1')
+
+    def test_real_four_directory_layout_runs_complete_formal_inventory(self):
+        # These are source/metadata fixtures only; no actual context is called.
+        visual=Path(os.environ.get('MAIN_VISUAL_TEST_SOURCE_RUNTIME',HERE))
+        actual=Path(os.environ.get('MAIN_VISUAL_TEST_ACTUAL_RUNTIME',HERE))
+        physical=Path(os.environ.get('MAIN_VISUAL_TEST_PHYSICAL_RUNTIME',HERE))
+        screen=Path(os.environ.get('MAIN_VISUAL_TEST_PRESCREEN_RUNTIME',HERE))
+        renderer=Path(os.environ.get('MAIN_TEST_SOURCE_RENDERER',BASE/'h_source_driver.py'))
+        plan=Path(os.environ.get('MAIN_TEST_PLAN_SUMMARY',BASE/'current/main_plan_only/MAIN/plan_only_v1/result/summary'))
+        uep=Path(os.environ.get('MAIN_TEST_UEP_RUNTIME',BASE.parent/'prior_aware_uep_20261004/runtime'))
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);paths={k:root/k for k in ('visual','actual','physical','prescreen','private','unrelated')}
+            for path in paths.values():path.mkdir()
+            for name in p.NEW_SOURCES:shutil.copyfile(visual/name,paths['visual']/name)
+            cpu=p.module(actual/'operate_main_actual_calibration_r1.py','_visual_test_cpu_ops')
+            for name in cpu.NEW_SOURCES:shutil.copyfile(actual/name,paths['actual']/name)
+            old=p.module(physical/'operate_main_cpu_phase_r2_remote.py','_visual_test_old_ops')
+            for name in list(old.PINS)+['operate_main_cpu_phase_r2_remote.py']:shutil.copyfile(physical/name,paths['physical']/name)
+            prior=p.module(screen/'operate_main_psnr_freeze_r1.py','_visual_test_psnr_ops')
+            for name in prior.PURE_PINS:shutil.copyfile(screen/name,paths['prescreen']/name)
+            # Private imports must not accidentally find a same-directory engine.
+            shutil.copyfile(p.__file__,paths['private']/Path(p.__file__).name)
+            env=dict(os.environ,PYTHONPATH=os.pathsep.join(str(paths[k]) for k in ('visual','actual','physical','prescreen')),
+                CUDA_VISIBLE_DEVICES='',PYTHONDONTWRITEBYTECODE='1',MAIN_TEST_SOURCE_RENDERER=str(renderer),
+                MAIN_TEST_PLAN_SUMMARY=str(plan),MAIN_TEST_UEP_RUNTIME=str(uep))
+            env.update({k:'2' for k in p.THREAD_KEYS})
+            result=subprocess.run([sys.executable,'-B','-m','unittest','-v',*p.TEST_MODULES],cwd=paths['unrelated'],env=env,
+                capture_output=True,text=True,timeout=180)
+            self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+            self.assertRegex(result.stderr,rf'Ran {p.TEST_COUNT} tests in');self.assertNotIn('skipped',result.stderr)
+
+
+if __name__=='__main__':unittest.main()

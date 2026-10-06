@@ -1,0 +1,226 @@
+"""Synthetic metadata/process lifecycle; original raw/timing helpers, no models."""
+from copy import deepcopy
+from contextlib import contextmanager
+import json
+import os
+import sys
+from pathlib import Path
+import tempfile
+from types import SimpleNamespace
+import unittest
+from unittest import mock
+import main_development_online_execution_r1 as e
+import test_main_development_online_components_r1 as fixture
+
+
+def put(p,v):e.save(p,v);return str(p)
+def ident(pid,argv):return dict(pid=pid,start_ticks=pid*100,uid=1002,argv=argv)
+
+
+def synthetic_rows():
+    scope=dict(source_indices=list(fixture.t.FIXED),source_ids=['s'+str(i) for i in fixture.t.FIXED],slots=[18,19,20,21])
+    rows=[]
+    for i in scope['source_indices']:
+        for slot in scope['slots']:
+            reps=[]
+            for phase,n in [('warmup',0),('measured',0),('measured',1),('measured',2)]:
+                reps.append(dict(phase=phase,repetition=n,fingerprint='same',new_packet_decodes=0,
+                    seconds={'RX_source_and_image_total':.01},component_calls={'RX_source_and_image_total':1},receiver_summary={'image_sha256':'rgb'}))
+            rx=dict(status='MEASURED_UNCACHED_COMPONENTS',warmups=reps[:1],measured=reps[1:],warmup_repetitions=1,measured_repetitions=3)
+            tx=deepcopy(rx)
+            for r in tx['warmups']+tx['measured']:r['seconds']={'TX_visual_encoding':.004,'TX_source_total':.001};r['component_calls']={'TX_visual_encoding':1,'TX_source_total':1}
+            rows.append(dict(source_index=i,source_id='s'+str(i),development_slot=slot,noise_seed=6201,image_sha256='rgb',gray=False,TX=tx,RX=rx))
+    return scope,rows
+
+
+class Tests(unittest.TestCase):
+    def setUp(self):
+        self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup);self.root=Path(self.tmp.name)
+        self.out=self.root/'out';self.exec=self.root/'execution';self.exec.mkdir()
+        self.scope,self.rows=synthetic_rows();self.before=dict(H={'charged':167160,'MAIN4_calls':2400},MAIN={'charged':105176})
+
+    def context(self):
+        graph=put(self.exec/'native_source_graph.json',{'source_bindings':{}})
+        cfg=dict(root=str(self.root),execution_dir=str(self.exec),out=str(self.out),python='/original/UM/python',
+            max_seconds=7200,registration=str(self.exec/'execution_registration.json'),native_source_graph=graph)
+        path=put(self.exec/'config.json',cfg)
+        old=SimpleNamespace(drain_wait=lambda p:p.wait(),exited=lambda _:True)
+        return dict(cfg=cfg,path=path,e=self.exec,out=self.out,scope=self.scope,before=self.before,regsha='e'*64,
+            reg=dict(source_bindings={},input_bindings={}),bound={},old=old,timing=fixture.t,pythonpath=['/prepared'],
+            prior=dict(expected_flags={'fp32':True},native_identity={'frozen':'native'}))
+
+    def science(self,ctx):
+        self.out.mkdir();outputs={}
+        for i,sid in zip(self.scope['source_indices'],self.scope['source_ids']):
+            rp=self.out/f'sources/{i:04d}.json';cp=self.out/f'source_checkpoints/{i:04d}.json'
+            put(rp,[r for r in self.rows if r['source_index']==i])
+            put(cp,dict(status='MAIN4_FIXED16_COMPONENT_SOURCE_COMPLETE_R1',source_index=i,source_id=sid,
+                component_case_count=4,noise_seed=6201,registration_sha256=ctx['regsha'],outputs=e.bind([rp]),input_bindings={},new_packet_decodes=0))
+            outputs.update(e.bind([rp,cp]))
+        put(self.out/'component_cases.json',self.rows);put(self.out/'component_summary.json',e.summarize(self.rows,self.scope,fixture.t))
+        outputs.update(e.bind([self.out/'component_cases.json',self.out/'component_summary.json']))
+        done=dict(status=e.SCIENCE,registration_sha256=ctx['regsha'],config_sha256=e.sha(ctx['path']),timing_design=self.scope,
+            source_count=16,component_case_count=64,source_indices=self.scope['source_indices'],source_ids=self.scope['source_ids'],
+            new_packet_decodes=0,new_noise_draws=0,new_quality_samples=0,new_metric_calls=0,policy_selection=False,
+            budget_before=self.before,budget_after=self.before,source_bindings={},input_bindings={},outputs=outputs,supervision={'admitted':'timing'},
+            numerical_runtime=ctx['prior']['expected_flags'],frozen_visual_identity=ctx['prior']['native_identity'],native_source_bindings={})
+        put(self.out/'completion.json',done);return done
+
+    def test_historical_H_uses_original_seal_not_current164760(self):
+        f=fixture.fixture();spec={k:str(self.root/(k+'.json')) for k in ('config','registration','completion','owner_completion')}
+        cfg=dict(f['config'],registration=spec['registration']);put(Path(spec['config']),cfg)
+        reg=dict(input_bindings=e.bind([spec['config']]),source_bindings={cfg['timing_core_module']:fixture.c.H_TIMING_SHA});put(Path(spec['registration']),reg)
+        budget={'charged':164760,'failed':0,'unresolved':0}
+        done=dict(f['done'],registration_sha256=e.sha(spec['registration']),config_sha256=e.sha(spec['config']),budget_before=budget,budget_after=budget)
+        put(Path(spec['completion']),done);put(Path(spec['owner_completion']),dict(status='REGISTERED_H_STAGE_BATCH_COMPLETE',registration_sha256=e.sha(spec['registration']),budget=budget))
+        closed=dict(ctx=dict(cpu_ctx=dict(predecessor={'bindings':e.bind(v for k,v in spec.items() if k!='config')},source_ids=f['ids'],context={'schedule':f['schedule']})))
+        plan=e.historical_h(spec,closed,fixture.t);self.assertEqual(plan['source_count'],16)
+        self.assertNotIn(spec['config'],closed['ctx']['cpu_ctx']['predecessor']['bindings'])
+        closed['ctx']['cpu_ctx']['predecessor']['bindings'].pop(spec['registration'])
+        with self.assertRaisesRegex(RuntimeError,'predecessor'):e.historical_h(spec,closed,fixture.t)
+
+    def test_visual_self_registration_must_exist_before_any_import(self):
+        owner=put(self.exec/'owner.json',dict(registration=str(self.exec/'missing-reg.json')));done=put(self.exec/'normal.json',{})
+        req=dict(schema=e.REQUEST,deadline_unix=e.DEADLINE,automatic_successor=False,policy_selection=False,
+            root=str(self.root),execution_dir=str(self.exec),out=str(self.out),visual_batch={'owner_config':owner,'completion':done},
+            source_bindings=e.bind(Path(e.__file__).with_name(n) for n in e.SOURCES),input_bindings=e.bind([owner,done]))
+        with mock.patch.object(e,'check_stop'),mock.patch.object(e,'module') as imported,self.assertRaisesRegex(RuntimeError,'self-registration'):
+            e.inspect(req)
+        imported.assert_not_called()
+
+    def qfixture(self):
+        inp=put(self.root/'input.json',{'bound':True});log=self.exec/'tests.log';log.write_text('Ran '+str(e.TEST_COUNT)+' tests in 0.1s\n\nOK\n')
+        cfg=dict(qualification=str(self.exec/'q.json'),test_sources=inp,request=inp,visual_batch={'owner_config':inp,'completion':inp},H_timing={'config':inp})
+        ctx=dict(python='/original/UM/python',pythonpath=['/new'],sources=e.bind([e.__file__]),bound=e.bind([inp]))
+        q=dict(status=e.QPASS,tests_run=e.TEST_COUNT,test_modules=e.TEST_MODULES,python=ctx['python'],pythonpath=ctx['pythonpath'],exit_code=0,
+            process_waited=True,new_packet_decodes=0,new_GPU_calls=0,source_bindings=ctx['sources'],input_bindings=ctx['bound'],outputs=e.bind([log]),log=str(log))
+        put(Path(cfg['qualification']),q);return cfg,ctx,q
+
+    def test_true_qualification_consumer_requires_exact_inventory_and_pins(self):
+        cfg,ctx,q=self.qfixture();e.qualification(cfg,ctx)
+        q['tests_run']-=1;Path(cfg['qualification']).write_text(json.dumps(q))
+        with self.assertRaisesRegex(RuntimeError,'qualification'):e.qualification(cfg,ctx)
+
+    def test_failed_or_skipped_qualification_cannot_be_reused(self):
+        cfg,ctx,q=self.qfixture();Path(q['log']).write_text('Ran '+str(e.TEST_COUNT)+' tests in 0.1s\n\nOK (skipped=1)\n')
+        q['outputs']=e.bind([q['log']]);Path(cfg['qualification']).write_text(json.dumps(q))
+        with self.assertRaisesRegex(RuntimeError,'inventory'):e.qualification(cfg,ctx)
+        put(self.exec/'failure.json',{'failure':'preserved'})
+        with self.assertRaisesRegex(RuntimeError,'Failed qualification'):e.qualification(cfg,ctx)
+
+    def test_prepare_qualify_register_and_load_use_real_receipt_consumers(self):
+        # Only the expensive predecessor inspection and subprocess are fakes.
+        # All files, qualification/config/registration seals and consumers are real.
+        base=self.root/'outputs/CONTENT-REAL-64QAM-20261006/MAIN';base.mkdir(parents=True)
+        exe=base/'timing_execution';out=base/'timing'
+        pins=e.bind(Path(e.__file__).with_name(n) for n in e.SOURCES)
+        pins.update(e.bind(m.__file__ for m in fixture.loaded.values()))
+        closure=put(self.root/'closure.py',{})
+        pins.update(e.bind([closure]));control=put(self.root/'normal.json',{'immutable':'normal'})
+        req=dict(schema=e.REQUEST,root=str(self.root),execution_dir=str(exe),out=str(out),max_seconds=7200,
+            deadline_unix=e.DEADLINE,automatic_successor=False,policy_selection=False,source_bindings=pins,
+            input_bindings=e.bind([control]),visual_batch={'owner_config':control,'completion':control},
+            H_timing={k:control for k in ('config','registration','completion','owner_completion')},
+            h_timing_module=fixture.t.__file__)
+        request=put(self.root/'request.json',req)
+        native=e.bind(m.__file__ for m in fixture.loaded.values())
+        prior=dict(cfg=dict(root=str(self.root),static_closure_module=closure,native_runtime='/native',
+            var_source='/VAR',dino_source='/DINO',uep_runtime='/UEP'),static_bindings=native,adapter=fixture.a)
+        closed=dict(done={'owner_identity':ident(1,['original']),'worker_identity':ident(2,['original-worker'])})
+        def inspect(r):
+            return dict(request=r,sources=r['source_bindings'],bound=e.combine(r['source_bindings'],r['input_bindings']),
+                prior=prior,closed=closed,e=exe,out=out,before=self.before,scope=self.scope,python='/original/UM/python',
+                pythonpath=[str(Path(e.__file__).parent)],old=SimpleNamespace(drain_wait=lambda p:p.wait()))
+        def child(argv,**kwargs):
+            kwargs['stdout'].write(('Ran '+str(e.TEST_COUNT)+' tests in 0.1s\n\nOK\n').encode());kwargs['stdout'].flush()
+            return SimpleNamespace(pid=12,wait=lambda:0)
+        with mock.patch.object(e,'inspect',side_effect=inspect),mock.patch.object(e,'budget',return_value=self.before),\
+             mock.patch.object(e,'module',return_value=SimpleNamespace(collect_bindings=lambda *args:native)),\
+             mock.patch.object(e.subprocess,'Popen',side_effect=child):
+            self.assertEqual(e.prepare(request)['status'],e.PREPARED)
+            config=str(exe/'config.json')
+            self.assertEqual(e.qualify(config)['tests_run'],25)
+            self.assertEqual(e.register(config)['status'],e.SEALED)
+            actual=e.load(config);self.assertEqual(actual['reg']['status'],e.REG)
+            self.assertFalse(out.exists());self.assertEqual(actual['reg']['new_packet_decodes'],0)
+            with self.assertRaisesRegex(RuntimeError,'No retry'):e.register(config)
+
+    def test_summary_source_mean_then16_mean_excludes_warmups(self):
+        for row in self.rows:
+            row['TX']['warmups'][0]['seconds']['TX_source_total']=99.
+        summary=e.summarize(self.rows,self.scope,fixture.t)
+        row=next(r for r in summary['components'] if r['development_slot']==18 and r['component']=='TX_source_total')
+        self.assertEqual(row['mean_seconds'],.001);self.assertEqual(len(row['source_means']),16)
+        self.assertIsNone(summary['exclusive_PHY_decode']);self.assertFalse(summary['historical_PHY_can_be_added_to_GPU_totals'])
+
+    def test_summary_missing_grid_changed_fingerprint_or_nan_fails(self):
+        with self.assertRaisesRegex(RuntimeError,'grid'):e.summarize(self.rows[:-1],self.scope,fixture.t)
+        rows=deepcopy(self.rows);rows[0]['RX']['measured'][1]['fingerprint']='changed'
+        with self.assertRaisesRegex(RuntimeError,'parity'):e.summarize(rows,self.scope,fixture.t)
+        rows=deepcopy(self.rows);rows[0]['TX']['measured'][1]['seconds']['TX_source_total']=float('nan')
+        with self.assertRaisesRegex(RuntimeError,'Finite'):e.summarize(rows,self.scope,fixture.t)
+
+    def test_complete_science_consumer_rejects_old_image_status(self):
+        ctx=self.context();done=self.science(ctx)
+        with mock.patch.object(e,'budget',return_value=self.before):self.assertEqual(e.validate_output(ctx),done)
+        done['status']='MAIN4_DEVELOPMENT_ACTUAL_RX_METRICS_COMPLETE_R1';(self.out/'completion.json').write_text(json.dumps(done))
+        with mock.patch.object(e,'budget',return_value=self.before),self.assertRaisesRegex(RuntimeError,'scope'):e.validate_output(ctx)
+
+    def test_science_consumer_requires_exact_numeric_model_source_and_complete_output_map(self):
+        ctx=self.context();done=self.science(ctx)
+        for field in ('numerical_runtime','frozen_visual_identity','native_source_bindings'):
+            changed=deepcopy(done);changed[field]={'altered':True};(self.out/'completion.json').write_text(json.dumps(changed))
+            with mock.patch.object(e,'budget',return_value=self.before),self.assertRaisesRegex(RuntimeError,'identity'):e.validate_output(ctx)
+        changed=deepcopy(done);changed['outputs'].pop(str(self.out/f'sources/{self.scope["source_indices"][0]:04d}.json'))
+        (self.out/'completion.json').write_text(json.dumps(changed))
+        with mock.patch.object(e,'budget',return_value=self.before),self.assertRaisesRegex(RuntimeError,'checkpoint'):e.validate_output(ctx)
+
+    def test_finish_waits_and_closes_log_before_receipt(self):
+        ctx=self.context();calls=[];h=(self.exec/'worker.log').open('xb');h.write(b'closed after wait')
+        child=SimpleNamespace(pid=12,wait=lambda:(calls.append('wait') or 0));rec=dict(child=child,log=h,identity=ident(12,['worker']))
+        proof=e.finish(ctx,rec);self.assertEqual(calls,['wait']);self.assertTrue(h.closed);self.assertEqual(proof['exit_code'],0)
+        self.assertEqual(proof['log_sha256'],e.sha(self.exec/'worker.log'));self.assertTrue(proof['wait_completed'])
+
+    def test_lock_order_is_visual_then_original_H_then_MAIN(self):
+        ctx=dict(prior=dict(owner={'visual_lock_path':'/study/shared_visual.lock'},cpu_ctx=dict(cfg={'ledger':'/H/packet.sqlite','main_ledger':'/MAIN/ledger.sqlite'})))
+        self.assertEqual(e.lock_paths(ctx),['/study/shared_visual.lock',str(Path('/H/packet.sqlite').with_suffix('.owner.lock')),str(Path('/MAIN/ledger.sqlite').with_suffix('.owner.lock'))])
+
+    def test_run_failure_marker_error_still_reaps_before_unlock(self):
+        ctx=self.context();events=[];parent=ident(21,e.command(ctx['cfg'],ctx['path'],'run'));child=mock.Mock(pid=22)
+        child.poll.side_effect=RuntimeError('poll failure');child.wait.side_effect=lambda:(events.append('wait') or 1)
+        @contextmanager
+        def lock(_):
+            events.append('lock');yield;events.append('unlock')
+        ctx['prior']=dict(cfg={'gpu_affinity':[4,5,6,7,8,9]},owner={})
+        ctx['old']=SimpleNamespace(identity=lambda _:parent,visual_lock=lock,gpu_idle=lambda _:{'idle':True},
+            environment=lambda _:dict(os.environ),capture=lambda p,c:ident(p.pid,c),drain_wait=lambda p:p.wait())
+        with mock.patch.object(e,'load',return_value=ctx),mock.patch.object(e,'budget',return_value=self.before),mock.patch.object(e,'check_stop'),\
+             mock.patch.object(e,'lock_paths',return_value=['visual']),mock.patch.object(e.os,'sched_getaffinity',return_value=set(range(10)),create=True),\
+             mock.patch.object(e,'resources'),mock.patch.object(e.subprocess,'Popen',return_value=child),mock.patch.object(e,'marker',side_effect=OSError('marker failed')),\
+             mock.patch.dict(sys.modules,{'fcntl':SimpleNamespace()}),self.assertRaisesRegex(RuntimeError,'poll failure'):
+            e.run(ctx['path'])
+        self.assertLess(events.index('wait'),events.index('unlock'));self.assertTrue((self.exec/'worker_exit.json').is_file())
+        self.assertTrue((self.exec/'failure.json').is_file());self.assertFalse((self.exec/'completion.json').exists())
+
+    def test_check_live_uses_actual_timing_identity_and_phase_guard(self):
+        ctx=self.context();parent=ident(21,e.command(ctx['cfg'],ctx['path'],'run'));worker=ident(22,e.command(ctx['cfg'],ctx['path'],'worker'))
+        ctx['prior']=dict(cfg={'gpu_affinity':[4,5,6,7,8,9]})
+        phase=mock.Mock(return_value=True);ctx['old']=SimpleNamespace(identity=lambda pid:parent if pid==21 else worker,environment_compatible=phase,lock_is_held=lambda _:True)
+        proof=dict(status=e.ADMITTED,owner_identity=parent,worker_identity=worker,registration_sha256=ctx['regsha'],config_sha256=e.sha(ctx['path']),bindings={})
+        put(self.exec/'worker_admission.json',proof)
+        with mock.patch.object(e.os,'getpid',return_value=22),mock.patch.object(e.os,'getppid',return_value=21),\
+             mock.patch.object(e.os,'sched_getaffinity',return_value=set(range(4,10)),create=True),mock.patch.object(e.os,'getpriority',return_value=15,create=True),\
+             mock.patch.object(e.os,'PRIO_PROCESS',0,create=True),mock.patch.dict(os.environ,{'CUDA_VISIBLE_DEVICES':'0'}),\
+             mock.patch.object(e,'lock_paths',return_value=['visual','H','MAIN']),mock.patch.object(e,'check_stop'):
+            e.check_live(ctx,proof);phase.assert_called_once()
+            bad=deepcopy(proof);bad['status']='MAIN4_VISUAL_WORKER_ADMITTED_R1'
+            with self.assertRaisesRegex(RuntimeError,'timing parent'):e.check_live(ctx,bad)
+
+    def test_registered_entry_is_finite_and_has_no_automatic_successor(self):
+        import ast
+        tree=ast.parse(Path(e.__file__).read_text())
+        self.assertEqual([n.name for n in tree.body if isinstance(n,ast.FunctionDef) and n.name in ('prepare','qualify','register','run','worker')],['prepare','qualify','register','worker','run'])
+        self.assertIn('new_packet_decodes',Path(e.__file__).read_text());self.assertEqual(e.command({'python':'UM'},'/new/config.json','run')[-2:],['--config','/new/config.json'])
+
+
+if __name__=='__main__':unittest.main()

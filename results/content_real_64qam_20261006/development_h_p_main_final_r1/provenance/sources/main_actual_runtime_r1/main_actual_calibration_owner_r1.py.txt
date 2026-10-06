@@ -1,0 +1,305 @@
+"""Independent MAIN calibration CPU batch; authentic exits then audited merge.
+
+Actual header/body calls are charged by the registered driver. This owner never
+loads a model, selects a policy, opens H/C accounting or launches a successor.
+The earlier qualification/proxy owner remains unchanged.
+"""
+from __future__ import annotations
+import argparse
+import contextlib
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import sys
+import time
+import traceback
+import main_actual_calibration_driver_r1 as w
+
+SCHEMA='MAIN_ACTUAL_CALIBRATION_OWNER_CONFIG_R1'
+DONE='MAIN_ACTUAL_CALIBRATION_NORMALLY_COMPLETE_R1'
+PHASE='actual_calibration'
+WORKER_DONE='MAIN_ACTUAL_CALIBRATION_WORKER_COMPLETE'
+SCIENCE_DONE='MAIN_ACTUAL_CALIBRATION_CPU_COMPLETE'
+ENV_KEYS=('OMP_NUM_THREADS','MKL_NUM_THREADS','OPENBLAS_NUM_THREADS','NUMEXPR_NUM_THREADS')
+
+require=w.require;read=w.read;sha=w.sha;save=w.save;verify=w.verify
+
+
+def bind(paths):return {str(Path(p).absolute()):sha(p) for p in paths}
+def pin(p):return {'path':str(p),'sha256':sha(p)}
+def combine(*maps):
+    result={}
+    for values in maps:
+        for p,s in values.items():require(p not in result or result[p]==s,'Conflicting pin: '+p);result[p]=s
+    return result
+
+
+def atomic_save(path,value):
+    """Publish a complete first admission atomically, never overwrite one."""
+    path=Path(path);tmp=path.with_name(path.name+'.pending-'+str(os.getpid()))
+    save(tmp,value)
+    try:os.link(tmp,path)
+    finally:tmp.unlink()
+
+
+def status(ctx,state,**values):
+    """Mutable observation only, excluded from scientific completion outputs."""
+    path=Path(ctx['owner']['owner_out'])/'status.json';tmp=path.with_name('status.pending-'+str(os.getpid()))
+    save(tmp,dict(status=state,phase=ctx['cfg']['phase'],registration_sha256=ctx['regsha'],time_unix=time.time(),**values))
+    os.replace(tmp,path)
+
+
+def environment():
+    return dict(os.environ,CUDA_VISIBLE_DEVICES='',PYTHONDONTWRITEBYTECODE='1',**{k:'2' for k in ENV_KEYS})
+
+
+def require_budget(value,calls=0):
+    """The actual accepted-header count determines body calls; never assume60k."""
+    require(type(calls)is int and 0<=calls<=60000,'Invalid actual calibration charge')
+    expected=dict(qualification=2168,proxy_phy=43008,actual_calibration=calls)
+    require(value['schema']==w.budget.SCHEMA and value['branch']=='MAIN' and value['total_cap']==105176
+        and value['limits']==w.budget.PHASE_LIMITS and value['phase_charged']==expected
+        and value['charged']==45176+calls and value['unresolved']==0
+        and value['H_C_ledger_used'] is False,'MAIN exact closed budget boundary differs')
+    require(value['phase_remaining']==dict(qualification=0,proxy_phy=0,actual_calibration=60000-calls),
+        'MAIN remaining phase allowances differ')
+
+
+def expected_frames(ctx,index=None):
+    n=len(ctx['schedule'])
+    require(2<=n<=10,'Frozen per-SNR candidate union exceeds its registered bound')
+    return (1000 if index is None else 500)*3*n
+
+
+def validate_counts(ctx,done,index=None):
+    frames=expected_frames(ctx,index);calls=done['packet_calls']
+    require(done['phase']==PHASE and done['frame_count']==frames and type(calls)is int
+        and frames<=calls<=2*frames,'Actual complete frame/header/body count differs')
+    require(done['worker_index']==index if index is not None else True,'Worker index differs')
+    return calls
+
+
+def validate_shape(owner,cfg):
+    require(owner['schema']==SCHEMA and owner['phase']==cfg['phase']==PHASE,'Wrong owner phase')
+    n=2
+    require(cfg['workers']==n and owner['max_packet_calls']==60000 and owner['threads']==2 and owner['nice']==15
+        and owner['GPU_jobs']==0 and owner['automatic_successor'] is False and owner['development_allowed'] is False
+        and owner['quality_selection_allowed'] is False,'Bounded CPU-only calibration required')
+    cpus=cfg['cpu_affinity']
+    require(len(cpus)==n and all(len(c)==len(set(c))==2 and all(type(i)is int and i>=0 for i in c) for c in cpus)
+        and len(set(sum(cpus,[])))==2*n,'Workers require disjoint registered two-core sets')
+    require(owner['cpu_affinity']==sorted(sum(cpus,[])) and type(owner['max_seconds'])is int
+        and 0<owner['max_seconds']<=14400 and owner['deadline_unix']==cfg['deadline_unix'],'Owner CPU/deadline differs')
+    require(owner['worker_config']==cfg['_path'] and owner['wrapper']==str(Path(w.__file__).resolve())
+        and owner['python']==cfg['python'] and cfg['owner_module']==str(Path(__file__).resolve())
+        and cfg['owner_argv']==[owner['python'],'-B',cfg['owner_module'],'--config',cfg['owner_config']],
+        'Exact unchanged wrapper/owner/venv command required')
+    e=Path(owner['owner_out'])
+    require(cfg['admission']==str(e/'worker_admission.json') and cfg['merge_admission']==str(e/'merge_admission.json')
+        and cfg['worker_closure']==str(e/'workers_closed.json'),'Exact admission/closure paths required')
+
+
+def load(config,require_seal=True):
+    cp=Path(config).absolute();owner=read(cp);ctx=w.load_registered(owner['worker_config']);cfg=ctx['cfg']
+    require(str(cp)==cfg['owner_config'] and owner['registration']==cfg['registration'],'Owner config/registration differ')
+    require(ctx['reg']['owner_config_sha256']==sha(cp) and ctx['reg']['owner_scope']=='ONE_MAIN_ACTUAL_CALIBRATION_CPU_BATCH_ONLY',
+        'Owner must be explicitly registered')
+    if require_seal:
+        e=Path(owner['owner_out']);require(not(e/'registration_failure.json').exists(),'Registration failure preserved')
+        seal=read(e/'registration_completion.json')
+        require(seal['status']=='MAIN_ACTUAL_CALIBRATION_REGISTERED_NOT_LAUNCHED_R1'
+            and seal['registration_sha256']==ctx['regsha'] and seal['owner_config_sha256']==sha(cp),
+            'Completed registration seal required before any launch');verify(seal['outputs'])
+    validate_shape(owner,cfg);require_budget(ctx['reg']['budget_before']);expected_frames(ctx)
+    return dict(ctx,owner=owner,owner_config=str(cp))
+
+
+def receipt(path,status,ctx,**fields):
+    value=read(path)
+    require(value['status']==status and value['registration_sha256']==ctx['regsha']
+        and value['config_sha256']==sha(ctx['cfg']['_path'])
+        and value['budget_registration_sha256']==sha(ctx['cfg']['budget_registration'])
+        and value['catalogue_digest']==ctx['catalogue'].digest,'Original scientific receipt differs')
+    require(all(value.get(k)==v for k,v in fields.items()),'Scientific receipt scope differs')
+    require(value['source_bindings']==ctx['reg']['source_bindings'] and value['input_bindings']==ctx['reg']['input_bindings'],
+        'Executed receipt dependency set differs');verify(value['outputs']);return value
+
+
+def request_stop(cfg,cause):
+    p=Path(cfg['stop_file']);p.parent.mkdir(parents=True,exist_ok=True)
+    if not p.exists():
+        try:save(p,dict(status='MAIN_CPU_STOP_PRESERVE',cause=cause,registration=cfg['registration'],time_unix=time.time()))
+        except FileExistsError:pass
+
+
+def spawn(ctx,identity,index=None):
+    cfg=ctx['cfg'];e=Path(ctx['owner']['owner_out']);name='merge' if index is None else 'worker_'+str(index)
+    folder=e/name;folder.mkdir();argv=w.command(cfg,index);affinity=cfg['cpu_affinity'][0 if index is None else index]
+    logpath=folder/'worker.log';log=logpath.open('xb')
+    def resources():os.sched_setaffinity(0,affinity);os.setpriority(os.PRIO_PROCESS,0,15)
+    try:
+        p=subprocess.Popen(argv,cwd=cfg['root'],env=environment(),stdin=subprocess.DEVNULL,stdout=log,
+            stderr=subprocess.STDOUT,preexec_fn=resources)
+        save(folder/'spawn_pending_identity.json',dict(pid=p.pid,argv=argv,identity_verified=False))
+        child=w.budget.process_identity(p.pid)
+        require(child['argv']==argv and child['uid']==identity['uid'],'Actual child identity differs')
+        launch=dict(status='MAIN_CPU_MERGE_LAUNCHED' if index is None else 'MAIN_CPU_WORKER_LAUNCHED',
+            registration_sha256=ctx['regsha'],config_sha256=sha(cfg['_path']),owner_identity=identity,
+            identity=child,worker_index=index,cpu_affinity=affinity,threads=2,nice=15,GPU_used=False)
+        save(folder/'launch.json',launch)
+        return dict(process=p,log=log,logpath=logpath,folder=folder,launch=launch,index=index)
+    except BaseException:
+        log.close()
+        # A spawned child lacking admission times out before any decoder call.
+        if 'p' in locals():p.wait()
+        raise
+
+
+def publish_admission(ctx,identity,children,merge=False):
+    cfg=ctx['cfg'];common=dict(registration_sha256=ctx['regsha'],config_sha256=sha(cfg['_path']),
+        phase=cfg['phase'],owner_identity=identity)
+    if merge:
+        require(len(children)==1 and children[0]['index']is None,'One merge child')
+        value=dict(common,status='MAIN_CPU_MERGE_ADMITTED',identity=children[0]['launch']['identity'])
+        path=cfg['merge_admission']
+    else:
+        require(len(children)==cfg['workers'],'All workers before admission')
+        value=dict(common,status='MAIN_CPU_WORKERS_ADMITTED',workers=[dict(worker_index=c['index'],
+            identity=c['launch']['identity'],cpu_affinity=cfg['cpu_affinity'][c['index']])for c in children])
+        path=cfg['admission']
+    atomic_save(path,value)
+
+
+def wait_children(ctx,children,started):
+    """Wait and preserve every result. On a fault, STOP other packets; never kill."""
+    cfg=ctx['cfg'];records=[];failed=False
+    while any(c['process'].poll() is None for c in children):
+        if time.monotonic()-started>ctx['owner']['max_seconds'] or time.time()>=cfg['deadline_unix']:
+            request_stop(cfg,'Registered deadline reached');failed=True
+        if Path(cfg['stop_file']).exists():failed=True
+        if any(c['process'].poll() not in (None,0) for c in children):
+            request_stop(cfg,'A registered child failed; preserve all results');failed=True
+        time.sleep(.2)
+    for c in children:
+        code=c['process'].wait();c['log'].flush();c['log'].close()
+        index=c['index'];cp=Path(cfg['out'])/('completion.json' if index is None else f'worker_{index}/completion.json')
+        value=dict(status='MAIN_CPU_MERGE_EXITED' if index is None else 'MAIN_CPU_WORKER_EXITED',
+            worker_index=index,registration_sha256=ctx['regsha'],config_sha256=sha(cfg['_path']),
+            identity=c['launch']['identity'],exit_code=code,wait_completed=True,
+            launch_sha256=sha(c['folder']/'launch.json'),log_sha256=sha(c['logpath']),
+            completion_sha256=sha(cp) if cp.exists() else None)
+        save(c['folder']/'exit.json',value)
+        records.append(dict(worker_index=index,launch=pin(c['folder']/'launch.json'),exit=pin(c['folder']/'exit.json'),log=pin(c['logpath'])))
+        failed=failed or code!=0 or not cp.is_file()
+    require(not failed and not Path(cfg['stop_file']).exists(),'Child/STOP failure preserved; no merge or successor')
+    return records
+
+
+def closed_phase(spec):
+    """Normal CPU closure for a separately registered visual receiver."""
+    require(set(spec)=={'owner_config','completion'},'Exact preceding MAIN phase specification')
+    ctx=load(spec['owner_config']);owner=ctx['owner'];cfg=ctx['cfg'];e=Path(owner['owner_out'])
+    require(spec['completion']==str(e/'completion.json'),'Wrong original owner completion')
+    require(not any((e/n).exists() for n in ('failure.json','STOP')) and not Path(cfg['stop_file']).exists(),
+        'Unresolved predecessor failure/STOP')
+    value=read(spec['completion']);verify(value['outputs'])
+    require(value['status']==DONE and value['phase']==cfg['phase'] and value['registration_sha256']==ctx['regsha']
+        and value['owner_config_sha256']==sha(spec['owner_config']) and value['automatic_successor_started'] is False,
+        'Original owner success required')
+    start=read(e/'owner_start.json');identity=start['identity']
+    require(start['registration_sha256']==ctx['regsha'] and start['owner_config_sha256']==sha(spec['owner_config'])
+        and identity['argv']==cfg['owner_argv'] and w.budget.same_identity(value['owner_identity'],identity)
+        and w.exited(identity),'Original owner must actually have exited')
+    admission=read(cfg['merge_admission']);require(w.budget.same_identity(admission['owner_identity'],identity),'Merge owner differs')
+    completions=[receipt(Path(cfg['out'])/f'worker_{i}/completion.json',WORKER_DONE,ctx,
+        phase=cfg['phase'],worker_index=i)for i in range(cfg['workers'])]
+    calls=sum(validate_counts(ctx,c,i)for i,c in enumerate(completions))
+    bindings=w.verify_worker_closure(cfg,ctx['regsha'],admission,completions)
+    launch=read(e/'merge/launch.json');exit_=read(e/'merge/exit.json');science=Path(cfg['out'])/'completion.json'
+    require(launch['status']=='MAIN_CPU_MERGE_LAUNCHED' and launch['identity']['argv']==w.command(cfg)
+        and w.budget.same_identity(launch['owner_identity'],identity) and w.budget.same_identity(launch['identity'],admission['identity'])
+        and exit_['status']=='MAIN_CPU_MERGE_EXITED' and exit_['exit_code']==0 and exit_['wait_completed']is True
+        and exit_['registration_sha256']==ctx['regsha'] and w.budget.same_identity(exit_['identity'],launch['identity'])
+        and exit_['launch_sha256']==sha(e/'merge/launch.json') and exit_['log_sha256']==sha(e/'merge/worker.log')
+        and exit_['completion_sha256']==sha(science) and w.exited(exit_['identity']), 'Original merge did not close normally')
+    done=receipt(science,SCIENCE_DONE,ctx,packet_calls=calls)
+    validate_counts(ctx,done);require_budget(done['budget'],calls)
+    require(done['budget']==value['budget_after'],'Owner/science budget differs')
+    require_budget(value['budget_before'])
+    require(value['packet_calls']==calls and value['frame_count']==done['frame_count']
+        and all(value[k] is False for k in ('GPU_used','development_read','quality_ranked','automatic_successor_started')),
+        'Owner completion changed scientific scope')
+    bindings=combine(ctx['bound'],bindings,value['outputs'],done['outputs'],bind((spec['completion'],science,e/'owner_start.json',e/'merge/launch.json',e/'merge/exit.json',e/'merge/worker.log')))
+    return dict(ctx=ctx,done=done,owner_done=value,bindings=bindings)
+
+
+def run(config):
+    require(sys.platform.startswith('linux'),'Authentic Linux process identities required')
+    ctx=load(config);cfg=ctx['cfg'];e=Path(ctx['owner']['owner_out']);w.check_stop(cfg)
+    require(not any((e/n).exists() for n in ('attempt.json','owner_start.json','completion.json','failure.json',
+        'worker_admission.json','merge_admission.json','workers_closed.json')) and not Path(cfg['out']).exists(),
+        'Fresh registered phase only; prior attempts cannot be resumed')
+    identity=w.budget.process_identity(os.getpid());require(identity['argv']==cfg['owner_argv'],'Actual owner command differs')
+    require(set(ctx['owner']['cpu_affinity'])<=os.sched_getaffinity(0),'Registered cores unavailable')
+    os.sched_setaffinity(0,ctx['owner']['cpu_affinity']);os.setpriority(os.PRIO_PROCESS,0,15)
+    import fcntl
+    Path(cfg['ledger']).parent.mkdir(parents=True,exist_ok=True)
+    lock=open(str(Path(cfg['ledger']).with_suffix('.owner.lock')),'a+')
+    fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+    children=[];started=time.monotonic()
+    old_signals={}
+    for number in (signal.SIGTERM,signal.SIGINT):
+        old_signals[number]=signal.signal(number,lambda number,frame:request_stop(cfg,'Owner signal '+str(number)))
+    try:
+        save(e/'attempt.json',dict(status='MAIN_CPU_OWNER_ATTEMPT_NO_RETRY',registration_sha256=ctx['regsha'],identity=identity))
+        save(e/'owner_start.json',dict(status='MAIN_CPU_PHASE_OWNER_STARTED',registration_sha256=ctx['regsha'],
+            owner_config_sha256=sha(config),identity=identity))
+        ledger=w.budget.BudgetLedger(cfg['ledger'],sha(cfg['budget_registration']),worker_identity=identity)
+        before=ledger.assert_quiescent();require_budget(before)
+        require(before==ctx['reg']['budget_before'],'Budget changed after registration')
+        status(ctx,'STARTING_REGISTERED_WORKERS',budget=before)
+        Path(cfg['out']).mkdir()
+        for i in range(cfg['workers']):children.append(spawn(ctx,identity,i))
+        publish_admission(ctx,identity,children)
+        status(ctx,'WORKERS_RUNNING',identities=[c['launch']['identity']for c in children])
+        records=wait_children(ctx,children,started);children=[]
+        receipts=[receipt(Path(cfg['out'])/f'worker_{i}/completion.json',WORKER_DONE,ctx,phase=cfg['phase'],worker_index=i)
+            for i in range(cfg['workers'])]
+        calls=sum(validate_counts(ctx,done,i)for i,done in enumerate(receipts))
+        after=ledger.assert_quiescent();require_budget(after,calls)
+        atomic_save(cfg['worker_closure'],dict(status='MAIN_CPU_WORKERS_NORMALLY_CLOSED',registration_sha256=ctx['regsha'],
+            config_sha256=sha(cfg['_path']),phase=cfg['phase'],owner_identity=identity,workers=records))
+        w.check_stop(cfg);verify(ctx['reg']['source_bindings']);verify(ctx['reg']['input_bindings'])
+        status(ctx,'WORKERS_CLOSED_STARTING_READ_ONLY_MERGE',budget=after)
+        children=[spawn(ctx,identity)];publish_admission(ctx,identity,children,True)
+        merge_records=wait_children(ctx,children,started);children=[]
+        science=Path(cfg['out'])/'completion.json';done=receipt(science,SCIENCE_DONE,ctx,packet_calls=calls)
+        validate_counts(ctx,done)
+        final=ledger.assert_quiescent();require(final==after==done['budget'],'Merge changed closed budget')
+        outputs=combine(done['outputs'],bind((science,e/'attempt.json',e/'owner_start.json',cfg['admission'],cfg['merge_admission'],cfg['worker_closure'])))
+        for rec in records+merge_records:
+            outputs.update({rec[k]['path']:rec[k]['sha256']for k in ('launch','exit','log')})
+        value=dict(status=DONE,phase=cfg['phase'],registration_sha256=ctx['regsha'],owner_config_sha256=sha(config),
+            owner_identity=identity,budget_before=before,budget_after=final,outputs=outputs,
+            source_bindings=ctx['reg']['source_bindings'],input_bindings=ctx['reg']['input_bindings'],
+            packet_calls=calls,frame_count=done['frame_count'],GPU_used=False,development_read=False,quality_ranked=False,
+            automatic_successor_started=False,calibration_started=True,elapsed_seconds=time.monotonic()-started)
+        save(e/'completion.json',value);status(ctx,DONE,completion_sha256=sha(e/'completion.json'));return value
+    except BaseException:
+        request_stop(cfg,'Owner failure: preserve phase, no automatic restart')
+        if children:
+            try:wait_children(ctx,children,started)
+            except BaseException:pass
+        if not (e/'failure.json').exists():save(e/'failure.json',dict(status='MAIN_CPU_OWNER_FAILED_PRESERVE',
+            registration_sha256=ctx['regsha'],identity=identity,traceback=traceback.format_exc()))
+        status(ctx,'FAILED_PRESERVE_NO_RESTART',failure_sha256=sha(e/'failure.json'))
+        raise
+    finally:
+        for number,handler in old_signals.items():signal.signal(number,handler)
+        fcntl.flock(lock,fcntl.LOCK_UN);lock.close()
+
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--config',required=True);a=p.parse_args();print(run(a.config)['status'])
