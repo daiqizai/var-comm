@@ -1,0 +1,156 @@
+"""Synthetic owner envelope and private-layout tests; no scientific inputs."""
+import copy
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tempfile
+from types import SimpleNamespace
+import unittest
+from unittest.mock import Mock, patch
+
+import operate_h18_aggregation_remote as o
+
+
+def fixture(base):
+    loc=dict(h=base/'H',execution=base/'H/execution',out=base/'H/job',qualification=base/'q')
+    old=dict(branch='H',root=str(base),out=str(loc['h']),owner_out=str(base/'old'),registration=str(base/'oldreg'),
+        stages=[dict(id='development',resource='gpu',jobs=[dict(argv=[sys.executable])])],
+        phase_limits=dict(development=13200,engineering_reserve=19360),gpu_threads=6,
+        gpu_affinity=[0,1,2,3,4,5],cpu_affinities=[[0,1],[2,3]],overall_deadline_unix=2000000000,
+        qualification_started_unix=1,qualification_deadline_unix=2)
+    before=dict(charged=164760,phase_charged=dict(development=10800),development_remaining=2400,failed=0,unresolved=0)
+    return dict(root=str(base),loc=loc,closed=dict(owner=old),python=sys.executable,code=base/'E',
+        spec=dict(config=str(base/'metric_config.json')),before=before,sources={},inputs={})
+
+
+def sealed_fixture(base):
+    x=fixture(base);e=x['loc']['execution'];e.mkdir(parents=True);out=x['loc']['out']
+    req=e/'aggregation_request.json';o.save(req,dict(out=str(out/'statistics')))
+    cfg,owner=o.make_configs(x,req)
+    o.save(e/'aggregation_config.json',cfg);o.save(e/'owner_config.json',owner)
+    reg=dict(source_stage_scope=o.SCOPE,allowed_stage_ids=['report'],GPU_jobs=0,new_packet_decodes=0,
+        source_bindings={},input_bindings=o.bind((req,e/'aggregation_config.json',e/'owner_config.json')))
+    o.save(e/'execution_registration.json',reg)
+    return x,cfg,owner,reg
+
+
+def emit_result(path,x,changes=None):
+    out=Path(path);out.mkdir();f=out/'summary.csv';f.write_text('fake,fixture\n1,2\n',encoding='utf-8')
+    result=dict(o.EXPECTED,status=o.DONE,budget_before=x['before'],budget_after=x['before'],
+        outputs=o.bind((f,)),input_bindings={},source_bindings={})
+    if changes:result.update(changes)
+    o.save(out/'completion.json',result);return result
+
+
+class OperationTests(unittest.TestCase):
+    def test_config_only_changes_owner_destination_and_one_cpu_report_stage(self):
+        with tempfile.TemporaryDirectory() as td:
+            x=fixture(Path(td));prior=copy.deepcopy(x['closed']['owner'])
+            cfg,owner=o.make_configs(x,x['loc']['execution']/'aggregation_request.json')
+            self.assertEqual(x['closed']['owner'],prior)
+            for k,v in prior.items():
+                if k not in ('stages','owner_out','registration'):self.assertEqual(owner[k],v)
+            reg=dict(source_stage_scope=o.SCOPE,allowed_stage_ids=['report'],GPU_jobs=0,new_packet_decodes=0)
+            o.shape(cfg,owner,reg,sys.executable)
+            job=owner['stages'][0]['jobs'][0]
+            self.assertEqual(job['id'],'h18_descriptive_aggregation')
+            self.assertEqual(job['receipt_expect']['P_complete'],False)
+            self.assertEqual(job['environment']['CUDA_VISIBLE_DEVICES'],'')
+            self.assertEqual(job['environment']['OMP_NUM_THREADS'],'2')
+            self.assertNotIn('PATH',job['environment'])
+            owner['stages'][0]['resource']='gpu'
+            with self.assertRaisesRegex(RuntimeError,'One CPU'):o.shape(cfg,owner,reg,sys.executable)
+
+    def test_owner_precreated_empty_directory_allowed_prior_attempt_refused(self):
+        with tempfile.TemporaryDirectory() as td:
+            out=Path(td)/'out';out.mkdir();o.claim_output(out,'a'*64)
+            with self.assertRaisesRegex(RuntimeError,'Prior aggregation'):o.claim_output(out,'a'*64)
+            self.assertEqual(o.read(out/'attempt.json')['GPU_used'],False)
+
+    def test_owner_envelope_preserves_original_result_bytes_and_binds_registration(self):
+        with tempfile.TemporaryDirectory() as td:
+            x,cfg,owner,reg=sealed_fixture(Path(td));out=Path(cfg['out']);out.mkdir()
+            result=emit_result(out/'statistics',x);p=out/'statistics/completion.json';original=p.read_bytes()
+            value=o.owner_envelope(result,p,cfg,reg,x,{})
+            self.assertEqual(p.read_bytes(),original)
+            self.assertEqual(value['registration_sha256'],o.sha(cfg['registration']))
+            self.assertEqual(value['outputs'][str(p)],o.sha(p))
+            self.assertFalse(value['original_aggregation_receipt_modified'])
+            self.assertTrue(value['own_owner_success_not_yet_certified'])
+            self.assertNotIn('registration_sha256',o.read(p))
+            result['P_complete']=True
+            with self.assertRaisesRegex(RuntimeError,'P_complete'):o.owner_envelope(result,p,cfg,reg,x,{})
+
+    def test_wrong_frame_count_changed_budget_or_external_output_is_rejected(self):
+        with tempfile.TemporaryDirectory() as td:
+            x,cfg,owner,reg=sealed_fixture(Path(td));out=Path(cfg['out']);out.mkdir()
+            result=emit_result(out/'statistics',x);p=out/'statistics/completion.json'
+            for key,value in (('frame_count',5399),('comparison_count',25),('bootstrap_seed',2026100504)):
+                bad=copy.deepcopy(result);bad[key]=value
+                with self.assertRaises(RuntimeError):o.owner_envelope(bad,p,cfg,reg,x,{})
+            bad=copy.deepcopy(result);bad['budget_after']['charged']+=1
+            with self.assertRaisesRegex(RuntimeError,'budget'):o.owner_envelope(bad,p,cfg,reg,x,{})
+
+    def test_qualification_requires_twelve_no_gpu_original_sources_and_predecessor(self):
+        with tempfile.TemporaryDirectory() as td:
+            x=fixture(Path(td));q=x['loc']['qualification'];q.mkdir()
+            source=Path(td)/'source.py';source.write_text('pass\n',encoding='utf-8')
+            metric=Path(x['spec']['config']);o.save(metric,{})
+            x['sources']=o.bind((source,))
+            log=q/'tests.log';log.write_text('Ran 12 tests in 0.1s\n\nOK\n',encoding='utf-8')
+            done=dict(status=o.QUALIFIED,python=sys.executable,GPU_used=False,new_packet_decodes=0,
+                actual_metric_rows_read=False,results=[dict(exit_code=0,test_count=12)],
+                source_bindings=x['sources'],input_bindings=o.bind((metric,)),outputs=o.bind((log,)))
+            o.save(q/'completion.json',done);o.qualified(x)
+            changed=copy.deepcopy(done);changed['results'][0]['test_count']=11
+            (q/'completion.json').write_text(json.dumps(changed),encoding='utf-8')
+            with self.assertRaisesRegex(RuntimeError,'twelve'):o.qualified(x)
+            (q/'completion.json').write_text(json.dumps(done),encoding='utf-8')
+            source.write_text('changed\n',encoding='utf-8')
+            with self.assertRaisesRegex(RuntimeError,'Changed bound'):o.qualified(x)
+
+    def test_launch_refuses_previous_evidence_before_popen(self):
+        with tempfile.TemporaryDirectory() as td:
+            x,cfg,owner,reg=sealed_fixture(Path(td));o.save(x['loc']['execution']/'launch_attempt.json',{})
+            with patch.object(o,'context',return_value=x),patch.object(o,'qualified'),patch.object(o,'load_sealed',return_value=(cfg,owner,reg)),patch.object(o.subprocess,'Popen') as popen:
+                with self.assertRaisesRegex(RuntimeError,'no retry'):o.launch(str(Path(td)),x['spec']['config'])
+                popen.assert_not_called()
+
+    def test_worker_accepts_owner_empty_out_runs_frozen_entry_once_and_receipt_envelope(self):
+        with tempfile.TemporaryDirectory() as td:
+            x,cfg,owner,reg=sealed_fixture(Path(td));out=Path(cfg['out']);out.mkdir()
+            def frozen_run(path):return emit_result(o.read(path)['out'],x)
+            x['a']=SimpleNamespace(run=Mock(side_effect=frozen_run));x['owner']=SimpleNamespace(receipt=Mock())
+            with patch.object(o,'context',return_value=x),patch.object(o,'qualified'),patch.object(o,'load_sealed',return_value=(cfg,owner,reg)),patch.object(o,'unchanged'),patch.object(o,'live_owner',return_value={}):
+                done=o.worker(x['loc']['execution']/'aggregation_config.json')
+                self.assertEqual(done['frame_count'],5400);x['a'].run.assert_called_once()
+                x['owner'].receipt.assert_called_once()
+                self.assertFalse(o.read(out/'completion.json')['P_complete'])
+                with self.assertRaisesRegex(RuntimeError,'Prior aggregation'):o.worker(x['loc']['execution']/'aggregation_config.json')
+                x['a'].run.assert_called_once()
+
+    def test_failed_frozen_aggregate_keeps_failure_and_does_not_claim_completion(self):
+        with tempfile.TemporaryDirectory() as td:
+            x,cfg,owner,reg=sealed_fixture(Path(td));x['a']=SimpleNamespace(run=Mock(side_effect=ValueError('sealed row mismatch')))
+            with patch.object(o,'context',return_value=x),patch.object(o,'qualified'),patch.object(o,'load_sealed',return_value=(cfg,owner,reg)),patch.object(o,'unchanged'),patch.object(o,'live_owner',return_value={}):
+                with self.assertRaisesRegex(ValueError,'sealed row'):o.worker(x['loc']['execution']/'aggregation_config.json')
+            out=Path(cfg['out']);self.assertTrue((out/'failure.json').exists());self.assertFalse((out/'completion.json').exists())
+            self.assertIn('sealed row mismatch',o.read(out/'failure.json')['traceback'])
+
+    def test_private_helper_import_has_no_e_dependency_and_budget_cannot_be_spent(self):
+        with tempfile.TemporaryDirectory() as td:
+            private=Path(td)/'prepared_v1';private.mkdir();target=private/Path(o.__file__).name
+            shutil.copyfile(o.__file__,target)
+            env=dict(os.environ,PYTHONDONTWRITEBYTECODE='1',PYTHONPATH='')
+            run=subprocess.run([sys.executable,'-B',str(target),'--help'],env=env,cwd=private,stdout=subprocess.PIPE,stderr=subprocess.PIPE,check=False)
+            self.assertEqual(run.returncode,0,run.stderr.decode())
+            x=fixture(Path(td));o.check_budget(x['before'])
+            for key in ('failed','unresolved','charged','development_remaining'):
+                bad=copy.deepcopy(x['before']);bad[key]+=1
+                with self.assertRaises(RuntimeError):o.check_budget(bad)
+
+
+if __name__=='__main__':unittest.main()

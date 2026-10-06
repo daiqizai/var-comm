@@ -1,0 +1,150 @@
+"""Independent fixture-path recovery; original timing runtime and failed Q unchanged."""
+from __future__ import annotations
+import argparse
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import traceback
+
+BASE_SHA='b12dcdf688a7fe9015fafb00b5a2d734cc10dcee7bef99c209266263c32f353e'
+ARCHIVE_SHA='4b847a42ce36a7207f2b3df25dbbbfe49d7b991a058681a64efff4c652f1b0f7'
+DIAGNOSIS_SHA='bca4546c1ddc9172407b6fca9950ff59fd6d7e2c9201062f79699b82cdd65021'
+TESTS=('test_h_online_components_r1','test_h_online_components_driver','test_register_h_online_components',
+       'test_operate_h_online_components_remote','test_operate_h_online_components_r1_remote')
+TEST_COUNT=39
+HERE=Path(__file__).absolute().parent
+
+
+def sha(path):return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+def require(ok,message):
+    if not ok:raise RuntimeError(message)
+def locations(root):
+    o=Path(root).absolute()/'outputs/CONTENT-REAL-64QAM-20261006';h=o/'H';p=o/'prepared_v1'
+    return dict(h=h,qualification=p/'h_online_components_qualification_r1',operations=p/'h_online_components_operations_r1',
+        execution=h/'online_components_execution_r1',out=h/'online_components_r1',recovery=h/'online_components_qualification_recovery_r1')
+
+
+def verify_recovery(o,ctx):
+    rec=ctx['loc']['recovery'];ap=rec/'failure_archive_receipt.json';dp=rec/'diagnosis.json'
+    require(o.sha(ap)==ARCHIVE_SHA and o.sha(dp)==DIAGNOSIS_SHA,'Exact diagnosed qualification failure required')
+    a,d=o.read(ap),o.read(dp);require(a['status']=='CPU_QUALIFICATION_FAILURE_ARCHIVED_ORIGINALS_PRESERVED'
+        and len(a['entries'])==a['source_count']==12 and a['new_GPU'] is False and a['new_PHY']==0,'Failure archive scope differs')
+    require(d['failure_archive_sha256']==ARCHIVE_SHA and d['old_tests_passed'] is False
+        and d['old_qualification_complete'] is False and d['original_failure_preserved'] is True
+        and d['scientific_modules_changed'] is False and d['GPU_started'] is False and d['PHY_calls']==0
+        and d['registration_created'] is False,'Prior failure must not become a successful qualification')
+    original=set();archived=set();pins=o.bind((ap,dp));oldq=Path(ctx['root'])/'outputs/CONTENT-REAL-64QAM-20261006/prepared_v1/h_online_components_qualification_v1'
+    expected=set(ctx['fresh'])|{str(HERE/'operate_h_online_components_remote.py'),str(HERE/'test_operate_h_online_components_remote.py')}
+    expected|={str(oldq/n) for n in ('attempt.json','predecessor_closure.json','tests.log','failure.json')}
+    for item in a['entries']:
+        p,q=Path(item['original']),Path(item['archive'])
+        require(p.is_absolute() and q.is_absolute() and (rec/'original_attempt') in q.parents,'Archive outside dedicated recovery')
+        require(str(p) not in original and str(q) not in archived,'Duplicate archived input')
+        require(o.sha(p)==o.sha(q)==item['sha256'] and p.stat().st_size==q.stat().st_size==item['bytes'],'Original/archive bytes changed')
+        original.add(str(p));archived.add(str(q));pins.update({str(p):item['sha256'],str(q):item['sha256']})
+    require(original==expected,'Only the exact twelve failed-attempt files are admitted')
+    text=(oldq/'tests.log').read_text(encoding='utf-8',errors='replace')
+    require('Ran 31 tests' in text and text.rstrip().endswith('FAILED (errors=1)')
+        and text.count('FileNotFoundError:')==1 and '/experiments/H_CODEC_PROTOCOL.json' in text,'Different test failure requires separate diagnosis')
+    require(not (oldq/'completion.json').exists(),'Old qualification cannot be marked complete')
+    for n in ('online_components_execution_v1','online_components_v1'):
+        require(not (ctx['loc']['h']/n).exists(),'Original timing execution must never have started')
+    return pins
+
+
+def new_sources(o,ctx,old_sources):
+    paths=(HERE/'test_h_online_components_r1.py',HERE/'operate_h_online_components_r1_remote.py',
+           HERE/'test_operate_h_online_components_r1_remote.py')
+    return o.merge(old_sources(ctx),o.bind(paths))
+
+
+def metadata(o,ctx):
+    paths={k:ctx['mc'][v] for k,v in [('protocol','protocol'),('budget','budget_registration')]}
+    paths['original_test']=str(ctx['code']/'test_h_online_components.py')
+    for p in paths.values():require(ctx['bound'].get(p)==o.sha(p) or ctx['fresh'].get(p)==o.sha(p),'Test input not bound by original H/P/runtime')
+    return dict(schema='H_ONLINE_COMPONENTS_TEST_ASSETS_R1',paths={k:o.pin(p) for k,p in paths.items()})
+
+
+def registered_recovery(o,ctx):
+    rec=ctx['loc']['recovery'];rp=rec/'execution_registration.json';v=o.read(rp)
+    require(v['status']=='H_TIMING_FIXTURE_PATH_RECOVERY_REGISTERED_R1' and v['root']==ctx['root']
+        and v['p600_config']==str(ctx['cp']) and v['scientific_runtime_changed'] is False
+        and v['original_qualification_success'] is False and v['new_GPU']==v['new_PHY']==0,'Recovery registration differs')
+    o.verify(v['source_bindings']);o.verify(v['input_bindings'])
+    current=verify_recovery(o,ctx)
+    require(all(v['input_bindings'].get(p)==s for p,s in current.items()),'Recovery archive binding incomplete')
+    require(v['source_bindings']==o.qualification_sources(ctx) and v['budget_before']==ctx['before'],'Recovery runtime/budget changed')
+    mp=rec/'test_assets.json';require(o.read(mp)==metadata(o,ctx) and v['input_bindings'].get(str(mp))==o.sha(mp),'Explicit test metadata changed')
+    return v,o.merge(v['input_bindings'],o.bind((rp,)))
+
+
+def load_base():
+    path=HERE/'operate_h_online_components_remote.py';require(sha(path)==BASE_SHA,'Original private operations changed')
+    spec=importlib.util.spec_from_file_location('_timing_operations_r1_base',path);o=importlib.util.module_from_spec(spec);spec.loader.exec_module(o)
+    original_sources=o.qualification_sources;original_environment=o.environment;original_qualified=o.qualified
+    o.locations=locations;o.TESTS=TESTS;o.TEST_COUNT=TEST_COUNT
+    o.qualification_sources=lambda ctx:new_sources(o,ctx,original_sources)
+    def environment(root,code,private):
+        env=original_environment(root,code,private);mp=locations(root)['recovery']/'test_assets.json'
+        env.update(H_TIMING_TEST_ASSETS=str(mp),H_TIMING_TEST_ASSETS_SHA256=o.sha(mp));return env
+    o.environment=environment
+    def qualified(ctx):
+        value=original_qualified(ctx);v,pins=registered_recovery(o,ctx)
+        require(all(value['input_bindings'].get(p)==s for p,s in pins.items()),'Qualification omits registered recovery evidence')
+        return value
+    o.qualified=qualified
+    return o
+
+
+def prepare(o,root,p600_config):
+    ctx=o.context(root,p600_config);rec=ctx['loc']['recovery']
+    require(not any(ctx['loc'][k].exists() for k in ('qualification','operations','execution','out')),'R1 remains one-shot')
+    require(not (rec/'execution_registration.json').exists() and not (rec/'test_assets.json').exists(),'Prior recovery preparation preserved')
+    pins=verify_recovery(o,ctx);sources=o.qualification_sources(ctx);o.verify(sources);o.unchanged(ctx)
+    mp=rec/'test_assets.json';o.save(mp,metadata(o,ctx));inputs=o.merge(pins,o.bind((mp,ctx['cp'])),o.bind(ctx['ms'].values()),o.bind(ctx['spec'].values()))
+    o.save(rec/'execution_registration.json',dict(status='H_TIMING_FIXTURE_PATH_RECOVERY_REGISTERED_R1',root=ctx['root'],p600_config=str(ctx['cp']),
+        source_bindings=sources,input_bindings=inputs,budget_before=ctx['before'],scientific_runtime_changed=False,
+        original_qualification_success=False,new_GPU=0,new_PHY=0,change='Only two fixture paths use explicit bound metadata; original assertions/runtime bytes preserved'))
+    registered_recovery(o,ctx);return dict(status='H_TIMING_FIXTURE_PATH_RECOVERY_REGISTERED_R1',registration=o.pin(rec/'execution_registration.json'))
+
+
+def qualify(o,root,p600_config):
+    ctx=o.context(root,p600_config,normal_closure=True);q=ctx['loc']['qualification'];reg,pins=registered_recovery(o,ctx)
+    require(not q.exists(),'Prior R1 qualification preserved; no retry');sources=o.qualification_sources(ctx);o.verify(sources)
+    inputs=o.merge(pins,o.bind(ctx['spec'].values()),o.bind(ctx['ms'].values()))
+    affinity=ctx['po']['cpu_affinities'][0]
+    require(len(affinity)==len(set(affinity))==2 and set(affinity)<=os.sched_getaffinity(0),'Original two CPU cores unavailable')
+    q.mkdir(parents=True);gate=q/'predecessor_closure.json'
+    o.save(gate,dict(status='NORMAL_H_METRICS_AND_P600_CLOSED_BEFORE_TIMING',metric_bindings=ctx['prior']['bindings'],
+        P600_bindings=ctx['pclosed']['bindings'],metric_batch=ctx['ms'],p600_batch=ctx['spec'],budget=ctx['before'],normal_owner_success=True,new_packet_decodes=0,GPU_used=False))
+    inputs=o.merge(inputs,o.bind((gate,)));argv=[ctx['python'],'-B','-m','unittest','-v',*TESTS]
+    o.save(q/'attempt.json',dict(argv=argv,source_bindings=sources,input_bindings=inputs,python=ctx['python'],
+        cpu_affinity=affinity,nice=15,GPU_used=False,models_constructed=False,new_packet_decodes=0,new_noise_draws=0))
+    def resources():os.sched_setaffinity(0,affinity);os.setpriority(os.PRIO_PROCESS,0,15)
+    try:
+        with (q/'tests.log').open('xb') as log:
+            result=subprocess.run(argv,cwd=ctx['code'],env=o.environment(root,ctx['code'],ctx['private']),stdout=log,
+                stderr=subprocess.STDOUT,check=False,timeout=1800,preexec_fn=resources)
+        text=(q/'tests.log').read_text(encoding='utf-8',errors='replace')
+        require(result.returncode==0 and f'Ran {TEST_COUNT} tests' in text and text.rstrip().endswith('OK'),'R1 CPU test qualification failed')
+        o.verify(sources);o.verify(inputs);o.unchanged(ctx)
+        done=dict(status=ctx['tool'].QUALIFIED,python=ctx['python'],results=[dict(argv=argv,exit_code=0,test_count=TEST_COUNT)],
+            source_bindings=sources,input_bindings=inputs,outputs=o.bind((q/'attempt.json',q/'tests.log',gate)),GPU_used=False,
+            models_constructed=False,new_packet_decodes=0,new_noise_draws=0,budget_before=ctx['before'],budget_after=ctx['before'],workers_started=False)
+        o.save(q/'completion.json',done);o.qualified(ctx);return dict(status=done['status'],completion=o.pin(q/'completion.json'))
+    except BaseException:
+        o.save(q/'failure.json',dict(status='FAILED_PRESERVE_NO_RETRY',traceback=traceback.format_exc()));raise
+
+
+def main():
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--root',default='REPO')
+    p.add_argument('--p600-config',required=True);p.add_argument('--stage',choices=('prepare','qualify','register','launch'),required=True);a=p.parse_args()
+    o=load_base();result=globals()[a.stage](o,a.root,a.p600_config) if a.stage in ('prepare','qualify') else getattr(o,a.stage)(a.root,a.p600_config)
+    print(json.dumps(result,sort_keys=True))
+
+
+if __name__=='__main__':main()

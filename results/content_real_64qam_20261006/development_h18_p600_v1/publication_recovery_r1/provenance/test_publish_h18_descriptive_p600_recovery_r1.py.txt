@@ -1,0 +1,115 @@
+"""Pure publication checks; never run Git, SSH or any scientific entrypoint."""
+import copy
+import importlib.util
+import json
+import os
+from pathlib import Path, PurePosixPath
+import tempfile
+import unittest
+from unittest import mock
+import publish_h18_descriptive_p600_recovery_r1 as m
+
+BASE=Path(__file__).resolve().parent.parent
+ARCHIVE=Path(os.environ.get('H_PUBLICATION_TEST_ARCHIVE',str(BASE/'current/h18_descriptive_p600_publication_recovery_r1/failure_archive_receipt.json')))
+DIAGNOSIS=Path(os.environ.get('H_PUBLICATION_TEST_DIAGNOSIS',str(BASE/'current/h18_descriptive_p600_publication_recovery_r1/diagnosis.json')))
+PRESTAGE=Path(os.environ.get('H_PUBLICATION_TEST_PRESTAGE',str(BASE/'current/h18_evidence_engineering_prestage_v1/completion.json')))
+
+
+class Tests(unittest.TestCase):
+    def test_actual_archive53_and_exact_new11_match_frozen_sources(self):
+        a=m.read(ARCHIVE)
+        self.assertEqual(len(a['entries']),9);self.assertEqual(len(a['staged_files']),53)
+        self.assertEqual(m.sha(ARCHIVE),m.ARCHIVE_SHA)
+        self.assertEqual(m.sha(DIAGNOSIS),m.DIAGNOSIS_SHA)
+        index=m.read(PRESTAGE.parent/'execution_registration.json')
+        items={PurePosixPath(k).name:v for k,v in index['new_source_bindings'].items()}
+        self.assertTrue(all(items[k]==v for k,v in m.HP.items()))
+        for names,folder in ((m.HP,'development_prep'),(m.TIMING,'timing_prep')):
+            for name,s in names.items():self.assertEqual(m.sha(Path(os.environ.get('H_PUBLICATION_TEST_CODE',str(BASE/folder)))/name),s)
+
+    def test_actual_prestage64_exact_no_source_or_report_change(self):
+        cp=PRESTAGE
+        a=m.read(ARCHIVE)
+        root=PurePosixPath('REPO');p={'root':root}
+        new={str(PurePosixPath('experiments/content-real-64qam-20261006')/n):s for n,s in dict(m.TIMING,**m.HP).items()}
+        result,pins=m.prestage({'path':str(cp.absolute()),'sha256':m.sha(cp)},p,a['staged_files'],new)
+        self.assertEqual(len(result),64);self.assertEqual(len(pins),2)
+        with self.assertRaises(RuntimeError):m.prestage({'path':str(cp.absolute()),'sha256':m.sha(cp)},p,a['staged_files'],dict(new,extra='a'*64))
+
+    def qualification_fixture(self,t,kind='cross'):
+        p=m.paths(Path(t).absolute());qpath=Path(t)/'q/completion.json';qpath.parent.mkdir()
+        names=m.HP if kind=='cross' else m.TIMING
+        actual={}
+        for name in names:
+            src=p['E']/name;src.parent.mkdir(parents=True,exist_ok=True);src.write_text('pass\n');actual[str(src)]=m.sha(src)
+        log=qpath.parent/'tests.log';count=13 if kind=='cross' else 39;log.write_text(f'Ran {count} tests in 1.000s\n\nOK\n')
+        attempt=qpath.parent/'attempt.json';m.save(attempt,{'status':'fake pure fixture'})
+        py=str(p['root']/'outputs/UNIFIED-METRICS-20261002/environment/bin/python')
+        v=dict(status='H_P_STATISTICS_CPU_QUALIFICATION_PASS',python=py,GPU_used=False,new_packet_decodes=0,
+            actual_quality_rows_read=False,results=[dict(argv=[py,'-B','-m','unittest','-v',*m.HP_TESTS],exit_code=0,test_count=13)],
+            source_bindings=actual,input_bindings={},outputs=m.bind((log,attempt)),budget_before={'charged':164760,'failed':0,'unresolved':0},
+            budget_after={'charged':164760,'failed':0,'unresolved':0})
+        m.save(qpath,v);return p,qpath,v,{Path(k).name:s for k,s in actual.items()}
+
+    def test_only_actual_closed_qualification_counts_and_runtime_accepted(self):
+        with tempfile.TemporaryDirectory() as t:
+            p,qpath,v,pins=self.qualification_fixture(t)
+            with mock.patch.object(m,'HP',pins):
+                m.qualification({'path':str(qpath),'sha256':m.sha(qpath)},'cross',p)
+                for change in ('count','runtime','science','budget','missing_source'):
+                    x=copy.deepcopy(v)
+                    if change=='count':x['results'][0]['test_count']=12
+                    elif change=='runtime':x['python']='/different/python'
+                    elif change=='science':x['actual_quality_rows_read']=True
+                    elif change=='budget':x['budget_after']['charged']+=1
+                    else:x['source_bindings'].pop(next(iter(x['source_bindings'])))
+                    qpath.write_text(json.dumps(x))
+                    with self.assertRaises(RuntimeError):m.qualification({'path':str(qpath),'sha256':m.sha(qpath)},'cross',p)
+
+    def test_preserved_qualification_failure_refuses_even_a_pass_receipt(self):
+        with tempfile.TemporaryDirectory() as t:
+            p,qpath,v,pins=self.qualification_fixture(t);m.save(qpath.parent/'failure.json',{'error':'preserved'})
+            with mock.patch.object(m,'HP',pins):
+                with self.assertRaises(RuntimeError):m.qualification({'path':str(qpath),'sha256':m.sha(qpath)},'cross',p)
+
+    def test_index_exact_scope_extra_work_and_modified_blob_block(self):
+        with tempfile.TemporaryDirectory() as t:
+            root=Path(t);(root/'one.txt').write_text('one');wanted={'one.txt':m.sha(root/'one.txt')}
+            responses={('rev-parse','HEAD'):m.PARENT,('branch','--show-current'):'main',('ls-remote','origin','refs/heads/main'):m.PARENT+' refs/heads/main',
+                ('diff','--name-only'):'',('diff','--cached','--name-only'):'one.txt',
+                ('ls-files','--others','--exclude-standard','--','experiments/content-real-64qam-20261006'):''}
+            with mock.patch.object(m,'git',side_effect=lambda r,*args:responses[args]),mock.patch.object(m,'blob_sha',return_value=wanted['one.txt']):
+                m.check_index({'root':root},wanted,new_untracked=[])
+                responses[('diff','--cached','--name-only')]='one.txt\nunrelated'
+                with self.assertRaises(RuntimeError):m.check_index({'root':root},wanted,new_untracked=[])
+                responses[('diff','--cached','--name-only')]='one.txt';responses[('diff','--name-only')]='unrelated'
+                with self.assertRaises(RuntimeError):m.check_index({'root':root},wanted,new_untracked=[])
+                responses[('diff','--name-only')]=''
+                with mock.patch.object(m,'blob_sha',return_value='0'*64):
+                    with self.assertRaises(RuntimeError):m.check_index({'root':root},wanted,new_untracked=[])
+
+    def test_closed_log_exact_alias_uses_original_sanitizer_no_JSON_code_wrapper(self):
+        with tempfile.TemporaryDirectory() as t:
+            t=Path(t);src=t/'repository.log';src.write_text('Traceback in EXTERNAL_ASSET/35e9b4a8c1e1e1e89290d17a checker rejected scope\n')
+            alias=t/'closed_text/repository_failure.txt';proof=m.alias_log(src,alias)
+            self.assertTrue(proof['byte_identical']);self.assertEqual(src.read_bytes(),alias.read_bytes())
+            sanpath=Path(os.environ.get('H_PUBLICATION_TEST_SANITIZER',str(BASE/'current/publication_recovery_r1/sanitize_registration.py')))
+            self.assertEqual(m.sha(sanpath),m.SAN_SHA)
+            spec=importlib.util.spec_from_file_location('real_original_sanitizer_fixture',sanpath);san=importlib.util.module_from_spec(spec);spec.loader.exec_module(san)
+            manifest=t/'manifest.json';m.save(manifest,dict(schema='EXPLICIT_PUBLIC_TEXT_EXPORT_V1',files=[dict(source=str(alias),source_sha256=m.sha(alias),target='evidence/closed.txt',role='receipt')]))
+            san.prepare(t,manifest,t/'public',t/'private_receipt.json')
+            self.assertNotIn('EXTERNAL_ASSET/23e959658f5082a89c6db72c', (t/'public/evidence/closed.txt').read_text())
+            self.assertEqual(src.read_bytes(),alias.read_bytes())
+            with self.assertRaises(FileExistsError):m.alias_log(src,alias)
+
+    def test_old_public_report_tables_not_rewritten_and_normal_checks_not_skipped(self):
+        source=Path(m.__file__).read_text()
+        self.assertIn("str(p['root']/'tools/verify_repository.py')",source)
+        self.assertIn("str(p['root']/'tools/run_cpu_checks.py')",source)
+        self.assertIn("'264 passed'",source);self.assertIn("['git','push','origin','main']",source)
+        self.assertNotIn('force-push',source);self.assertNotIn('report.write_text',source)
+        self.assertNotIn('register_h_online_components(',source)
+        self.assertNotIn('private_export_receipt.json\',\'original_failure/',source)
+
+
+if __name__=='__main__':unittest.main()

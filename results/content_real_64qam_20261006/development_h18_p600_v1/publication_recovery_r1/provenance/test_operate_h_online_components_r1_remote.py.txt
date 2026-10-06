@@ -1,0 +1,128 @@
+"""Pure recovery tests, including an actual separated E/private test invocation."""
+import ast
+import copy
+import importlib.util
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tempfile
+from types import SimpleNamespace
+import unittest
+from unittest import mock
+import operate_h_online_components_r1_remote as r
+import test_h_online_components_r1 as fixture
+
+HERE=Path(__file__).absolute().parent
+
+
+class Tests(unittest.TestCase):
+    def setUp(self):
+        temp=tempfile.TemporaryDirectory();self.addCleanup(temp.cleanup);self.base=Path(temp.name)
+        self.protocol=self.base/'protocol.json';self.protocol.write_text('{}')
+        self.budget=self.base/'budget.json';self.budget.write_text('{}')
+        self.manifest=self.base/'manifest.json'
+        self.value={'schema':'H_ONLINE_COMPONENTS_TEST_ASSETS_R1','paths':{
+            'protocol':{'path':str(self.protocol),'sha256':r.sha(self.protocol)},
+            'budget':{'path':str(self.budget),'sha256':r.sha(self.budget)},
+            'original_test':{'path':str(Path(fixture.original.__file__).absolute()),'sha256':fixture.ORIGINAL_SHA}}}
+        self.manifest.write_text(json.dumps(self.value))
+        self.env={'H_TIMING_TEST_ASSETS':str(self.manifest),'H_TIMING_TEST_ASSETS_SHA256':r.sha(self.manifest)}
+
+    def test_bound_fixtures_are_explicit_and_missing_manifest_fails(self):
+        with mock.patch.dict(os.environ,self.env):self.assertEqual(fixture.bound_path('protocol'),self.protocol)
+        with mock.patch.dict(os.environ,{},clear=True):
+            with self.assertRaises(RuntimeError):fixture.bound_path('protocol')
+
+    def test_changed_manifest_and_changed_asset_refused(self):
+        with mock.patch.dict(os.environ,self.env):
+            self.protocol.write_text('{"changed":true}')
+            with self.assertRaisesRegex(RuntimeError,'Changed'):fixture.bound_path('protocol')
+        self.manifest.write_text('{}')
+        with mock.patch.dict(os.environ,self.env):
+            with self.assertRaises(RuntimeError):fixture.bound_path('budget')
+
+    def test_original_test_identity_and_unknown_metadata_refused(self):
+        wrong=self.base/'other.py';wrong.write_bytes(Path(fixture.original.__file__).read_bytes())
+        self.value['paths']['original_test']['path']=str(wrong);self.manifest.write_text(json.dumps(self.value))
+        with mock.patch.dict(os.environ,dict(self.env,H_TIMING_TEST_ASSETS_SHA256=r.sha(self.manifest))):
+            with self.assertRaisesRegex(RuntimeError,'identity'):fixture.bound_path('protocol')
+        self.value['paths']['extra']={};self.manifest.write_text(json.dumps(self.value))
+        with mock.patch.dict(os.environ,dict(self.env,H_TIMING_TEST_ASSETS_SHA256=r.sha(self.manifest))):
+            with self.assertRaisesRegex(RuntimeError,'schema'):fixture.bound_path('protocol')
+
+    def test_original_assertions_and_other_eight_methods_unchanged(self):
+        name='test_design_uses_original16_and_no_packet_budget_or_hidden_decoder'
+        old=ast.parse(Path(fixture.original.__file__).read_text());new=ast.parse(Path(fixture.__file__).read_text())
+        find=lambda tree:next(n for n in ast.walk(tree) if isinstance(n,ast.FunctionDef) and n.name==name)
+        class Normalize(ast.NodeTransformer):
+            def visit_Attribute(self,node):
+                if isinstance(node.value,ast.Name) and node.value.id=='original' and node.attr=='timing':return ast.Name(id='timing',ctx=ast.Load())
+                return self.generic_visit(node)
+        left,right=find(old),Normalize().visit(find(new))
+        self.assertEqual([ast.dump(n)for n in left.body[2:]],[ast.dump(n)for n in right.body[2:]])
+        inherited=[n for n in dir(fixture.original.OnlineComponentTests) if n.startswith('test_') and n!=name]
+        self.assertEqual(len(inherited),8)
+        for n in inherited:self.assertIs(getattr(fixture.OnlineComponentTestsR1,n),getattr(fixture.original.OnlineComponentTests,n))
+        self.assertEqual(r.sha(fixture.original.__file__),fixture.ORIGINAL_SHA)
+
+    def test_independent_locations_and_original_operations_bytes(self):
+        o=r.load_base();loc=r.locations(self.base)
+        self.assertTrue(str(loc['qualification']).endswith('h_online_components_qualification_r1'))
+        self.assertTrue(str(loc['execution']).endswith('online_components_execution_r1'))
+        self.assertTrue(str(loc['out']).endswith('online_components_r1'))
+        self.assertEqual(r.sha(HERE/'operate_h_online_components_remote.py'),r.BASE_SHA)
+        self.assertEqual(o.TEST_COUNT,39);self.assertEqual(o.TESTS,r.TESTS)
+        self.assertEqual(o.PINS['test_h_online_components.py'],fixture.ORIGINAL_SHA)
+
+    def test_recovery_requires_exact_archive_before_any_registration(self):
+        o=r.load_base();rec=self.base/'recovery';rec.mkdir()
+        (rec/'failure_archive_receipt.json').write_text('{}');(rec/'diagnosis.json').write_text('{}')
+        with self.assertRaisesRegex(RuntimeError,'Exact diagnosed'):
+            r.verify_recovery(o,{'loc':{'recovery':rec}})
+        self.assertFalse((rec/'execution_registration.json').exists())
+        tree=ast.parse(Path(r.__file__).read_text());functions={n.name:n for n in tree.body if isinstance(n,ast.FunctionDef)}
+        calls=lambda name:[n.func.id for n in ast.walk(functions[name]) if isinstance(n,ast.Call) and isinstance(n.func,ast.Name)]
+        self.assertIn('registered_recovery',calls('qualify'))
+        self.assertNotIn('qualify',calls('prepare'))
+
+    def test_metadata_uses_original_bound_protocol_not_inferred_parent(self):
+        o=r.load_base();code=self.base/'E';code.mkdir();old=code/'test_h_online_components.py';old.write_text('frozen')
+        ctx=dict(mc={'protocol':str(self.protocol),'budget_registration':str(self.budget)},code=code,
+            bound=o.bind((self.protocol,self.budget)),fresh=o.bind((old,)))
+        value=r.metadata(o,ctx)
+        self.assertEqual(value['paths']['protocol']['path'],str(self.protocol))
+        ctx['bound'][str(self.budget)]='0'*64
+        with self.assertRaisesRegex(RuntimeError,'not bound'):r.metadata(o,ctx)
+
+    def test_actual_private_E_original_31_test_inventory(self):
+        # No tests run from the local sibling layout: every already imported
+        # project dependency is copied byte-for-byte into an isolated E.
+        e=self.base/'isolated_E';private=self.base/'isolated_private';e.mkdir();private.mkdir()
+        candidates={HERE,HERE.parent,Path(fixture.original.__file__).absolute().parent}
+        candidates|={HERE.parent/n for n in ('phy_codec','payload','full_calibration','development_prep','runner')}
+        for value in tuple(sys.modules.values()):
+            path=getattr(value,'__file__',None)
+            if not path:continue
+            path=Path(path).absolute()
+            if path.suffix=='.py' and path.parent in candidates:shutil.copyfile(path,e/path.name)
+        for name in ('test_h_online_components_r1.py','operate_h_online_components_remote.py','test_operate_h_online_components_remote.py'):
+            shutil.copyfile(HERE/name,private/name)
+            if (e/name).exists():(e/name).unlink()
+        source_manifest=Path(os.environ['H_TIMING_TEST_ASSETS']);value=json.loads(source_manifest.read_text())
+        value['paths']['original_test']={'path':str(e/'test_h_online_components.py'),'sha256':fixture.ORIGINAL_SHA}
+        manifest=private/'bound_test_assets.json';manifest.write_text(json.dumps(value))
+        reference=os.environ.get('H64_REFERENCE_VAR_COMM') or str(HERE.parents[1]/'historical_eval_20261003/source/src/var_comm')
+        self.assertTrue((Path(reference)/'whole_entropy.py').is_file())
+        env=dict(os.environ,PYTHONPATH=os.pathsep.join((str(e),str(private))),PYTHONDONTWRITEBYTECODE='1',
+            CUDA_VISIBLE_DEVICES='',H_TIMING_TEST_ASSETS=str(manifest),H_TIMING_TEST_ASSETS_SHA256=r.sha(manifest),H64_REFERENCE_VAR_COMM=reference)
+        argv=[sys.executable,'-B','-m','unittest','-v',*r.TESTS[:4]]
+        result=subprocess.run(argv,cwd=private,env=env,capture_output=True,text=True,timeout=60)
+        self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+        self.assertIn('Ran 31 tests',result.stderr);self.assertTrue(result.stderr.rstrip().endswith('OK'))
+        self.assertFalse((e.parent/'H_CODEC_PROTOCOL.json').exists())
+
+
+if __name__=='__main__':unittest.main()

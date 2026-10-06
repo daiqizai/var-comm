@@ -1,0 +1,281 @@
+"""Independent publication-scope recovery. Never run scientific stages or retry.
+
+The53 already staged result/report bytes are immutable. Eleven explicitly
+qualified engineering files and sanitized recovery provenance are added. The
+original sanitizer, repository validator and264 CPU checks remain mandatory.
+"""
+from __future__ import annotations
+import argparse
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import subprocess
+import time
+import traceback
+
+PARENT='3f7a9c06a12e6a5b5430aabb564c923b33ba8f40'
+ARCHIVE_SHA='c95304862baa3b60c3609570f6d3e79615b8427347fc4f4cdeea68ff354284d9'
+DIAGNOSIS_SHA='e3873971098f96cb409f55087a47cfda30b33863c3c03d6b21f02104ea04817f'
+SAN_SHA='da166ce5ac0925ac7e2d47852904916ee8dbd26be8fc107f5c14f2623c06d9d9'
+ORIGINAL_HELPER_SHA='3ad1bc79897500861239336ff012b4226989e31ef3457f8169867bf1f305cf87'
+TIMING={
+ 'h_online_components.py':'31bb602e0204ffd16c1ee213f822ca1339a3df78950fd14775e580f6e4b71e5f',
+ 'test_h_online_components.py':'834fba915da4557312857750ba3ea6a2dcf0605d007fd02c4c758734755698aa',
+ 'h_online_components_driver.py':'c3a371fe09297f6c00130bb686b93fcba61781c7ae7fb4274c109f93814a96a2',
+ 'test_h_online_components_driver.py':'302391706fe56b26f0385c30de454486859c5399caddab05ffa71e08d23811d9',
+ 'register_h_online_components.py':'41a9616bb2b8f558b92bb077b3aa473fc2efc3820de4853eaaa39fad718e8a2b',
+ 'test_register_h_online_components.py':'01f6187c44e84f91f8f317f0cd3b6e60111204d450b1ce5701df794c4dfb2234'}
+HP={
+ 'h_p_statistics_driver.py':'d785bea403ae4751829f7d96e8c8e115f9a35d472b01deab8051dcb2c2e9f28b',
+ 'test_h_p_statistics_driver.py':'d4bb44eec40582bfa7ab46ba553c5c070da86e81f5dcda1c0a5baab83822515f',
+ 'h_p_result_normalization.py':'2ec18f85dfb04fb28b269117aae160262e5fbd09359471ba017e3f248ee3427f',
+ 'test_h_p_result_normalization.py':'c2ef54646ac7768b75461d1472a52ff441de3d02f2dcae094fdb73109adf6ebd',
+ 'h_p_main_source_statistics.py':'4e25eac1ed26201242101a4d0dad14ad00054752ab837a4688dd583806d8b342'}
+TIMING_TESTS=['test_h_online_components_r1','test_h_online_components_driver','test_register_h_online_components',
+ 'test_operate_h_online_components_remote','test_operate_h_online_components_r1_remote']
+HP_TESTS=['test_h_p_statistics_driver']
+
+
+def require(value,message):
+    if not value:raise RuntimeError(message)
+def read(path):return json.loads(Path(path).read_text(encoding='utf-8-sig'))
+def sha(path):return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+def save(path,value):
+    p=Path(path);p.parent.mkdir(parents=True,exist_ok=True)
+    with p.open('x',encoding='utf-8',newline='\n') as f:
+        json.dump(value,f,indent=2,ensure_ascii=False,allow_nan=False);f.write('\n');f.flush();os.fsync(f.fileno())
+def bind(paths):return {str(p):sha(p) for p in paths}
+def verify(values):
+    for p,s in values.items():require(Path(p).is_absolute() and sha(p)==s,'Changed evidence: '+p)
+def merge(*maps):
+    out={}
+    for values in maps:
+        for p,s in values.items():require(p not in out or out[p]==s,'Conflicting evidence');out[p]=s
+    return out
+def pin(value):
+    require(set(value)=={'path','sha256'} and Path(value['path']).is_absolute()
+        and sha(value['path'])==value['sha256'],'Changed requested receipt')
+    return Path(value['path'])
+def env():return dict(os.environ,CUDA_VISIBLE_DEVICES='',OMP_NUM_THREADS='2',MKL_NUM_THREADS='2',OPENBLAS_NUM_THREADS='2',
+    NUMEXPR_NUM_THREADS='2',PYTHONDONTWRITEBYTECODE='1')
+def git(root,*args):return subprocess.check_output(['git',*args],cwd=root,env=env(),text=True,timeout=120).strip()
+def blob_sha(root,path):return hashlib.sha256(subprocess.check_output(['git','show',':'+path],cwd=root,env=env(),timeout=120)).hexdigest()
+
+
+def paths(root):
+    root=Path(root);o=root/'outputs/CONTENT-REAL-64QAM-20261006';prep=o/'prepared_v1'
+    rec=prep/'h18_descriptive_p600_publication_recovery_r1';pub=root/'results/content_real_64qam_20261006/development_h18_p600_v1'
+    return dict(root=root,prep=prep,old=prep/'h18_descriptive_p600_publication_v1',rec=rec,work=rec/'execution_r1',
+        public=pub/'publication_recovery_r1',E=root/'experiments/content-real-64qam-20261006',
+        sanitizer=prep/'full1000_completion_publication_recovery_r1/original_attempt/sanitize_registration.py')
+
+
+def archive_evidence(p):
+    ap=p['rec']/'failure_archive_receipt.json';dp=p['rec']/'diagnosis.json'
+    require(sha(ap)==ARCHIVE_SHA and sha(dp)==DIAGNOSIS_SHA,'Exact original publication failure required')
+    a,d=read(ap),read(dp);expected={str(p['old']/n) for n in ('stage.log','private_export_receipt.json','diff_check.log',
+        'publication_files.json','repository.log','failure.json','export_request.json','execution_registration.json')}
+    expected.add(str(p['prep']/'publish_h18_descriptive_p600_v1.py'));seen=set();copies=set();evidence=bind((ap,dp))
+    require(a['status']=='PUBLICATION_SCOPE_FAILURE_ARCHIVED_ORIGINALS_AND_INDEX_PRESERVED'
+        and a['committed'] is a['pushed'] is False and a['new_scientific_calls']==0 and len(a['entries'])==9,'Exact9 archived inputs required')
+    for item in a['entries']:
+        src,dst=Path(item['original']),Path(item['archive'])
+        require(str(src) not in seen and str(dst) not in copies and (p['rec']/'original_attempt') in dst.parents
+            and sha(src)==sha(dst)==item['sha256'],'Original/archive content or placement changed')
+        seen.add(str(src));copies.add(str(dst));evidence.update({str(src):item['sha256'],str(dst):item['sha256']})
+    require(seen==expected and d['archive_receipt_sha256']==ARCHIVE_SHA and d['old_checker_unchanged']
+        and d['old_results_unchanged'] and d['old_index_preserved'],'Failure evidence chain differs')
+    original=read(p['old']/'publication_files.json')
+    require(len(original)==53 and original==a['staged_files'] and not(p['old']/'completion.json').exists(),'Original53 files and failure must remain')
+    require(sha(p['prep']/'publish_h18_descriptive_p600_v1.py')==ORIGINAL_HELPER_SHA,'Original publisher changed')
+    log=(p['old']/'repository.log').read_text();require('untracked self-written source:' in log
+        and all('experiments/content-real-64qam-20261006/'+n in log for n in TIMING),'A different failure needs separate recovery')
+    oldreg=read(p['old']/'execution_registration.json');export=read(p['old']/'export_request.json')
+    require(oldreg['helper_sha256']==ORIGINAL_HELPER_SHA and oldreg['sanitizer_sha256']==SAN_SHA
+        and oldreg['expected_parent']==PARENT and oldreg['input_manifest_sha256']==sha(p['old']/'export_request.json'),
+        'Original validated scientific export is not this failed publication')
+    for item in export['files']:
+        require(sha(item['source'])==item['source_sha256'],'Original scientific export source changed')
+        evidence[item['source']]=item['source_sha256']
+    for name,s in original.items():require(sha(p['root']/name)==s,'Original staged table/report bytes changed')
+    return original,evidence
+
+
+def qualification(request_pin,kind,p):
+    qpath=pin(request_pin);q=read(qpath);timing=kind=='timing';count=39 if timing else 13
+    status='H_ONLINE_COMPONENTS_CPU_INTERFACE_QUALIFICATION_PASS' if timing else 'H_P_STATISTICS_CPU_QUALIFICATION_PASS'
+    py=str(p['root']/'outputs/UNIFIED-METRICS-20261002/environment/bin/python')
+    tests=TIMING_TESTS if timing else HP_TESTS
+    require(q['status']==status and q['python']==py and q['GPU_used'] is False and q['new_packet_decodes']==0
+        and q['results']==[dict(argv=[py,'-B','-m','unittest','-v',*tests],exit_code=0,test_count=count)],'Actual qualified runtime/test inventory differs')
+    if timing:require(q['models_constructed'] is False and q['new_noise_draws']==0,'Timing qualification performed science')
+    else:require(q['actual_quality_rows_read'] is False,'H/P qualification read actual score rows')
+    require(not(qpath.parent/'failure.json').exists(),'Qualification failure cannot be exported as PASS')
+    require(q['budget_before']==q['budget_after'] and q['budget_after']['charged']==164760
+        and q['budget_after']['failed']==q['budget_after']['unresolved']==0,'Qualification changed H budget')
+    verify(q['source_bindings']);verify(q['outputs'])
+    log=qpath.parent/'tests.log';text=log.read_text(encoding='utf-8')
+    require(q['outputs'].get(str(log))==sha(log) and f'Ran {count} tests' in text and text.rstrip().endswith('OK'),
+        'Closed actual qualification log required')
+    expected=TIMING if timing else HP
+    for name,s in expected.items():require(q['source_bindings'].get(str(p['E']/name))==s,'Runtime not actually qualified: '+name)
+    # Input map is retained as provenance. Original giant image/weight archives
+    # are not recursively rehashed merely to publish already sealed CPU proof.
+    evidence=merge(q['source_bindings'],q['outputs'],bind((qpath,)))
+    if timing:
+        rec=p['root']/'outputs/CONTENT-REAL-64QAM-20261006/H/online_components_qualification_recovery_r1'
+        for name in ('execution_registration.json','failure_archive_receipt.json','diagnosis.json','test_assets.json'):
+            f=rec/name;require(q['input_bindings'].get(str(f))==sha(f),'Timing R1 evidence not part of actual qualification')
+            evidence[str(f)]=sha(f)
+    return q,evidence
+
+
+def check_index(p,expected,*,new_untracked):
+    root=p['root'];require(git(root,'rev-parse','HEAD')==PARENT and git(root,'branch','--show-current')=='main','Parent/branch changed')
+    require(git(root,'ls-remote','origin','refs/heads/main').split()[0]==PARENT,'Remote parent changed')
+    require(not git(root,'diff','--name-only'),'Unstaged tracked work must be preserved')
+    require(set(git(root,'diff','--cached','--name-only').splitlines())==set(expected),'Index not the exact owned set')
+    for name,s in expected.items():require(sha(root/name)==s and blob_sha(root,name)==s,'Staged blob differs from immutable working byte')
+    untracked=set(git(root,'ls-files','--others','--exclude-standard','--','experiments/content-real-64qam-20261006').splitlines())
+    py={name for name in untracked if name.endswith('.py')}
+    require(py==set(new_untracked),'Additional untracked engineering requires separate scope; nothing is removed')
+
+
+def prestage(request_pin,p,original,new):
+    cp=pin(request_pin);rp=cp.parent/'execution_registration.json';c,r=read(cp),read(rp)
+    expected=merge(original,new)
+    require(c['status']=='EXACT_64_FILES_STAGED_NO_COMMIT' and c['registration_sha256']==sha(rp)
+        and c['files']==expected and len(expected)==64 and c['unchanged_source_bytes'] is True
+        and c['new_PHY']==0 and c['committed'] is c['pushed'] is False,'Exact independently recorded64-file prestage required')
+    require(r['status']=='REVIEWED_ELEVEN_ENGINEERING_SOURCES_STAGE_ONLY' and r['old53_files']==original
+        and r['new_source_bindings']=={str(p['root']/n):s for n,s in new.items()}
+        and r['commit_authorized_only_after_normal_publication_checks'] is True
+        and r['source_bytes_changed'] is False and r['new_scientific_calls']==0,'Prestage scope differs')
+    return expected,bind((cp,rp))
+
+
+def inspect(request_path):
+    req=read(request_path);require(req['schema']=='H18_P600_PUBLICATION_SCOPE_RECOVERY_REQUEST_R1','Wrong recovery request')
+    p=paths(req['root']);require(p['root'].is_absolute() and sha(p['sanitizer'])==SAN_SHA,'Exact original sanitizer required')
+    original,inputs=archive_evidence(p)
+    tq,tb=qualification(req['timing_qualification'],'timing',p);hq,hb=qualification(req['cross_qualification'],'cross',p)
+    require(tq['budget_after']==hq['budget_after'],'Actual qualification budgets differ')
+    new={str((p['E']/n).relative_to(p['root'])):s for n,s in dict(TIMING,**HP).items()}
+    require(len(new)==11 and not(set(new)&set(original)),'Exactly6timing+5H/P new runtime files')
+    for name,s in new.items():require(sha(p['root']/name)==s,'Reviewed engineering source changed')
+    staged,sb=prestage(req['prestage_completion'],p,original,new)
+    inputs=merge(inputs,tb,hb,sb,bind((request_path,p['sanitizer'])))
+    sources=merge({str(p['root']/n):s for n,s in new.items()},bind((Path(__file__).absolute(),Path(__file__).with_name('test_publish_h18_descriptive_p600_recovery_r1.py'))))
+    return dict(req=req,p=p,original=original,new=new,staged=staged,inputs=inputs,sources=sources,tq=tq,hq=hq)
+
+
+def alias_log(path,target):
+    """Exact closed bytes as .txt, with provenance; no JSON-wrapped code or stripping."""
+    raw=Path(path).read_bytes();raw.decode('utf-8');require(b'\0' not in raw,'Not a plain UTF8 log')
+    target=Path(target);target.parent.mkdir(parents=True,exist_ok=True)
+    with target.open('xb') as f:f.write(raw)
+    require(sha(path)==sha(target),'Log alias changed bytes')
+    return dict(original_path=str(path),preserved_path=str(target),sha256=sha(path),bytes=len(raw),byte_identical=True)
+
+
+def prepare(request_path):
+    x=inspect(request_path);p=x['p'];w=p['work'];require(not w.exists() and not p['public'].exists(),'Recovery attempt already exists; preserve and diagnose')
+    check_index(p,x['staged'],new_untracked=[]);tree=git(p['root'],'write-tree');w.mkdir(parents=True)
+    try:
+        registration=dict(status='H18_P600_PUBLICATION_SCOPE_RECOVERY_REGISTERED_R1',expected_parent=PARENT,
+            root=str(p['root']),source_bindings=x['sources'],input_bindings=x['inputs'],admitted_index_tree=tree,
+            original_staged_files=x['original'],admitted_staged_files=x['staged'],additional_engineering_files=x['new'],original_report_and_tables_unchanged=True,
+            new_scientific_calls=0,new_comparisons=0,checker_changed=False,sanitizer_changed=False,
+            actual_qualification_counts={'timing':39,'H_P':13},giant_qualification_input_archives_rehashed_for_publication=False)
+        save(w/'execution_registration.json',registration)
+        exports=[];aliases=[]
+        def add(src,target,role='receipt'):exports.append(dict(source=str(src),source_sha256=sha(src),target=target,role=role))
+        for name in ('failure_archive_receipt.json','diagnosis.json'):add(p['rec']/name,'original_failure/'+name)
+        pp=Path(x['req']['prestage_completion']['path'])
+        add(pp,'engineering_prestage/completion.json');add(pp.parent/'execution_registration.json','engineering_prestage/execution_registration.json')
+        for name in ('failure.json','execution_registration.json','publication_files.json'):
+            add(p['old']/name,'original_failure/'+name)
+        for source,target in [(p['old']/'repository.log','original_failure/repository_failure.txt'),
+            (Path(x['req']['timing_qualification']['path']).parent/'tests.log','timing_qualification/tests.txt'),
+            (Path(x['req']['cross_qualification']['path']).parent/'tests.log','H_P_qualification/tests.txt')]:
+            dest=w/'closed_text'/target;aliases.append(alias_log(source,dest));add(dest,target)
+        add(w/'execution_registration.json','execution_registration.json')
+        for kind,q in [('timing',x['tq']),('H_P',x['hq'])]:
+            key='timing_qualification' if kind=='timing' else 'cross_qualification';path=Path(x['req'][key]['path'])
+            add(path,kind+'_qualification/completion.json');add(path.parent/'attempt.json',kind+'_qualification/attempt.json')
+        tr=p['root']/'outputs/CONTENT-REAL-64QAM-20261006/H/online_components_qualification_recovery_r1'
+        for name in ('execution_registration.json','failure_archive_receipt.json','diagnosis.json','test_assets.json'):
+            add(tr/name,'timing_fixture_recovery/'+name)
+        private_names=['operate_h_online_components_remote.py','test_operate_h_online_components_remote.py',
+            'operate_h_online_components_r1_remote.py','test_operate_h_online_components_r1_remote.py','test_h_online_components_r1.py',
+            'operate_h_p_statistics_remote.py','test_operate_h_p_statistics_remote.py']
+        for name in private_names:
+            src=p['prep']/name;require(x['inputs'].get(str(src))==sha(src),'Actual qualifier did not bind private helper')
+            add(src,'provenance/'+name+'.txt','source')
+        for src in (Path(__file__).absolute(),Path(__file__).with_name('test_publish_h18_descriptive_p600_recovery_r1.py')):
+            add(src,'provenance/'+src.name+'.txt','source')
+        save(w/'closed_text_provenance.json',dict(status='EXACT_CLOSED_LOG_TEXT_ALIASES',files=aliases,
+            embedded_code_in_JSON=False,original_files_unchanged=True));add(w/'closed_text_provenance.json','closed_text_provenance.json')
+        save(w/'export_request.json',dict(schema='EXPLICIT_PUBLIC_TEXT_EXPORT_V1',files=exports))
+        spec=importlib.util.spec_from_file_location('_original_publication_sanitizer_r1',p['sanitizer']);san=importlib.util.module_from_spec(spec);spec.loader.exec_module(san)
+        san.prepare(p['root'],w/'export_request.json',p['public'],w/'private_export_receipt.json')
+        owned=merge(x['original'],x['new'],{str(f.relative_to(p['root'])):sha(f) for f in p['public'].rglob('*') if f.is_file()})
+        for n,s in x['original'].items():require(sha(p['root']/n)==s,'Original publication bytes changed during recovery')
+        verify(x['sources']);verify(x['inputs']);check_index(p,x['staged'],new_untracked=[])
+        require(git(p['root'],'write-tree')==tree,'Index changed during prepare')
+        save(w/'publication_files.json',owned)
+        done=dict(status='H18_P600_SCOPE_RECOVERY_PREPARED_NOT_PUBLISHED',registration_sha256=sha(w/'execution_registration.json'),
+            outputs=bind((w/'execution_registration.json',w/'export_request.json',w/'closed_text_provenance.json',w/'private_export_receipt.json',w/'publication_files.json')),
+            files=owned,original_files_unchanged=True,scientific_outputs_changed=False,committed=False,pushed=False)
+        save(w/'prepare_completion.json',done);return dict(status=done['status'],file_count=len(owned),completion=str(w/'prepare_completion.json'))
+    except BaseException:
+        save(w/'failure.json',dict(status='FAILED_PRESERVE_NO_RETRY',traceback=traceback.format_exc()));raise
+
+
+def publish(request_path):
+    x=inspect(request_path);p=x['p'];w=p['work'];require(not(w/'failure.json').exists() and not(w/'publish_attempt.json').exists(),
+        'Failed/prior publication attempt requires independent diagnosis')
+    done=read(w/'prepare_completion.json');reg=read(w/'execution_registration.json');verify(done['outputs'])
+    require(done['status']=='H18_P600_SCOPE_RECOVERY_PREPARED_NOT_PUBLISHED'
+        and done['registration_sha256']==sha(w/'execution_registration.json') and reg['source_bindings']==x['sources']
+        and reg['input_bindings']==x['inputs'] and reg['original_staged_files']==x['original']
+        and reg['admitted_staged_files']==x['staged'] and reg['additional_engineering_files']==x['new'],'Sealed recovery changed')
+    owned=read(w/'publication_files.json');require(owned==done['files'],'Publication inventory changed')
+    for name,s in owned.items():require(sha(p['root']/name)==s,'Owned file changed before stage')
+    check_index(p,x['staged'],new_untracked=[]);require(git(p['root'],'write-tree')==reg['admitted_index_tree'],'Admitted index tree changed')
+    save(w/'publish_attempt.json',dict(status='SINGLE_NORMAL_COMMIT_PUSH_CLAIMED',registration_sha256=sha(w/'execution_registration.json')))
+    commands=[]
+    def run(argv,label,timeout=900):
+        log=w/(label+'.log')
+        with log.open('xb') as f:r=subprocess.run(argv,cwd=p['root'],env=env(),stdout=f,stderr=subprocess.STDOUT,timeout=timeout)
+        commands.append(dict(argv=argv,exit_code=r.returncode,log=str(log),sha256=sha(log)))
+        require(r.returncode==0,'Normal check/action failed: '+label);return log
+    try:
+        run(['git','add','--',*sorted(owned)],'stage')
+        check_index(p,owned,new_untracked=[])
+        run(['git','diff','--cached','--check'],'diff_check')
+        python=str(p['root']/'outputs/UNIFIED-METRICS-20261002/environment/bin/python')
+        run([python,'-B',str(p['root']/'tools/verify_repository.py')],'repository')
+        log=run([python,'-B',str(p['root']/'tools/run_cpu_checks.py')],'CPU_checks')
+        require('264 passed' in log.read_text(),'Expected original264 repository checks')
+        verify(x['inputs']);verify(x['sources']);check_index(p,owned,new_untracked=[])
+        run(['git','commit','-m','Publish H18 and P600 evidence with qualified engineering provenance'],'commit')
+        commit=git(p['root'],'rev-parse','HEAD')
+        require(git(p['root'],'rev-parse','HEAD^')==PARENT and set(git(p['root'],'diff-tree','--no-commit-id','--name-only','-r',commit).splitlines())==set(owned),
+            'Normal commit scope differs')
+        run(['git','push','origin','main'],'push')
+        remote=git(p['root'],'ls-remote','origin','refs/heads/main').split()[0];require(remote==commit,'Pushed remote differs')
+        result=dict(status='H18_DESCRIPTIVE_P600_SCOPE_RECOVERY_PUBLISHED',commit=commit,remote_verified_sha=remote,files=owned,
+            commands=commands,original_failure_preserved=True,original_scientific_result_files_unchanged=True,
+            repository_CPU_checks=264,actual_qualification_counts={'timing':39,'H_P':13},new_scientific_calls=0,
+            cross_H_P_statistics_published=False,MAIN_included=False,H_success_evaluated=False)
+        save(w/'completion.json',result);return dict(status=result['status'],commit=commit,remote_verified_sha=remote)
+    except BaseException:
+        save(w/'failure.json',dict(status='FAILED_PRESERVE_NO_RETRY',traceback=traceback.format_exc(),commands=commands));raise
+
+
+if __name__=='__main__':
+    parser=argparse.ArgumentParser();parser.add_argument('--request',required=True);parser.add_argument('--stage',choices=('prepare','publish'),required=True)
+    args=parser.parse_args();print(json.dumps(globals()[args.stage](str(Path(args.request).absolute())),sort_keys=True))

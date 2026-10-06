@@ -1,0 +1,171 @@
+"""Private P600 operation tests; no real models, channel, registration or launch."""
+import ast
+import copy
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+from types import SimpleNamespace
+import unittest
+from unittest.mock import patch
+
+import operate_p600_replay_remote as op
+
+
+class Tests(unittest.TestCase):
+    def test_frozen_six_sources_match_and_fixture_keys_are_exact(self):
+        code=Path(__file__).absolute().parent
+        self.assertEqual(len(op.PINS),6)
+        for name,s in op.PINS.items():self.assertEqual(op.sha(code/name),s,name)
+        self.assertEqual(op.TESTS,('test_p600_received_replay_core','test_p600_received_replay_driver','test_register_p600_received_replay'))
+
+    def test_real_private_E_layout_runs_all26_fixtures_from_bound_metadata(self):
+        code=Path(__file__).absolute().parent;current=code.parent/'current'
+        paths=dict(latent_completion=str(current/'P_reuse/latent_audit/completion.json'),
+            latent_inventory=str(current/'P_reuse/latent_audit/latent_inventory.json'),
+            scalar_inventory=str(current/'h18_render_r2/prepared_v1/P_existing600_audit_v1/scalar_inventory.json'),
+            metrics_registration=str(current/'P_reuse/results/unified_metrics_20261002/metrics_registration.json'),
+            numerical_reference=str(current/'original_native_qualification.json'))
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);e=root/'E';private=root/'prepared_v1';e.mkdir();private.mkdir()
+            for name in op.PINS:(e/name).write_bytes((code/name).read_bytes())
+            helper=private/Path(op.__file__).name;helper.write_bytes(Path(op.__file__).read_bytes())
+            manifest=private/'metadata.json';op.save(manifest,dict(status='P600_CPU_TEST_METADATA_BOUND',paths=paths,input_bindings=op.bind(paths.values())))
+            # The helper is private, all six science/tests are in E. No six-file
+            # copy under the private directory can hide an incorrect resolver.
+            env=op.environment(root,e,manifest)
+            result=subprocess.run([sys.executable,'-B','-m','unittest','-v',*op.TESTS],cwd=e,env=env,
+                capture_output=True,text=True,timeout=90)
+            self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+            self.assertIn('Ran 26 tests',result.stderr);self.assertTrue(result.stderr.rstrip().endswith('OK'))
+            self.assertFalse((private/'p600_received_replay_core.py').exists())
+            self.assertEqual(env['CUDA_VISIBLE_DEVICES'],'')
+            self.assertEqual(env['P600_TEST_METADATA_SHA256'],op.sha(manifest))
+
+    def test_metadata_missing_extra_or_modified_pin_is_rejected(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);paths={k:str(root/(k+'.json')) for k in op.METADATA_KEYS}
+            for p in paths.values():op.save(p,{'fixture':True})
+            p=root/'metadata.json';value=dict(status='P600_CPU_TEST_METADATA_BOUND',paths=paths,input_bindings=op.bind(paths.values()))
+            op.save(p,value);v,b=op.metadata(p);self.assertEqual(len(b),6)
+            bad=copy.deepcopy(value);bad['paths']['extra']='unbound';p.write_text(json.dumps(bad))
+            with self.assertRaisesRegex(RuntimeError,'five-path'):op.metadata(p)
+            p.write_text(json.dumps(value));Path(paths['latent_inventory']).write_text('changed')
+            with self.assertRaisesRegex(RuntimeError,'Changed sealed'):op.metadata(p)
+
+    def test_code_directory_comes_from_bound_metric_entry_not_private_parent(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);e=root/'E';e.mkdir();entry=e/'metric.py';entry.write_text('old metric')
+            for n in op.PINS:(e/n).write_text('fixture '+n)
+            pins={n:op.sha(e/n) for n in op.PINS};reg=dict(source_bindings=op.bind((entry,)),input_bindings={})
+            with patch.object(op,'PINS',pins):
+                code,b=op.verified_code_dir({'metric_driver_module':str(entry)},reg)
+                self.assertEqual(code,e);self.assertEqual(len(b),6)
+                (e/next(iter(pins))).write_text('changed')
+                with self.assertRaisesRegex(RuntimeError,'Changed sealed'):op.verified_code_dir({'metric_driver_module':str(entry)},reg)
+
+    def test_interpreter_is_original_metric_UM_path_not_LDPC_or_resolved_alias(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);python=root/'outputs/UNIFIED-METRICS-fixture/environment/bin/python';python.parent.mkdir(parents=True);python.write_text('venv')
+            cp=root/'metrics_config.json';cfg={'metric_driver_module':'original_metric.py'};op.save(cp,cfg)
+            owner=dict(gpu_threads=6,stages=[dict(id='development',resource='gpu',jobs=[dict(id='development_metrics',
+                argv=[str(python),'-B',cfg['metric_driver_module'],'--config',str(cp)])])])
+            reg={'input_bindings':op.bind((cp,))}
+            self.assertEqual(op.original_python(owner,cfg,cp,reg,root),str(python))
+            wrong=copy.deepcopy(owner);wrong['stages'][0]['jobs'][0]['argv'][0]=str(root/'ldpc_environment/python')
+            with self.assertRaisesRegex(RuntimeError,'UM interpreter'):op.original_python(wrong,cfg,cp,reg,root)
+            cp.write_text('{}')
+            with self.assertRaisesRegex(RuntimeError,'command/config'):op.original_python(owner,cfg,cp,reg,root)
+
+    def test_budget_stop_and_failure_no_retry(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);budget=root/'budget';budget.write_text('{}');before=dict(charged=164760,phase_charged={'development':10800},development_remaining=2400,failed=0,unresolved=0)
+            fake=SimpleNamespace(budget_snapshot=lambda *a,**k:copy.deepcopy(before))
+            ctx=dict(cfg=dict(ledger='db',budget_registration=str(budget),phase_limits={},stop_file=str(root/'STOP')),
+                d=SimpleNamespace(DEADLINE=1e20),owner=fake,before=copy.deepcopy(before))
+            op.unchanged(ctx);before['charged']+=1
+            with self.assertRaisesRegex(RuntimeError,'budget changed'):op.unchanged(ctx)
+            (root/'STOP').write_text('stop')
+            with self.assertRaisesRegex(RuntimeError,'STOP'):op.unchanged(ctx)
+            q=root/'q';q.mkdir();op.save(q/'failure.json',{'preserved':True})
+            with self.assertRaisesRegex(RuntimeError,'failed qualification'):op.qualified({'loc':{'qualification':q}})
+            e=root/'e';e.mkdir();out=root/'out';op.fresh_launch(e,out)
+            op.save(e/'launch_attempt.json',{'once':True});raw=(e/'launch_attempt.json').read_bytes()
+            with self.assertRaisesRegex(RuntimeError,'no retry'):op.fresh_launch(e,out)
+            with self.assertRaises(FileExistsError):op.save(e/'launch_attempt.json',{})
+            self.assertEqual(raw,(e/'launch_attempt.json').read_bytes())
+
+    def test_request_uses_actual_prior_paths_and_graph_without_inventing_inputs_field(self):
+        import p600_received_replay_driver as d
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);loc=op.locations(root);loc['operations'].mkdir(parents=True);loc['qualification'].mkdir()
+            code=Path(__file__).absolute().parent
+            file=root/'original.json';op.save(file,{'original':True})
+            cfg={k:str(file) for k in ('owner_module','wait_module','cpu_driver_module','protocol','budget_registration',
+                'ledger','metrics_registration','validation_module','convnext_weights','independent_binding')}
+            cfg.update(root=str(root),H_out=str(loc['h']),phase_limits={'development':13200},stop_file=str(loc['h']/'STOP'),
+                metric_driver_module=str(file))
+            visual={k:str(root/k) for k in ('runtime_dir','native_runtime','uep_runtime','var_source','dino_source')}
+            visual.update(static_closure_module=str(file),numerical_reference=str(file))
+            graph=root/'oldgraph.json';old_source=root/'old.py';old_source.write_text('old source')
+            actual=op.bind((old_source,));op.save(graph,dict(status='EXACT_SOURCE_CLOSURE_MATCH',source_bindings=actual))
+            visual['visual_source_closure']=str(graph)
+            selected=root/'selected_P1024.json';op.save(selected,{'frozen':True});sp=op.bind((selected,))
+            inv=root/'inventory.json';op.save(inv,dict(input_bindings=sp))
+            audit=root/'latent_completion.json';op.save(audit,dict(input_bindings=sp,source_bindings={},outputs=op.bind((inv,))))
+            paths=dict(latent_completion=str(audit),latent_inventory=str(inv),scalar_inventory=str(file),
+                metrics_registration=str(file),numerical_reference=str(file))
+            qp=loc['qualification']/'completion.json';op.save(qp,{'fixture':True})
+            gate=loc['qualification']/'predecessor_closure.json';op.save(gate,{'bindings':op.bind((file,graph))})
+            q=dict(source_bindings=op.bind(code/n for n in op.PINS),input_bindings=op.bind((file,)),outputs=op.bind((gate,)))
+            ctx=dict(loc=loc,code=code,cfg=cfg,visual=visual,d=d,metadata={'paths':paths},root=str(root),
+                metadata_bindings=op.bind(paths.values()),spec={'config':str(file)},
+                reg=dict(source_bindings=actual,input_bindings=op.bind((file,graph))))
+            closure=SimpleNamespace(collect_bindings=lambda *a:copy.deepcopy(actual))
+            with patch.object(op,'module',return_value=closure):r=op.build_request(ctx,q)
+            result=r['config'];self.assertEqual(result['selected_P_policy'],str(selected))
+            self.assertEqual(result['numerical_reference'],str(file));self.assertEqual(result['max_seconds'],7200)
+            self.assertEqual(result['core_module'],str(code/'p600_received_replay_core.py'))
+            self.assertEqual(result['metric_batch'],ctx['spec'])
+            self.assertEqual(set(d.REQUIRED)-set(result),set())
+            newgraph=op.read(result['visual_source_closure'])
+            self.assertEqual(newgraph['source_bindings'],actual);self.assertNotIn('inputs',newgraph)
+            self.assertEqual(r['input_bindings'][str(selected)],op.sha(selected))
+            self.assertFalse(loc['execution'].exists());self.assertFalse(loc['out'].exists())
+
+    def test_one_P600_GPU_only_and_original_owner_overrides_hidden_CUDA(self):
+        reg=dict(allowed_stage_ids=['development'],source_stage_scope='P600_EXISTING_RECEIVED_LATENT_RGB_AND_INDEPENDENT_CONVNEXT_ONLY',
+            GPU_jobs=1,GPU_threads=6,new_packet_decodes=0,new_noise_draws=0,budget_writes=0,policy_selection=False,
+            MAIN_started=False,C_started=False,future_stage_automatic=False)
+        exp=dict(frame_count=600,source_count=100,noise_seeds=[2001,2002,2003],RGB_exact_parity=True,ConvNeXt_scored=True,
+            new_packet_decodes=0,new_noise_draws=0,budget_writes=0,MAIN_complete=False,overall_development_complete=False)
+        owner=dict(gpu_threads=6,stages=[dict(id='development',resource='gpu',jobs=[dict(id='p600_received_replay',argv=['UM'],receipt_expect=exp)])])
+        op.launch_shape(owner,reg,'UM')
+        for k,v in [('GPU_jobs',2),('new_noise_draws',1),('MAIN_started',True),('future_stage_automatic',True)]:
+            with self.assertRaises(RuntimeError):op.launch_shape(owner,dict(reg,**{k:v}),'UM')
+        with self.assertRaises(RuntimeError):op.launch_shape(owner,reg,'LDPC')
+        path=Path(__file__).absolute().parent.parent/'runner/stage_owner.py'
+        tree=ast.parse(path.read_text())
+        expressions=[k.value for n in ast.walk(tree) if isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute)
+            and isinstance(n.func.value,ast.Name) and n.func.value.id=='env' and n.func.attr=='update'
+            for k in n.keywords if k.arg=='CUDA_VISIBLE_DEVICES']
+        self.assertEqual(len(expressions),1)
+        value=eval(compile(ast.Expression(expressions[0]),'<original_owner>','eval'),
+            {'resource':'gpu','self':SimpleNamespace(cfg={'gpu_device':0})})
+        self.assertEqual(value,'0')
+
+    def test_distinct_steps_fresh_paths_no_automatic_calls(self):
+        tree=ast.parse(Path(op.__file__).read_text())
+        for name in ('qualify','register','launch'):
+            node=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name==name)
+            calls={n.func.id for n in ast.walk(node) if isinstance(n,ast.Call) and isinstance(n.func,ast.Name)}
+            self.assertFalse(({'qualify','register','launch'}-{name}) & calls)
+        loc=op.locations('/fixture')
+        self.assertEqual(loc['execution'].name,'p600_replay_execution_v1');self.assertEqual(loc['out'].name,'p600_replay_v1')
+        self.assertEqual(loc['qualification'].name,'p600_replay_cpu_qualification_v1')
+        self.assertEqual(loc['operations'].name,'p600_replay_operations_v1')
+
+
+if __name__=='__main__':unittest.main()

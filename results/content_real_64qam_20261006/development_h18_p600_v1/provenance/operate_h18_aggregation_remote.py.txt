@@ -1,0 +1,359 @@
+"""Private, explicit CPU qualify/register/launch operations for frozen H18 statistics.
+
+The worker adds an owner-compatible envelope around the unmodified aggregator.
+It never selects a policy, admits another branch, loads a model or decodes PHY.
+"""
+import argparse
+import copy
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import time
+import traceback
+
+PINS = {
+    'h_development_aggregate.py': 'bb820536b7ae8bddb7100a966b3c85171c1743d5ac9721c0c95c90323236c8a9',
+    'test_h_development_aggregate.py': '6ce3e567906d24b2ece6490664ff6014f9eb12d74e8c417b897019057cf49c29',
+    'h_development_statistics.py': '674acc273a86a8c544ed4623d971a5f6ead5ba92e81fdc52080b1fc30295f2f6',
+    'h_development_metrics_driver.py': '24ccbe493c2e44793fd87324cfbece2d4051239ba741bf4129dea48ea0ba37d5',
+}
+DONE = 'H18_DEVELOPMENT_DESCRIPTIVE_AGGREGATION_COMPLETE'
+QUALIFIED = 'H18_DESCRIPTIVE_AGGREGATION_CPU_QUALIFICATION_PASS'
+REGISTERED = 'H18_DESCRIPTIVE_AGGREGATION_REGISTERED_NOT_LAUNCHED'
+SCOPE = 'H18_ONLY_DESCRIPTIVE_STATISTICS_NO_RESELECTION'
+JOB = 'h18_descriptive_aggregation'
+EXPECTED = dict(source_count=100, frame_count=5400, points=18, comparison_count=26,
+    policy_selection=False, development_used=True, holdout_used=False, GPU_used=False,
+    new_packet_decodes=0, P_complete=False, MAIN_complete=False, H_success_evaluated=False,
+    H_full_delivery_claimed=False, overall_development_complete=False,
+    bootstrap_replicates=10000, bootstrap_seed=2026100605)
+
+
+def require(ok, message):
+    if not ok: raise RuntimeError(message)
+
+
+def read(p): return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+
+
+def sha(p):
+    h = hashlib.sha256()
+    with Path(p).open('rb') as f:
+        for b in iter(lambda: f.read(1048576), b''): h.update(b)
+    return h.hexdigest()
+
+
+def pin(p): return dict(path=str(p), sha256=sha(p))
+
+
+def bind(paths): return {str(Path(p).absolute()): sha(p) for p in paths}
+
+
+def verify(mapping):
+    for p, s in mapping.items():
+        require(Path(p).is_absolute() and len(s) == 64 and sha(p) == s, 'Changed bound file: ' + p)
+
+
+def merge(*maps):
+    result = {}
+    for values in maps:
+        for p, s in values.items():
+            require(p not in result or result[p] == s, 'Conflicting binding: ' + p)
+            result[p] = s
+    return result
+
+
+def save(p, value):
+    p = Path(p); p.parent.mkdir(parents=True, exist_ok=True)
+    with p.open('x', encoding='utf-8', newline='\n') as f:
+        json.dump(value, f, indent=2, sort_keys=True, allow_nan=False)
+        f.write('\n'); f.flush(); os.fsync(f.fileno())
+
+
+def module(p, name):
+    spec = importlib.util.spec_from_file_location(name, p)
+    m = importlib.util.module_from_spec(spec); sys.modules[name] = m
+    spec.loader.exec_module(m); return m
+
+
+def locations(root):
+    base = Path(root).absolute() / 'outputs/CONTENT-REAL-64QAM-20261006'
+    return dict(h=base/'H', qualification=base/'prepared_v1/h18_aggregation_cpu_qualification_v1',
+        execution=base/'H/h18_aggregation_execution_v1', out=base/'H/h18_aggregation_v1')
+
+
+def environment(code):
+    return dict(os.environ, CUDA_VISIBLE_DEVICES='', OMP_NUM_THREADS='2', MKL_NUM_THREADS='2',
+        OPENBLAS_NUM_THREADS='2', NUMEXPR_NUM_THREADS='2', PYTHONDONTWRITEBYTECODE='1',
+        PYTHONPATH=str(code))
+
+
+def check_budget(value):
+    require(value['charged'] == 164760 and value['phase_charged']['development'] == 10800
+        and value['development_remaining'] == 2400 and value['failed'] == value['unresolved'] == 0,
+        'The closed H18 budget and untouched MAIN reserve are required')
+
+
+def context(root, metric_config):
+    require(sys.platform.startswith('linux'), 'Normal process-closure gates require Linux')
+    root = str(Path(root).absolute()); loc = locations(root); cp = Path(metric_config).absolute()
+    cfg = read(cp); reg = read(cfg['registration']); old = read(cfg['visual_owner_config'])
+    verify(reg['source_bindings']); verify(reg['input_bindings'])
+    require(cfg['root'] == root and cfg['H_out'] == str(loc['h']), 'Wrong H workspace')
+    code = Path(cfg['metric_driver_module']).parent
+    fresh = {str(code/n): s for n, s in PINS.items()}; verify(fresh)
+    require(reg['source_bindings'].get(str(code/'h_development_metrics_driver.py')) == PINS['h_development_metrics_driver.py'],
+        'Actual completed metric driver differs')
+    own = Path(__file__).absolute(); test = own.with_name('test_operate_h18_aggregation_remote.py')
+    sources = merge(reg['source_bindings'], fresh, bind((own, test)))
+    spec = dict(config=str(cp), owner_config=cfg['visual_owner_config'], registration=cfg['registration'],
+        launch=str(Path(old['owner_out'])/'launch.json'), completion=str(Path(cfg['out'])/'completion.json'))
+    inputs = merge(reg['input_bindings'], bind(spec.values()))
+    sys.path.insert(0, str(code)); a = module(code/'h_development_aggregate.py', 'private_frozen_h18_aggregate')
+    probe = dict(metric_driver=str(code/'h_development_metrics_driver.py'), metric_batch=spec,
+        source_bindings=sources, input_bindings=inputs)
+    ctx, closed = a.normal_metrics_closed(probe)
+    check_budget(ctx['before']); python = closed['owner']['stages'][0]['jobs'][0]['argv'][0]
+    require(Path(python).is_absolute() and Path(python).is_file()
+        and '/UNIFIED-METRICS-' in python.replace('\\', '/'), 'Actual completed metric UM interpreter required')
+    plan = a.comparison_plan(ctx['schedule'])  # No measured rows are read to form the 26 contrasts.
+    inputs = merge(inputs, ctx['bound'], closed['bindings'], closed['done']['outputs'])
+    return dict(root=root, loc=loc, code=code, a=a, ctx=ctx, closed=closed, python=python,
+        sources=sources, inputs=inputs, spec=spec, plan=plan, before=ctx['before'], owner=ctx['owner'])
+
+
+def unchanged(x):
+    cfg = x['ctx']['cfg']; verify(x['sources']); verify(x['inputs'])
+    require(not Path(cfg['stop_file']).exists() and time.time() < x['closed']['owner']['overall_deadline_unix'],
+        'STOP or original deadline blocks aggregation')
+    value = x['owner'].budget_snapshot(cfg['ledger'], sha(cfg['budget_registration']), cfg['phase_limits'], quiescent=True)
+    require(value == x['before'], 'Packet budget changed during CPU aggregation operations')
+
+
+def qualified(x):
+    q = x['loc']['qualification']; require(not (q/'failure.json').exists(), 'Failed qualification is preserved')
+    value = read(q/'completion.json')
+    require(value['status'] == QUALIFIED and value['python'] == x['python']
+        and value['GPU_used'] is False and value['new_packet_decodes'] == 0 and value['actual_metric_rows_read'] is False
+        and len(value['results']) == 1 and value['results'][0]['exit_code'] == 0 and value['results'][0]['test_count'] == 12,
+        'The original twelve synthetic aggregation tests must pass')
+    for key in ('source_bindings', 'input_bindings', 'outputs'): verify(value[key])
+    for p, s in x['sources'].items(): require(value['source_bindings'].get(p) == s, 'Unqualified aggregation source: ' + p)
+    for p in x['spec'].values(): require(value['input_bindings'].get(p) == sha(p), 'Qualifier used different metric predecessor')
+    text = (q/'tests.log').read_text(encoding='utf-8', errors='replace')
+    require('Ran 12 tests' in text and text.rstrip().endswith('OK'), 'Unexpected aggregation qualification inventory')
+    return value
+
+
+def qualify(root, metric_config):
+    x = context(root, metric_config); q = x['loc']['qualification']
+    require(not q.exists(), 'Prior qualification preserved; no retry'); unchanged(x); q.mkdir(parents=True)
+    argv = [x['python'], '-B', '-m', 'unittest', '-v', 'test_h_development_aggregate']
+    affinity = x['closed']['owner']['cpu_affinities'][0]
+    require(len(affinity) == 2 and set(affinity) <= os.sched_getaffinity(0), 'Two original CPU cores unavailable')
+    save(q/'attempt.json', dict(argv=argv, python=x['python'], source_bindings=x['sources'], input_bindings=x['inputs'],
+        CPU_threads=2, affinity=affinity, nice=15, GPU_used=False, new_packet_decodes=0, actual_metric_rows_read=False))
+    def resources():
+        os.sched_setaffinity(0, affinity); os.setpriority(os.PRIO_PROCESS, 0, 15)
+    try:
+        with (q/'tests.log').open('xb') as log:
+            result = subprocess.run(argv, cwd=str(x['code']), env=environment(x['code']), stdout=log,
+                stderr=subprocess.STDOUT, timeout=1800, check=False, preexec_fn=resources)
+        require(result.returncode == 0, 'Aggregation qualification failed; preserve evidence')
+        unchanged(x)
+        save(q/'completion.json', dict(status=QUALIFIED, python=x['python'],
+            results=[dict(argv=argv, exit_code=0, test_count=12)], source_bindings=x['sources'], input_bindings=x['inputs'],
+            outputs=bind((q/'attempt.json', q/'tests.log')), GPU_used=False, new_packet_decodes=0,
+            actual_metric_rows_read=False, budget_before=x['before'], budget_after=x['before']))
+        qualified(x); return dict(status=QUALIFIED, completion=pin(q/'completion.json'), workers_started=False)
+    except BaseException:
+        save(q/'failure.json', dict(status='FAILED_PRESERVE_NO_RETRY', traceback=traceback.format_exc())); raise
+
+
+def make_configs(x, request_path):
+    e = x['loc']['execution']; out = x['loc']['out']; old = x['closed']['owner']
+    cp, op, rp = e/'aggregation_config.json', e/'owner_config.json', e/'execution_registration.json'
+    cfg = dict(schema='H18_AGGREGATION_OWNER_ADAPTER_V1', root=x['root'], out=str(out),
+        registration=str(rp), owner_config=str(op), request_path=str(request_path),
+        metric_config=x['spec']['config'], max_seconds=7200)
+    owner = copy.deepcopy(old); owner.update(owner_out=str(e), registration=str(rp))
+    owner['stages'] = [dict(id='report', resource='cpu', requires=[], max_seconds=7200, jobs=[dict(
+        id=JOB, argv=[x['python'], '-B', str(Path(__file__).absolute()), '--stage', 'worker', '--config', str(cp)],
+        cwd=x['root'], out=str(out), completion=str(out/'completion.json'),
+        accepted_statuses=[DONE], receipt_expect=copy.deepcopy(EXPECTED), environment=environment(x['code']))])]
+    # Only the explicit thread/path environment belongs in the frozen config.
+    owner['stages'][0]['jobs'][0]['environment'] = {k: environment(x['code'])[k] for k in
+        ('CUDA_VISIBLE_DEVICES', 'OMP_NUM_THREADS', 'MKL_NUM_THREADS', 'OPENBLAS_NUM_THREADS',
+         'NUMEXPR_NUM_THREADS', 'PYTHONDONTWRITEBYTECODE', 'PYTHONPATH')}
+    return cfg, owner
+
+
+def shape(cfg, owner, reg, python):
+    require(cfg['schema'] == 'H18_AGGREGATION_OWNER_ADAPTER_V1' and reg['source_stage_scope'] == SCOPE
+        and reg['allowed_stage_ids'] == ['report'] and reg['GPU_jobs'] == 0 and reg['new_packet_decodes'] == 0,
+        'Only the registered CPU aggregation scope may start')
+    require(len(owner['stages']) == 1 and owner['stages'][0]['id'] == 'report'
+        and owner['stages'][0]['resource'] == 'cpu' and len(owner['stages'][0]['jobs']) == 1, 'One CPU report job required')
+    job = owner['stages'][0]['jobs'][0]
+    require(job['id'] == JOB and job['argv'] == [python, '-B', str(Path(__file__).absolute()), '--stage', 'worker',
+        '--config', str(Path(owner['owner_out'])/'aggregation_config.json')]
+        and job['out'] == cfg['out'] and job['completion'] == str(Path(cfg['out'])/'completion.json')
+        and job['accepted_statuses'] == [DONE] and job['receipt_expect'] == EXPECTED, 'Aggregation command or receipt differs')
+
+
+def register(root, metric_config):
+    x = context(root, metric_config); q = qualified(x); unchanged(x)
+    e, out = x['loc']['execution'], x['loc']['out']
+    require(not e.exists() and not out.exists(), 'Prior execution/output preserved; no registration retry')
+    e.mkdir(parents=True)
+    try:
+        reqp = e/'aggregation_request.json'; cp=e/'aggregation_config.json'; op=e/'owner_config.json'; rp=e/'execution_registration.json'
+        gate=e/'predecessor_closure.json'; planp=e/'comparison_plan_preregistered.json'
+        save(gate, dict(status='H18_METRIC_OWNER_AND_WORKER_NORMALLY_CLOSED', metric_batch=x['spec'],
+            bindings=x['closed']['bindings'], budget=x['before'], source_count=100, frame_count=5400,
+            historical_graph_validation='SEALED_BINDINGS_EXACT_NO_REENUMERATION'))
+        save(planp, x['plan'])
+        inputs=merge(x['inputs'],q['input_bindings'],q['outputs'],bind((x['loc']['qualification']/'completion.json',gate,planp)))
+        req=dict(schema='H18_DESCRIPTIVE_AGGREGATION_REQUEST_V1',out=str(out/'statistics'),
+            metric_driver=str(x['code']/'h_development_metrics_driver.py'),metric_batch=x['spec'],
+            comparisons='FROZEN_26_FACTOR_CONTRASTS',P_admitted=False,MAIN_admitted=False,
+            source_bindings=x['sources'],input_bindings=inputs)
+        save(reqp,req);cfg,owner=make_configs(x,reqp);save(cp,cfg);save(op,owner)
+        inputs=merge(inputs,bind((reqp,cp,op)))
+        reg=dict(status='H_EXECUTION_REVISION_REGISTERED',branch='H',revision=e.name,source_stage_scope=SCOPE,
+            allowed_stage_ids=['report'],owner_config_sha256=sha(op),phase_limits=owner['phase_limits'],
+            source_bindings=x['sources'],input_bindings=inputs,budget_before=x['before'],
+            budget_registration_sha256=sha(x['ctx']['cfg']['budget_registration']),
+            source_count=100,frame_count=5400,points=18,comparison_count=26,noise_seeds=[6201,6202,6203],
+            bootstrap_replicates=10000,bootstrap_seed=2026100605,GPU_jobs=0,CPU_threads=2,new_packet_decodes=0,
+            policy_selection=False,P_complete=False,MAIN_complete=False,H_success_evaluated=False,
+            H_full_delivery_claimed=False,future_stage_automatic=False,created_unix=time.time())
+        x['owner'].validate_config(owner,reg,sha(op));shape(cfg,owner,reg,x['python'])
+        verify(inputs);unchanged(x);save(rp,reg)
+        value=dict(status=REGISTERED,registration_sha256=sha(rp),owner_config_sha256=sha(op),
+            outputs=bind((reqp,cp,op,rp,gate,planp)),GPU_used=False,new_packet_decodes=0,
+            workers_started=False,actual_metric_rows_read=False,budget=x['before'],future_stage_automatic=False)
+        save(e/'registration_completion.json',value);return value
+    except BaseException:
+        save(e/'registration_failure.json',dict(status='FAILED_PRESERVE_NO_LAUNCH',traceback=traceback.format_exc()));raise
+
+
+def load_sealed(x):
+    e=x['loc']['execution'];cfg=read(e/'aggregation_config.json');owner=read(e/'owner_config.json')
+    reg=read(e/'execution_registration.json');seal=read(e/'registration_completion.json')
+    require(not (e/'registration_failure.json').exists() and seal['status']==REGISTERED
+        and seal['registration_sha256']==sha(e/'execution_registration.json')
+        and seal['owner_config_sha256']==sha(e/'owner_config.json'),'Successful aggregation seal required')
+    for m in (seal['outputs'],reg['source_bindings'],reg['input_bindings']):verify(m)
+    require(cfg['metric_config']==x['spec']['config'] and cfg['root']==x['root']
+        and cfg['out']==str(x['loc']['out']) and reg['budget_before']==x['before'],'Registered predecessor or budget differs')
+    for p,s in x['sources'].items():require(reg['source_bindings'].get(p)==s,'Current aggregation source unregistered')
+    require(read(cfg['request_path'])['metric_batch']==x['spec'],'Wrong registered metric batch')
+    x['owner'].validate_config(owner,reg,sha(e/'owner_config.json'));shape(cfg,owner,reg,x['python'])
+    return cfg,owner,reg
+
+
+def launch(root,metric_config):
+    x=context(root,metric_config);qualified(x);cfg,owner,reg=load_sealed(x);e=x['loc']['execution']
+    require(not any((e/n).exists() for n in ('launch.json','launch_attempt.json','owner_identity.json','owner.log',
+        'completion.json','failure.json','launch_failure.json','STOP')) and not x['loc']['out'].exists(),
+        'Previous launch/output evidence preserved; no retry')
+    unchanged(x);argv=[x['python'],'-B',x['ctx']['cfg']['owner_module'],'--config',cfg['owner_config']]
+    save(e/'launch_attempt.json',dict(status='LAUNCH_CLAIMED_NO_RETRY',argv=argv,
+        registration_sha256=sha(cfg['registration']),helper=pin(Path(__file__).absolute())))
+    try:
+        with (e/'owner.log').open('xb') as log:
+            p=subprocess.Popen(argv,cwd=x['root'],env=environment(x['code']),stdin=subprocess.DEVNULL,
+                stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+            ident=x['owner'].identity(p.pid)
+            require(ident['argv']==argv and int(ident['uid'])==os.getuid(),'Aggregation owner identity differs')
+            value=dict(identity=ident,argv=argv,registration_sha256=sha(cfg['registration']),
+                owner_config_sha256=sha(cfg['owner_config']),launched_unix=time.time(),
+                launch_attempt_sha256=sha(e/'launch_attempt.json'),GPU_jobs=0,new_packet_decodes=0,
+                future_stage_automatic=False)
+            save(e/'launch.json',value)
+        return dict(status='H18_DESCRIPTIVE_AGGREGATION_OWNER_LAUNCHED',launch=pin(e/'launch.json'))
+    except BaseException:
+        save(e/'launch_failure.json',dict(status='FAILED_PRESERVE_NO_RESTART',pid=p.pid if 'p' in locals() else None,
+            traceback=traceback.format_exc()));raise
+
+
+def live_owner(x,cfg,owner):
+    api=x['owner'];e=Path(owner['owner_out']);ip=e/'owner_identity.json';ident=read(ip)
+    require(api.same_identity(ident,api.identity(os.getppid())) and ident['registration_sha256']==sha(cfg['registration'])
+        and ident['config_sha256']==sha(cfg['owner_config']) and not (e/'failure.json').exists(),'Current normal CPU owner required')
+    lp=e/'stages/report/workers'/JOB/'launch.json';started=time.monotonic()
+    while not lp.exists():
+        require(time.monotonic()-started<10 and api.same_identity(ident,api.identity(os.getppid())),
+            'Owner failed to seal the worker launch');time.sleep(.1)
+    value=read(lp);job=owner['stages'][0]['jobs'][0]
+    require(api.same_identity(value['identity'],api.identity(os.getpid())) and value['argv']==job['argv']
+        and value['resource']=='cpu' and value['threads']==2 and value['registration_sha256']==sha(cfg['registration'])
+        and set(value['affinity'])==set(owner['cpu_affinities'][0])==os.sched_getaffinity(0)
+        and os.getpriority(os.PRIO_PROCESS,0)==15,'Current CPU worker identity/resources differ')
+    require(os.environ.get('CUDA_VISIBLE_DEVICES')=='' and all(os.environ.get(k)=='2' for k in
+        ('OMP_NUM_THREADS','MKL_NUM_THREADS','OPENBLAS_NUM_THREADS','NUMEXPR_NUM_THREADS')),'CPU-only two-thread runtime required')
+    return bind((ip,lp))
+
+
+def claim_output(out,regsha):
+    out=Path(out);require(not out.exists() or (out.is_dir() and not out.is_symlink() and not any(out.iterdir())),
+        'Prior aggregation attempt preserved; only the owner-precreated empty output is accepted')
+    out.mkdir(parents=True,exist_ok=True)
+    save(out/'attempt.json',dict(status='H18_AGGREGATION_OWNER_ADAPTER_STARTED',registration_sha256=regsha,
+        GPU_used=False,new_packet_decodes=0))
+
+
+def owner_envelope(result,receipt,cfg,reg,x,supervision):
+    for k,v in EXPECTED.items():require(result.get(k)==v,'Frozen aggregation result differs: '+k)
+    require(result['budget_before']==result['budget_after']==x['before'],'Aggregation changed packet budget')
+    for key in ('source_bindings','input_bindings','outputs'):verify(result[key])
+    require(read(receipt)==result and Path(receipt)==Path(cfg['out'])/'statistics/completion.json',
+        'The unmodified scientific completion must exist in its separate result directory')
+    outputs=merge(result['outputs'],bind((receipt,)))
+    require(all(Path(cfg['out']) in Path(p).parents for p in outputs),'Aggregation output escaped the job directory')
+    return dict(result,registration_sha256=sha(cfg['registration']),config_sha256=sha(Path(cfg['owner_config']).parent/'aggregation_config.json'),
+        original_aggregation_receipt=pin(receipt),outputs=outputs,source_bindings=reg['source_bindings'],
+        input_bindings=merge(result['input_bindings'],reg['input_bindings']),live_launch_bindings=supervision,
+        original_aggregation_receipt_modified=False,own_owner_success_not_yet_certified=True,future_stage_automatic=False)
+
+
+def worker(config_path):
+    config_path=Path(config_path).absolute();cfg=read(config_path)
+    x=context(cfg['root'],cfg['metric_config']);qualified(x);sealed,owner,reg=load_sealed(x)
+    require(sealed==cfg and config_path==Path(owner['owner_out'])/'aggregation_config.json','Wrong worker config')
+    unchanged(x);supervision=live_owner(x,cfg,owner);out=Path(cfg['out']);claim_output(out,sha(cfg['registration']))
+    try:
+        require(not (out/'STOP').exists(),'Local aggregation STOP exists')
+        req=read(cfg['request_path'])
+        require(req['out']==str(out/'statistics') and not Path(req['out']).exists(),'Fresh scientific subdirectory required')
+        result=x['a'].run(cfg['request_path'])
+        unchanged(x);live_owner(x,cfg,owner)
+        require(not (out/'STOP').exists(),'Local aggregation STOP after statistics')
+        value=owner_envelope(result,Path(req['out'])/'completion.json',cfg,reg,x,supervision)
+        save(out/'completion.json',value)
+        x['owner'].receipt(out/'completion.json',[DONE],sha(cfg['registration']),EXPECTED,directory=out)
+        return value
+    except BaseException:
+        save(out/'failure.json',dict(status='FAILED_PRESERVE_NO_RETRY',registration_sha256=sha(cfg['registration']),
+            GPU_used=False,new_packet_decodes=0,traceback=traceback.format_exc()));raise
+
+
+def main():
+    p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument('--root');p.add_argument('--metric-config');p.add_argument('--config')
+    p.add_argument('--stage',required=True,choices=('qualify','register','launch','worker'));args=p.parse_args()
+    if args.stage=='worker':
+        require(args.config and not args.root and not args.metric_config,'Worker requires only its sealed config')
+        result=worker(args.config)
+    else:
+        require(args.root and args.metric_config and not args.config,'Explicit root and completed metric config required')
+        result=globals()[args.stage](args.root,args.metric_config)
+    print(json.dumps({k:v for k,v in result.items() if k in ('status','completion','launch','registration_sha256','workers_started')},sort_keys=True))
+
+
+if __name__=='__main__':main()

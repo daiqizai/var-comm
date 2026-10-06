@@ -1,0 +1,291 @@
+"""Private one-shot P600 qualify/register/launch operations; no automatic successor.
+
+Qualification uses only26 CPU fixture tests. Model construction is confined to
+the separately registered GPU worker after the original normal owner gate.
+"""
+from __future__ import annotations
+import argparse
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import time
+import traceback
+
+PINS = {
+    'p600_received_replay_core.py':'8b7ce8d1b609c02b9b96dc6b69684c995ff3b20f3c02eeb1282b2fe20b82f037',
+    'test_p600_received_replay_core.py':'c28b16859281b920676a6b01479407bbe0a42ddaeb0f6fa7a452488b1630369e',
+    'p600_received_replay_driver.py':'60211f97135f391dfe94a4f6dacf4e78e113f928e59ae86e3161f8e0fe000d86',
+    'test_p600_received_replay_driver.py':'a4f53478b1868c71bac4475e8c5d06a4c7fbbceaa27686072950d87404e48653',
+    'register_p600_received_replay.py':'266837d5761156deb415ab4ef2ce0e14aa3ebc7d28fe5c27dffaf9e208bafa46',
+    'test_register_p600_received_replay.py':'5688985c24414588724cd6dc9a33eaa13057e8e87e881fcedb1d1aa41798e574',
+}
+TESTS = ('test_p600_received_replay_core','test_p600_received_replay_driver','test_register_p600_received_replay')
+METADATA_KEYS = ('latent_completion','latent_inventory','scalar_inventory','metrics_registration','numerical_reference')
+
+
+def require(ok,message):
+    if not ok: raise RuntimeError(message)
+def read(p): return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p):
+    h=hashlib.sha256()
+    with Path(p).open('rb') as f:
+        for b in iter(lambda:f.read(8*1024**2),b''):h.update(b)
+    return h.hexdigest()
+def pin(p): return dict(path=str(p),sha256=sha(p))
+def bind(paths): return {str(p):sha(p) for p in paths}
+def merge(*maps):
+    result={}
+    for values in maps:
+        for p,s in values.items():
+            require(p not in result or result[p]==s,'Conflicting SHA: '+p);result[p]=s
+    return result
+def verify(values):
+    for p,s in values.items(): require(Path(p).is_absolute() and sha(p)==s,'Changed sealed input: '+p)
+def save(p,value):
+    p=Path(p);p.parent.mkdir(parents=True,exist_ok=True)
+    with p.open('x',encoding='utf-8',newline='\n') as f:
+        json.dump(value,f,indent=2,sort_keys=True,allow_nan=False);f.write('\n');f.flush();os.fsync(f.fileno())
+def module(p,name):
+    spec=importlib.util.spec_from_file_location(name,p);m=importlib.util.module_from_spec(spec)
+    sys.modules[name]=m;spec.loader.exec_module(m);return m
+
+
+def locations(root):
+    base=Path(root).absolute()/'outputs/CONTENT-REAL-64QAM-20261006';h=base/'H';prep=base/'prepared_v1'
+    return dict(h=h,prep=prep,qualification=prep/'p600_replay_cpu_qualification_v1',
+        operations=prep/'p600_replay_operations_v1',execution=h/'p600_replay_execution_v1',out=h/'p600_replay_v1')
+
+
+def metadata(path):
+    p=Path(path).absolute();value=read(p)
+    require(value['status']=='P600_CPU_TEST_METADATA_BOUND' and set(value['paths'])==set(METADATA_KEYS),
+        'Exact five-path actual CPU metadata manifest required')
+    paths=value['paths'];require(len(set(paths.values()))==5 and set(value['input_bindings'])==set(paths.values()),
+        'Metadata pins must equal the five distinct paths')
+    verify(value['input_bindings'])
+    return value,merge(value['input_bindings'],bind((p,)))
+
+
+def verified_code_dir(cfg,reg):
+    entry=cfg['metric_driver_module'];bound=merge(reg['source_bindings'],reg['input_bindings'])
+    require(Path(entry).is_absolute() and bound.get(entry)==sha(entry),'Original metric entry unbound')
+    code=Path(entry).parent;fresh={str(code/n):s for n,s in PINS.items()};verify(fresh)
+    return code,fresh
+
+
+def original_python(owner,cfg,config_path,reg,root):
+    require(len(owner['stages'])==1 and owner['stages'][0]['id']=='development'
+        and owner['stages'][0]['resource']=='gpu' and len(owner['stages'][0]['jobs'])==1,
+        'One normally completed H metric GPU owner required')
+    job=owner['stages'][0]['jobs'][0];argv=job['argv'];p=argv[0]
+    require(job['id']=='development_metrics' and argv[1:]==['-B',cfg['metric_driver_module'],'--config',str(config_path)]
+        and reg['input_bindings'].get(str(config_path))==sha(config_path),'Original metric command/config differs')
+    require(Path(p).is_absolute() and Path(p).is_file() and '/UNIFIED-METRICS-' in p.replace('\\','/')
+        and Path(root).absolute() in Path(p).parents and owner['gpu_threads']==6,'Original UM interpreter/flags required')
+    return p  # Preserve the venv path; never resolve it to the base interpreter.
+
+
+def environment(root,code,metadata_path):
+    return dict(os.environ,CUDA_VISIBLE_DEVICES='',OMP_NUM_THREADS='2',MKL_NUM_THREADS='2',OPENBLAS_NUM_THREADS='2',
+        NUMEXPR_NUM_THREADS='2',PYTHONDONTWRITEBYTECODE='1',PYTHONPATH=str(code),
+        H64_REFERENCE_VAR_COMM=str(Path(root)/'src/var_comm'),
+        P600_TEST_METADATA=str(metadata_path),P600_TEST_METADATA_SHA256=sha(metadata_path))
+
+
+def unchanged(ctx):
+    c=ctx['cfg'];require(time.time()<ctx['d'].DEADLINE and not Path(c['stop_file']).exists(),'STOP/deadline blocks P600')
+    now=ctx['owner'].budget_snapshot(c['ledger'],sha(c['budget_registration']),c['phase_limits'],quiescent=True)
+    require(now==ctx['before'] and now['charged']==164760 and now['phase_charged']['development']==10800
+        and now['development_remaining']==2400 and now['failed']==now['unresolved']==0,'Original H budget changed')
+
+
+def context(root,metrics_config,metadata_path,*,normal_closure=False):
+    require(sys.platform.startswith('linux'),'Actual P600 operations require Linux process gates')
+    root=str(Path(root).absolute());loc=locations(root);cp=Path(metrics_config).absolute();cfg=read(cp)
+    reg=read(cfg['registration']);old=read(cfg['visual_owner_config']);bound=merge(reg['source_bindings'],reg['input_bindings'])
+    require(cfg['root']==root and cfg['H_out']==str(loc['h']) and cfg['stop_file']==str(loc['h']/'STOP'), 'Wrong original H workspace')
+    for p in (str(cp),cfg['visual_owner_config'],cfg['owner_module']):
+        require(bound.get(p)==sha(p),'Original owner/config dependency unbound: '+p)
+    code,fresh=verified_code_dir(cfg,reg);sys.path.insert(0,str(code))
+    tool=module(code/'register_p600_received_replay.py','private_p600_registrar');d=tool.d
+    owner=module(cfg['owner_module'],'private_p600_original_owner')
+    python=original_python(old,cfg,cp,reg,root);mp=Path(metadata_path).absolute();meta,mb=metadata(mp)
+    for k in ('metrics_registration',):require(meta['paths'][k]==cfg[k],'Wrong original P metric metadata')
+    visual=read(cfg['render_batch']['config'])
+    require(bound.get(cfg['render_batch']['config'])==sha(cfg['render_batch']['config'])
+        and meta['paths']['numerical_reference']==visual['numerical_reference'],'Original visual/numerical reference differs')
+    spec=dict(config=str(cp),owner_config=cfg['visual_owner_config'],registration=cfg['registration'],
+        launch=str(Path(old['owner_out'])/'launch.json'),completion=str(Path(cfg['out'])/'completion.json'))
+    prior=d.original_metrics_closed(spec,cfg['metric_driver_module']) if normal_closure else None
+    # Later stages perform their own complete registrar/load_registered admission.
+    # This cheap context never substitutes a cached JSON for that admission.
+    before=prior['before'] if prior else read(spec['completion'])['budget_after']
+    ctx=dict(root=root,loc=loc,cp=cp,cfg=cfg,reg=reg,old=old,bound=bound,code=code,fresh=fresh,
+        tool=tool,d=d,owner=owner,python=python,metadata=meta,metadata_path=mp,metadata_bindings=mb,
+        visual=visual,spec=spec,prior=prior,before=before)
+    unchanged(ctx);return ctx
+
+
+def qualification_sources(ctx):
+    return merge(ctx['fresh'],bind((Path(__file__).absolute(),Path(__file__).absolute().parent/'test_operate_p600_replay_remote.py')))
+
+
+def qualified(ctx):
+    q=ctx['loc']['qualification'];require(not (q/'failure.json').exists(),'Prior failed qualification preserved; no retry')
+    done=read(q/'completion.json')
+    require(done['status']==ctx['tool'].QUALIFIED and done['python']==ctx['python']
+        and done['GPU_used'] is False and done['models_constructed'] is False
+        and done['new_packet_decodes']==done['new_noise_draws']==0
+        and done['results']==[dict(argv=[ctx['python'],'-B','-m','unittest','-v',*TESTS],exit_code=0,test_count=26)],
+        'Exact26 CPU-only P600 qualification required')
+    for key in ('source_bindings','input_bindings','outputs'):verify(done[key])
+    require(done['source_bindings']==qualification_sources(ctx),'Qualified operations/science source set changed')
+    for p,s in ctx['metadata_bindings'].items():require(done['input_bindings'].get(p)==s,'Metadata fixture changed after qualification')
+    log=(q/'tests.log').read_text(encoding='utf-8',errors='replace')
+    require('Ran 26 tests' in log and log.rstrip().endswith('OK'),'Expected26 passing fixture tests')
+    require(done['budget_before']==done['budget_after']==ctx['before'],'Qualification budget changed')
+    return done
+
+
+def qualify(root,metrics_config,metadata_path):
+    ctx=context(root,metrics_config,metadata_path,normal_closure=True);q=ctx['loc']['qualification']
+    require(not q.exists(),'Prior qualification attempt preserved; no retry')
+    sources=qualification_sources(ctx);verify(sources)
+    inputs=merge(ctx['metadata_bindings'],bind(ctx['spec'].values()))
+    affinity=ctx['old']['cpu_affinities'][0]
+    require(len(affinity)==len(set(affinity))==2 and set(affinity)<=os.sched_getaffinity(0),'Original two CPU cores unavailable')
+    q.mkdir(parents=True)
+    gate=q/'predecessor_closure.json'
+    save(gate,dict(status='NORMAL_H18_METRICS_CLOSED_BEFORE_P600_CPU_QUALIFICATION',
+        bindings=ctx['prior']['bindings'],budget=ctx['before'],source_count=100,frame_count=5400,
+        normal_owner_success=True,models_constructed=False,GPU_used=False))
+    inputs=merge(inputs,bind((gate,)));argv=[ctx['python'],'-B','-m','unittest','-v',*TESTS]
+    save(q/'attempt.json',dict(argv=argv,source_bindings=sources,input_bindings=inputs,python=ctx['python'],
+        cpu_affinity=affinity,nice=15,GPU_used=False,models_constructed=False,new_packet_decodes=0,new_noise_draws=0))
+    def resources():
+        os.sched_setaffinity(0,affinity);os.setpriority(os.PRIO_PROCESS,0,15)
+    try:
+        with (q/'tests.log').open('xb') as log:
+            result=subprocess.run(argv,cwd=ctx['code'],env=environment(root,ctx['code'],ctx['metadata_path']),
+                stdout=log,stderr=subprocess.STDOUT,check=False,timeout=1800,preexec_fn=resources)
+        require(result.returncode==0,'P600 CPU fixture qualification failed; preserve evidence')
+        text=(q/'tests.log').read_text(encoding='utf-8',errors='replace')
+        require('Ran 26 tests' in text and text.rstrip().endswith('OK'),'Unexpected fixture inventory')
+        verify(sources);verify(inputs);unchanged(ctx)
+        done=dict(status=ctx['tool'].QUALIFIED,python=ctx['python'],results=[dict(argv=argv,exit_code=0,test_count=26)],
+            source_bindings=sources,input_bindings=inputs,outputs=bind((q/'attempt.json',q/'tests.log',gate)),
+            GPU_used=False,models_constructed=False,new_packet_decodes=0,new_noise_draws=0,real_metric_calls=0,
+            budget_before=ctx['before'],budget_after=ctx['before'],workers_started=False)
+        save(q/'completion.json',done);qualified(ctx)
+        return dict(status=done['status'],completion=pin(q/'completion.json'),workers_started=False)
+    except BaseException:
+        save(q/'failure.json',dict(status='FAILED_PRESERVE_NO_RETRY',traceback=traceback.format_exc()));raise
+
+
+def build_request(ctx,q):
+    loc=ctx['loc'];code=ctx['code'];mc=ctx['cfg'];visual=ctx['visual'];d=ctx['d']
+    cfg={k:mc[k] for k in ('root','H_out','owner_module','wait_module','cpu_driver_module','protocol',
+        'budget_registration','ledger','phase_limits','stop_file','metrics_registration','validation_module','convnext_weights','independent_binding')}
+    cfg.update({k:visual[k] for k in ('runtime_dir','native_runtime','uep_runtime','var_source','dino_source','static_closure_module','numerical_reference')})
+    cfg.update(ctx['metadata']['paths'])
+    inv=read(cfg['latent_inventory']);audit=read(cfg['latent_completion'])
+    selected=[p for p in inv['input_bindings'] if Path(p).name=='selected_P1024.json']
+    require(len(selected)==1 and audit['input_bindings'].get(selected[0])==inv['input_bindings'][selected[0]]==sha(selected[0]),
+        'Unique original audited P selection required')
+    cfg.update(schema='P600_RECEIVED_REPLAY_CONFIG_V1',out=str(loc['out']),
+        registration=str(loc['execution']/'execution_registration.json'),visual_owner_config=str(loc['execution']/'owner_config.json'),
+        h_metric_driver_module=mc['metric_driver_module'],core_module=str(code/'p600_received_replay_core.py'),
+        replay_driver_module=str(code/'p600_received_replay_driver.py'),selected_P_policy=selected[0],
+        quality_driver_module=str(Path(visual['uep_runtime'])/'quality_driver.py'),metric_batch=ctx['spec'],
+        visual_source_closure=str(loc['operations']/'visual_source_closure.json'),
+        max_seconds=7200,overall_deadline_unix=d.DEADLINE,max_archive_bytes=1024**3)
+    closure=module(cfg['static_closure_module'],'private_p600_visual_closure')
+    actual=closure.collect_bindings(ctx['root'],cfg['native_runtime'],cfg['var_source'],cfg['dino_source'],cfg['uep_runtime'])
+    oldgraph=read(visual['visual_source_closure'])
+    require(oldgraph['status']=='EXACT_SOURCE_CLOSURE_MATCH' and all(actual.get(p)==s for p,s in oldgraph['source_bindings'].items()),
+        'Previously executed visual source changed')
+    save(cfg['visual_source_closure'],dict(status='EXACT_SOURCE_CLOSURE_MATCH',source_bindings=actual,
+        previous_graph=pin(visual['visual_source_closure']),original_registered_files_changed=False,
+        source_enumeration_only=True,GPU_used=False,new_packet_decodes=0))
+    gate=read(loc['qualification']/'predecessor_closure.json')
+    sources=merge(ctx['reg']['source_bindings'],audit['source_bindings'],actual,q['source_bindings'])
+    inputs=merge(ctx['reg']['input_bindings'],gate['bindings'],audit['input_bindings'],audit['outputs'],inv['input_bindings'],
+        ctx['metadata_bindings'],q['input_bindings'],q['outputs'],bind((loc['qualification']/'completion.json',cfg['visual_source_closure'])))
+    return dict(schema='P600_RECEIVED_REPLAY_REGISTRATION_REQUEST_V1',config=cfg,execution_dir=str(loc['execution']),
+        source_bindings=sources,input_bindings=inputs,prepared_qualification=str(loc['qualification']/'completion.json'))
+
+
+def register(root,metrics_config,metadata_path):
+    ctx=context(root,metrics_config,metadata_path);q=qualified(ctx);loc=ctx['loc']
+    require(not any(loc[k].exists() for k in ('operations','execution','out')),'Prior P600 request/output preserved')
+    loc['operations'].mkdir(parents=True);save(loc['operations']/'attempt.json',dict(status='P600_REGISTRATION_ATTEMPT',helper=pin(__file__)))
+    try:
+        unchanged(ctx);request=build_request(ctx,q);rp=loc['operations']/'request.json';save(rp,request)
+        done=ctx['tool'].register(rp)
+        require(done['status']==ctx['tool'].REGISTERED,'P600 registration incomplete')
+        return dict(status=done['status'],completion=pin(loc['execution']/'registration_completion.json'),workers_started=False)
+    except BaseException:
+        save(loc['operations']/'registration_failure.json',dict(status='FAILED_PRESERVE_NO_LAUNCH',traceback=traceback.format_exc()));raise
+
+
+def fresh_launch(e,out):
+    require(not any((Path(e)/n).exists() for n in ('launch.json','launch_attempt.json','owner_identity.json','failure.json',
+        'registration_failure.json','completion.json','owner.log','launch_failure.json','STOP')) and not Path(out).exists(),
+        'Prior P600 launch/output preserved; no retry')
+
+
+def launch_shape(owner,reg,python):
+    require(reg['allowed_stage_ids']==['development'] and reg['source_stage_scope']=='P600_EXISTING_RECEIVED_LATENT_RGB_AND_INDEPENDENT_CONVNEXT_ONLY'
+        and reg['GPU_jobs']==1 and reg['GPU_threads']==owner['gpu_threads']==6
+        and reg['new_packet_decodes']==reg['new_noise_draws']==reg['budget_writes']==0
+        and reg['policy_selection'] is False and reg['MAIN_started'] is False and reg['C_started'] is False
+        and reg['future_stage_automatic'] is False,'Only P600 replay may launch')
+    require(len(owner['stages'])==1 and owner['stages'][0]['id']=='development' and owner['stages'][0]['resource']=='gpu'
+        and len(owner['stages'][0]['jobs'])==1,'Only one registered GPU job allowed')
+    job=owner['stages'][0]['jobs'][0];e=job['receipt_expect']
+    require(job['id']=='p600_received_replay' and job['argv'][0]==python
+        and e['frame_count']==600 and e['source_count']==100 and e['noise_seeds']==[2001,2002,2003]
+        and e['RGB_exact_parity'] is True and e['ConvNeXt_scored'] is True
+        and e['new_packet_decodes']==e['new_noise_draws']==e['budget_writes']==0
+        and e['MAIN_complete'] is False and e['overall_development_complete'] is False,'Wrong P600 GPU job')
+
+
+def launch(root,metrics_config,metadata_path):
+    ctx=context(root,metrics_config,metadata_path);qualified(ctx);loc=ctx['loc'];e=loc['execution'];fresh_launch(e,loc['out'])
+    require(not (loc['operations']/'registration_failure.json').exists(),'P600 registration failed')
+    cp,rp,op=e/'replay_config.json',e/'execution_registration.json',e/'owner_config.json'
+    seal,reg,owner=read(e/'registration_completion.json'),read(rp),read(op)
+    require(seal['status']==ctx['tool'].REGISTERED and seal['registration_sha256']==sha(rp)
+        and seal['owner_config_sha256']==sha(op),'Successful P600 registration required')
+    verify(seal['outputs']);ctx['owner'].validate_config(owner,reg,sha(op));launch_shape(owner,reg,ctx['python'])
+    ready=ctx['d'].load_registered(cp);require(ready['before']==ctx['before'],'Current replay budget changed');unchanged(ctx)
+    argv=[ctx['python'],'-B',ctx['cfg']['owner_module'],'--config',str(op)]
+    save(e/'launch_attempt.json',dict(status='LAUNCH_CLAIMED_NO_RETRY',argv=argv,registration_sha256=sha(rp),helper=pin(__file__)))
+    try:
+        with (e/'owner.log').open('xb') as log:
+            process=subprocess.Popen(argv,cwd=ctx['root'],env=environment(root,ctx['code'],ctx['metadata_path']),
+                stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+            identity=ctx['owner'].identity(process.pid)
+            require(identity['argv']==argv and int(identity['uid'])==os.getuid(),'P600 owner identity differs')
+            value=dict(identity=identity,argv=argv,registration_sha256=sha(rp),owner_config_sha256=sha(op),
+                launched_unix=time.time(),launcher_sha256=sha(__file__),launch_attempt_sha256=sha(e/'launch_attempt.json'),
+                GPU_jobs=1,source_count=100,frame_count=600,new_packet_decodes=0,new_noise_draws=0,future_stages_automatic=False)
+            save(e/'launch.json',value)
+        return dict(status='P600_RECEIVED_REPLAY_OWNER_LAUNCHED',launch=pin(e/'launch.json'),**value)
+    except BaseException:
+        save(e/'launch_failure.json',dict(status='FAILED_PRESERVE_NO_RESTART',pid=process.pid if 'process' in locals() else None,
+            traceback=traceback.format_exc()));raise
+
+
+def main():
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--root',default='REPO')
+    p.add_argument('--metrics-config',required=True);p.add_argument('--metadata',required=True)
+    p.add_argument('--stage',required=True,choices=('qualify','register','launch'));a=p.parse_args()
+    print(json.dumps(globals()[a.stage](a.root,a.metrics_config,a.metadata),sort_keys=True))
+
+
+if __name__=='__main__':main()

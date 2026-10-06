@@ -1,0 +1,215 @@
+"""Private, explicit CPU qualify/register/launch for the fixed18 H/P pairs.
+
+Only identity metadata forms admission and pairs. Scores load in the separately
+registered worker after both original branches have normally closed.
+"""
+import argparse
+import copy
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import time
+import traceback
+
+PINS={
+    'h_p_statistics_driver.py':'d785bea403ae4751829f7d96e8c8e115f9a35d472b01deab8051dcb2c2e9f28b',
+    'test_h_p_statistics_driver.py':'d4bb44eec40582bfa7ab46ba553c5c070da86e81f5dcda1c0a5baab83822515f',
+    'h_p_result_normalization.py':'2ec18f85dfb04fb28b269117aae160262e5fbd09359471ba017e3f248ee3427f',
+    'test_h_p_result_normalization.py':'c2ef54646ac7768b75461d1472a52ff441de3d02f2dcae094fdb73109adf6ebd',
+    'h_p_main_source_statistics.py':'4e25eac1ed26201242101a4d0dad14ad00054752ab837a4688dd583806d8b342',
+    'h_development_aggregate.py':'bb820536b7ae8bddb7100a966b3c85171c1743d5ac9721c0c95c90323236c8a9',
+    'h_development_statistics.py':'674acc273a86a8c544ed4623d971a5f6ead5ba92e81fdc52080b1fc30295f2f6',
+    'h_development_metrics_driver.py':'24ccbe493c2e44793fd87324cfbece2d4051239ba741bf4129dea48ea0ba37d5',
+}
+REGISTERED='H_P_FIXED_STATISTICS_REGISTERED_NOT_LAUNCHED'
+TESTS=['test_h_p_statistics_driver']
+TEST_COUNT=13
+
+
+def require(ok,message):
+    if not ok:raise RuntimeError(message)
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p):
+    h=hashlib.sha256()
+    with Path(p).open('rb') as f:
+        for block in iter(lambda:f.read(1048576),b''):h.update(block)
+    return h.hexdigest()
+def pin(p):return dict(path=str(p),sha256=sha(p))
+def bind(paths):return {str(Path(p).absolute()):sha(p) for p in paths}
+def verify(values):
+    for p,s in values.items():require(Path(p).is_absolute() and len(s)==64 and sha(p)==s,'Changed bound file: '+p)
+def merge(*maps):
+    out={}
+    for values in maps:
+        for p,s in values.items():
+            require(p not in out or out[p]==s,'Conflicting input: '+p);out[p]=s
+    return out
+def save(p,value):
+    p=Path(p);p.parent.mkdir(parents=True,exist_ok=True)
+    with p.open('x',encoding='utf-8',newline='\n') as f:
+        json.dump(value,f,sort_keys=True,indent=2,allow_nan=False);f.write('\n');f.flush();os.fsync(f.fileno())
+def module(p,name):
+    sys.path.insert(0,str(Path(p).parent));spec=importlib.util.spec_from_file_location(name,p)
+    m=importlib.util.module_from_spec(spec);sys.modules[name]=m;spec.loader.exec_module(m);return m
+def locations(root):
+    base=Path(root).absolute()/'outputs/CONTENT-REAL-64QAM-20261006'
+    return dict(qualification=base/'prepared_v1/h_p_statistics_cpu_qualification_v1',
+        execution=base/'H/h_p_statistics_execution_v1',out=base/'H/h_p_statistics_v1')
+def environment(root,code):
+    return dict(os.environ,CUDA_VISIBLE_DEVICES='',OMP_NUM_THREADS='2',MKL_NUM_THREADS='2',OPENBLAS_NUM_THREADS='2',
+        NUMEXPR_NUM_THREADS='2',PYTHONDONTWRITEBYTECODE='1',PYTHONPATH=str(code),H64_REFERENCE_VAR_COMM=str(Path(root)/'src/var_comm'))
+def batch(cp,cfg):
+    old=read(cfg['visual_owner_config'])
+    return dict(config=str(cp),owner_config=cfg['visual_owner_config'],registration=cfg['registration'],
+        launch=str(Path(old['owner_out'])/'launch.json'),completion=str(Path(cfg['out'])/'completion.json'))
+
+
+def build_request(root,h_config,p_config,template):
+    """Paths and identity only. Driver preflight separately validates originals."""
+    root=str(Path(root).absolute());hp,pp=Path(h_config).absolute(),Path(p_config).absolute()
+    hc,pc=read(hp),read(pp);hr,pr=read(hc['registration']),read(pc['registration'])
+    require(hc['root']==pc['root']==root and pc['h_metric_driver_module']==hc['metric_driver_module'],
+        'Same actual H/P workspace and metric predecessor required')
+    code=Path(hc['metric_driver_module']).parent
+    sources=merge(hr['source_bindings'],pr['source_bindings'],{str(code/n):s for n,s in PINS.items()},
+        bind((Path(__file__).absolute(),Path(__file__).with_name('test_operate_h_p_statistics_remote.py'))))
+    verify(sources);h,p=batch(hp,hc),batch(pp,pc)
+    require(pc['metric_batch']==h,'P600 must use this exact original H metric batch')
+    inputs=merge(hr['input_bindings'],pr['input_bindings'],bind([*h.values(),*p.values(),str(Path(template).absolute())]))
+    hreq=dict(metric_driver=hc['metric_driver_module'],metric_batch=h,source_bindings=sources,input_bindings=inputs)
+    return dict(schema='H_P_FIXED_STATISTICS_REQUEST_V1',root=root,metadata_template=str(Path(template).absolute()),
+        H_request=hreq,P_batch=p,H_aggregate=str(code/'h_development_aggregate.py'),P_driver=pc['replay_driver_module'],
+        source_bindings=sources,input_bindings=inputs)
+
+
+def context(root,h_config,p_config,template):
+    require(sys.platform.startswith('linux'),'Actual Linux normal-process closure required')
+    request=build_request(root,h_config,p_config,template);code=Path(request['H_aggregate']).parent
+    d=module(code/'h_p_statistics_driver.py','private_h_p_statistics_driver');x=d.preflight(request)
+    python=x['python'];require(Path(python).is_absolute() and Path(python).is_file()
+        and '/UNIFIED-METRICS-' in python.replace('\\','/'),'Original completed H/P UM interpreter required')
+    x.update(d=d,root=str(Path(root).absolute()),code=code,loc=locations(root));d.unchanged(x);return x
+
+
+def qualified(x):
+    q=x['loc']['qualification'];require(not(q/'failure.json').exists(),'Qualification failure preserved')
+    value=read(q/'completion.json');argv=[x['python'],'-B','-m','unittest','-v',*TESTS]
+    require(value['status']==x['d'].QUALIFIED and value['python']==x['python'] and value['GPU_used'] is False
+        and value['new_packet_decodes']==0 and value['actual_quality_rows_read'] is False
+        and value['results']==[dict(argv=argv,exit_code=0,test_count=TEST_COUNT)],'Exact synthetic13 CPU qualification required')
+    for k in ('source_bindings','input_bindings','outputs'):verify(value[k])
+    require(value['source_bindings']==x['sources'] and value['budget_before']==value['budget_after']==x['before'],
+        'Qualified source/budget differs')
+    for p,s in x['bindings'].items():require(value['input_bindings'].get(p)==s,'Qualifier predecessor differs: '+p)
+    text=(q/'tests.log').read_text(encoding='utf-8',errors='replace')
+    require(value['outputs'].get(str(q/'tests.log'))==sha(q/'tests.log') and f'Ran {TEST_COUNT} tests' in text
+        and text.rstrip().endswith('OK'),'Unexpected actual qualification inventory')
+    return value
+
+
+def qualify(root,h_config,p_config,template):
+    x=context(root,h_config,p_config,template);q=x['loc']['qualification'];require(not q.exists(),'Prior qualifier preserved; no retry')
+    affinity=x['hclosed']['owner']['cpu_affinities'][0]
+    require(len(affinity)==len(set(affinity))==2 and set(affinity)<=os.sched_getaffinity(0),'Two original CPU cores unavailable')
+    x['d'].unchanged(x);q.mkdir(parents=True)
+    argv=[x['python'],'-B','-m','unittest','-v',*TESTS]
+    save(q/'attempt.json',dict(argv=argv,source_bindings=x['sources'],input_bindings=x['bindings'],python=x['python'],
+        affinity=affinity,threads=2,nice=15,GPU_used=False,new_packet_decodes=0,actual_quality_rows_read=False))
+    def resources():os.sched_setaffinity(0,affinity);os.setpriority(os.PRIO_PROCESS,0,15)
+    try:
+        with (q/'tests.log').open('xb') as log:
+            result=subprocess.run(argv,cwd=x['code'],env=environment(root,x['code']),stdout=log,stderr=subprocess.STDOUT,
+                timeout=1800,check=False,preexec_fn=resources)
+        text=(q/'tests.log').read_text(encoding='utf-8',errors='replace')
+        require(result.returncode==0 and f'Ran {TEST_COUNT} tests' in text and text.rstrip().endswith('OK'),
+            'CPU comparison qualification failed; no retry')
+        x['d'].unchanged(x)
+        done=dict(status=x['d'].QUALIFIED,python=x['python'],results=[dict(argv=argv,exit_code=0,test_count=TEST_COUNT)],
+            source_bindings=x['sources'],input_bindings=x['bindings'],outputs=bind((q/'attempt.json',q/'tests.log')),
+            GPU_used=False,new_packet_decodes=0,actual_quality_rows_read=False,budget_before=x['before'],budget_after=x['before'])
+        save(q/'completion.json',done);qualified(x);return dict(status=done['status'],completion=pin(q/'completion.json'))
+    except BaseException:
+        save(q/'failure.json',dict(status='FAILED_PRESERVE_NO_RETRY',traceback=traceback.format_exc()));raise
+
+
+def make_configs(x):
+    e,out=x['loc']['execution'],x['loc']['out'];d=x['d']
+    cfg=dict(schema='H_P_FIXED_STATISTICS_CONFIG_V1',out=str(out),registration=str(e/'execution_registration.json'),
+        owner_config=str(e/'owner_config.json'),request=str(e/'request.json'),admission=str(e/'common_metric_admission.json'),
+        comparison_plan=str(e/'comparison_plan.json'),qualification=str(x['loc']['qualification']/'completion.json'),max_seconds=7200)
+    own=copy.deepcopy(x['hclosed']['owner']);own.update(owner_out=str(e),registration=cfg['registration'])
+    env=environment(x['root'],x['code']);keys=('CUDA_VISIBLE_DEVICES','OMP_NUM_THREADS','MKL_NUM_THREADS',
+        'OPENBLAS_NUM_THREADS','NUMEXPR_NUM_THREADS','PYTHONDONTWRITEBYTECODE','PYTHONPATH','H64_REFERENCE_VAR_COMM')
+    own['stages']=[dict(id='report',resource='cpu',requires=[],max_seconds=7200,jobs=[dict(id=d.JOB,
+        argv=[x['python'],'-B',str(x['code']/'h_p_statistics_driver.py'),'--config',str(e/'statistics_config.json')],
+        cwd=x['root'],out=str(out),completion=str(out/'completion.json'),accepted_statuses=[d.DONE],
+        receipt_expect=copy.deepcopy(d.EXPECTED),environment={k:env[k] for k in keys})])]
+    return cfg,own
+
+
+def register(root,h_config,p_config,template):
+    x=context(root,h_config,p_config,template);q=qualified(x);d=x['d'];d.unchanged(x);e=x['loc']['execution']
+    require(not e.exists() and not x['loc']['out'].exists(),'Prior registration/output preserved; no retry');e.mkdir(parents=True)
+    try:
+        cfg,own=make_configs(x);cp=e/'statistics_config.json';op=e/'owner_config.json';rp=e/'execution_registration.json'
+        save(cfg['request'],x['request']);save(cfg['admission'],x['admission']);save(cfg['comparison_plan'],x['plan'])
+        save(cp,cfg);save(op,own)
+        inputs=merge(x['bindings'],q['input_bindings'],q['outputs'],bind((cfg['request'],cfg['admission'],cfg['comparison_plan'],cfg['qualification'],cp,op)))
+        reg=dict(status='H_EXECUTION_REVISION_REGISTERED',branch='H',revision=e.name,source_stage_scope=d.SCOPE,
+            allowed_stage_ids=['report'],owner_config_sha256=sha(op),phase_limits=own['phase_limits'],
+            budget_registration_sha256=sha(x['hctx']['cfg']['budget_registration']),budget_before=x['before'],
+            source_bindings=x['sources'],input_bindings=inputs,source_count=100,H_frames=5400,P_frames=600,
+            H_points=18,P_points=2,comparison_count=18,admitted_metric_count=18,missing_P_metric_count=3,
+            GPU_jobs=0,CPU_threads=2,new_packet_decodes=0,new_metric_calls=0,new_noise_draws=0,
+            policy_selection=False,MAIN_complete=False,H_success_evaluated=False,H_full_delivery_claimed=False,
+            future_stage_automatic=False,bootstrap_replicates=10000,bootstrap_seed=2026100605,created_unix=time.time())
+        x['owner'].validate_config(own,reg,sha(op));verify(inputs);d.unchanged(x);save(rp,reg)
+        # Full static worker admission is repeated after the one-way seal; no scores are loaded.
+        d.registered_context(cp)
+        done=dict(status=REGISTERED,registration_sha256=sha(rp),owner_config_sha256=sha(op),
+            outputs=bind((cp,op,rp,cfg['request'],cfg['admission'],cfg['comparison_plan'])),budget=x['before'],
+            workers_started=False,GPU_used=False,new_packet_decodes=0,actual_quality_rows_read=False,future_stage_automatic=False)
+        save(e/'registration_completion.json',done);return done
+    except BaseException:
+        save(e/'registration_failure.json',dict(status='FAILED_PRESERVE_NO_LAUNCH',traceback=traceback.format_exc()));raise
+
+
+def fresh_launch(e,out):
+    require(not any((e/n).exists() for n in ('launch.json','launch_attempt.json','owner_identity.json','owner.log',
+        'completion.json','failure.json','registration_failure.json','launch_failure.json','STOP')) and not out.exists(),
+        'Prior launch/output evidence preserved; no retry')
+
+
+def launch(root,h_config,p_config,template):
+    x=context(root,h_config,p_config,template);qualified(x);d=x['d'];e=x['loc']['execution'];fresh_launch(e,x['loc']['out'])
+    cp=e/'statistics_config.json';seal=read(e/'registration_completion.json');cfg=read(cp)
+    require(seal['status']==REGISTERED and seal['registration_sha256']==sha(cfg['registration'])
+        and seal['owner_config_sha256']==sha(cfg['owner_config']),'Successful comparison registration required')
+    verify(seal['outputs']);ready=d.registered_context(cp)
+    require(ready['request']==x['request'] and ready['before']==x['before'],'Launch request/budget differs');d.unchanged(x)
+    argv=[x['python'],'-B',x['hctx']['cfg']['owner_module'],'--config',cfg['owner_config']]
+    save(e/'launch_attempt.json',dict(status='LAUNCH_CLAIMED_NO_RETRY',argv=argv,registration_sha256=sha(cfg['registration']),helper=pin(__file__)))
+    try:
+        with (e/'owner.log').open('xb') as log:
+            p=subprocess.Popen(argv,cwd=x['root'],env=environment(root,x['code']),stdin=subprocess.DEVNULL,
+                stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+            ident=x['owner'].identity(p.pid)
+            require(ident['argv']==argv and int(ident['uid'])==os.getuid(),'Actual CPU owner identity differs')
+            value=dict(identity=ident,argv=argv,registration_sha256=sha(cfg['registration']),owner_config_sha256=sha(cfg['owner_config']),
+                launched_unix=time.time(),launch_attempt_sha256=sha(e/'launch_attempt.json'),GPU_jobs=0,new_packet_decodes=0,future_stage_automatic=False)
+            save(e/'launch.json',value)
+        return dict(status='H_P_FIXED_STATISTICS_OWNER_LAUNCHED',launch=pin(e/'launch.json'))
+    except BaseException:
+        save(e/'launch_failure.json',dict(status='FAILED_PRESERVE_NO_RESTART',pid=p.pid if 'p' in locals() else None,
+            traceback=traceback.format_exc()));raise
+
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--root',required=True);p.add_argument('--metric-config',required=True)
+    p.add_argument('--p600-config',required=True);p.add_argument('--metadata-template',required=True)
+    p.add_argument('--stage',choices=('qualify','register','launch'),required=True);a=p.parse_args()
+    print(json.dumps(globals()[a.stage](a.root,a.metric_config,a.p600_config,a.metadata_template),sort_keys=True))

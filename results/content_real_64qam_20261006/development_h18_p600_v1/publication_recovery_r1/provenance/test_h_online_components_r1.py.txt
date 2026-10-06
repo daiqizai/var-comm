@@ -1,0 +1,47 @@
+"""Original nine tests; only the two fixture locations use explicit SHA pins."""
+import ast
+import hashlib
+import json
+import os
+from pathlib import Path
+import unittest
+import test_h_online_components as original
+
+ORIGINAL_SHA='834fba915da4557312857750ba3ea6a2dcf0605d007fd02c4c758734755698aa'
+
+
+def sha(path):return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def bound_path(key):
+    path=os.environ.get('H_TIMING_TEST_ASSETS');expected=os.environ.get('H_TIMING_TEST_ASSETS_SHA256')
+    if not path or not expected or not Path(path).is_absolute() or sha(path)!=expected:
+        raise RuntimeError('Explicit bound timing test metadata manifest required')
+    value=json.loads(Path(path).read_text(encoding='utf-8'))
+    if value.get('schema')!='H_ONLINE_COMPONENTS_TEST_ASSETS_R1' or set(value.get('paths',{}))!={'protocol','budget','original_test'}:
+        raise RuntimeError('Exact timing fixture metadata schema required')
+    for name,record in value['paths'].items():
+        if not Path(record['path']).is_absolute() or sha(record['path'])!=record['sha256']:
+            raise RuntimeError('Changed timing fixture: '+name)
+    old=value['paths']['original_test']
+    if Path(old['path'])!=Path(original.__file__).absolute() or old['sha256']!=ORIGINAL_SHA:
+        raise RuntimeError('Original timing test identity differs')
+    if key not in ('protocol','budget'):raise RuntimeError('Unknown timing fixture')
+    return Path(value['paths'][key]['path'])
+
+
+class OnlineComponentTestsR1(original.OnlineComponentTests):
+    def test_design_uses_original16_and_no_packet_budget_or_hidden_decoder(self):
+        proto=json.loads(bound_path('protocol').read_text())
+        budget=json.loads(bound_path('budget').read_text())
+        plan=original.timing.design(proto,budget,self.args['development_registration'],self.ctx['schedule'])
+        self.assertEqual(plan['source_indices'],[0,25,50,75,4,21,24,29,33,41,52,60,64,87,92,95])
+        self.assertEqual(plan['new_packet_decodes'],0);self.assertFalse(plan['reserve_spending'])
+        self.assertEqual(plan['noise_seed'],6201);self.assertEqual(plan['component_cases'],288)
+        tree=ast.parse(Path(original.timing.__file__).read_text())
+        attrs={n.func.attr for n in ast.walk(tree) if isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute)}
+        self.assertFalse({'decode_once','receive_frame','receive_body','receive_header','BudgetLedger'}&attrs)
+        self.assertFalse(any(isinstance(n,ast.Import) and any(a.name=='torch' for a in n.names) for n in tree.body))
+
+
+if __name__=='__main__':unittest.main()

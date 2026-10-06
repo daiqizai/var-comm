@@ -1,0 +1,129 @@
+"""Private/E directory and metadata-only operation tests; no subprocess launched."""
+import ast
+import copy
+import importlib.util
+import json
+from pathlib import Path
+import tempfile
+from types import SimpleNamespace
+import unittest
+from unittest import mock
+
+HERE=Path(__file__).absolute().parent
+SPEC=importlib.util.spec_from_file_location('_tested_timing_ops',HERE/'operate_h_online_components_remote.py')
+o=importlib.util.module_from_spec(SPEC);SPEC.loader.exec_module(o)
+
+
+class Tests(unittest.TestCase):
+    def setUp(self):
+        temp=tempfile.TemporaryDirectory();self.addCleanup(temp.cleanup);self.base=Path(temp.name)
+        self.code=self.base/'E';self.private=self.base/'private';self.code.mkdir();self.private.mkdir()
+
+    def test_private_operations_and_registered_E_are_truly_separate(self):
+        old=self.code/'p600_received_replay_driver.py';old.write_text('# frozen P fixture\n')
+        fresh=self.code/'timing.py';fresh.write_text('# new timing fixture\n')
+        helper=self.private/'operate_h_online_components_remote.py';helper.write_text('# private fixture\n')
+        (self.private/'test_operate_h_online_components_remote.py').write_text('# private test\n')
+        cfg={'replay_driver_module':str(old)};reg={'source_bindings':o.bind((old,)),'input_bindings':{}}
+        with mock.patch.object(o,'__file__',str(helper)),mock.patch.object(o,'P_HELPER_SHA',o.sha(old)),\
+            mock.patch.object(o,'PINS',{'timing.py':o.sha(fresh)}):
+            code,private,pins=o.code_locations(cfg,reg)
+        self.assertEqual(code,self.code);self.assertEqual(private,self.private);self.assertNotEqual(code,private)
+        self.assertEqual(pins,o.bind((fresh,)))
+
+    def test_original_UM_path_and_two_CPU_test_environment(self):
+        py=self.base/'outputs/UNIFIED-METRICS-X/env/bin/python';py.parent.mkdir(parents=True);py.write_text('fixture')
+        cfg={'replay_driver_module':'/registered/E/p.py'};cp=self.base/'pconfig.json'
+        job=dict(id='p600_received_replay',argv=[str(py),'-B',cfg['replay_driver_module'],'--config',str(cp)])
+        owner=dict(gpu_threads=6,stages=[dict(id='development',resource='gpu',jobs=[job])])
+        with mock.patch.object(Path,'resolve',side_effect=AssertionError('venv resolved')):
+            self.assertEqual(o.original_python(cfg,owner,cp,self.base),str(py))
+        env=o.environment(self.base,self.code,self.private)
+        self.assertEqual(env['CUDA_VISIBLE_DEVICES'],'');self.assertEqual(env['OMP_NUM_THREADS'],'2')
+        self.assertEqual(env['PYTHONPATH'].split(o.os.pathsep),[str(self.code),str(self.private)])
+        self.assertEqual(env['H64_REFERENCE_VAR_COMM'],str(self.base/'src/var_comm'))
+
+    def test_registration_build_uses_actual_visual_paths_and_binds_both_closed_predecessors(self):
+        h=self.base/'H';h.mkdir();loc=dict(out=h/'timing',execution=h/'exec',operations=self.private/'operations',
+            qualification=self.private/'qualification');loc['qualification'].mkdir()
+        oldsource=self.base/'old.py';oldsource.write_text('# frozen')
+        graph=self.base/'oldgraph.json';graph.write_text(json.dumps({'status':'EXACT_SOURCE_CLOSURE_MATCH','source_bindings':o.bind((oldsource,))}))
+        meta=self.base/'metric.json';meta.write_text('{}');pmeta=self.base/'pmeta.json';pmeta.write_text('{}')
+        gate=dict(metric_bindings=o.bind((meta,)),P600_bindings=o.bind((pmeta,)))
+        (loc['qualification']/'predecessor_closure.json').write_text(json.dumps(gate))
+        (loc['qualification']/'completion.json').write_text('{}')
+        mc={k:str(self.base/k) for k in ('root','H_out','owner_module','wait_module','cpu_driver_module',
+            'protocol','budget_registration','ledger','stop_file')};mc.update(root=str(self.base),H_out=str(h),
+            phase_limits={'development':13200},metric_driver_module=str(self.code/'metrics.py'))
+        visual={k:str(self.base/k) for k in ('runtime_dir','native_runtime','uep_runtime','var_source','dino_source',
+            'source_driver_module','receiver_module','numerical_reference','static_closure_module')}
+        visual['visual_source_closure']=str(graph)
+        pcfg={'replay_driver_module':str(self.code/'p600_received_replay_driver.py'),'visual_source_closure':str(graph)}
+        ctx=dict(loc=loc,code=self.code,mc=mc,visual=visual,pcfg=pcfg,ms={'config':str(meta)},spec={'config':str(pmeta)},
+            d=SimpleNamespace(DEADLINE=99),preg={'source_bindings':{},'input_bindings':{}},root=str(self.base))
+        q={'source_bindings':{},'input_bindings':{},'outputs':{}}
+        with mock.patch.object(o,'module',return_value=SimpleNamespace(collect_bindings=lambda *args:o.bind((oldsource,)))):
+            request=o.build_request(ctx,q)
+        cfg=request['config'];self.assertEqual(cfg['source_driver_module'],visual['source_driver_module'])
+        self.assertEqual(cfg['timing_driver_module'],str(self.code/'h_online_components_driver.py'))
+        self.assertEqual(cfg['codec_module'],str(Path(visual['runtime_dir'])/'h64_source.py'))
+        self.assertEqual(cfg['metric_batch'],ctx['ms']);self.assertEqual(request['p600_batch'],ctx['spec'])
+        self.assertEqual(request['input_bindings'][str(meta)],o.sha(meta));self.assertEqual(request['input_bindings'][str(pmeta)],o.sha(pmeta))
+        self.assertNotIn('latent_inventory',cfg);self.assertNotIn('noise_seeds',cfg)
+
+    def test_exact_timing_shape_rejects_extra_GPU_or_changed_repeats(self):
+        reg=dict(allowed_stage_ids=['development'],source_stage_scope='H_FIXED16_18_POINTS_FRESH_ONLINE_COMPONENTS_NO_PHY',
+            GPU_jobs=1,GPU_threads=6,new_packet_decodes=0,new_noise_draws=0,budget_writes=0,new_quality_samples=0,
+            future_stage_automatic=False,MAIN_started=False,C_started=False)
+        expected=dict(source_count=16,component_case_count=288,noise_seed=6201,warmup_repetitions=1,
+            measured_repetitions=3,exact_TX_parity=True,exact_RX_parity=True,new_packet_decodes=0,
+            new_noise_draws=0,new_quality_samples=0,end_to_end_latency_measured=False)
+        job=dict(id='h_online_components',argv=['/UM/python'],receipt_expect=expected)
+        owner=dict(gpu_threads=6,stages=[dict(id='development',resource='gpu',jobs=[job])])
+        o.launch_shape(owner,reg,'/UM/python')
+        wrong=copy.deepcopy(owner);wrong['stages'][0]['jobs'].append(job)
+        with self.assertRaises(RuntimeError):o.launch_shape(wrong,reg,'/UM/python')
+        expected['measured_repetitions']=4
+        with self.assertRaises(RuntimeError):o.launch_shape(owner,reg,'/UM/python')
+
+    def test_no_restart_after_any_launch_or_output_claim(self):
+        e=self.base/'execution';e.mkdir();out=self.base/'out';o.fresh_launch(e,out)
+        for name in ('launch_attempt.json','launch_failure.json','owner_identity.json','registration_failure.json','STOP'):
+            p=e/name;p.write_text('preserved')
+            with self.assertRaises(RuntimeError):o.fresh_launch(e,out)
+            self.assertEqual(p.read_text(),'preserved');p.unlink()
+        out.mkdir()
+        with self.assertRaises(RuntimeError):o.fresh_launch(e,out)
+
+    def test_exact_qualification_inventory_and_no_GPU_false_PASS(self):
+        q=self.base/'Q';q.mkdir();log=q/'tests.log';log.write_text(f'Ran {o.TEST_COUNT} tests in 1.0s\n\nOK\n')
+        before={'charged':164760};ctx=dict(loc={'qualification':q},python='/UM/python',
+            tool=SimpleNamespace(QUALIFIED='QPASS'),before=before)
+        value=dict(status='QPASS',python='/UM/python',results=[dict(argv=['/UM/python','-B','-m','unittest','-v',*o.TESTS],
+            exit_code=0,test_count=o.TEST_COUNT)],GPU_used=False,models_constructed=False,new_packet_decodes=0,new_noise_draws=0,
+            source_bindings={},input_bindings={},outputs=o.bind((log,)),budget_before=before,budget_after=before)
+        (q/'completion.json').write_text(json.dumps(value))
+        with mock.patch.object(o,'qualification_sources',return_value={}):
+            self.assertEqual(o.qualified(ctx)['status'],'QPASS')
+            value['GPU_used']=True;(q/'completion.json').write_text(json.dumps(value))
+            with self.assertRaises(RuntimeError):o.qualified(ctx)
+
+    def test_changed_frozen_runtime_dependency_rejected_from_correct_E(self):
+        p=self.code/'p.py';p.write_text('actualold');t=self.code/'timing.py';t.write_text('tampered')
+        (self.private/'test_operate_h_online_components_remote.py').write_text('fixture')
+        with mock.patch.object(o,'__file__',str(self.private/'op.py')),mock.patch.object(o,'P_HELPER_SHA',o.sha(p)),\
+            mock.patch.object(o,'PINS',{'timing.py':'a'*64}):
+            with self.assertRaisesRegex(RuntimeError,'Changed'):o.code_locations({'replay_driver_module':str(p)},
+                {'source_bindings':o.bind((p,)),'input_bindings':{}})
+
+    def test_no_automatic_pipeline_or_normal_P_graph_reenumeration(self):
+        tree=ast.parse(Path(o.__file__).read_text());functions={n.name:n for n in tree.body if isinstance(n,ast.FunctionDef)}
+        calls=lambda name:[n.func.attr for n in ast.walk(functions[name]) if isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute)]
+        self.assertIn('load_registered',calls('launch'))
+        self.assertIn('normal_p600_closed',calls('launch'))
+        self.assertNotIn('Popen',calls('qualify'));self.assertNotIn('Popen',calls('register'))
+        self.assertNotIn('resolve',[n.func.attr for n in ast.walk(tree) if isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute)])
+        self.assertEqual(o.TEST_COUNT,9+7+7+8)
+
+
+if __name__=='__main__':unittest.main()

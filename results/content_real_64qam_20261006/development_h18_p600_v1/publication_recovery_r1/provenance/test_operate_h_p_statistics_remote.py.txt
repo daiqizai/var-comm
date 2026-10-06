@@ -1,0 +1,97 @@
+"""Pure operation and real private/E fixture tests; no actual science inputs."""
+import copy
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tempfile
+from types import SimpleNamespace
+import unittest
+from unittest.mock import Mock,patch
+import operate_h_p_statistics_remote as o
+import h_p_statistics_driver as d
+
+
+def fixture(base):
+    loc=dict(execution=base/'H/exec',out=base/'H/job',qualification=base/'q')
+    before=dict(charged=164760,phase_charged={'development':10800},development_remaining=2400,failed=0,unresolved=0)
+    old=dict(branch='H',root=str(base),owner_out=str(base/'old'),registration=str(base/'oldreg'),
+        stages=[dict(id='development',resource='gpu',jobs=[dict(argv=[sys.executable])])],phase_limits={'development':13200},
+        gpu_threads=6,cpu_affinities=[[0,1],[2,3]],overall_deadline_unix=2000000000)
+    return dict(root=str(base),loc=loc,code=base/'E',python=sys.executable,hclosed={'owner':old},before=before,
+        d=d,sources={},bindings={},request={'synthetic':True},admission={'identity_only':True},plan={'comparisons':[]})
+
+
+class OperationTests(unittest.TestCase):
+    def test_all_eight_pins_are_actual_files_and_hash64(self):
+        code=Path(d.__file__).parent
+        self.assertEqual(len(o.PINS),8)
+        for name,value in o.PINS.items():self.assertEqual(value,o.sha(code/name))
+
+    def test_single_cpu_report_preserves_original_budget_and_owner_fields(self):
+        with tempfile.TemporaryDirectory() as td:
+            x=fixture(Path(td));old=copy.deepcopy(x['hclosed']['owner']);cfg,owner=o.make_configs(x)
+            self.assertEqual(x['hclosed']['owner'],old)
+            for k,v in old.items():
+                if k not in ('owner_out','registration','stages'):self.assertEqual(owner[k],v)
+            stage=owner['stages'][0];job=stage['jobs'][0]
+            self.assertEqual((len(owner['stages']),len(stage['jobs']),stage['id'],stage['resource']),(1,1,'report','cpu'))
+            self.assertEqual(job['receipt_expect'],d.EXPECTED);self.assertEqual(job['id'],d.JOB)
+            self.assertEqual(job['environment']['CUDA_VISIBLE_DEVICES'],'');self.assertEqual(job['environment']['OMP_NUM_THREADS'],'2')
+            self.assertEqual(job['argv'][0],sys.executable);self.assertNotIn('PATH',job['environment'])
+            self.assertEqual(cfg['max_seconds'],7200)
+
+    def test_qualification_binds_exact_thirteen_tests_and_predecessors(self):
+        with tempfile.TemporaryDirectory() as td:
+            x=fixture(Path(td));q=x['loc']['qualification'];q.mkdir();p=Path(td)/'receipt.json';o.save(p,{})
+            x['bindings']=o.bind([p]);log=q/'tests.log';log.write_text('Ran 13 tests in 0.1s\n\nOK\n',encoding='utf8')
+            argv=[sys.executable,'-B','-m','unittest','-v',*o.TESTS]
+            v=dict(status=d.QUALIFIED,python=sys.executable,GPU_used=False,new_packet_decodes=0,actual_quality_rows_read=False,
+                results=[dict(argv=argv,exit_code=0,test_count=13)],source_bindings={},input_bindings=x['bindings'],outputs=o.bind([log]),
+                budget_before=x['before'],budget_after=x['before'])
+            o.save(q/'completion.json',v);o.qualified(x)
+            bad=copy.deepcopy(v);bad['results'][0]['test_count']=10;(q/'completion.json').write_text(json.dumps(bad),encoding='utf8')
+            with self.assertRaisesRegex(RuntimeError,'synthetic13'):o.qualified(x)
+
+    def test_registration_seals_metadata_and_pairs_before_worker_without_launch(self):
+        with tempfile.TemporaryDirectory() as td:
+            b=Path(td);x=fixture(b);x['loc']['qualification'].mkdir();o.save(x['loc']['qualification']/'completion.json',{'fixture':True})
+            budget=b/'budget.json';o.save(budget,{})
+            x['hctx']={'cfg':{'budget_registration':str(budget)}};x['owner']=SimpleNamespace(validate_config=Mock())
+            tool=SimpleNamespace(SCOPE=d.SCOPE,DONE=d.DONE,JOB=d.JOB,EXPECTED=d.EXPECTED,unchanged=Mock(),registered_context=Mock())
+            x['d']=tool;q=dict(input_bindings={},outputs={})
+            with patch.object(o,'context',return_value=x),patch.object(o,'qualified',return_value=q),patch.object(o.subprocess,'Popen') as popen:
+                result=o.register(str(b),'h','p','t')
+            self.assertEqual(result['status'],o.REGISTERED);popen.assert_not_called();tool.registered_context.assert_called_once()
+            e=x['loc']['execution'];reg=o.read(e/'execution_registration.json');o.verify(reg['input_bindings'])
+            self.assertEqual(o.read(e/'comparison_plan.json'),x['plan']);self.assertEqual(o.read(e/'common_metric_admission.json'),x['admission'])
+            self.assertEqual(reg['GPU_jobs'],0);self.assertFalse(result['actual_quality_rows_read']);self.assertFalse(result['workers_started'])
+
+    def test_prior_launch_or_output_preserved(self):
+        with tempfile.TemporaryDirectory() as td:
+            b=Path(td);e=b/'exec';e.mkdir();out=b/'out';o.fresh_launch(e,out)
+            (e/'launch_attempt.json').write_text('{}',encoding='utf8')
+            with self.assertRaisesRegex(RuntimeError,'preserved'):o.fresh_launch(e,out)
+            self.assertTrue((e/'launch_attempt.json').exists())
+
+    def test_environment_and_source_mutation_rejected(self):
+        with tempfile.TemporaryDirectory() as td:
+            p=Path(td)/'s.py';p.write_text('a=1\n');m=o.bind([p]);o.verify(m);p.write_text('a=2\n')
+            with self.assertRaisesRegex(RuntimeError,'Changed'):o.verify(m)
+            env=o.environment(td,Path(td)/'E');self.assertEqual(env['CUDA_VISIBLE_DEVICES'],'')
+            self.assertEqual(env['NUMEXPR_NUM_THREADS'],'2');self.assertEqual(env['PYTHONDONTWRITEBYTECODE'],'1')
+
+    def test_real_eight_source_fixture_in_separate_E_runs_formal13(self):
+        with tempfile.TemporaryDirectory() as td:
+            b=Path(td);code=b/'E';private=b/'private';code.mkdir();private.mkdir();source=Path(d.__file__).parent
+            for name in o.PINS:shutil.copyfile(source/name,code/name)
+            shutil.copyfile(Path(o.__file__),private/Path(o.__file__).name)
+            env=o.environment(b,code)
+            result=subprocess.run([sys.executable,'-B','-m','unittest','-q',*o.TESTS],cwd=private,env=env,
+                stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,timeout=60,check=False)
+            self.assertEqual(result.returncode,0,result.stdout);self.assertIn('Ran 13 tests',result.stdout);self.assertTrue(result.stdout.rstrip().endswith('OK'))
+
+
+if __name__=='__main__':unittest.main()

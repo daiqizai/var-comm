@@ -1,3 +1,36 @@
+# H / C-REAL：development 系统对照进度
+
+## 当前完成：H18 统计与 P600 补评
+
+H 已完成原100张 development 图的18个冻结点、5400帧统一指标及26个预先固定对照。P 的同100张、13/19 dB共600帧已从原接收 latent 重放，全部图像与旧指纹精确一致；旧指标保留，独立 ConvNeXt-Tiny 已补齐。
+
+**跨 H/P 配对表、MAIN 完整校准与运行成本尚未完成，当前不能判断完整系统胜负。** 下表仅列 H 已冻结系统点的均值；固定 m7/K0/rate1/2 的八点归因结果另列。
+
+| SNR | 冻结方案 | PSNR ↑ | LPIPS ↓ | DINOv2 ViT-L/14 ↑ | CLIP ViT-L/14 ↑ | ConvNeXt 原图预测一致率 ↑ |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| 13 | H16-R 整尺度 | 20.3046 | 0.1663 | 0.7844 | 0.8756 | 0.8200 |
+| 13 | H16-A 整尺度 | 20.3472 | 0.1660 | 0.7845 | 0.8756 | 0.8200 |
+| 13 | H64-R 整尺度 | 18.6661 | 0.2229 | 0.6559 | 0.8392 | 0.7800 |
+| 13 | H64-A 整尺度 | 20.3406 | 0.1662 | 0.7845 | 0.8756 | 0.8200 |
+| 19 | H16-R 整尺度 | 20.3046 | 0.1663 | 0.7844 | 0.8756 | 0.8200 |
+| 19 | H16-A 整尺度 | 20.3472 | 0.1660 | 0.7845 | 0.8756 | 0.8200 |
+| 19 | H64-R 整尺度 | 20.3046 | 0.1663 | 0.7844 | 0.8756 | 0.8200 |
+| 19 | H64-A 整尺度 | 21.9232 | 0.1263 | 0.8318 | 0.8962 | 0.8600 |
+| 13 | H64-RAW-COMPLETE-STATE-CONTROL 部分尺度 m7K81 | 19.9962 | 0.1746 | 0.7716 | 0.8660 | 0.8000 |
+| 19 | H64-RAW-COMPLETE-STATE-CONTROL 部分尺度 m8K140 | 21.6264 | 0.1326 | 0.8229 | 0.8939 | 0.8400 |
+
+H16/H64 分别为16QAM/64QAM；R为raw，A为算术编码。**H64-R整尺度行不能代表最强raw64：已按全部整数K校准的部分尺度控制必须同时比较。** 未根据本开发集重新选策略，也未添加看过分数后产生的新对照。
+
+每点先对同源三个噪声取均值，再进行10,000次源级 bootstrap（seed 2026100605）。H保留6201–6203，P保留2001–2003；后续只在同源均值层面配对。26个H内部区间为描述性分析，未作多重比较校正，不替代登记的系统成功条件。
+
+- [全部点及21项指标](../results/content_real_64qam_20261006/development_h18_p600_v1/tables/summary.csv)、[H内部配对区间](../results/content_real_64qam_20261006/development_h18_p600_v1/tables/paired.csv)、[固定m归因](../results/content_real_64qam_20261006/development_h18_p600_v1/tables/fixed_m7_summary.csv)。
+- [TX源尺度回退](../results/content_real_64qam_20261006/development_h18_p600_v1/tables/tx_source_scale.csv)按每点100源统计；[RX实际尺度](../results/content_real_64qam_20261006/development_h18_p600_v1/tables/rx_received_scale.csv)及[接收状态](../results/content_real_64qam_20261006/development_h18_p600_v1/tables/receiver_status.csv)按每点300帧统计，保留失败分母。
+- [指标定义与模型来源](../results/content_real_64qam_20261006/development_h18_p600_v1/tables/metric_provenance.json)、[成本当前范围](../results/content_real_64qam_20261006/development_h18_p600_v1/tables/cost_scope.json)、[原始完成凭证的公开副本](../results/content_real_64qam_20261006/development_h18_p600_v1/PUBLIC_EXPORT_MANIFEST.json)。
+
+H评测101.95秒、P重放及补指标85.87秒均是离线执行时长，不能当作在线发送、接收或端到端延迟。尚未测量的成本保留缺项。H译码总账仍164760，未新增PHY、未读取holdout、未重新训练P。
+
+## 先前阶段记录（保留当时状态，后续完成情况以上述更新为准）
+
 # H / C-REAL：补充登记与启动
 
 已按用户补充冻结动作空间、预算、选择规则、成功标准和执行顺序：先 H，再 C-REAL。
