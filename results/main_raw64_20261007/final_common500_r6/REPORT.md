@@ -1,4 +1,3 @@
-<!-- VAR_COMM_RAW64_COMMON500_ACTUAL_FINAL_REPORT_R6 -->
 # VAR_COMM · 统一500 holdout实际结果
 
 500个冻结来源；36个点、42组比较、21项指标。所有756个点估计与882个配对估计完整列于下方，负向、正向及跨零区间均保留。
@@ -11,7 +10,7 @@
 
 RAW噪声6201/6202/6203，P/Swin噪声2001/2002/2003；配对单位为同一来源，不声称跨提供方逐帧噪声配对。同RX的VAR/direct使用同一实际接收证据。
 
-MSE、LPIPS、DISTS、DreamSim和错误率越低越好；准确率、来源一致性和specificity越高越好。概率、错配相似度和置信度不作为统一单调质量分数。Markdown仅按原HTML相同的六位有效数字显示，完整数值与全部身份列见[summary.csv](../results/main_raw64_20261007/final_common500_r6/summary.csv)、[paired.csv](../results/main_raw64_20261007/final_common500_r6/paired.csv)及对应原样复制JSON。
+MSE、LPIPS、DISTS、DreamSim和错误率越低越好；准确率、来源一致性和specificity越高越好。概率、错配相似度和置信度不作为统一单调质量分数。Markdown仅按原HTML相同的六位有效数字显示，完整数值与全部身份列见[summary.csv](summary.csv)、[paired.csv](paired.csv)及对应原样复制JSON。
 
 ## 冻结公平性与训练限制
 
@@ -29,7 +28,7 @@ PARTIAL每个SNR校准候选集包含最终WHOLE winner。这只证明候选包�
 
 最终仓库264CPU与普通commit/push要求来自NEW_CHAT_CONTEXT_20261007.txt第156行；科学资格复用不代替最终待发布树的终验。此报告渲染不执行该终验或Git。
 
-实际来源与文件SHA见[紧凑渲染凭证](../results/main_raw64_20261007/final_common500_r6/REPORT_COMPLETION_R6_V2.json)、[统计闭合](../results/main_raw64_20261007/final_common500_r6/ACTUAL_REPORT_CLOSURE_R6.json)、[公平性元数据](../results/main_raw64_20261007/final_common500_r6/fairness_notes.json)、[冻结点](../results/main_raw64_20261007/final_common500_r6/points.json)、[冻结比较](../results/main_raw64_20261007/final_common500_r6/pairs.json)。HTML及21份SVG作为独立私有交付，不进入原sanitizer文本格式。
+实际来源与文件SHA见[紧凑渲染凭证](REPORT_COMPLETION_R6_V2.json)、[统计闭合](ACTUAL_REPORT_CLOSURE_R6.json)、[公平性元数据](fairness_notes.json)、[冻结点](points.json)、[冻结比较](pairs.json)。HTML及21份SVG作为独立私有交付，不进入原sanitizer文本格式。
 
 ## 全部点估计（756行）
 
@@ -1678,57 +1677,3 @@ PARTIAL每个SNR校准候选集包含最终WHOLE winner。这只证明候选包�
 | convnext_source_wrong_to_correct | RAW64_PARTIAL_VAR_COMPLETION_SNR_19 | RAW64_PARTIAL_DIRECT_DC_SNR_19 | 19 | -0.002 | -0.014 | 0.01 | 跨0 | — |
 | dino_mismatched | RAW64_PARTIAL_VAR_COMPLETION_SNR_19 | RAW64_PARTIAL_DIRECT_DC_SNR_19 | 19 | -0.00354922 | -0.00641997 | -0.000681479 | 负 | — |
 | dino_specificity | RAW64_PARTIAL_VAR_COMPLETION_SNR_19 | RAW64_PARTIAL_DIRECT_DC_SNR_19 | 19 | 0.149928 | 0.141371 | 0.158824 | 正 | — |
-
-## 已完成 development 与成本结果
-
-下列附件保留此前实际结果；参考分支独立，缺项不补值。未重新评分、计时或 bootstrap。
-
-- [development 通信完整摘要](../results/main_raw64_20261007/final_common500_r6/development/summary.json)
-- [development 通信完整配对区间](../results/main_raw64_20261007/final_common500_r6/development/paired.json)
-- [development 独立参考分支摘要](../results/main_raw64_20261007/final_common500_r6/development/reference_summary.json)
-- [development 独立参考分支配对区间](../results/main_raw64_20261007/final_common500_r6/development/reference_paired.json)
-- [fixed16 新鲜发收实际成本](../results/main_raw64_20261007/final_common500_r6/development/fixed16_cost_summary.json)
-- [原 H 四点成本复用与未测项](../results/main_raw64_20261007/final_common500_r6/development/H_four_point_cost_reuse.json)
-
-[真实闭合与原文件 SHA 证明](../results/main_raw64_20261007/final_common500_r6/provenance/normal_publication_evidence.json)
-
-## 先前阶段记录（保留当时状态）
-
-# MAIN raw12 + 64QAM：物理补表、预筛与完整校准进度
-
-本轮在 N1024 增加 64QAM，保留 raw12、光栅序、KEEP 和冻结的视觉模型。本文是登记与运行快照；最终校准、development 和新 holdout 结果尚未完成。
-
-## 已完成
-
-- 实际 Sionna 后端核算完成：433 个独立传输配置、523 个动作别名。旧 270 个配置及其编号保留，追加 163 个 64QAM 配置。
-- 上限：QPSK 为 m6+K40，16QAM 为 m8+K9，64QAM 为 m8+K142。全部动作与实际 LDPC 码块见结果目录的 legal_actions.csv 和 actual_action_catalogue.json。
-- 新增 64QAM 的 1,312 次真实资格译码通过，包括全部新增码块与公共头编号边界。43 项 CPU 工程测试通过；工程测试不代表图像质量。
-- 原 200 张构造集缺少的 T397 无噪声恢复点已补齐，200 张、0 次信道译码。其余无噪声状态按身份复用。
-
-## 补表和预筛已完成
-
-新增 1,314 个测点 × 256 次，共 336,384 次正文译码已正常完成；与 1,312 次资格译码合计 337,696 次。另复用 1,290 个完全匹配的旧测点，保留原样本量。
-
-全 433 个配置、六个信噪比的预筛已完成。每个信噪比冻结五个独立配置：完整尺度前三个，部分尺度共享最佳完整尺度回退及两个正 K 配置。64QAM 进入 7–19 dB 的部分入围配置；19 dB 的正 K 候选包含 m8+K142。这些是预筛结果，不能作为最终图像优势的证据。
-
-## 正在进行：原 1000 张校准图的实际链路
-
-两路 CPU 正在计算 1000 源 × 6 SNR × 5 配置 × 3 噪声，共 90,000 帧。完全匹配的旧 KEEP 接收记录按身份核验后复用，其余逐次计费；本阶段新译码上限 180,000 次。随后才进行实际接收图像重建和 DINOv2-L 校准，冻结策略后进入 development。当前尚无最终策略或完整系统胜负结论。
-
-启动前修复了两处工程问题：文件哈希缓存对极短时间内同长度改写的识别，以及旧完成凭证中预算字段的读取。原尝试均在实际校准开始前停止，现场和归档保留。独立 R3 使用逐次新读文件字节，并按旧凭证的真实结构核验；35 项服务器测试及真实历史元数据的完整读取检查通过。科学协议、已完成补表和原资产未改动。
-
-P 复用核对已验证 500 个缓存文件，两个旧结果集重叠的 300 帧图像、波形、观测及分类输出一致。六条件指标参照的 100 源/600 行缓存也已核对；尚缺的指标和 1 dB P 图像另行补齐。新 holdout 目前只完成文件名和历史曝光排除检查，尚未打开像素或特征。
-
-详细凭证与进度快照见 `results/main_raw64_20261007/calibration_start_v1/`。该目录是阶段交付，不是最终评测表。
-
-## 冻结的比较方法
-
-完整尺度和部分尺度共用 QPSK、16QAM、64QAM 及相同编码权限。每个 SNR 的预筛为完整尺度前三个配置；部分尺度为最佳完整尺度回退加两个正 K 配置，合计最多五个独立配置。预筛使用原来的 clean PSNR 与真实链路概率代理，最终在原 1,000 张校准图、每源三个噪声上以 DINOv2 ViT-L/14 选策略。这里的最优限于登记的有限筛选流程，不声称穷举图像评测后的全局最优。
-
-实际接收仍按已接受的公共头解释正文；未知头采用既定失败输出，正文 CRC 失败保留硬判决 token。H 的长度字段、算术解析和 DROP 结果不会改名为 MAIN。16QAM/64QAM 按平均功率归一化，实际帧能量单列。
-
-## 后续交付
-
-冻结策略后在原 100 张 development 图上报告原全部指标、独立 CLIP/ConvNeXt 指标及源级配对区间，补同一接收 token 的 VAR 补全/直接 Dc 解码、参照值、固定样例、TX/RX 尺度分布和两端成本。算术编码沿用独立冻结 H 分支，报告相对最终 raw 系统的收益，并说明失败处理差异，不把差值全部归因于算术编码。
-
-随后冻结所有模型、策略和评测定义，再开展统一的 500 张新 holdout：完整尺度、部分尺度、P1024 与固定 SwinJSCC80k，六个 SNR、每源三个噪声。新 holdout 必须排除已用于训练、选择、development、参照及历史 holdout 评测的图像；当前尚未读取新 holdout 内容。P 不重训，C 与反馈分支不扩展。
