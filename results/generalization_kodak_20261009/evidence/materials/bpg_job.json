@@ -1,0 +1,42 @@
+{
+  "schema": "KODAK24_FINITE_JOB_V1",
+  "runner_sha256": "6d1a05fbe2594e4da020ce722aceb6ba83bf3c0981798eaea14673666ea47af8",
+  "cwd": "/home/liulu/projects/VAR_COMM",
+  "out": "/home/liulu/projects/VAR_COMM/outputs/GENERALIZATION-KODAK-20261009/bpg_supervision_v1",
+  "deadline_unix": 1791609898.0994627,
+  "environment": {
+    "CUDA_VISIBLE_DEVICES": "",
+    "OMP_NUM_THREADS": "2",
+    "MKL_NUM_THREADS": "2",
+    "OPENBLAS_NUM_THREADS": "2"
+  },
+  "inputs": [
+    {
+      "path": "/home/liulu/projects/VAR_COMM/outputs/GENERALIZATION-KODAK-20261009/materials/bpg_request.json",
+      "sha256": "ef16889d43cb38b741deed5c2f82bc8f5748a8900ff35714b5eb47993f88a082"
+    },
+    {
+      "path": "/home/liulu/projects/VAR_COMM/experiments/generalization_kodak_20261009/bpg_adapter.py",
+      "sha256": "ac0bb3827a1df7111413ec59074da911455837f2219890882683b76d60354471"
+    },
+    {
+      "path": "/home/liulu/projects/VAR_COMM/outputs/GENERALIZATION-KODAK-20261009/data/dataset_manifest.json",
+      "sha256": "cbf1c6814c6af514d886e4a46a7f0bf65e1c133cfb8ec1e0ced1d5c0b696557e"
+    },
+    {
+      "path": "/home/liulu/projects/VAR_COMM/results/generalization_kodak_20261009/protocol.json",
+      "sha256": "fdac4e25b242c853d0a7ed89b44c133a4e3ecb53e2bf43cb61c427648104d440"
+    }
+  ],
+  "steps": [
+    {
+      "argv": [
+        "/home/liulu/projects/VAR_COMM/outputs/PRIOR-AWARE-UEP-20261004-V1/ldpc_environment/bin/python",
+        "-B",
+        "/home/liulu/projects/VAR_COMM/experiments/generalization_kodak_20261009/bpg_adapter.py",
+        "--request",
+        "/home/liulu/projects/VAR_COMM/outputs/GENERALIZATION-KODAK-20261009/materials/bpg_request.json"
+      ]
+    }
+  ]
+}

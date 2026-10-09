@@ -1,0 +1,88 @@
+{
+  "schema": "KODAK24_FINITE_JOB_V1",
+  "runner_sha256": "6d1a05fbe2594e4da020ce722aceb6ba83bf3c0981798eaea14673666ea47af8",
+  "cwd": "/home/liulu/projects/VAR_COMM",
+  "out": "/home/liulu/projects/VAR_COMM/outputs/GENERALIZATION-KODAK-20261009/neural_supervision_v1",
+  "deadline_unix": 1791609898.0994627,
+  "environment": {
+    "CUDA_VISIBLE_DEVICES": "0",
+    "CUBLAS_WORKSPACE_CONFIG": ":4096:8",
+    "OMP_NUM_THREADS": "6",
+    "MKL_NUM_THREADS": "6",
+    "OPENBLAS_NUM_THREADS": "6"
+  },
+  "inputs": [
+    {
+      "path": "/home/liulu/projects/VAR_COMM/outputs/GENERALIZATION-KODAK-20261009/materials/neural_request_r2.json",
+      "sha256": "984474202a51df860537d293f8f59cb76cad69b97e26b2ea02b70265189b474c"
+    },
+    {
+      "path": "/home/liulu/projects/VAR_COMM/experiments/generalization_kodak_20261009/neural_adapter.py",
+      "sha256": "20aa93afcdd2c31d9620e3b96fc954acf84eb13f2d8674171356a2ca4f47e8ce"
+    },
+    {
+      "path": "/home/liulu/projects/VAR_COMM/outputs/GENERALIZATION-KODAK-20261009/data/dataset_manifest.json",
+      "sha256": "cbf1c6814c6af514d886e4a46a7f0bf65e1c133cfb8ec1e0ced1d5c0b696557e"
+    },
+    {
+      "path": "/home/liulu/projects/VAR_COMM/results/generalization_kodak_20261009/protocol.json",
+      "sha256": "fdac4e25b242c853d0a7ed89b44c133a4e3ecb53e2bf43cb61c427648104d440"
+    }
+  ],
+  "steps": [
+    {
+      "argv": [
+        "taskset",
+        "-c",
+        "4,5,6,7,8,9",
+        "nice",
+        "-n",
+        "15",
+        "/home/liulu/projects/VAR_COMM/outputs/UNIFIED-METRICS-20261002/environment/bin/python",
+        "-B",
+        "/home/liulu/projects/VAR_COMM/experiments/generalization_kodak_20261009/neural_adapter.py",
+        "run",
+        "--request",
+        "/home/liulu/projects/VAR_COMM/outputs/GENERALIZATION-KODAK-20261009/materials/neural_request_r2.json",
+        "--method",
+        "VAR_UNCONDITIONAL"
+      ]
+    },
+    {
+      "argv": [
+        "taskset",
+        "-c",
+        "4,5,6,7,8,9",
+        "nice",
+        "-n",
+        "15",
+        "/home/liulu/projects/VAR_COMM/outputs/UNIFIED-METRICS-20261002/environment/bin/python",
+        "-B",
+        "/home/liulu/projects/VAR_COMM/experiments/generalization_kodak_20261009/neural_adapter.py",
+        "run",
+        "--request",
+        "/home/liulu/projects/VAR_COMM/outputs/GENERALIZATION-KODAK-20261009/materials/neural_request_r2.json",
+        "--method",
+        "P1024"
+      ]
+    },
+    {
+      "argv": [
+        "taskset",
+        "-c",
+        "4,5,6,7,8,9",
+        "nice",
+        "-n",
+        "15",
+        "/home/liulu/projects/VAR_COMM/outputs/UNIFIED-METRICS-20261002/environment/bin/python",
+        "-B",
+        "/home/liulu/projects/VAR_COMM/experiments/generalization_kodak_20261009/neural_adapter.py",
+        "run",
+        "--request",
+        "/home/liulu/projects/VAR_COMM/outputs/GENERALIZATION-KODAK-20261009/materials/neural_request_r2.json",
+        "--method",
+        "SWIN80K"
+      ]
+    }
+  ]
+}
