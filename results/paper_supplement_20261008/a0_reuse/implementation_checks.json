@@ -1,0 +1,775 @@
+{
+  "status": "CURRENT_LOCAL_COVERAGE_AUDIT_COMPLETE",
+  "snapshot_at": "2026-10-09T11:57:07+08:00",
+  "published_commit": "252176e041758ecb2d3e81b6fde5b587e7e17bb7",
+  "first_round_status": "COMPLETE",
+  "prior_snapshots_preserved": {
+    "reuse_matrix_sha256": "24bce5f07e59ca25505445829009c947e15253c845f21b0a80e312ebcc505ee3",
+    "README_sha256": "26ce26a987625986bca269f34d9bbee5ab1b4ea807ab00a925876ae6ac62e339"
+  },
+  "row_count": 161,
+  "statuses": {
+    "REUSE": 97,
+    "COMPLETE": 52,
+    "UNSUPPORTED": 2,
+    "NOT_RUN": 9,
+    "MISSING": 1
+  },
+  "allowed_matrix_statuses": [
+    "COMPLETE",
+    "REUSE",
+    "MISSING",
+    "UNSUPPORTED",
+    "NOT_RUN"
+  ],
+  "execution_state_note": "PENDING_RUNNING is separate from the five allowed task statuses;missing completion never means not running.",
+  "checks": [
+    {
+      "check": "Native256 BPG new source-paired reference comparisons",
+      "status": "PASS",
+      "evidence": [
+        {
+          "path": "results/paper_supplement_20261008/native_bpg_paired_v1/completion.json",
+          "sha256": "fbb5683edcb2d84fd7d12800dc2a5687fd0542626abac9f9c564d9fc41a150b1"
+        },
+        {
+          "path": "results/paper_supplement_20261008/native_bpg_paired_v1/pins.json",
+          "sha256": "0a3a6416c41501788e844f8e9721167b70bbc488a518948f66db17c68f60a518"
+        },
+        {
+          "path": "results/paper_supplement_20261008/native_bpg_paired_v1/paired.csv",
+          "sha256": "c71e96f28e1251c3d6cc5bf9944b6cfa7ee4e896c9f51abaaba7fa691aa6585b"
+        }
+      ],
+      "details": {
+        "new_paired_rows": 72,
+        "source_count": 500,
+        "noise_count": 3,
+        "input_source_means": 48000,
+        "draws_calls": 1,
+        "shared_draws_shape": [
+          10000,
+          500
+        ],
+        "seed": 2026100701,
+        "new_metric_calls": 0,
+        "new_PHY": 0,
+        "old_summary_recomputed": false,
+        "old_bootstrap_recomputed": false
+      },
+      "limitation": "72 newly authorized pointwise95% comparisons;no multiplicity-adjusted global winner claim;Swin19dB remains outside training/calibration."
+    },
+    {
+      "check": "BPG adaptive source bytes and per-image MSE/PSNR",
+      "status": "PASS",
+      "evidence": [
+        {
+          "path": "results/paper_supplement_20261008/a1_bpg_adaptive/a1a_probe_v1/completion.json",
+          "sha256": "6b965847ac1ffde963a8c7baee3301d39402ed15743dc05ca0c2278bb147f89b"
+        },
+        {
+          "path": "results/paper_supplement_20261008/a1_bpg_adaptive/a1a_probe_v1/cases.csv",
+          "sha256": "2d6a02492fb29e0bf65ad6b9647abe726c9081d60db69d4434cf3df0a459a34f"
+        }
+      ],
+      "details": {
+        "cases": 3076,
+        "source_count": 32,
+        "maximum_PSNR_formula_error": 7.105427357601002e-15,
+        "bytes_times_8_exact": true
+      },
+      "limitation": "Local probe summaries are verified; large individual stream archives remain on original host, not all downloaded."
+    },
+    {
+      "check": "BPG adaptive noiseless complete-stream/header/container roundtrip",
+      "status": "PASS",
+      "evidence": [
+        {
+          "path": "results/paper_supplement_20261008/a1_bpg_adaptive/a1b_adaptive_v1/qualification/worker_0.json",
+          "sha256": "7a736336511edd12d8736a4743b0ed7d091f6fa0c0b291d62db111420fded6af"
+        },
+        {
+          "path": "results/paper_supplement_20261008/a1_bpg_adaptive/a1b_adaptive_v1/qualification/completion.json",
+          "sha256": "402983939a4ad3cd4ca8eb18b05d18c838e84bb8f4dad2e7f9bf8ba5a4b2af2f"
+        }
+      ],
+      "details": {
+        "real_calibration_sources": 20,
+        "new_profile_patterns": 2,
+        "new_PHY_decodes": 44,
+        "legal_layouts": 15,
+        "old_14_layouts_reused": true,
+        "received_bytes_only": true
+      },
+      "limitation": ""
+    },
+    {
+      "check": "BPG calibration policy and protected original ledger",
+      "status": "PASS",
+      "evidence": [
+        {
+          "path": "results/paper_supplement_20261008/a1_bpg_adaptive/a1b_adaptive_v1/calibration/completion.json",
+          "sha256": "b8082c4bf79ecf91e217fb0193418ee79cbd5af3b1a389ebd34b41c36133b5b5"
+        },
+        {
+          "path": "results/paper_supplement_20261008/a1_bpg_adaptive/a1b_adaptive_v1/freeze/worker_0.json",
+          "sha256": "0e0c130ae1905c38cd287579cfa1b4cc223f1ca8ff2bbf980896fcf8fc341bf3"
+        },
+        {
+          "path": "results/paper_supplement_20261008/a1_bpg_adaptive/a1b_adaptive_v1/freeze/completion.json",
+          "sha256": "1b616440b07a1367983e366856fd1d001767aeb0ea660a0fe4e7222437a23832"
+        }
+      ],
+      "details": {
+        "calibration_frames": 5400,
+        "calibration_sources": 100,
+        "noise_count": 3,
+        "qualification_calls": 44,
+        "prescreen_calls": 3072,
+        "calibration_calls": 10800,
+        "total_calls": 13916,
+        "root_ledger_unchanged": true,
+        "holdout_used_for_selection": false,
+        "selected_profile_ids": {
+          "1": 3000,
+          "10": 3007,
+          "13": 3009,
+          "19": 3013,
+          "4": 3002,
+          "7": 3006
+        }
+      },
+      "limitation": ""
+    },
+    {
+      "check": "Swin native wrapper same-observation/RGB/MSE alignment",
+      "status": "PASS",
+      "evidence": [
+        {
+          "path": "results/paper_supplement_20261008/a2_swin/native_v1/completion.json",
+          "sha256": "b53713b2a7976e3609cd84076f34e2c3471436654863ddd72b84bad57d194341"
+        },
+        {
+          "path": "results/paper_supplement_20261008/a2_swin/native_v1/native_parity_summary.json",
+          "sha256": "064ba6f189a5ac1a6da558e7ec185a2e23bdff0ae0c0a4aa6424b9129a8c70e7"
+        }
+      ],
+      "details": {
+        "source_count": 20,
+        "hash_verified_outputs": 44,
+        "max_independent_MSE_difference": 1.9001510920269027e-09,
+        "max_independent_PSNR_difference": 2.5106886951675733e-06,
+        "new_paid_PHY": 0
+      },
+      "limitation": "Known mask/power were shared only for native diagnostic; fixed256-use header is not proven globally optimal."
+    },
+    {
+      "check": "Swin trained support and no unauthorized retraining",
+      "status": "PASS",
+      "evidence": [
+        {
+          "path": "results/paper_supplement_20261008/a2_swin/native_v1/support_scope.json",
+          "sha256": "110ba92e735bb146d420b3f0ac44a64e4db74787a4afa0e3b1dc61f41627bc2b"
+        }
+      ],
+      "details": {
+        "status": "COMPLETE",
+        "trained_channels": [
+          6,
+          13
+        ],
+        "trained_snr_db": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13
+        ],
+        "calibrated_snr_db": [
+          1,
+          4,
+          7,
+          10,
+          13
+        ],
+        "checkpoint_step": 80000,
+        "checkpoint_sha256": "8857b8c5ed91a5c316084e8c252a8e2168e424a767378389436d96268e65ba21",
+        "budget_truncated": true,
+        "scientific_convergence_proven": false,
+        "N1024_trained_channel_choices": [
+          6
+        ],
+        "original_N1024": {
+          "channels": 6,
+          "body_N": 768,
+          "header_N": 256
+        },
+        "C7_status": "UNSUPPORTED",
+        "C7_reason": "The code accepts C7 but the registered checkpoint trained C6/C13 only.",
+        "C13_at_N1024_status": "UNSUPPORTED",
+        "C13_reason": "1664 body complex symbols exceed total N1024 before header.",
+        "header_calibration_status": "NOT_RUN",
+        "header_calibration_reason": "No supported extra body channel at N1024. Reducing header protection while retaining C6 adds no source capacity; no such policy was adopted. This is not evidence that header256 is globally optimal.",
+        "final_common500_status": "REUSE",
+        "strategy_changed": false,
+        "holdout_rerun": false,
+        "snr19_status": "OUTSIDE_TRAINING_AND_CALIBRATION_RANGE",
+        "native_side_information": "Known exact mask and float32 power are free diagnostic context, not a paid-information performance baseline."
+      },
+      "limitation": ""
+    },
+    {
+      "check": "Five-method timing fresh single-output evidence and naming",
+      "status": "PASS",
+      "evidence": [
+        {
+          "path": "results/paper_supplement_20261008/a3_timing/final_v1/audit.json",
+          "sha256": "77ee76632d805ab3d0bcbd6fe1c44d2368928a1005fc467a4f050b2210d9a594"
+        },
+        {
+          "path": "results/paper_supplement_20261008/a3_timing/final_v1/timing_single_output.csv",
+          "sha256": "ff44c9352b1b8dbc68c62e24b1796ea2133136178c5f8c542f0776001e4bb435"
+        }
+      ],
+      "details": {
+        "actual_methods": 5,
+        "source_attempts": 960,
+        "actual_PHY_decodes": 1080,
+        "hash_verified_files": 1038,
+        "independent_E2E_second_pass": false,
+        "actual_outer_window": true,
+        "BPG_source_unfit_attempts": 132,
+        "BPG_actual_link_frames": 60,
+        "filename_alias_byte_identical": true
+      },
+      "limitation": "BPG link times are conditional on fit;full loaded VAE scope is disclosed;not minimal deployment or energy evidence."
+    },
+    {
+      "check": "A4 reuse and published-mean identity",
+      "status": "PASS",
+      "evidence": [
+        {
+          "path": "results/paper_supplement_20261008/a4_resources/v2/completion.json",
+          "sha256": "f9265fadeb4946dfd83e5d357f9a0340a6ae570794855b129d240b466736fa95"
+        },
+        {
+          "path": "results/paper_supplement_20261008/a4_resources/v2/published_mean_checks.csv",
+          "sha256": "6d030cd2b8762d7adc445d64fc65e5b83fc04caa76de2e9fbcbd67eb268f7edc"
+        },
+        {
+          "path": "results/paper_supplement_20261008/a4_resources/v2/DELIVERY_MANIFEST.json",
+          "sha256": "a58b3136b26368ff45df4d196caae8aa547f3d72a0d7fb173450ce490df8aa71"
+        },
+        {
+          "path": "results/paper_supplement_20261008/a4_resources/analysis_v1/source_bindings.json",
+          "sha256": "1f9030cf79c5362e7c69b859f5430a3ff93262f95b8ece9a40391567de073298"
+        }
+      ],
+      "details": {
+        "source_count": 500,
+        "noise_count": 3,
+        "frame_memberships": 36000,
+        "quality_rows": 54000,
+        "configuration_rows": 24,
+        "new_PHY": 0,
+        "new_inference": 0,
+        "new_bootstrap": 0,
+        "original_hash_verified_outputs": 25,
+        "original_non_scientific_manifest_mismatches": [
+          {
+            "path": "results/paper_supplement_20261008/a4_resources/v2/console.log",
+            "expected": "f63e8915889b91d55fe8e5890d8f2762d9212ea08f9a1e6d11185762aa4f92fd",
+            "actual": "2769d69a4e2d8af8d6ed5aecd54d59227198985dd7564f9708e47785d179c1a8"
+          }
+        ],
+        "closed_delivery_hash_verified_outputs": 44,
+        "manuscript_source_bindings_verified": 6
+      },
+      "limitation": "Original console.log mismatch is retained in the historical receipt and explicitly closed by the44-file sidecar;no science file changed."
+    },
+    {
+      "check": "A5 fixed samples, direct semantics and reference reuse",
+      "status": "PASS",
+      "evidence": [
+        {
+          "path": "paper/figures/a5_mechanism_N1024_10_19dB_group02/completion.json",
+          "sha256": "5428e04a02fa840311d3154e48b729bccdea09cc103dbf52d18ac27491488149"
+        },
+        {
+          "path": "paper/figures/a5_mechanism_N1024_10_19dB_group02/selection.json",
+          "sha256": "0f83c3388bebe48798e4ee3714d4ed7325e2219e83a788d64e6b69fd78fb3ff6"
+        },
+        {
+          "path": "paper/figures/a5_mechanism_N1024_10_19dB_group02/image_metrics.csv",
+          "sha256": "b89be075c9480726556d014bc229c0ace2d3d1ddda3edefa9d544d98c163058d"
+        },
+        {
+          "path": "paper/figures/a5_mechanism_N1024_10_19dB_group02/QUALITATIVE_OBSERVATIONS.md",
+          "sha256": "0caa02224d65a764bc47bdbb6cd0117403350ebdbb2bf39009e11810a5d1a2ab"
+        }
+      ],
+      "details": {
+        "SNRs": [
+          10,
+          19
+        ],
+        "source_count": 4,
+        "metric_rows": 24,
+        "figure_files": 6,
+        "new_inference": 0,
+        "new_metrics": 0,
+        "new_bootstrap": 0
+      },
+      "limitation": "HiFi is available on these development diagnostics;its common500 absence remains explicit."
+    },
+    {
+      "check": "A5 actual13dB six-column delivery and missing-only metrics",
+      "status": "PASS",
+      "evidence": [
+        {
+          "path": "paper/figures/a5_six_methods_N1024_13dB_group02/completion.json",
+          "sha256": "0c003e50f86d6e1ad2b8c84a901e0a0b2a043ee28c92549de13e426657c4e3d9"
+        },
+        {
+          "path": "paper/figures/a5_six_methods_N1024_13dB_group02/bpg_metrics_completion.json",
+          "sha256": "eb4a251e681e53866c99567a18fd7d0a08be36398d84c3858db8a64cc3470d26"
+        },
+        {
+          "path": "paper/figures/a5_six_methods_N1024_13dB_group02/missing_convnext/completion.json",
+          "sha256": "022a2c00cd66fec0a17cd96cad921e1b14c39aedb10eccdd5f413f0126b4a4be"
+        },
+        {
+          "path": "paper/figures/a5_six_methods_N1024_13dB_group02/per_image_metrics.csv",
+          "sha256": "d1204a88af1490ee68d5fde8f2f4d75cdd503bb5be61da315d8a3d42664e3e10"
+        }
+      ],
+      "details": {
+        "display_sources": [
+          4,
+          21,
+          24,
+          29
+        ],
+        "SNR": 13,
+        "N": 1024,
+        "top_level_hashes": 15,
+        "BPG_metric_hashes": 33,
+        "missing_ConvNeXt_hashes": 9,
+        "display_metric_values": 80,
+        "reference_rows": 16,
+        "BPG_new_quality_calls": 16,
+        "BPG_reference_preparations": 16,
+        "missing_ConvNeXt_predictions": 8,
+        "missing_ConvNeXt_new_reference_predictions": 0,
+        "remaining_missing": 0,
+        "new_PHY": 0,
+        "new_reconstructions": 0,
+        "new_bootstrap": 0
+      },
+      "limitation": "Metrics-only additions;fixed development samples,not holdout selection;BPG SOURCE_UNFIT retained;different methods do not share one observed waveform."
+    },
+    {
+      "check": "A6 nearest-neighbor identities and reproducibility scope",
+      "status": "PASS",
+      "evidence": [
+        {
+          "path": "results/paper_supplement_20261008/a6_neighbors/comparison.csv",
+          "sha256": "b14670965af882974e46867612a966b9304836a5a785547e0eda26c281c79095"
+        },
+        {
+          "path": "results/paper_supplement_20261008/a6_neighbors/availability.json",
+          "sha256": "004fdb8db1e6a0defd17e992469ac564ccdc3b3b273e71453b2072311d86e903"
+        },
+        {
+          "path": "results/paper_supplement_20261008/a6_neighbors/STATIC_VERIFICATION.json",
+          "sha256": "ec56084d15ce5cc549cf72f1c78ca58ab1c0fcda8953aa744714151222c6c9e1"
+        }
+      ],
+      "details": {
+        "comparison_rows": 18,
+        "ARPC_native": "NOT_RUN",
+        "Ada_TokenCom_native": "NOT_RUN",
+        "ARPC_paid_N1024": "UNSUPPORTED",
+        "new_weights_downloaded": false
+      },
+      "limitation": "Native real-case/cost still conditional on environment,weights and input binding;not required to label first-round literature table complete."
+    },
+    {
+      "check": "New BPG receiver does not consume source truth",
+      "status": "PASS",
+      "evidence": [
+        {
+          "path": "experiments/paper_supplement_20261008/a1_bpg_adaptive/adaptive_codec.py",
+          "sha256": "6b7aaa6f2f923b522130f59de435051a24489832a50a66d085b8facbc2337d5f"
+        },
+        {
+          "path": "experiments/paper_supplement_20261008/a1_bpg_adaptive/adaptive_stages.py",
+          "sha256": "3101b8e3cf5b922b481238f6712c176d89a76388149db6151f4097d31bdd11fc"
+        },
+        {
+          "path": "results/paper_supplement_20261008/a1_bpg_adaptive/a1b_adaptive_v1/qualification/worker_0.json",
+          "sha256": "7a736336511edd12d8736a4743b0ed7d091f6fa0c0b291d62db111420fded6af"
+        }
+      ],
+      "details": {
+        "source_truth_use": "TX source-quality selection and offline diagnostics only",
+        "receiver_input": "received IQ/public counter;header-derived profile and received complete BPG bytes",
+        "real_received_bytes_only_checks": 20
+      },
+      "limitation": "Static boundary review plus concrete20-case equality;not a formal noninterference proof."
+    },
+    {
+      "check": "Original RAW path not requalified",
+      "status": "REUSE",
+      "evidence": [
+        {
+          "path": "results/paper_supplement_20261008/a3_timing/final_v1/audit.json",
+          "sha256": "77ee76632d805ab3d0bcbd6fe1c44d2368928a1005fc467a4f050b2210d9a594"
+        }
+      ],
+      "details": {
+        "raw_backend_qualification_reused": true,
+        "new_RAW_qualification_packets": 0,
+        "raw_scientific_holdout_rerun": false
+      },
+      "limitation": ""
+    },
+    {
+      "check": "Actual adaptive500 holdout and bounded decoder accounting",
+      "status": "PASS",
+      "evidence": [
+        {
+          "path": "results/paper_supplement_20261008/a1_bpg_adaptive/a1b_adaptive_v1/holdout/completion.json",
+          "sha256": "e9358f2e22bfa034303ab374163215c9a81b8601a817943fc8e6e318e2c1628f"
+        }
+      ],
+      "details": {
+        "frame_count": 9000,
+        "holdout_decodes": 18000,
+        "total_decodes": 31916,
+        "total_cap": 34604,
+        "unresolved": 0,
+        "children_exit_codes": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "original_ledger_unchanged": true,
+        "local_output_hashes": 0,
+        "remote_only_outputs": 4515
+      },
+      "limitation": "Normal completion and any downloaded outputs verified;large remote-only receiver caches are not counted as local hash checks."
+    },
+    {
+      "check": "Adaptive complete quality and new source-paired statistics",
+      "status": "PASS",
+      "evidence": [
+        {
+          "path": "results/paper_supplement_20261008/a1_bpg_adaptive/metrics_v1/completion.json",
+          "sha256": "d550cdf4371f4f1ffa50778ba56a47fc8ea33bc973f2e33dd76dd1b37b250c33"
+        },
+        {
+          "path": "results/paper_supplement_20261008/a1_bpg_adaptive/metrics_v1/summary.csv",
+          "sha256": "8a96b6bbf206f247bb208d9377022a31c7f4f2681d51d9f3dc1b795d476c476a"
+        },
+        {
+          "path": "results/paper_supplement_20261008/a1_bpg_adaptive/metrics_v1/paired.csv",
+          "sha256": "9243bb3acef05057a7c40436a1f3eb176aaef499445c2fdb83798e410c4335ef"
+        }
+      ],
+      "details": {
+        "new_summary_rows": 24,
+        "new_paired_rows": 96,
+        "source_means": 12000,
+        "source_count": 500,
+        "noise_count": 3,
+        "new_unique_quality_calls": 2635,
+        "inherited_native_identical_image_reuses": 379,
+        "reference_preparations": 500,
+        "new_PHY": 0,
+        "old_statistics_recomputed": false,
+        "local_hash_verified": 507,
+        "remote_only": 1000,
+        "old_comparison_mean_CI_triples_exact": 96
+      },
+      "limitation": "New post-hoc baseline and pair intervals only;source pairing does not imply shared waveform/noisy observations."
+    },
+    {
+      "check": "Adaptive actual five-method curves and source-paired plots",
+      "status": "PASS",
+      "evidence": [
+        {
+          "path": "paper/figures/adaptive_bpg_holdout500/validation.json",
+          "sha256": "6abfcc4fef68ce130d8a365983f2f681806bd70dcaa5f07be2829d53d011c9ff"
+        },
+        {
+          "path": "paper/figures/adaptive_bpg_holdout500/plot_data.csv",
+          "sha256": "f46687b7afb62c294d8876dec3d13c0379af5055bef51abe7493bf83449d0dfc"
+        },
+        {
+          "path": "paper/figures/adaptive_bpg_holdout500/visual_validation.json",
+          "sha256": "895aafee60bb9247588e93dfe771066faa5e23ebec526d96ec2ff52e514339d7"
+        }
+      ],
+      "details": {
+        "vector_PDF": 10,
+        "editable_SVG": 10,
+        "PNG600dpi": 10,
+        "main_rows": 120,
+        "adaptive_minus_native_rows": 24,
+        "new_bootstrap": 0
+      },
+      "limitation": "Actual PNG visual review is separately recorded in the delivery conversation;no generated raster curves."
+    },
+    {
+      "check": "Adaptive fixed-development missing-image completion",
+      "status": "PASS",
+      "evidence": [
+        {
+          "path": "results/paper_supplement_20261008/a5_examples/adaptive_actual_v1/completion.json",
+          "sha256": "fe84f0d2909045be77039c98305710871fc9c0c4c83a9e0600e0539c8cb49857"
+        },
+        {
+          "path": "paper/figures/a5_adaptive_six_methods_N1024_13dB_group02/completion.json",
+          "sha256": "6c1fbb229e1023f875aec64038aa2701b0d619e53184097870ca8b3d226f9e28"
+        },
+        {
+          "path": "paper/figures/a5_adaptive_six_methods_N1024_13dB_group02/metrics_completion.json",
+          "sha256": "78b649f8a54219e93fc54d27b4e4c996dc81a51bfdb8745e7b6714647bd8bfff"
+        },
+        {
+          "path": "paper/figures/a5_adaptive_six_methods_N1024_13dB_group02/actual_score_plot_wait.json",
+          "sha256": "00d8443631874e3eb9314429c862a6262b3b36c827d98cf9184481f8b808f2dc"
+        },
+        {
+          "path": "paper/figures/a5_adaptive_six_methods_N1024_13dB_group02/visual_validation.json",
+          "sha256": "41d5b5f9ec8de563022e023283d4439343275e3f97dd1a5645b45e5a42c9f686"
+        }
+      ],
+      "details": {
+        "receive_sources": 16,
+        "display_sources": [
+          4,
+          21,
+          24,
+          29
+        ],
+        "SNR": 13,
+        "new_PHY": 32,
+        "profile_id": 3009,
+        "new_quality_calls": 15,
+        "old_metrics_recomputed": 0,
+        "new_bootstrap": 0
+      },
+      "limitation": "Prespecified development demonstration;not a holdout sample or evidence of population success rate."
+    }
+  ],
+  "receipt_audits": [
+    {
+      "receipt": "results/paper_supplement_20261008/native_bpg_paired_v1/completion.json",
+      "receipt_sha256": "fbb5683edcb2d84fd7d12800dc2a5687fd0542626abac9f9c564d9fc41a150b1",
+      "listed_outputs": 3,
+      "local_hash_verified": 3,
+      "remote_only_not_downloaded": 0,
+      "mismatches": []
+    },
+    {
+      "receipt": "results/paper_supplement_20261008/a1_bpg_adaptive/a1a_probe_v1/completion.json",
+      "receipt_sha256": "6b965847ac1ffde963a8c7baee3301d39402ed15743dc05ca0c2278bb147f89b",
+      "listed_outputs": 27823,
+      "local_hash_verified": 7,
+      "remote_only_not_downloaded": 27816,
+      "mismatches": []
+    },
+    {
+      "receipt": "results/paper_supplement_20261008/a1_bpg_adaptive/a1b_adaptive_v1/qualification/completion.json",
+      "receipt_sha256": "402983939a4ad3cd4ca8eb18b05d18c838e84bb8f4dad2e7f9bf8ba5a4b2af2f",
+      "listed_outputs": 42,
+      "local_hash_verified": 1,
+      "remote_only_not_downloaded": 41,
+      "mismatches": []
+    },
+    {
+      "receipt": "results/paper_supplement_20261008/a1_bpg_adaptive/a1b_adaptive_v1/screen/completion.json",
+      "receipt_sha256": "beb67a35f058d656bfc5e45d27310aa3f06f972334d38e284fc911b9c6773260",
+      "listed_outputs": 134,
+      "local_hash_verified": 1,
+      "remote_only_not_downloaded": 133,
+      "mismatches": []
+    },
+    {
+      "receipt": "results/paper_supplement_20261008/a1_bpg_adaptive/a1b_adaptive_v1/codec_calibration/completion.json",
+      "receipt_sha256": "8d11a0e9493e14131467aa113298f0a28cfdbc50654e1e2846a88cad1e4a24e2",
+      "listed_outputs": 216,
+      "local_hash_verified": 1,
+      "remote_only_not_downloaded": 215,
+      "mismatches": []
+    },
+    {
+      "receipt": "results/paper_supplement_20261008/a1_bpg_adaptive/a1b_adaptive_v1/calibration/completion.json",
+      "receipt_sha256": "b8082c4bf79ecf91e217fb0193418ee79cbd5af3b1a389ebd34b41c36133b5b5",
+      "listed_outputs": 1345,
+      "local_hash_verified": 2,
+      "remote_only_not_downloaded": 1343,
+      "mismatches": []
+    },
+    {
+      "receipt": "results/paper_supplement_20261008/a1_bpg_adaptive/a1b_adaptive_v1/freeze/completion.json",
+      "receipt_sha256": "1b616440b07a1367983e366856fd1d001767aeb0ea660a0fe4e7222437a23832",
+      "listed_outputs": 102,
+      "local_hash_verified": 2,
+      "remote_only_not_downloaded": 100,
+      "mismatches": []
+    },
+    {
+      "receipt": "results/paper_supplement_20261008/a2_swin/native_v1/completion.json",
+      "receipt_sha256": "b53713b2a7976e3609cd84076f34e2c3471436654863ddd72b84bad57d194341",
+      "listed_outputs": 44,
+      "local_hash_verified": 44,
+      "remote_only_not_downloaded": 0,
+      "mismatches": []
+    },
+    {
+      "receipt": "results/paper_supplement_20261008/a4_resources/v2/completion.json",
+      "receipt_sha256": "f9265fadeb4946dfd83e5d357f9a0340a6ae570794855b129d240b466736fa95",
+      "listed_outputs": 26,
+      "local_hash_verified": 25,
+      "remote_only_not_downloaded": 0,
+      "mismatches": [
+        {
+          "path": "results/paper_supplement_20261008/a4_resources/v2/console.log",
+          "expected": "f63e8915889b91d55fe8e5890d8f2762d9212ea08f9a1e6d11185762aa4f92fd",
+          "actual": "2769d69a4e2d8af8d6ed5aecd54d59227198985dd7564f9708e47785d179c1a8"
+        }
+      ]
+    },
+    {
+      "receipt": "results/paper_supplement_20261008/a4_resources/v2/DELIVERY_MANIFEST.json",
+      "receipt_sha256": "a58b3136b26368ff45df4d196caae8aa547f3d72a0d7fb173450ce490df8aa71",
+      "listed_outputs": 44,
+      "local_hash_verified": 44,
+      "remote_only_not_downloaded": 0,
+      "mismatches": []
+    },
+    {
+      "receipt": "paper/figures/a5_mechanism_N1024_10_19dB_group02/completion.json",
+      "receipt_sha256": "5428e04a02fa840311d3154e48b729bccdea09cc103dbf52d18ac27491488149",
+      "listed_outputs": 6,
+      "local_hash_verified": 6,
+      "remote_only_not_downloaded": 0,
+      "mismatches": []
+    },
+    {
+      "receipt": "paper/figures/a5_six_methods_N1024_13dB_group02/completion.json",
+      "receipt_sha256": "0c003e50f86d6e1ad2b8c84a901e0a0b2a043ee28c92549de13e426657c4e3d9",
+      "listed_outputs": 15,
+      "local_hash_verified": 15,
+      "remote_only_not_downloaded": 0,
+      "mismatches": []
+    },
+    {
+      "receipt": "paper/figures/a5_six_methods_N1024_13dB_group02/bpg_metrics_completion.json",
+      "receipt_sha256": "eb4a251e681e53866c99567a18fd7d0a08be36398d84c3858db8a64cc3470d26",
+      "listed_outputs": 33,
+      "local_hash_verified": 33,
+      "remote_only_not_downloaded": 0,
+      "mismatches": []
+    },
+    {
+      "receipt": "paper/figures/a5_six_methods_N1024_13dB_group02/missing_convnext/completion.json",
+      "receipt_sha256": "022a2c00cd66fec0a17cd96cad921e1b14c39aedb10eccdd5f413f0126b4a4be",
+      "listed_outputs": 9,
+      "local_hash_verified": 9,
+      "remote_only_not_downloaded": 0,
+      "mismatches": []
+    },
+    {
+      "receipt": "results/paper_supplement_20261008/a1_bpg_adaptive/a1b_adaptive_v1/codec_holdout/completion.json",
+      "receipt_sha256": "36a4341b92bb2ca0dfc4c73219405b47de531299ad5d02dec726b5c1a13e30c6",
+      "listed_outputs": 1016,
+      "local_hash_verified": 0,
+      "remote_only_not_downloaded": 1016,
+      "mismatches": []
+    },
+    {
+      "receipt": "results/paper_supplement_20261008/a1_bpg_adaptive/a1b_adaptive_v1/holdout/completion.json",
+      "receipt_sha256": "e9358f2e22bfa034303ab374163215c9a81b8601a817943fc8e6e318e2c1628f",
+      "listed_outputs": 4515,
+      "local_hash_verified": 0,
+      "remote_only_not_downloaded": 4515,
+      "mismatches": []
+    },
+    {
+      "receipt": "results/paper_supplement_20261008/a1_bpg_adaptive/a1b_adaptive_v1/resources_v1/completion.json",
+      "receipt_sha256": "9c9a308d62919f9f6dd07471b64fbb4878cca48493d1f921f5e98a316eff8f49",
+      "listed_outputs": 13,
+      "local_hash_verified": 13,
+      "remote_only_not_downloaded": 0,
+      "mismatches": []
+    },
+    {
+      "receipt": "results/paper_supplement_20261008/a1_bpg_adaptive/metrics_v1/completion.json",
+      "receipt_sha256": "d550cdf4371f4f1ffa50778ba56a47fc8ea33bc973f2e33dd76dd1b37b250c33",
+      "listed_outputs": 1507,
+      "local_hash_verified": 507,
+      "remote_only_not_downloaded": 1000,
+      "mismatches": []
+    },
+    {
+      "receipt": "results/paper_supplement_20261008/a5_examples/adaptive_actual_v1/completion.json",
+      "receipt_sha256": "fe84f0d2909045be77039c98305710871fc9c0c4c83a9e0600e0539c8cb49857",
+      "listed_outputs": 70,
+      "local_hash_verified": 0,
+      "remote_only_not_downloaded": 70,
+      "mismatches": []
+    },
+    {
+      "receipt": "paper/figures/a5_adaptive_six_methods_N1024_13dB_group02/completion.json",
+      "receipt_sha256": "6c1fbb229e1023f875aec64038aa2701b0d619e53184097870ca8b3d226f9e28",
+      "listed_outputs": 12,
+      "local_hash_verified": 12,
+      "remote_only_not_downloaded": 0,
+      "mismatches": []
+    },
+    {
+      "receipt": "paper/figures/a5_adaptive_six_methods_N1024_13dB_group02/metrics_completion.json",
+      "receipt_sha256": "78b649f8a54219e93fc54d27b4e4c996dc81a51bfdb8745e7b6714647bd8bfff",
+      "listed_outputs": 32,
+      "local_hash_verified": 32,
+      "remote_only_not_downloaded": 0,
+      "mismatches": []
+    }
+  ],
+  "hard_remaining_items": [],
+  "actual_final_stage_states": {
+    "adaptive_holdout": true,
+    "adaptive_resources": true,
+    "adaptive_metrics": true,
+    "adaptive_figures": true,
+    "adaptive_development_receive": true,
+    "adaptive_development_export": true
+  },
+  "last_remote_observation": {
+    "provenance": "parent coordinator messages plus downloaded actual receipts;this agent did not connect remotely",
+    "process_liveness_not_claimed": true,
+    "completion_claimed": true
+  },
+  "new_training": 0,
+  "new_inference": 0,
+  "new_channel": 0,
+  "new_bootstrap": 0,
+  "SSH_or_remote_dispatch": false
+}

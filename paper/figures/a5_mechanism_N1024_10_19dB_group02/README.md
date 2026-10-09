@@ -1,0 +1,7 @@
+# Fixed mechanism examples
+
+Fixed development examples at N = 1024 and SNR = 10 or 19 dB, using entries 5--8 of the historical fixed16 order. The same source images and the fixed noise seed 6201 are used for all digital arms; no best-noise selection is performed. Columns show the original, complete-scale transmission with VAR completion, partial-scale transmission without completion, and partial-scale transmission with VAR completion. The two partial-scale arms share actual received tokens and frozen decoder Dc. Direct decoding assigns zero contribution to absent residuals; it does not fill unknown tokens with codebook index zero or use extra source truth. Both transmission policies have the same modulation and coding permissions and match the final frozen policies. All images and per-image metrics are read from existing float reconstruction caches. These qualitative development samples are not an independent holdout evaluation.
+
+Prediction names in image_metrics.csv are automatic ConvNeXt labels, not verified semantic error annotations. Agreement is stored in its original 0--1 units and is not classification accuracy. reference_summary_all_metrics.csv copies the existing six-condition, 100-source control statistics without new bootstrap. These reference levels do not calibrate DINO similarity into a percentage of semantic correctness.
+
+Reproduce the portable display: `python scripts/plot_paper_mechanism_10_19.py --render`. On the original cache host, add `--collect`. PDF/SVG use vector text over the source photographs.

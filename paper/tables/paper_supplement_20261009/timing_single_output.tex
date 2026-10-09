@@ -1,0 +1,93 @@
+% Generated from hash-pinned completed CSVs. Requires \usepackage{booktabs}.
+% Milliseconds, directly formatted from original means/P95; no new estimation.
+\begin{table*}[t]
+\centering
+\caption{Single-output software timing in the same measurement environment.
+Each cell gives mean / empirical P95 in milliseconds. There are 16 fixed sources,
+one excluded warmup and three measured repetitions per source and SNR.
+End-to-end (E2E) uses the measured outer window with software channel time
+subtracted; it is not TX+RX and is not air-interface latency.
+Model loading, file I/O and quality scoring are excluded; endpoint device copies
+are included. The repeated measurements do not constitute independent noise trials.}
+\label{tab:single-output-timing}
+\small
+\setlength{\tabcolsep}{3pt}
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lrrccc@{}}
+\toprule
+Method & \shortstack{SNR\\(dB)} & \shortstack{Measured links\\/ attempts} & \shortstack{TX (ms)\\mean / P95} & \shortstack{RX (ms)\\mean / P95} & \shortstack{Software E2E (ms)\\mean / P95} \\
+\midrule
+Partial-scale digital + VAR & 7 & 48/48 & 20.66 / 21.05 & 172.58 / 173.73 & 193.27 / 194.78 \\
+ & 13 & 48/48 & 20.94 / 21.21 & 174.09 / 173.85 & 195.05 / 194.77 \\
+ & 19 & 48/48 & 71.71 / 73.23 & 188.40 / 189.56 & 260.15 / 261.16 \\
+\addlinespace[2pt]
+Full-scale digital + VAR & 7 & 48/48 & 20.57 / 20.97 & 172.26 / 173.02 & 192.86 / 194.03 \\
+ & 13 & 48/48 & 78.51 / 142.16 & 187.99 / 189.02 & 266.54 / 330.87 \\
+ & 19 & 48/48 & 58.95 / 58.60 & 192.30 / 214.90 & 251.27 / 283.33 \\
+\addlinespace[2pt]
+Latent continuous JSCC & 7 & 48/48 & 8.66 / 8.72 & 12.79 / 12.87 & 21.48 / 21.61 \\
+ & 13 & 48/48 & 8.64 / 8.68 & 12.77 / 12.80 & 21.44 / 21.50 \\
+ & 19 & 48/48 & 8.64 / 8.65 & 12.77 / 12.80 & 21.43 / 21.46 \\
+\addlinespace[2pt]
+SwinJSCC-80k (adapted) & 7 & 48/48 & 15.18 / 15.26 & 11.90 / 11.94 & 27.10 / 27.16 \\
+ & 13 & 48/48 & 15.18 / 15.35 & 11.77 / 11.89 & 26.97 / 27.27 \\
+ & 19$^{\ddagger}$ & 48/48 & 15.14 / 15.21 & 11.74 / 11.81 & 26.90 / 27.01 \\
+\addlinespace[2pt]
+BPG + LDPC (native 256)$^{\dagger}$ & 7 & \textbf{3/48} & 201.60 / 207.70 & 15.62 / 15.63 & 217.24 / 223.34 \\
+ & 13 & \textbf{12/48} & 221.63 / 238.91 & 15.23 / 15.33 & 236.89 / 254.18 \\
+ & 19 & \textbf{30/48} & 253.31 / 275.10 & 17.24 / 17.45 & 270.58 / 292.34 \\
+\bottomrule
+\end{tabular*}
+\par\vspace{2pt}
+\begin{minipage}{\textwidth}\footnotesize
+$^{\dagger}$\textbf{BPG link timings are conditional on an actual transmitted
+frame: only 3, 12 and 30 of 48 attempts at 7, 13 and 19 dB}, corresponding to
+1, 4 and 10 distinct sources. They are not full-population deployment averages.
+Failed source-coding costs are reported separately below; unavailable RX/E2E
+values are not replaced with zero. P95 is descriptive for these small samples.
+$^{\ddagger}$19 dB is outside Swin's training and calibration range.
+HiFi-DiffCom timing from a different environment is not included.
+\end{minipage}
+\end{table*}
+
+\begin{table}[t]
+\centering
+\caption{Native256 BPG source-capacity failures. These attempts run real source
+coding but produce no transmitted frame, RX or link E2E measurement. Costs are
+mean / empirical P95 in milliseconds. The failed-attempt outer window and
+source-codec component are alternatives, not additive costs.}
+\label{tab:bpg-source-unfit-cost}
+\small
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}rrcc@{}}
+\toprule
+\shortstack{SNR\\(dB)} & \shortstack{Unfit\\/ attempts} & \shortstack{Source coding\\mean / P95} & \shortstack{Attempt elapsed\\mean / P95} \\
+\midrule
+7 & 45/48 & 26.60 / 32.29 & 26.61 / 32.30 \\
+13 & 36/48 & 26.66 / 32.10 & 26.67 / 32.11 \\
+19 & 18/48 & 28.33 / 32.84 & 28.34 / 32.85 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table*}[t]
+\centering
+\caption{Loaded model and stored-file footprint for the measured methods.
+Parameters count unique loaded objects. Parameter tensors, checkpoint files and
+the classical codec library are different quantities; checkpoint files may
+include metadata. These are not minimal deployable sizes or energy measurements.
+The BPG row refers to native256 BPG, not the later adaptive-downsampling baseline.}
+\label{tab:single-output-storage}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lrrrr@{}}
+\toprule
+Method & \shortstack{Parameters\\(million)} & \shortstack{Parameter tensors\\(MiB)} & \shortstack{Checkpoint files\\(GiB)} & \shortstack{Codec library\\(MiB)} \\
+\midrule
+Partial-scale digital + VAR & 483.895 & 1845.91 & 2.287 & -- \\
+Full-scale digital + VAR & 483.895 & 1845.91 & 2.287 & -- \\
+Latent continuous JSCC & 174.107 & 664.16 & 1.135 & -- \\
+SwinJSCC-80k (adapted) & 33.073 & 126.17 & 0.135 & -- \\
+BPG + LDPC (native 256) & 0.000 & 0.00 & 0.000 & 15.02 \\
+\bottomrule
+\end{tabular*}
+\end{table*}

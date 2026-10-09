@@ -1,0 +1,45 @@
+% Generated from the unchanged A4 CSV; original500 x3-noise scope.
+% Requires \usepackage{booktabs}. Actual k/n is not the nominal rate label.
+\begin{table*}[t]
+\centering
+\caption{Frozen digital configurations at N=1024. $Q_m=\log_2 M$ is the number
+of coded bits per modulation symbol. The actual LDPC rate is $k/n$, where $k$
+includes the 16-bit body CRC. H/B/P denotes header/body/known-padding complex
+uses and sums to1024. Full-scale and partial-scale policies have the same legal
+modulation and coding permissions. A selected padded configuration does not
+imply that the full-scale control lacked a full-budget protection option.}
+\label{tab:selected-digital-configs}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}rlrrrlcl@{}}
+\toprule
+SNR (dB) & Scheme & $m$ & $K$ & $Q_m$ & Actual $k/n$ & H/B/P & Allocation class \\
+\midrule
+1 & Full-scale & 5 & 0 & 2 & 676/1912 & 68/956/0 & Full budget \\
+1 & Partial-scale & 5 & 18 & 2 & 892/1912 & 68/956/0 & Full budget \\
+\addlinespace[2pt]
+4 & Full-scale & 6 & 0 & 4 & 1108/3824 & 68/956/0 & Full budget \\
+4 & Partial-scale & 6 & 16 & 2 & 1300/1912 & 68/956/0 & Full budget \\
+\addlinespace[2pt]
+7 & Full-scale & 7 & 0 & 4 & 1876/3824 & 68/956/0 & Full budget \\
+7 & Partial-scale & 7 & 0 & 4 & 1876/3824 & 68/956/0 & Full budget \\
+\addlinespace[2pt]
+10 & Full-scale & 7 & 0 & 6 & 1876/5628 & 68/938/18 & Nominal \\
+10 & Partial-scale & 7 & 75 & 4 & 2776/3824 & 68/956/0 & Full budget \\
+\addlinespace[2pt]
+13 & Full-scale & 8 & 0 & 6 & 3076/5736 & 68/956/0 & Full budget \\
+13 & Partial-scale & 8 & 9 & 4 & 3184/3824 & 68/956/0 & Both \\
+\addlinespace[2pt]
+19 & Full-scale & 8 & 0 & 6 & 3076/3696 & 68/616/340 & Nominal \\
+19 & Partial-scale & 8 & 142 & 6 & 4780/5736 & 68/956/0 & Both \\
+\bottomrule
+\end{tabular*}
+\par\vspace{2pt}
+\begin{minipage}{\textwidth}\footnotesize
+``Both'' means that nominal and full-budget construction labels identify the
+same transmitted action, not two frames. Known padding is energized QPSK and
+carries no image information; it is not extra FEC or silent energy saving.
+Partial-scale selection permits $K=0$ and retains the full-scale option: the
+7 dB configuration is identical for both schemes.
+\end{minipage}
+\end{table*}

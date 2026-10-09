@@ -1,0 +1,221 @@
+{
+  "review_date_asia_shanghai": "2026-10-09",
+  "task": "A6 first-round nearest-neighbor review",
+  "first_round_review_status": "COMPLETE",
+  "native_candidate_limit": 1,
+  "selected_native_candidate": "ARPC",
+  "native_candidate_selected_for_inspection_only": true,
+  "remote_environment_inspected_this_subtask": false,
+  "scope": {
+    "training": false,
+    "gpu_inference": false,
+    "new_channel_simulation": false,
+    "weights_download": false,
+    "published_scientific_results_modified": false
+  },
+  "methods": [
+    {
+      "method": "ARPC",
+      "source_review_status": "COMPLETE",
+      "native_status": "NOT_RUN",
+      "paid_N1024_adapter_status": "UNSUPPORTED",
+      "unsupported_definition": "Current inspected author release has no verified paid-information N1024 wireless adapter; not a claim of impossibility.",
+      "author_repo": "https://github.com/Joanna-0421/ARPC",
+      "author_commit": "f7480889175271a58c7e5f8e48e0b58f247ccf63",
+      "paper": "https://tianweiz07.github.io/Papers/26-iclr-3.pdf",
+      "source_subset_sha256_verified_against_git_tree": true,
+      "full_repo_installed": false,
+      "entry": "demo.py (author script; not executed)",
+      "entry_calls": [
+        "load_tokenizer",
+        "load_visual_tokenizer",
+        "load_transformer",
+        "compress",
+        "decompress"
+      ],
+      "default_square_resolution": [
+        1024,
+        1024
+      ],
+      "default_pn": "1M",
+      "source_table_256_schedule_exists": true,
+      "source_table_256_pn": "0.06M",
+      "native_256_runtime_validated": false,
+      "rate_denominator_in_demo": "Hard-coded 1024*1024; must be explicit if changing resolution.",
+      "model_scale": {
+        "autoregressive_model": "Infinity-2B; paper Table 7 reports 2.2B excluding VAE",
+        "vae_encoder_parameters_paper": 44900000,
+        "vae_decoder_parameters_paper": 65000000,
+        "text_encoder": "google/flan-t5-xl; T5EncoderModel loaded in float16 by author source",
+        "text_encoder_parameters_measured": null,
+        "parameter_numbers_are_paper_reports_not_measured": true,
+        "complete_weights_bytes": null,
+        "peak_gpu_allocated_bytes": null,
+        "peak_gpu_reserved_bytes": null,
+        "single_case_tx_seconds": null,
+        "single_case_rx_seconds": null
+      },
+      "author_environment": {
+        "python": "3.10.16",
+        "torch": "2.5.1",
+        "torchvision": "0.20.1",
+        "transformers": "4.51.3",
+        "triton": "3.1.0",
+        "flash_attn": "unversioned in environment.yaml",
+        "cuda_toolkit": "12.4.1 with additional 12.9 packages in author export",
+        "platform": "Linux-specific conda packages"
+      },
+      "inspected_local_environment": {
+        "python_executable": "C:\\Users\\11946\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+        "python_version": "3.12.14 (main, Aug 25 2026, 14:01:42) [MSC v.1944 64 bit (AMD64)]",
+        "platform": "win32",
+        "inspection": "find_spec/metadata only; no imports of torch/CUDA/model code",
+        "modules": {
+          "torch": false,
+          "torchvision": false,
+          "transformers": false,
+          "flash_attn": false,
+          "triton": false,
+          "lpips": false,
+          "numpy": true,
+          "cv2": false,
+          "pandas": true,
+          "safetensors": false,
+          "huggingface_hub": false,
+          "pypdf": true
+        },
+        "commands": {
+          "conda": null,
+          "nvcc": null,
+          "gcc": null,
+          "g++": null
+        },
+        "syntax_checks": [
+          {
+            "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\results\\paper_supplement_20261008\\a6_neighbors\\primary_sources\\ARPC\\compression\\reciever.py",
+            "sha256": "f09a340271bbf1d5784700446ef299a0ec1b9666e4dff500e1c68688fae50f46",
+            "status": "PARSES"
+          },
+          {
+            "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\results\\paper_supplement_20261008\\a6_neighbors\\primary_sources\\ARPC\\compression\\sender.py",
+            "sha256": "506b4a7b9382fbc3bc75e4a7300a63f0921013ac366cc15abb1cbb25643ec395",
+            "status": "PARSES"
+          },
+          {
+            "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\results\\paper_supplement_20261008\\a6_neighbors\\primary_sources\\ARPC\\compression\\util.py",
+            "sha256": "50298335da1330683a1a7c7d5e6855435ea8aafdf100835515d4052ef05ef66e",
+            "status": "PARSES"
+          },
+          {
+            "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\results\\paper_supplement_20261008\\a6_neighbors\\primary_sources\\ARPC\\demo.py",
+            "sha256": "3b94881ec0c7e92daff8a796a1ed2298a7c7b1a942d5db42d6e1354b4f8fd1a2",
+            "status": "PARSES"
+          },
+          {
+            "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\results\\paper_supplement_20261008\\a6_neighbors\\primary_sources\\ARPC\\infinity\\utils\\dynamic_resolution.py",
+            "sha256": "d447af5315638f934c730ff28ab2be2e9d82881277a63cf35a0b0cdf8f7eeb60",
+            "status": "PARSES"
+          },
+          {
+            "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\results\\paper_supplement_20261008\\a6_neighbors\\primary_sources\\ARPC\\tools\\run_infinity.py",
+            "sha256": "18ed4df0bbf0aa009c757112269ce1268dc545ea6d2f8e479ab03d06e465d548",
+            "status": "PARSES"
+          },
+          {
+            "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\results\\paper_supplement_20261008\\a6_neighbors\\primary_sources\\ARPC\\utils\\arithmeticcoding.py",
+            "sha256": "5cf005c86517f0e0369b5fa70b3d51f6be8f3123f50067ec3448d99ec9e652fa",
+            "status": "PARSES"
+          }
+        ]
+      },
+      "weight_links": [
+        {
+          "expected_path": "weights/var_codec.pth",
+          "url": "https://drive.google.com/file/d/1i-cjvBlKQoHA_lkj_G-Iv7s1j4l6QHR4/view",
+          "link_page_http_status": 200,
+          "file_name_visible": true,
+          "download_verified": false,
+          "bytes": null,
+          "sha256": null
+        },
+        {
+          "expected_path": "weights/vae_d16_reg.ckpt",
+          "url": "https://drive.google.com/file/d/1-uwyu_7ZeCZfaRF4rv4gBbhSZmfY0geN/view",
+          "link_page_http_status": 200,
+          "file_name_visible": true,
+          "download_verified": false,
+          "bytes": null,
+          "sha256": null
+        },
+        {
+          "expected_path": "weights/flan-t5-xl",
+          "url": "https://huggingface.co/google/flan-t5-xl",
+          "config_fetched": true,
+          "download_verified": false,
+          "bytes": null,
+          "sha256": null
+        }
+      ],
+      "first_case": {
+        "status": "NOT_RUN",
+        "first_native_fixture": {
+          "img_path": "/gemini/code/Dataset/DIV2K-1024/0801.png",
+          "txt": "a penguin with a yellow beak standing on a rock"
+        },
+        "author_fixture_is_not_old_calibration": true,
+        "planned_calibration_source_count": 8,
+        "selection_rule": "First 8 sources in original frozen calibration order; first source only for initial cost measurement.",
+        "calibration_manifest_and_caption_binding": null,
+        "avoid_running_default_full_manifest": true,
+        "exact_loaded_weights_and_runtime": null
+      },
+      "native_missing": [
+        "full source checkout",
+        "verified author AR and VAE weights",
+        "flan-t5-xl weights and tokenizer",
+        "compatible CUDA/extensions environment",
+        "fixed calibration image/caption bindings",
+        "independent entropy decode roundtrip and first-case cost/VRAM receipt"
+      ],
+      "paid_adapter_missing": [
+        "serialized caption and bit-list framing/length cost",
+        "actual legal FEC/header/CRC and MCS",
+        "N=1024 total-symbol enforcement",
+        "frozen source/MCS policy and actual noisy receiver failure handling"
+      ]
+    },
+    {
+      "method": "Ada-TokenCom",
+      "source_review_status": "COMPLETE",
+      "native_status": "NOT_RUN",
+      "paid_N1024_adapter_status": "UNSUPPORTED",
+      "paper": "https://arxiv.org/html/2608.28086v1",
+      "author_repo": null,
+      "weights_manifest": null,
+      "native_entry": null,
+      "availability_reason": "No Ada-specific author code/weights/entry located in finite paper, author-site and GitHub checks as of review date; absence is not proven universally.",
+      "not_interchangeable_repo": "https://github.com/liqiao19/TokenCom_Code",
+      "not_interchangeable_reason": "README identifies a different 2025 IEEE Wireless Communications paper and MaskGIT implementation.",
+      "protocol_mismatch": [
+        "long-term average symbol budget",
+        "Rayleigh fading and Type-I ARQ",
+        "class-conditioned main experiment",
+        "quality on successful reconstructions"
+      ]
+    }
+  ],
+  "files": [
+    {
+      "path": "comparison.csv",
+      "sha256": "b14670965af882974e46867612a966b9304836a5a785547e0eda26c281c79095"
+    },
+    {
+      "path": "REPORT.md",
+      "sha256": "cb3d883cef1b2395cb9e8fc36ea5dd594358437a65653c7f156772d0b8e2930d"
+    },
+    {
+      "path": "STATIC_VERIFICATION.json",
+      "sha256": "ec56084d15ce5cc549cf72f1c78ca58ab1c0fcda8953aa744714151222c6c9e1"
+    }
+  ]
+}

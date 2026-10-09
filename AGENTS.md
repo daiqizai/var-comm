@@ -85,3 +85,7 @@ A source-informed calibration diagnostic is not a deployable content selector.
 Historical reference compatibility/necessary reevaluation and final reviewed
 publication/independent remote checkout remain required after the real grids.
 An execution milestone with pending items is not complete study delivery.
+
+## Timely publication (user instruction, 2026-10-09)
+
+After completing and verifying authorized work, commit the reviewed source, reports, figures and lightweight results and push normally to main before reporting delivery. Verify the remote SHA. Do not stop at local completion or request the same push authorization again. Preserve the existing exclusions and report a real push failure explicitly.

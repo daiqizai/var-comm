@@ -1,0 +1,117 @@
+{
+  "MCS_frozen": false,
+  "actual_noise_visible_to_source_selection": false,
+  "bpgdec": {
+    "path": "/home/liulu/projects/VAR_COMM/outputs/PAPER-SUPPLEMENT-20261008/vendor/libbpg-0.9.8/bpgdec",
+    "sha256": "5b005dca296459523a0d137dbf1836698c7a3711d7123be4dd5e6fe850c8565b"
+  },
+  "bpgenc": {
+    "path": "/home/liulu/projects/VAR_COMM/outputs/PAPER-SUPPLEMENT-20261008/vendor/libbpg-0.9.8/bpgenc",
+    "sha256": "10b5168ec895e50980f2f0c1b3cdfcf1b0ef02f9850d866a548196bf38f04c3a"
+  },
+  "capacity_bytes": [
+    76,
+    115,
+    155,
+    175,
+    195,
+    235,
+    315,
+    354,
+    394,
+    474,
+    534,
+    593
+  ],
+  "coarse_qps": [
+    0,
+    8,
+    16,
+    24,
+    32,
+    40,
+    48,
+    51
+  ],
+  "encoder_options": [
+    "-e",
+    "x265",
+    "-m",
+    "8",
+    "-f",
+    "420",
+    "-c",
+    "ycbcr",
+    "-b",
+    "8"
+  ],
+  "fine_rule": "all_integer_QPs_between_adjacent_coarse_points_straddling_any_capacity",
+  "holdout_used_for_rule_selection": false,
+  "limits": [
+    "This is not a claim of global rate-distortion optimality.",
+    "Noisy calibration and final500 evaluation remain NOT_RUN for this adaptive rule.",
+    "At most three MCS per SNR enter actual calibration after length-matched BLER pre-screening.",
+    "A same-capacity MCS with a different LDPC length cannot reuse another length's BLER."
+  ],
+  "link_failure_output": "RGB float32 constant0.5 on source-unfit/header rejection/body CRC rejection/parser rejection/BPG decode failure",
+  "model_training": false,
+  "name": "BPG with adaptive source downsampling + LDPC",
+  "original_native256_results": "retained as a separately labelled setting; not replaced",
+  "probe_completion_sha256": "6b965847ac1ffde963a8c7baee3301d39402ed15743dc05ca0c2278bb147f89b",
+  "probe_request_sha256": "56d803aa6cd6e7f2f09f32e4c63a0fc4791e4c51f61e5704cdd9fe6f334ec52c",
+  "probe_source_ids": [
+    "n01440764/ILSVRC2012_val_00045866_n01440764",
+    "n01443537/ILSVRC2012_val_00044095_n01443537",
+    "n01484850/ILSVRC2012_val_00029481_n01484850",
+    "n01491361/ILSVRC2012_val_00049000_n01491361",
+    "n01494475/ILSVRC2012_val_00027283_n01494475",
+    "n01496331/ILSVRC2012_val_00041248_n01496331",
+    "n01498041/ILSVRC2012_val_00030470_n01498041",
+    "n01514668/ILSVRC2012_val_00016052_n01514668",
+    "n01514859/ILSVRC2012_val_00006195_n01514859",
+    "n01518878/ILSVRC2012_val_00033181_n01518878",
+    "n01530575/ILSVRC2012_val_00027374_n01530575",
+    "n01531178/ILSVRC2012_val_00025888_n01531178",
+    "n01532829/ILSVRC2012_val_00030042_n01532829",
+    "n01534433/ILSVRC2012_val_00030911_n01534433",
+    "n01537544/ILSVRC2012_val_00031716_n01537544",
+    "n01558993/ILSVRC2012_val_00029417_n01558993",
+    "n01560419/ILSVRC2012_val_00041990_n01560419",
+    "n01580077/ILSVRC2012_val_00032831_n01580077",
+    "n01582220/ILSVRC2012_val_00018183_n01582220",
+    "n01592084/ILSVRC2012_val_00019788_n01592084",
+    "n01601694/ILSVRC2012_val_00020730_n01601694",
+    "n01608432/ILSVRC2012_val_00018796_n01608432",
+    "n01614925/ILSVRC2012_val_00044921_n01614925",
+    "n01616318/ILSVRC2012_val_00006250_n01616318",
+    "n01622779/ILSVRC2012_val_00016292_n01622779",
+    "n01629819/ILSVRC2012_val_00000890_n01629819",
+    "n01630670/ILSVRC2012_val_00002774_n01630670",
+    "n01631663/ILSVRC2012_val_00011416_n01631663",
+    "n01632458/ILSVRC2012_val_00007050_n01632458",
+    "n01632777/ILSVRC2012_val_00044504_n01632777",
+    "n01641577/ILSVRC2012_val_00003748_n01641577",
+    "n01644373/ILSVRC2012_val_00012248_n01644373"
+  ],
+  "qp_range": [
+    0,
+    51
+  ],
+  "receiver_resize": "decode complete BPG to its signalled dimensions; Pillow uint8 RGB bicubic to256",
+  "resolutions": [
+    256,
+    128,
+    64,
+    32
+  ],
+  "schema": "A1B_ADAPTIVE_BPG_SOURCE_RULE_V1",
+  "source_metadata": "dimensions are carried inside the complete paid BPG file; no free per-image side information",
+  "source_resize": "Pillow uint8 RGB bicubic from the same original256",
+  "source_selection": "among actually encoded and independently decoded candidates fitting the paid byte capacity: minimum float64 per-image MSE to original256",
+  "source_tie_break": [
+    "smaller complete BPG byte length",
+    "larger input resolution",
+    "smaller QP"
+  ],
+  "status": "SOURCE_RULE_FROZEN_MCS_NOT_SELECTED"
+}

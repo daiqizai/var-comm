@@ -1,0 +1,43 @@
+% Existing completed CSV estimates only; this script does not bootstrap.
+\newcommand{\AdaptiveBPGMainCaption}{Comparison at $N=1024$ paid forward complex
+channel uses on the common 500-source holdout, with three fixed noise realizations
+per source and SNR. The proposed partial-scale digital system with VAR completion,
+latent continuous JSCC, and adapted SwinJSCC-80k retain their original published
+means and pointwise 95\% intervals. Native-resolution and adaptive-resolution BPG
+plus LDPC are post-hoc supplementary baselines: their MCS policies are frozen
+using the old 100-source calibration population and all-source per-image PSNR,
+without selecting on holdout scores. The predefined adaptive source rule uses
+sender-side image MSE and actual encoded lengths, never the current noise.
+The adaptive codec includes non-learned
+downsampling candidates and fixed bicubic restoration to the same 256-pixel
+reference; it does not replace the native-resolution setting. All scheduled
+outcomes, including source infeasibility, header/body rejection and image decode
+failure with the prescribed gray fallback, remain in the reported means.
+PSNR, LPIPS-Alex, DINOv2-ViT-L/14 cosine similarity, and ConvNeXt agreement with
+the original source prediction are shown; agreement is not classification
+accuracy. Higher is better except for LPIPS. Bands are the existing source-level
+95\% intervals read from the completed CSV: each source first averages its three
+noise realizations. No statistics are recomputed by the plotting code. Equal
+sources and total symbol budget do not imply shared noisy observations or equal
+training/search budgets. 19 dB is outside Swin's training and calibration range;
+its final marker is hollow and the 13--19 dB segment is dashed. The 80k adaptation
+is not claimed to be officially optimal or fully converged.}
+
+\newcommand{\AdaptiveBPGPairedCaption}{Source-paired increments of the later-added
+adaptive-resolution BPG plus LDPC baseline over the frozen native-resolution BPG
+plus LDPC baseline on the same 500 sources and six SNRs: adaptive $-$ native.
+Each arm first averages its three prescribed noise realizations per source.
+Pairing is by source, not a claim of identical waveforms or noisy observations.
+Points, connecting lines and error bars are the already completed paired means
+and pointwise 95\% intervals; the zero line is retained and single-method
+intervals are never subtracted to manufacture difference intervals. Positive
+increments favor adaptive resolution for PSNR, DINOv2-L similarity and ConvNeXt
+source-prediction agreement; negative increments favor it for LPIPS, whose sign
+is unchanged. Agreement increments and intervals are percentage points, not
+relative percentages. Both post-hoc BPG baselines use calibration-only MCS
+selection with the stated old 100-source PSNR criterion; source-codec settings
+are fixed separately and all failure outputs
+are included. The contrast changes the source codec's resolution-selection
+setting and possibly its selected MCS, so it is a complete-system comparison,
+not a pure one-factor effect of downsampling. No holdout reselection or new
+bootstrap is performed while plotting.}

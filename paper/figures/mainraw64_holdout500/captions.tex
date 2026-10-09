@@ -1,0 +1,49 @@
+% Existing published estimates only; no statistics were recomputed.
+% Use \caption{\MainRawMainCaption} etc. within your paper's figure environment.
+\newcommand{\MainRawMainCaption}{Main results on the frozen 500-source holdout at
+$N=1024$ transmitted complex channel symbols, including the charged header.
+Proposed (raw + partial + VAR), P1024, and SwinJSCC-80k (adapted) are compared in
+PSNR, LPIPS-Alex, DINOv2-ViT-L/14 cosine similarity, and ConvNeXt prediction
+agreement with the original source prediction (not classification accuracy).
+Higher is better except for LPIPS. Means and shaded pointwise 95\% confidence
+intervals are read directly from the published summary CSV. Each source first
+averages its three frozen noise realizations; the existing 10,000-replicate
+bootstrap weights the 500 sources equally, without multiplicity correction.
+19 dB is outside Swin's training and calibration range. Its 19 dB marker is hollow
+and its 13--19 dB segment is dashed. Swin uses six body channels (768 symbols) and
+a 256-symbol protected header; this frozen adaptation and fixed 80k checkpoint
+are not asserted to be the official optimum or fully converged. Equal source
+count and total $N$ do not imply equal training, search, or header-protection
+budgets. Only the three methods available in this holdout are plotted.}
+
+\newcommand{\MainRawPartialCaption}{Partial-scale ablation on the same frozen
+500-source holdout. Points, straight connecting lines, and error bars show the
+published source-paired mean differences and pointwise 95\% confidence intervals
+for PARTIAL $-$ WHOLE, with VAR completion used in both arms. The dashed horizontal
+line marks zero. Positive differences favor PARTIAL for PSNR, DINOv2-L cosine
+similarity, and ConvNeXt prediction agreement; negative differences favor PARTIAL
+for LPIPS. ConvNeXt differences are percentage points, not relative percentages.
+The intervals come directly from the paired CSV, not from subtraction of
+single-method intervals. Both schemes have the same modulation and coding
+permissions. PARTIAL can fall back to a whole-scale configuration: the final
+WHOLE calibration winner remains eligible, and $K>0$ is not forced at every SNR.
+The exact zero increments at 7 dB and the small or zero increments at 13 dB are
+retained. Per-source three-noise means and the existing 500-source bootstrap are
+used without recomputation or holdout reselection. This contrast is separate
+from the VAR-completion ablation; the two sets of increments are not added.}
+
+\newcommand{\MainRawCompletionCaption}{VAR-completion ablation on the frozen
+500-source holdout, with the PARTIAL transmission configuration held fixed.
+Points, straight connecting lines, and error bars show the published source-paired
+mean differences and pointwise 95\% confidence intervals for VAR completion $-$
+Direct decoding; the dashed horizontal line marks zero. Both arms use the same
+actually received tokens from each transmission and the same frozen decoder
+$D_c$. Direct decoding does not generate untransmitted residuals: their residual
+embedding contribution is set to zero. This is not filling unknown tokens with
+codebook index zero, and Direct receives no additional source-image ground truth.
+Positive differences favor VAR completion for PSNR, DINOv2-L cosine similarity,
+and ConvNeXt prediction agreement; negative differences favor VAR completion
+for LPIPS. ConvNeXt differences and their intervals are expressed in percentage
+points. All estimates and intervals are read from the existing paired CSV after
+the original three-noise source averaging and 500-source bootstrap; no new
+bootstrap is performed. This contrast is not added to PARTIAL $-$ WHOLE.}
