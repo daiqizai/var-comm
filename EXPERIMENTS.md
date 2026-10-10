@@ -1,4 +1,16 @@
-## Full1000 calibration policies and mismatch statistics completed (2026-10-10)
+## Independent new100 source and channel stages completed (2026-10-11)
+
+The independent 100-source encoder/TX owner actually exited 0 after 222.77 seconds. Its closed ledger records one model load, 100 frozen encoder calls, 100 fresh entropy source TX calls and 1,000 prior-scale calls, with zero unresolved calls. All 2,928 closed artifacts, including 200 source arrays and 1,201 actual reservation/completion pairs, were independently verified and preserved in a 20.65 MB exact archive. The source stage performs no receiver decode, reconstruction, quality score or bootstrap.
+
+The four-arm N1024 channel owner has now actually completed all 3,600 logical frames: 100 fixed independent sources, SNRs 4/10/19 dB, three noises and four methods. All 3,600 physical observations and 7,200 actual packet decodes are accounted for with zero unresolved calls. The independent read-only audit verifies every paid packet result against the immutable ledger and retains all logical receive outcomes. It introduces no new noise simulation or decode call. RAW433, original entropy WHOLE144 and allowed-partial entropy360 catalogues remain separate, with their original frozen packet and failure rules. The portable T1 binding verifies the old 241-call qualification; it does not assert a new 241-call run.
+
+The closed failure inventory retains 13 body-CRC rejections among the 300 raw partial-scale frames at 10 dB; those frames keep their actual hard tokens under the frozen receiver rule. All other body-CRC rejection counts, all header rejections and all received-profile mismatches are zero. The 1,800 entropy frames have parsed link payloads, but independent entropy source decoding has not yet been claimed.
+
+These are completed source and channel stages. At this publication freeze no new100 reconstruction owner or quality evaluation is claimed complete; the next GPU stage is waiting for the existing shared-resource admission. The four policies remain frozen from the completed original 1000 calibration and no new100 result is used to choose them. Link payload parsing is not image reconstruction or final confirmation evidence. RAW body-CRC rejection keeps actual hard tokens, so it must not be relabeled a fixed-gray failure. Recorded-study exclusion, fixed 100 membership, common noise variates, finite budgets and all prior failed-attempt evidence remain intact.
+
+[Closed new100 source stage](experiments/entropy-partial-mismatch-20261010/reports/h800_ep_new100_source_v1.json) and [closed four-arm channel stage](experiments/entropy-partial-mismatch-20261010/reports/h800_ep_new100_phy_v1.json).
+
+## Prior publication snapshot: full1000 calibration and mismatch statistics (2026-10-10)
 
 The complete original1000 four-metric calibration owner actually exited 0 after 937.03 seconds. All 36,000 logical rows preserve the original 1,000 sources, three noises, SNRs 4/10/19 dB and four admitted finalists per SNR. Its closed ledger records three metric models, 900 newly prepared references and 5,111 new source/reconstruction score pairs; 3,600 logical rows reuse exact closed-pilot pairs and 27,289 reuse pairs already scored in this run. The independent archive audit verifies all 71,995 files, 33,369 reservation/completion pairs, every logical row's actual receive outcome and reconstruction identity, and the unchanged full1000 winner computation. No score, image or bootstrap was recomputed by that audit.
 
