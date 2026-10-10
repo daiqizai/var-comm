@@ -1,0 +1,181 @@
+{
+  "schema": "H800_EP_ORIGINAL100_PILOT_PHY_PUBLIC_STATUS_V1",
+  "status": "PASS_H800_ORIGINAL100_PILOT_PHY_ONLY",
+  "publication_state": "CLOSED_ACTUAL_RECEIPT_PROJECTION",
+  "request_sha256": "34a3538a57650dcc54c00abcf9ca45b3cde2dfc11e02d125b96e42555accd478",
+  "actual_owner": {
+    "phase": "run_owner",
+    "actual_wait": true,
+    "returncode": 0,
+    "elapsed_seconds": 856.4328651700635,
+    "cpu_affinity": [
+      0,
+      1
+    ],
+    "GPU_calls": 0,
+    "log_sha256": "4d0c9d05bd38cd6c94c9bbd67e44686330d9ef4e2fafc7a8b82a535306c07495"
+  },
+  "source_population": "ORIGINAL_CALIBRATION_FIRST100",
+  "source_count": 100,
+  "SNRs": [
+    4,
+    10,
+    19
+  ],
+  "noise_seeds": [
+    4101
+  ],
+  "candidate_count": 144,
+  "logical_frames": 43200,
+  "actual_new_physical_observations": 17201,
+  "actual_packet_decodes": 34402,
+  "actual_decode_kinds": {
+    "header": 17201,
+    "body": 17201
+  },
+  "packet_ledger": {
+    "cap": 86400,
+    "total": 34402,
+    "unresolved": 0
+  },
+  "logical_reuse_counts": {
+    "actual_new_physical": 17201,
+    "reused_closed48": 102,
+    "reused_this_pilot": 25897
+  },
+  "logical_outcomes_by_SNR": {
+    "4": {
+      "logical_frames": 14400,
+      "PAYLOAD_PARSED": 2943,
+      "CRC_REJECT": 11457
+    },
+    "10": {
+      "logical_frames": 14400,
+      "PAYLOAD_PARSED": 7679,
+      "CRC_REJECT": 6721
+    },
+    "19": {
+      "logical_frames": 14400,
+      "PAYLOAD_PARSED": 14400
+    }
+  },
+  "known48_references_preserved": true,
+  "earlier_gate_counts_preserved": true,
+  "CUDA_initialized": false,
+  "neural_model_calls": 0,
+  "quality_scores": 0,
+  "training_updates": 0,
+  "original_frozen_PHY_and_full360_catalogue_preserved": true,
+  "backend_identity": {
+    "bit_mapping": "original_MAIN_q2_q4_and_q6_Gray_I_then_Q;nominal_Es2;no_frame_normalization",
+    "decoder": {
+      "cn_schedule": "flooding",
+      "cn_update": "boxplus-phi",
+      "early_stop": false,
+      "hard_out": true,
+      "harq_mode": false,
+      "llr_max": 20.0,
+      "num_iter": 20,
+      "precision": "single",
+      "prune_pcm": true,
+      "return_infobits": true,
+      "vn_update": "sum"
+    },
+    "device": "cpu",
+    "implementation": "Sionna_5G_LDPC_WCL_T1_ADAPTER_V1",
+    "original_backend_identity": {
+      "bit_mapping": "component_Gray_00_-3_01_-1_10_3_11_1_over_sqrt5;QPSK_0_plus1_1_minus1",
+      "cuda": "12.8",
+      "decoder": {
+        "cn_schedule": "flooding",
+        "cn_update": "boxplus-phi",
+        "early_stop": false,
+        "hard_out": true,
+        "harq_mode": false,
+        "llr_max": 20.0,
+        "num_iter": 20,
+        "precision": "single",
+        "prune_pcm": true,
+        "return_infobits": true,
+        "vn_update": "sum"
+      },
+      "decoder_source_sha256": "44d84b92b749e2970f94d92cd348a11648e2286b4d851faa0af8b21d08f0da23",
+      "encoder_source_sha256": "34d8db6660b2e84708a8fb534f63c194f6f2b964e3693fcffc9dcaf21532ccfd",
+      "implementation": "Sionna_5G_LDPC",
+      "power_protocol": "fixed_constellation_average_Es2",
+      "precision": "float32",
+      "rate_matching": "Sionna RV0; filler removal, first2Z and tail puncturing; supported n only",
+      "scrambling": "public_PCG64_SHA256_protocol_session_frame_group_counter_after_rate_matching_v1",
+      "torch": "2.11.0+cu128",
+      "version": "2.2.0"
+    },
+    "power_protocol": "fixed_constellation_average_Es2_no_per_frame_normalization",
+    "precision": "float32",
+    "rate_matching": "Sionna RV0; filler removal, first2Z and tail puncturing; supported n only",
+    "scrambling": "WCL_T1_public_PCG64_SHA256_protocol_session_counter_after_RV0_v1"
+  },
+  "catalogue_sha256": "687cc3b3760a46acca57afaa36b6b2f304c8a8df13d657bcd1f8c98d704e4a3e",
+  "qualification_sha256": "ee7a5d9359e82dba62bfdaa3f4d1246815a05f13f393edd23500a6bdd6f6967d",
+  "source68_completion_sha256": "2479e9a4c89f55bb7741fd525bbe0f44778ebd8c923a3674401ba595319db0b1",
+  "source68_owner_wait_sha256": "e99988b9b9676f92416179c63be5a3170c65fa8dc8e5c06f1a0c9ab4658180aa",
+  "code_bindings": {
+    "experiments/entropy-partial-mismatch-20261010/scripts/ep_phy.py": "12cad3e495fc91d8f6819b895674df08e312da3833291019b8966a2211ec8c75",
+    "experiments/entropy-partial-mismatch-20261010/scripts/ep_plan.py": "7f354687caa3271ce4375f598f4d9e3ff6086df28d8be478c80835ab4ccd7862",
+    "experiments/entropy-partial-mismatch-20261010/scripts/ep_qualify_phy.py": "87db9e0bf0b366a0fb51eca9ac431b24044c7ff031e4c617ef9d49b63d58d224",
+    "experiments/entropy-partial-mismatch-20261010/scripts/ep_source_codec.py": "65a9f599bef2205c15f864f40ec07f27d8c9d03ed2d318838706f29dd1b3cb4e",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_ep32_source_gate_v1.py": "5ffd10b0e44e18667b9de87ac5dfbdf01a0a99948d081a8293b61c20815787c7",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_ep48_link_core_v1.py": "4ee75147eec3e1008045bc7cfd30eb0cb0ff96d0468097384251a48870deabb4",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_ep48_link_gate_v1.py": "2d904126bcd99465a971314148e09aa2b4a9f9e1dbf1bcf3595ec42a702f6882",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_pilot_core_v1.py": "3f0ea97b7902de4c24e80ebcfe731b160863ac252ba7ff81948e86b7ca0103cb",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_pilot_phy_v1.py": "61683057d883ae6ecd317d7ab998930e9e367fade54ca3ef97d791431f90aaed",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_pilot_source_v1.py": "661d6f1c8c45b3b324c8c488118ccb4c96c3ea8217281bd4d6bb0ebd014403e2",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_same_host_codec_v1.py": "04972f2c45d88e61d5d6d1abe528ec3db2838efa045171e520dd59db0171782f",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_single_rx_v1.py": "d2a8410f02078ba44f08d9e2e490174fb6f4549f60df2b4300a56592e6fd2f4a",
+    "experiments/entropy-partial-mismatch-20261010/scripts/leo_runtime_verify_v1.py": "77a059e9c8f4d4328b338274ef2dd8580c6634bd3e1d5ba0e6613b7237422981",
+    "experiments/entropy-partial-mismatch-20261010/scripts/leo_shared_preflight.py": "0f7473aa003991edca43a4587bbd03dfef0955e13f85cf23ffaff1dae1cf66ab",
+    "experiments/entropy-partial-mismatch-20261010/scripts/leo_single_rx_diagnostic_v2.py": "08835b22a2c4378cd462ae68690d2d00e2865971c130d4456dc21122d6df6de7",
+    "experiments/entropy-partial-mismatch-20261010/scripts/leo_whole_gate_v1.py": "06c8f1659eed5d67c9bcd368a91f6c35628d83136e4a9ff4e2fbe356cb65f81b",
+    "experiments/entropy-partial-mismatch-20261010/scripts/leo_whole_math_v1.py": "db4349f936b2cd0c267932cc286e2661e1f7d56dd10d1c4e4a5d7d90ec279252"
+  },
+  "receipt_pins": {
+    "registered/request.json": "34a3538a57650dcc54c00abcf9ca45b3cde2dfc11e02d125b96e42555accd478",
+    "registered/run/completion.json": "29c33fb4b25aa07041924f9f5f763e8a8526a6ef764062164f683aa868c40340",
+    "registered/run/worker_completion.json": "e635d27a7d355f2260c20390d8366e33a7722f2edb77676287f9d3a59414d880",
+    "registered/run/actual_child_wait.json": "d620922a3e836122adcb1071c777b7f79f5369bb379a1d0dc713a109dd37fb84",
+    "run_owner_actual_wait.json": "631550af0d92fa53b72f0cdb38bde602fff7e6a229a3c382529e70ac7ab24409"
+  },
+  "export_verification": {
+    "status": "CLOSED_PILOT_PHY_ALL_MEMBERS_LINKS_AND_ACTUAL_DECODES_VERIFIED",
+    "archive_files": 60418,
+    "uncompressed_bytes": 1156854735,
+    "archive_bytes": 118236194,
+    "archive_sha256": "6bfbb603ade12ff7090f7f5f0dad2b4ba66f79167f8f4f59d25001a8f612fac4",
+    "export_manifest_sha256": "2667852e3bcb43765ca386baed6d888e63da09776185a227a6ea4e1c2a474d67",
+    "logical_frames": 43200,
+    "actual_new_physical_observations": 17201,
+    "actual_packet_decodes": 34402,
+    "actual_decode_kinds": {
+      "header": 17201,
+      "body": 17201
+    },
+    "logical_reuse_counts": {
+      "actual_new_physical": 17201,
+      "reused_closed48": 102,
+      "reused_this_pilot": 25897
+    },
+    "known_closed48_packet_references": 48,
+    "unresolved_decodes": 0,
+    "every_logical_to_physical_SHA_verified": true,
+    "every_actual_RX_matches_durable_decoder_result": true,
+    "new_PHY_calls_during_export": 0,
+    "new_neural_model_calls_during_export": 0
+  },
+  "automatic_successor": false,
+  "production_admission": false,
+  "limits": [
+    "Logical candidate evaluations include exact-event reuse and must not be counted as new decoder calls.",
+    "Actual received header/body results are preserved, including failures and error-accepted profiles; TX truth is not a receive input.",
+    "This closes the original100 CPU pilot PHY only; reconstruction, metrics, ranking, full calibration and confirmation require their own actual evidence.",
+    "Known48 external packet references restore from the closed EP48/v10 evidence and remain separately counted."
+  ]
+}
