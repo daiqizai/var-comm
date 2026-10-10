@@ -1,0 +1,283 @@
+{
+  "schema": "H800_EP_ORIGINAL1000_FULL_VISUAL_PUBLIC_STATUS_V2",
+  "status": "PASS_H800_ORIGINAL1000_FULL_RECONSTRUCTIONS_ONLY",
+  "publication_state": "CLOSED_ACTUAL_RECEIPT_PROJECTION",
+  "request_sha256": "e0824bee0f44290bc391ad33ccfed70bcfd40d6b9429052aa7ac85611e9fd3c0",
+  "actual_owner": {
+    "phase": "run_owner",
+    "actual_wait": true,
+    "returncode": 0,
+    "elapsed_seconds": 3592.544259723043,
+    "cpu_affinity": [
+      7,
+      8
+    ],
+    "target_GPU": 2,
+    "log_sha256": "f5a2a49b6bdde9b1e0f1427d11de34237c5496e33033fb5653d6e00ccb8634f0"
+  },
+  "source_population": "ORIGINAL_CALIBRATION_FULL1000",
+  "source_count": 1000,
+  "SNRs": [
+    4,
+    10,
+    19
+  ],
+  "noise_seeds": [
+    4101,
+    4102,
+    4103
+  ],
+  "logical_frames": 36000,
+  "actual_counts": {
+    "caps": {
+      "decoder_forward": 36000,
+      "encoder": 0,
+      "model_load": 1,
+      "prior_scale": 720000,
+      "source_rx": 36000,
+      "source_tx": 0,
+      "var_render": 36000
+    },
+    "completed": {
+      "decoder_forward": 5110,
+      "encoder": 0,
+      "model_load": 1,
+      "prior_scale": 91622,
+      "source_rx": 5110,
+      "source_tx": 0,
+      "var_render": 5110
+    },
+    "reserved": {
+      "decoder_forward": 5110,
+      "encoder": 0,
+      "model_load": 1,
+      "prior_scale": 91622,
+      "source_rx": 5110,
+      "source_tx": 0,
+      "var_render": 5110
+    },
+    "unresolved": 0
+  },
+  "reuse": {
+    "closed_pilot": 3603,
+    "new_actual_source_inputs": 5110,
+    "same_run": 27287
+  },
+  "new_float32_archives": 5110,
+  "logical_outcomes_by_SNR": {
+    "4": {
+      "logical_frames": 12000,
+      "actual_RX_PAYLOAD_PARSED": 11994,
+      "reconstruction_tokens": 11994,
+      "source_status_ARITHMETIC_SOURCE_DECODED": 11994,
+      "actual_RX_CRC_REJECT": 6,
+      "reconstruction_gray": 6,
+      "source_status_CRC_REJECT": 6
+    },
+    "10": {
+      "logical_frames": 12000,
+      "actual_RX_PAYLOAD_PARSED": 12000,
+      "reconstruction_tokens": 12000,
+      "source_status_ARITHMETIC_SOURCE_DECODED": 12000
+    },
+    "19": {
+      "logical_frames": 12000,
+      "actual_RX_PAYLOAD_PARSED": 12000,
+      "reconstruction_tokens": 12000,
+      "source_status_ARITHMETIC_SOURCE_DECODED": 12000
+    }
+  },
+  "old_pilot_counts_preserved": true,
+  "exact_float32_images_preserved": true,
+  "original_frozen_models_and_source_math_preserved": true,
+  "model_state_identity": {
+    "decoder": "bf1d64bf8ff7eeda416032daa2ada1654fb37de2553235e85d364211ddfefad1",
+    "vae": "6830fc533a34d52c8f765a7b212782a5b5ef6138992099e8a817ce920fe6fe2b",
+    "var": "b82cb0855b24e1d0d8d0aacebbb2d2d6728c2dcc6509b667dfa697c9330347d5"
+  },
+  "numeric_settings": {
+    "FP32": true,
+    "TF32": false,
+    "batch_size": 1,
+    "cudnn_benchmark": false,
+    "cudnn_deterministic": true,
+    "deterministic": true,
+    "precision": "highest",
+    "runtime": {
+      "cuda": "12.8",
+      "cudnn": 91900,
+      "interop_threads": 2,
+      "numpy": "2.2.6",
+      "python": "3.10.12",
+      "threads": 6,
+      "torch": "2.11.0+cu128"
+    }
+  },
+  "native_binding_sha256": "eb641b1f3139960b67b6342417eba09fb0aaed26784c93f99c1d85c9437a4868",
+  "source_math_SHA": "db4349f936b2cd0c267932cc286e2661e1f7d56dd10d1c4e4a5d7d90ec279252",
+  "source_codec_SHA": "65a9f599bef2205c15f864f40ec07f27d8c9d03ed2d318838706f29dd1b3cb4e",
+  "received_render_core_SHA": "4ee75147eec3e1008045bc7cfd30eb0cb0ff96d0468097384251a48870deabb4",
+  "resource_policy": {
+    "CPU_host_disk_gates_unchanged": true,
+    "external_or_unknown_memory_credit_bytes": 0,
+    "own_allocator_cap_bytes": 17179869184,
+    "own_credit": "minimum_of_current_process_same_device_reserved_before_and_after_NVML_sample",
+    "prelaunch_free_bytes": 21474836480,
+    "prelaunch_utilization_max": 50,
+    "runtime_free_bytes": 4294967296,
+    "runtime_free_plus_own_reserved_bytes": 21474836480,
+    "schema": "H800_GPU2_SELF_RESERVED_RESOURCE_POLICY_V2",
+    "scientific_calls": 0,
+    "target_index": 2,
+    "uninitialized_or_absent_torch_credit_bytes": 0
+  },
+  "code_bindings": {
+    "experiments/entropy-partial-mismatch-20261010/scripts/ep_phy.py": "12cad3e495fc91d8f6819b895674df08e312da3833291019b8966a2211ec8c75",
+    "experiments/entropy-partial-mismatch-20261010/scripts/ep_plan.py": "7f354687caa3271ce4375f598f4d9e3ff6086df28d8be478c80835ab4ccd7862",
+    "experiments/entropy-partial-mismatch-20261010/scripts/ep_qualify_phy.py": "87db9e0bf0b366a0fb51eca9ac431b24044c7ff031e4c617ef9d49b63d58d224",
+    "experiments/entropy-partial-mismatch-20261010/scripts/ep_source_codec.py": "65a9f599bef2205c15f864f40ec07f27d8c9d03ed2d318838706f29dd1b3cb4e",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_ep32_source_gate_v1.py": "5ffd10b0e44e18667b9de87ac5dfbdf01a0a99948d081a8293b61c20815787c7",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_ep48_link_core_v1.py": "4ee75147eec3e1008045bc7cfd30eb0cb0ff96d0468097384251a48870deabb4",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_ep48_link_gate_v1.py": "2d904126bcd99465a971314148e09aa2b4a9f9e1dbf1bcf3595ec42a702f6882",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_full_evaluation_core_v1.py": "6ca973dcf0e1fd3fb5ebfd405e913c1e16a6fd4b80e24740b667baed6d6f4f7e",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_full_phy_core_v1.py": "9891079955cfb2988a05e5a7e7f5ea9bcf2eb653ec47817afd10feb343c99866",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_full_phy_v1.py": "51217148ec4da7aecb171eb38378380c9f1e33edca31a692f743ba3dbf09a3f0",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_full_source_v1.py": "0f565e6862aa0bda4f165d8a7a578e69458c298853ddad7581398e60ac625d3b",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_full_visual_v1.py": "44ed9ab36c2507ad4919aeb20c082701362521058f9c126c2774eb9b353e58a9",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_full_visual_v2.py": "6b1c81ef90be96d4c83a509464973e8f75f424ec6dcf62452d0035c2c5e149bd",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_pilot_core_v1.py": "3f0ea97b7902de4c24e80ebcfe731b160863ac252ba7ff81948e86b7ca0103cb",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_pilot_metric_owner_v1.py": "8f5b04978b23d8b4525b03599d13a9aa1277872481624fa17c5a0627f43b60e1",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_pilot_metrics_v1.py": "6bde19df620a7dbf391f5d406daa3b4c1de2a66d051c990c26ae9a2474c1ec8d",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_pilot_phy_v1.py": "61683057d883ae6ecd317d7ab998930e9e367fade54ca3ef97d791431f90aaed",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_pilot_source_v1.py": "661d6f1c8c45b3b324c8c488118ccb4c96c3ea8217281bd4d6bb0ebd014403e2",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_pilot_visual_v1.py": "d790fb8787ceea4f8c200eb9edaacd226b1903a1a5293513adb6f4c1abb46f7f",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_same_host_codec_v1.py": "04972f2c45d88e61d5d6d1abe528ec3db2838efa045171e520dd59db0171782f",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_shared_gpu_resource_v2.py": "0a412ff2705c047ac74426bdb889c55dbad5cb8a669a84bca3b9a8ad728ed7e4",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_single_rx_v1.py": "d2a8410f02078ba44f08d9e2e490174fb6f4549f60df2b4300a56592e6fd2f4a",
+    "experiments/entropy-partial-mismatch-20261010/scripts/leo_runtime_verify_v1.py": "77a059e9c8f4d4328b338274ef2dd8580c6634bd3e1d5ba0e6613b7237422981",
+    "experiments/entropy-partial-mismatch-20261010/scripts/leo_shared_preflight.py": "0f7473aa003991edca43a4587bbd03dfef0955e13f85cf23ffaff1dae1cf66ab",
+    "experiments/entropy-partial-mismatch-20261010/scripts/leo_single_rx_diagnostic_v2.py": "08835b22a2c4378cd462ae68690d2d00e2865971c130d4456dc21122d6df6de7",
+    "experiments/entropy-partial-mismatch-20261010/scripts/leo_whole_gate_v1.py": "06c8f1659eed5d67c9bcd368a91f6c35628d83136e4a9ff4e2fbe356cb65f81b",
+    "experiments/entropy-partial-mismatch-20261010/scripts/leo_whole_math_v1.py": "db4349f936b2cd0c267932cc286e2661e1f7d56dd10d1c4e4a5d7d90ec279252"
+  },
+  "receipt_pins": {
+    "registered/request.json": "e0824bee0f44290bc391ad33ccfed70bcfd40d6b9429052aa7ac85611e9fd3c0",
+    "registered/run/completion.json": "9ac7fee49e8227b78acedef7ba86dc60d61cc064a1f547fcb334a144a4bf3b92",
+    "registered/run/worker_completion.json": "4f33a3cd06012968d918b00c767f1375c45f5d1f31229c9421d3de8cae37fb44",
+    "registered/run/actual_child_wait.json": "d620922a3e836122adcb1071c777b7f79f5369bb379a1d0dc713a109dd37fb84",
+    "run_owner_actual_wait.json": "7c8afb13891f0e45207fd785c3d90134641d0995f439cd6b9e6f01c44fddb50c"
+  },
+  "closed_CPU_pins": {
+    "completion": "9c9f86f3c28b9190c19bc7f1407bf7a7e4f752f66bb68477f4b3c06efcaf8d60",
+    "owner_actual_wait": "6c36dda86c8375dc5c86c6fe8a90d40819ce4bfe87fc6080d255f75f5e6c2cc4"
+  },
+  "export_verification": {
+    "status": "CLOSED_FULL1000_VISUAL_ALL_MEMBERS_LINKS_FLOAT32_AND_MODEL_CALLS_VERIFIED",
+    "archive_files": 255044,
+    "uncompressed_bytes": 4415322138,
+    "archive_bytes": 3519088102,
+    "archive_sha256": "ac1d5725564c75f6b06b759ade26052d91bc3005877b31864f09593c76ca597d",
+    "export_manifest_sha256": "9955a557258a3eb1c73404a3f153a4e053e13b38bc6eab2b20d05ea14137f213",
+    "logical_frames": 36000,
+    "new_float32_archives": 5110,
+    "new_reconstruction_kinds": {
+      "tokens": 5110
+    },
+    "actual_fixed_half_gray_archives": 0,
+    "reuse": {
+      "closed_pilot": 3603,
+      "new_actual_source_inputs": 5110,
+      "same_run": 27287
+    },
+    "actual_counts": {
+      "caps": {
+        "decoder_forward": 36000,
+        "encoder": 0,
+        "model_load": 1,
+        "prior_scale": 720000,
+        "source_rx": 36000,
+        "source_tx": 0,
+        "var_render": 36000
+      },
+      "completed": {
+        "decoder_forward": 5110,
+        "encoder": 0,
+        "model_load": 1,
+        "prior_scale": 91622,
+        "source_rx": 5110,
+        "source_tx": 0,
+        "var_render": 5110
+      },
+      "reserved": {
+        "decoder_forward": 5110,
+        "encoder": 0,
+        "model_load": 1,
+        "prior_scale": 91622,
+        "source_rx": 5110,
+        "source_tx": 0,
+        "var_render": 5110
+      },
+      "unresolved": 0
+    },
+    "model_call_reserved_records": 106953,
+    "model_call_completed_records": 106953,
+    "every_logical_to_physical_to_image_SHA_verified": true,
+    "every_new_image_float32_CHW_3_256_256": true,
+    "every_model_call_context_matches_reconstruction_evidence": true,
+    "closed_pilot_distinct_images_reused": 558,
+    "closed_parent_archives": [
+      {
+        "directory": "h800_ep_full_phy_closed_v1",
+        "archive": "closed_full_phy.tar.gz",
+        "archive_sha256": "f1916de662f7da0373e9962dbf98572770d295b23971b939715242c466ad52c4",
+        "manifest_sha256": "cb76eb4619cbcd38d2cbcfe91b143112e9165241c4c9dddfc8cedbb9b232319c",
+        "verification_sha256": "0ffd6d7f3d8d7b4c0ac37f6cd569f079729fa1819004c66461b87b79f49c36cf",
+        "all_members_reverified_now": true
+      },
+      {
+        "directory": "h800_ep_pilot_phy_closed_v1",
+        "archive": "closed_pilot_phy.tar.gz",
+        "archive_sha256": "6bfbb603ade12ff7090f7f5f0dad2b4ba66f79167f8f4f59d25001a8f612fac4",
+        "manifest_sha256": "2667852e3bcb43765ca386baed6d888e63da09776185a227a6ea4e1c2a474d67",
+        "verification_sha256": "96f131e7b537e5dce830b14a721d6fd0c3e431d78c81e2466f696b831ace4d7b",
+        "all_members_reverified_now": true
+      },
+      {
+        "directory": "h800_ep48_closed_v1",
+        "archive": "closed_gate.tar.gz",
+        "archive_sha256": "84101af2eddd9be4ac17bba1c16fccbc0e5e0745053a91bb93c47147d72f9191",
+        "manifest_sha256": "69fff5dbb8c355033bdbb1f56cd76760f8bcd517c9d6eb6881d621e93e811e72",
+        "verification_sha256": null,
+        "all_members_reverified_now": true
+      },
+      {
+        "directory": "h800_ep_pilot_visual_closed_v1",
+        "archive": "closed_pilot_visual.tar.gz",
+        "archive_sha256": "ac963a1155bc30580576096e4a60577ffe922831527bff0604c852d9b0c45416",
+        "manifest_sha256": "cd7d56ccb037e12d63606b90cde2d22edbf73cf3cf912a053121e2a095a947d1",
+        "verification_sha256": "6b29aea373f69b6acb4140733108472f8f7ff07d3d705027037184e624c89965",
+        "all_members_reverified_now": true
+      }
+    ],
+    "old_call_counts_preserved": true,
+    "source_truth_or_TX_CDF_used": false,
+    "quality_scores": 0,
+    "new100_reads": 0,
+    "new_scientific_calls_during_export": 0
+  },
+  "source_truth_used": false,
+  "TX_CDF_used": false,
+  "source_TX_calls": 0,
+  "PHY_calls": 0,
+  "quality_scores": 0,
+  "new100_reads": 0,
+  "training_updates": 0,
+  "automatic_successor": false,
+  "final_strategy_frozen": false,
+  "limits": [
+    "Identical actual decoder inputs reuse exact same-identity reconstructions; logical frames are not new model calls.",
+    "All actual float32 images and SHA-pinned pilot/old48 references remain recoverable without PNG quantization.",
+    "Every logical failure remains in the population with its own actual header, CRC and parser outcome.",
+    "Full1000 reconstruction is closed; four-metric scoring and final strategy selection require a separately closed metrics owner."
+  ]
+}

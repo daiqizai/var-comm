@@ -1,0 +1,53 @@
+{
+  "schema": "LEO_RAW_MISMATCH_METRIC_PREPARE_FAILURE_PUBLIC_V3",
+  "status": "FAILED_PREPARE_NATIVE_FACT_METADATA_CONFLICT_ZERO_SCIENCE",
+  "actual_owner": {
+    "phase": "prepare",
+    "actual_wait": true,
+    "returncode": 1,
+    "timeout": false,
+    "elapsed_seconds": 12.348088996950537,
+    "target_GPU": 5,
+    "cpu_affinity": [
+      7,
+      8
+    ],
+    "automatic_retry": false,
+    "log_sha256": "aa5d75bf1944d3153ab0ba370e5f0601e2a77cc7d80dbf0621ec5a853ea4ed76"
+  },
+  "failed_owner_source_sha256": "db6e009ada8266424f9afa81609f8f65f1dc7503cf5affa7f12aaecfc0cfb521",
+  "native_binding_sha256": "fb2c2080302eaf3a4d476ba58430d287013881320cf20930ff561ddd4c7f0e91",
+  "exported_receipts": {
+    "launch_registration.json": {
+      "sha256": "addab866aa600a0cc31259a69c83671d57534d0bacce720e8a48c632c9bf982b",
+      "bytes": 1547
+    },
+    "prepare.log": {
+      "sha256": "aa5d75bf1944d3153ab0ba370e5f0601e2a77cc7d80dbf0621ec5a853ea4ed76",
+      "bytes": 1508
+    },
+    "prepare_actual_wait.json": {
+      "sha256": "280474b5caf3e1a3ebcd4533a443892fb3c024641fd5b260efa5f6726400960f",
+      "bytes": 297
+    },
+    "prepare_started.json": {
+      "sha256": "ee7a09501f619dfc6eaa2ffa29591072298439c8b1f25d82557a75f9fe46ff7b",
+      "bytes": 1544
+    }
+  },
+  "export_manifest_sha256": "12c8eefcc9acdf19a577bc6b3e241365818e5f2cf65a43f9cc4546dcb7ed4dd9",
+  "diagnosis_sha256": "cb1bcae501fc8be9ee5f1e6deee038a00b8a9199bf2d02a6605e2245b204a354",
+  "actual_native_files_rehashed": 18,
+  "equal_binary_identity_metadata_conflicts": 11,
+  "conflicting_field": "observed_lexical_path",
+  "run_owner_started": false,
+  "model_calls": 0,
+  "tensor_calls": 0,
+  "metric_scores": 0,
+  "bootstrap_calls": 0,
+  "automatic_retry": false,
+  "old_attempt_preserved": true,
+  "successful_metric_results": false,
+  "cause": "The strict native-fact dictionary comparison rejected an additional observed lexical path although canonical path, byte size and SHA matched.",
+  "interpretation": "A metadata admission failure produced no metric result. A separate engineering revision must retain original PFS file identities and lexical provenance and still reject actual native byte differences."
+}
