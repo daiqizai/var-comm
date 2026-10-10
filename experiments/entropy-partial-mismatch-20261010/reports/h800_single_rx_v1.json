@@ -1,0 +1,286 @@
+{
+  "schema": "H800_SINGLE_RX_PUBLIC_STATUS_V1",
+  "status": "STOPPED_CROSS_HOST_CDF_MISMATCH",
+  "publication_state": "CLOSED_LOCAL_RECEIPT_PROJECTION",
+  "progress_observation": "The H800 owner and GPU child both actually exited1 after the independent RX detected a scale0 CDF mismatch against the saved leo TX witness.",
+  "request_sha256": "72c4f6c1b345230c0a7e8298622b4c4edbd9b4e43c08a184c306046aa20ad7c4",
+  "parent_v5_request_sha256": "454c51046aba4f784549a7c8de1b993e6ff86db21538b9a189366ddb22e45150",
+  "execution_namespace": "qualification/h800_single_rx_v1_attempt1",
+  "prepare": {
+    "actual_exit_code": 0,
+    "elapsed_seconds_rounded": 6.52
+  },
+  "actual_owner_exit_code": 1,
+  "actual_child_exit_code": 1,
+  "actual_gpu_child_started": true,
+  "numerical_RX_result": "FAILED_EXACT_CROSS_HOST_CDF_ASSERTION",
+  "counts": {
+    "caps": {
+      "decoder_forward": 0,
+      "encoder": 0,
+      "model_load": 1,
+      "prior_scale": 4,
+      "source_rx": 1,
+      "source_tx": 0,
+      "var_render": 0
+    },
+    "completed": {
+      "decoder_forward": 0,
+      "encoder": 0,
+      "model_load": 1,
+      "prior_scale": 1,
+      "source_rx": 0,
+      "source_tx": 0,
+      "var_render": 0
+    },
+    "reserved": {
+      "decoder_forward": 0,
+      "encoder": 0,
+      "model_load": 1,
+      "prior_scale": 1,
+      "source_rx": 1,
+      "source_tx": 0,
+      "var_render": 0
+    },
+    "unresolved": 1
+  },
+  "caps": {
+    "model_load": 1,
+    "encoder": 0,
+    "source_tx": 0,
+    "source_rx": 1,
+    "var_render": 0,
+    "prior_scale": 4,
+    "decoder_forward": 0
+  },
+  "device": {
+    "selected_nvml_index": 2,
+    "observed_model": "NVIDIA H800",
+    "read_only_identity_receipt_sha256": "2b147901568b3cdbd9c48a9917fa962aa3c5520829cd0987ea84a3ca2b7f235f",
+    "actual_worker_identity": {
+      "CUDA_DEVICE_ORDER": "PCI_BUS_ID",
+      "CUDA_VISIBLE_DEVICES": "2",
+      "actual_cuda_uuid": "GPU-ad85ce23-5025-3090-361b-27173fd1ac68",
+      "actual_pci_bus_id": "0000:6b:00.0",
+      "configured_device_binding": {
+        "CUDA_DEVICE_ORDER": "PCI_BUS_ID",
+        "CUDA_VISIBLE_DEVICES": "2",
+        "NVML_and_CUDA_UUID_namespaces_differ": true,
+        "cuda_uuid": "GPU-ad85ce23-5025-3090-361b-27173fd1ac68",
+        "nvml_gpu_index": 2,
+        "nvml_uuid": "GPU-70eb08db-3ea5-9394-c385-2125742754fd",
+        "pci_bus_id": "0000:6b:00.0"
+      },
+      "configured_nvml_index": 2,
+      "configured_nvml_uuid": "GPU-70eb08db-3ea5-9394-c385-2125742754fd",
+      "identity_queries_only": true,
+      "same_physical_PCI": true
+    },
+    "TX_witness_device_index_on_leo": 5,
+    "different_host_and_GPU_from_TX": true
+  },
+  "native_dependencies": {
+    "actual_H800_CPU_hidden_import": "PASS_ZERO_MODEL_ZERO_TENSOR",
+    "binding_receipt_sha256": "eb641b1f3139960b67b6342417eba09fb0aaed26784c93f99c1d85c9437a4868",
+    "historical_runtime_projection_sha256": "df9adc9cb2b13aa7f24137a7b1c95e1f548d0defe88ff9ef5deb4d51b79eede6",
+    "frozen_PFS_files_reused_and_reverified": true,
+    "current_system_native_libraries_separately_observed": true,
+    "historical_host_native_facts_preserved_as_history": true,
+    "old_host_byte_identity_claimed": false,
+    "CPU_import_is_not_numerical_qualification": true
+  },
+  "inputs": {
+    "existing_source_index": 0,
+    "m": 4,
+    "saved_actual_leo_TX_bits": 311,
+    "expected_prefix_tokens": 30,
+    "new_sources": 0
+  },
+  "comparison_tokens": {
+    "read_rule": "Only after independent RX returns and four external CDF assertions pass",
+    "supplied_to_RX": false,
+    "actual_read_evidence": "NOT_READ_FOR_COMPARISON: RX did not return past the CDF assertion"
+  },
+  "CDF_checks": {
+    "status": "FAIL_SCALE0_EXACT_CROSS_HOST_CDF",
+    "rows": [
+      {
+        "source": 0,
+        "m": 4,
+        "role": "RX",
+        "scale": 0,
+        "actual_H800_RX_sha256": "f27461722d6a904f4697f0bce9efa18b07ee77a8a5dc62e48c3a34af3f7e2c1f",
+        "expected_saved_leo_TX_sha256": "ffd0de07229f391ea22157476d6a04798ee12d9ccc0f1d70e7023c6eb10fa5d4",
+        "equal": false
+      }
+    ],
+    "probability_tables_shared": false,
+    "old_CDF": "UNOBSERVABLE"
+  },
+  "resource_policy": {
+    "GPU_workers": 1,
+    "CPU_affinity_count": 2,
+    "torch_allocator_cap_bytes": 17179869184,
+    "allocator_cap_scope": "PyTorch allocator only; not total GPU isolation",
+    "prelaunch_free_memory_min_MiB": 20480,
+    "prelaunch_utilization_max_percent": 50,
+    "prelaunch_observation_seconds": 120,
+    "max_owner_seconds": 900
+  },
+  "limits": [
+    "One existing source and m4 only; no m5-m9 RX or second source.",
+    "Saved leo GPU5 TX versus independently computed H800 RX; cross-device equality is tested, not assumed.",
+    "Not old-stream compatibility, complete migration qualification, reconstruction quality, or timing.",
+    "Original dist.py byte identity and old CDF remain unavailable."
+  ],
+  "v5_cross_host_verdict": "FAIL_UNCHANGED",
+  "leo_single_rx_v2_SIGKILL_failure": "PRESERVED_UNCHANGED_CAUSE_UNDETERMINED",
+  "original32_and48_budgets_unchanged": true,
+  "automatic_retry": false,
+  "automatic_successor": false,
+  "production_admission": false,
+  "timing_measurement": false,
+  "formal_science": {
+    "calibration": "NOT_RUN",
+    "new100": "NOT_RUN",
+    "mismatch": "NOT_RUN"
+  },
+  "implementation": {
+    "runner_sha256": "d2a8410f02078ba44f08d9e2e490174fb6f4549f60df2b4300a56592e6fd2f4a",
+    "test_sha256": "1887b23a9be4f93be1b5e120476b487e6dbcda89b0b589974767b54e1667ebcc",
+    "focused_CPU_tests": 12,
+    "focused_CPU_tests_status": "PASS",
+    "original_gate_math_and_v2_sources_unchanged": true,
+    "original_module_globals_unchanged": true,
+    "new_host_binding_is_explicit": true,
+    "adapter_AST_proof": {
+      "device_binding": {
+        "CUDA_DEVICE_ORDER": "PCI_BUS_ID",
+        "CUDA_VISIBLE_DEVICES": "2",
+        "NVML_and_CUDA_UUID_namespaces_differ": true,
+        "cuda_uuid": "GPU-ad85ce23-5025-3090-361b-27173fd1ac68",
+        "nvml_gpu_index": 2,
+        "nvml_uuid": "GPU-70eb08db-3ea5-9394-c385-2125742754fd",
+        "pci_bus_id": "0000:6b:00.0"
+      },
+      "inverse_restored_AST_sha256": "9a775b0cbcf343428c7f0906eb930709cf300059f37e34c31959edd5f09c969e",
+      "old_gate_globals_changed": false,
+      "only_change": "Backend.__init__ import g replaced by explicitly registered device adapter",
+      "original_AST_sha256": "9a775b0cbcf343428c7f0906eb930709cf300059f37e34c31959edd5f09c969e",
+      "original_math_sha256": "db4349f936b2cd0c267932cc286e2661e1f7d56dd10d1c4e4a5d7d90ec279252",
+      "parent_request_changed": false,
+      "schema": "EXPLICIT_DEVICE_DEPENDENCY_ADAPTER_V1"
+    }
+  },
+  "terminal_receipts": {
+    "prepare_actual_wait.json": {
+      "bytes": 247,
+      "sha256": "d2a10a9fa1466dfa619ae3ac73dda4e30170d2eb1cdef849467e3557788e16ae"
+    },
+    "run_owner_actual_wait.json": {
+      "bytes": 251,
+      "sha256": "2e287dc90b75f6809b2cc3773fdd133007825f2dab96c32c8858e82d8eda4b57"
+    },
+    "selection_metadata.json": {
+      "bytes": 593,
+      "sha256": "0b8332774a326769325b654e12933370b8ebfa12b4c885e25bffe234e1d61f72"
+    },
+    "registered/request.json": {
+      "bytes": 24629,
+      "sha256": "72c4f6c1b345230c0a7e8298622b4c4edbd9b4e43c08a184c306046aa20ad7c4"
+    },
+    "registered/run/actual_child_wait.json": {
+      "bytes": 129,
+      "sha256": "0923eff6767843d1cc6bf76f9f3a0661baef44acea81e0f3b3ad5ab1a7c8696a"
+    },
+    "registered/run/cdf_trace_at_failure.json": {
+      "bytes": 350,
+      "sha256": "af13f0bac308b0c10d67e03bd48935bc256e82af2d75ff5fa3899bf5ff8b5bad"
+    },
+    "registered/run/child_started.json": {
+      "bytes": 794,
+      "sha256": "e750c93bdba6c8870bfa506e32726d1acea54cfdce95e732ca97d9a0d855a336"
+    },
+    "registered/run/controlled_environment.json": {
+      "bytes": 5936,
+      "sha256": "13bfd6f64f5396c765b60bfb461b1d23763c64cab957c69c6be417d834b4c902"
+    },
+    "registered/run/cuda_device_identity.json": {
+      "bytes": 678,
+      "sha256": "0dba837132f67a82f9ab65236167743b0c9b7c14bbb9073f9b84e459a9334f78"
+    },
+    "registered/run/device_adapter_ast_proof.json": {
+      "bytes": 840,
+      "sha256": "f1fb21c322dfd44b9acfd951c8fd27232dc30321efc2f7b5fdc29327ee96db34"
+    },
+    "registered/run/failure.json": {
+      "bytes": 1038,
+      "sha256": "9e14b0e5ca5133953a297e8ebe5fbacb1eb64cf34200fb5f2f58e2088c813f5d"
+    },
+    "registered/run/first_CDF_mismatch.json": {
+      "bytes": 270,
+      "sha256": "30e28f201013dc25d07d73c9bef19f480cf47ee62d14c4b7115394c2b49ca2a8"
+    },
+    "registered/run/intent.json": {
+      "bytes": 316,
+      "sha256": "4210d22058705f3aee8ef4d9d4a1998e74db75d7fab3e20c7f81f9821cf08bd5"
+    },
+    "registered/run/native_dependency_admission.json": {
+      "bytes": 1280,
+      "sha256": "5ca1e02e8222259ea2046a1a43ad51fadb4faca5f5bc3a50b82922cfb910024c"
+    },
+    "registered/run/native_linkage_loaded.json": {
+      "bytes": 32488,
+      "sha256": "5ccbe81e3d0800c9ad954dd94afc39fb759467d78f59f8b4d839b85d68185468"
+    },
+    "registered/run/numerical_runtime.json": {
+      "bytes": 1023,
+      "sha256": "1e028fe87e81e835fdce08d8ded9189ab09da6bbe30b9f73cb2ca52b1dced5ab"
+    },
+    "registered/run/prelaunch_device_identity.json": {
+      "bytes": 308,
+      "sha256": "0f5674dec145a60ced2913a02a2f8da5ea3e3a3465e9929eb09f70463c31ee99"
+    },
+    "registered/run/prelaunch_resources.json": {
+      "bytes": 1010,
+      "sha256": "28f589cdd398b66f1a560e2a274aaba0ad89edb1b09abe06d4f8a0b3254726cb"
+    },
+    "registered/run/worker_claim.json": {
+      "bytes": 146,
+      "sha256": "d20b581c1b5f7efcb9dcdf6ce7df89ea8eed75e65a9dbde13f7e62e1aa5656fd"
+    },
+    "registered/run/worker_failure.json": {
+      "bytes": 3013,
+      "sha256": "d927ee9ce96752685bbd1e7d32b51d9ed3a79b9c42e67bc58f29af22b61b419e"
+    },
+    "registered/run/calls/0001_model_load.complete.json": {
+      "bytes": 84,
+      "sha256": "8c4618f8150232ccb8f846f1636db121a8c7f4d25d4fa0b767dd995e317bbe4a"
+    },
+    "registered/run/calls/0001_model_load.reserved.json": {
+      "bytes": 100,
+      "sha256": "271e665ef6ae68bc7607b34dbac687d6dac76bc276719e3d625704feafee7ada"
+    },
+    "registered/run/calls/0002_source_rx.reserved.json": {
+      "bytes": 129,
+      "sha256": "3b7cb801efde30575f91668e806811b4fbb6c7f5d700fc009644ddc28cc4de6c"
+    },
+    "registered/run/calls/0003_prior_scale.complete.json": {
+      "bytes": 120,
+      "sha256": "c05da4fcf5bfb34fad584784572cdc8c9cb385d98bd11c742dce2a85d024fab0"
+    },
+    "registered/run/calls/0003_prior_scale.reserved.json": {
+      "bytes": 136,
+      "sha256": "9e1bd6dd0a7b357be5fe5aa9089c62a770ec1d7a8bf1adf01a285c58b620f3d9"
+    }
+  },
+  "actual_owner_elapsed_seconds": 117.2227871119976,
+  "failure_reason": "GateMismatch('New-host independent RX CDF differs from new TX; old CDF unavailable')",
+  "termination": {
+    "signal": null,
+    "cause": "Independent RX CDF assertion failed",
+    "owner_wait_stop_reason": null,
+    "SIGKILL": false
+  },
+  "interpretation": "The H800 host loaded the frozen models successfully. This failed cross-host numerical equality is not uniquely attributed to GPU hardware or host native libraries. It does not establish same-host codec failure or admit production."
+}
