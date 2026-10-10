@@ -1,6 +1,12 @@
-## Entropy-partial and mismatch extension: engineering preparation (2026-10-10)
+## Original100 source streams complete; pilot PHY running (2026-10-10)
 
-[Current migration and resume status](experiments/entropy-partial-mismatch-20261010/reports/leo_shared_migration_v4.md): the worktree and frozen private environments are restored. The v5 GPU check matched680 encoder tokens but failed old/new m4 bitstream equality; independent RX and reconstruction remain untested. Formal entropy-partial calibration, new100 confirmation and one-step mismatch evaluation remain **NOT_RUN**. The existing264 CPU regressions,118 extension checks and9 additional native-admission tests passed. Published WCL T0–T6 results remain unchanged and historical monitors stay paused.
+The original calibration first100 now have actual H800 arithmetic streams: the closed first32 streams are reused, and the remaining68 sources completed fresh TX with exactly one model load and680 prior-scale calls. The actual owner exited0 after159.87s; all reservations closed. The68 new sources add no encoder, independent RX, reconstruction, PHY or quality calls. Their1,632 stored endpoint streams were independently checked against the exported receipts. Earlier source32, PHY457 and image48 engineering gates remain closed and are not replayed.
+
+The separate CPU-only pilot PHY owner has actually started for100 original calibration sources,144 frozen candidates,3 SNRs and seed4101:43,200 logical frames, with at most86,400 new packet decodes before individually verified observation reuse. It uses2 CPU cores, hides CUDA and has a finite6-hour execution window. Its request SHA is `34a3538a57650dcc54c00abcf9ca45b3cde2dfc11e02d125b96e42555accd478`. This publication records a running phase, not pilot completion. Independent reconstruction and the four quality metrics remain pending; finalist ranking, full1000 calibration, new100 confirmation and mismatch evaluation remain NOT_RUN. The original whole winner is mandatory in the later finalist union.
+
+The pinned DINOv2-L, ConvNeXt and LPIPS assets are restored for a minimal four-metric adapter; restoration itself performed no model inference. Historical source-exposure auditing is still open, so no new confirmation source has been selected. Published science, frozen protocols, all previous failures and paused periodic monitors are preserved.
+
+[Closed source100 receipt](experiments/entropy-partial-mismatch-20261010/reports/h800_ep_pilot_source100_v1.json).
 
 ## Completed WCL supplementary evidence (2026-10-10 publication)
 

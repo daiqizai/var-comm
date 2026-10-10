@@ -1,3 +1,13 @@
+## Original100 source streams complete; pilot PHY running (2026-10-10)
+
+The original calibration first100 now have actual H800 arithmetic streams: the closed first32 streams are reused, and the remaining68 sources completed fresh TX with exactly one model load and680 prior-scale calls. The actual owner exited0 after159.87s; all reservations closed. The68 new sources add no encoder, independent RX, reconstruction, PHY or quality calls. Their1,632 stored endpoint streams were independently checked against the exported receipts. Earlier source32, PHY457 and image48 engineering gates remain closed and are not replayed.
+
+The separate CPU-only pilot PHY owner has actually started for100 original calibration sources,144 frozen candidates,3 SNRs and seed4101:43,200 logical frames, with at most86,400 new packet decodes before individually verified observation reuse. It uses2 CPU cores, hides CUDA and has a finite6-hour execution window. Its request SHA is `34a3538a57650dcc54c00abcf9ca45b3cde2dfc11e02d125b96e42555accd478`. This publication records a running phase, not pilot completion. Independent reconstruction and the four quality metrics remain pending; finalist ranking, full1000 calibration, new100 confirmation and mismatch evaluation remain NOT_RUN. The original whole winner is mandatory in the later finalist union.
+
+The pinned DINOv2-L, ConvNeXt and LPIPS assets are restored for a minimal four-metric adapter; restoration itself performed no model inference. Historical source-exposure auditing is still open, so no new confirmation source has been selected. Published science, frozen protocols, all previous failures and paused periodic monitors are preserved.
+
+[Closed source100 receipt](experiments/entropy-partial-mismatch-20261010/reports/h800_ep_pilot_source100_v1.json).
+
 ## H800 actual48 image link gate completed (2026-10-10)
 
 The fixed first4 original calibration sources at4/10/19 dB, seed4101 and four registered targets per point completed all48 actual paid-channel and reconstruction frames. The PHY ledger closed96/96 decodes; the visual ledger closed model1, source RX48, render48, Dc48 and prior-scale866 within the960 cap, with no unresolved calls. Thirty reconstructions used a received positive-K profile and18 used a whole-scale profile; no fixed-gray output occurred in this small gate. All48 exported float32 image arrays and their frame bindings were independently verified. The CPU and GPU owners exited0 after29.18s and183.39s; these are engineering owner durations, not online timing measurements.
