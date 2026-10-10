@@ -1,0 +1,224 @@
+{
+  "schema": "LEO_SINGLE_RX_PUBLIC_STATUS_V2",
+  "status": "STOPPED_SIGKILL_DURING_MODEL_LOAD_CAUSE_UNDETERMINED",
+  "actual_owner_exit_code": 1,
+  "actual_owner_elapsed_seconds": 281.6655607330613,
+  "actual_gpu_child_started": true,
+  "actual_child_exit_code": -9,
+  "request_sha256": "1e9bda099e8b279180226c24d3c5c0df5425c57692263c4e532e507b7be0c8e3",
+  "parent_v5_request_sha256": "454c51046aba4f784549a7c8de1b993e6ff86db21538b9a189366ddb22e45150",
+  "counts": {
+    "caps": {
+      "model_load": 1,
+      "encoder": 0,
+      "source_tx": 0,
+      "source_rx": 1,
+      "var_render": 0,
+      "prior_scale": 4,
+      "decoder_forward": 0
+    },
+    "reserved": {
+      "model_load": 1,
+      "encoder": 0,
+      "source_tx": 0,
+      "source_rx": 0,
+      "var_render": 0,
+      "prior_scale": 0,
+      "decoder_forward": 0
+    },
+    "completed": {
+      "model_load": 0,
+      "encoder": 0,
+      "source_tx": 0,
+      "source_rx": 0,
+      "var_render": 0,
+      "prior_scale": 0,
+      "decoder_forward": 0
+    },
+    "unresolved": 1
+  },
+  "caps": {
+    "model_load": 1,
+    "encoder": 0,
+    "source_tx": 0,
+    "source_rx": 1,
+    "var_render": 0,
+    "prior_scale": 4,
+    "decoder_forward": 0
+  },
+  "failure_reason": "RuntimeError('Diagnostic child failed; preserve ledger without retry')",
+  "termination": {
+    "signal": "SIGKILL",
+    "owner_wait_stop_reason": null,
+    "cause": "UNDETERMINED",
+    "OOM_attribution_established": false,
+    "diagnostic_receipt_present": true,
+    "evidence_limit": "No matching PID in kernel output and zero current cgroup OOM counters, if observed, cannot exclude termination outside the observed hierarchy."
+  },
+  "numerical_RX_result": "NOT_RUN",
+  "comparison_tokens": {
+    "receipt": null,
+    "read_rule": "Only after independent RX returns and four external CDF assertions pass",
+    "supplied_to_RX": false,
+    "read_observed": "NOT_EVIDENCED"
+  },
+  "CDF_checks": {
+    "status": "NOT_RUN",
+    "rows": [],
+    "probability_tables_shared": false,
+    "old_CDF": "UNOBSERVABLE"
+  },
+  "device": {
+    "registered": {
+      "CUDA_DEVICE_ORDER": "PCI_BUS_ID",
+      "CUDA_VISIBLE_DEVICES": "7",
+      "NVML_and_CUDA_UUID_namespaces_differ": true,
+      "cuda_uuid": "GPU-15779e90-9005-00b7-e1ac-bd4df8948d46",
+      "nvml_gpu_index": 7,
+      "nvml_uuid": "GPU-997386e0-610a-e6ec-db3f-9c22722121f1",
+      "pci_bus_id": "0000:a4:00.0"
+    },
+    "observed": {
+      "CUDA_DEVICE_ORDER": "PCI_BUS_ID",
+      "CUDA_VISIBLE_DEVICES": "7",
+      "actual_cuda_uuid": "GPU-15779e90-9005-00b7-e1ac-bd4df8948d46",
+      "actual_pci_bus_id": "0000:a4:00.0",
+      "configured_device_binding": {
+        "CUDA_DEVICE_ORDER": "PCI_BUS_ID",
+        "CUDA_VISIBLE_DEVICES": "7",
+        "NVML_and_CUDA_UUID_namespaces_differ": true,
+        "cuda_uuid": "GPU-15779e90-9005-00b7-e1ac-bd4df8948d46",
+        "nvml_gpu_index": 7,
+        "nvml_uuid": "GPU-997386e0-610a-e6ec-db3f-9c22722121f1",
+        "pci_bus_id": "0000:a4:00.0"
+      },
+      "configured_nvml_index": 7,
+      "configured_nvml_uuid": "GPU-997386e0-610a-e6ec-db3f-9c22722121f1",
+      "identity_queries_only": true,
+      "same_physical_PCI": true
+    },
+    "parent_v5_device_unchanged": true,
+    "TX_witness_device_index": 5,
+    "different_GPU_from_TX": true
+  },
+  "inputs": {
+    "existing_source_index": 0,
+    "m": 4,
+    "actual_saved_bits": 311,
+    "expected_prefix_tokens": 30,
+    "new_sources": 0,
+    "actual_bit_array_sha256": "498434c08b2af309db57e7b7128d50ddcff8ec6787c60755cd2224f60d964f52"
+  },
+  "resource_policy": {
+    "GPU_workers": 1,
+    "CPU_affinity_count": 2,
+    "owner_nice": 10,
+    "worker_additional_nice_adjustment": 10,
+    "worker_effective_nice": "NOT_RECORDED",
+    "torch_allocator_cap_bytes": 17179869184,
+    "allocator_cap_scope": "PyTorch allocator only; not total GPU isolation",
+    "prelaunch_free_memory_min_MiB": 20480,
+    "prelaunch_utilization_max_percent": 50,
+    "prelaunch_observation_seconds": 120,
+    "max_owner_seconds": 900
+  },
+  "limits": [
+    "One existing source and m4 only; no m5-m9 RX or second source.",
+    "New-platform GPU5 TX versus independently computed RX on the selected GPU only.",
+    "Not old-stream compatibility, complete migration qualification, reconstruction quality, or timing.",
+    "Original dist.py byte identity and old CDF remain unavailable."
+  ],
+  "v5_cross_host_verdict": "FAIL_UNCHANGED",
+  "v1_resource_stop": "PRESERVED_UNCHANGED",
+  "original32_and48_budgets_unchanged": true,
+  "automatic_retry": false,
+  "automatic_successor": false,
+  "production_admission": false,
+  "timing_measurement": false,
+  "formal_science": {
+    "calibration": "NOT_RUN",
+    "new100": "NOT_RUN",
+    "mismatch": "NOT_RUN"
+  },
+  "implementation": {
+    "runner_sha256": "08835b22a2c4378cd462ae68690d2d00e2865971c130d4456dc21122d6df6de7",
+    "test_sha256": "4fd80482a8ed55ea7f5cb3e361580dccd629166ac51c9ae3a84eb0b036b12b15",
+    "whole_gate_math_unchanged": true,
+    "adapter_AST_proof": {
+      "device_binding": {
+        "CUDA_DEVICE_ORDER": "PCI_BUS_ID",
+        "CUDA_VISIBLE_DEVICES": "7",
+        "NVML_and_CUDA_UUID_namespaces_differ": true,
+        "cuda_uuid": "GPU-15779e90-9005-00b7-e1ac-bd4df8948d46",
+        "nvml_gpu_index": 7,
+        "nvml_uuid": "GPU-997386e0-610a-e6ec-db3f-9c22722121f1",
+        "pci_bus_id": "0000:a4:00.0"
+      },
+      "inverse_restored_AST_sha256": "9a775b0cbcf343428c7f0906eb930709cf300059f37e34c31959edd5f09c969e",
+      "old_gate_globals_changed": false,
+      "only_change": "Backend.__init__ import g replaced by explicitly registered device adapter",
+      "original_AST_sha256": "9a775b0cbcf343428c7f0906eb930709cf300059f37e34c31959edd5f09c969e",
+      "original_math_sha256": "db4349f936b2cd0c267932cc286e2661e1f7d56dd10d1c4e4a5d7d90ec279252",
+      "parent_request_changed": false,
+      "schema": "EXPLICIT_DEVICE_DEPENDENCY_ADAPTER_V1"
+    }
+  },
+  "receipts": {
+    "prepare_actual_wait.json": {
+      "bytes": 250,
+      "sha256": "6bd3e492da639aee4c40b4c8805518952eb588cce115b6e4f255ff49218725b9"
+    },
+    "run_owner_actual_wait.json": {
+      "bytes": 252,
+      "sha256": "f6754500ebf4aaeb7e3f12b52d110079a9b000e369cbba3f486a0367091bc6f5"
+    },
+    "selection_metadata.json": {
+      "bytes": 593,
+      "sha256": "78bfa4019b26d4eb97ebc769fe77275fd3f7267552967930521d6e93c0a29270"
+    },
+    "registered/request.json": {
+      "bytes": 24304,
+      "sha256": "1e9bda099e8b279180226c24d3c5c0df5425c57692263c4e532e507b7be0c8e3"
+    },
+    "registered/run/failure.json": {
+      "bytes": 1039,
+      "sha256": "df63ffd1cffdc65f0660ae653e435a12d97e194c0b01dc83d123661680aca3a6"
+    },
+    "registered/run/child_started.json": {
+      "bytes": 809,
+      "sha256": "242b3ac7f1633f0bc1833bb122f0679ea0ede13ba8e3eee58c13401ce4eacd0d"
+    },
+    "registered/run/actual_child_wait.json": {
+      "bytes": 130,
+      "sha256": "1c6b6c5488a15b037857237af04fad078dfabbaea22080b42f312bb7a98bf7fb"
+    },
+    "registered/run/worker_claim.json": {
+      "bytes": 147,
+      "sha256": "bdc199bd34258891ebd61a984774c99a02e70c404fe875c31d7dcefca10535f9"
+    },
+    "registered/run/cuda_device_identity.json": {
+      "bytes": 678,
+      "sha256": "fbfdc45cdfa1019b793e029f8cffcb82de8a1836c75f0ef5a2c413cb17b95c56"
+    },
+    "registered/run/prelaunch_device_identity.json": {
+      "bytes": 308,
+      "sha256": "ce027fa62961c1321dba68fc106ff43ca4c074473f930e7989739232895c0802"
+    },
+    "registered/run/numerical_runtime.json": {
+      "bytes": 1028,
+      "sha256": "12fbd6df19f4ef997298d5af98c0933f16a399e4552bf938fa0db87c18ecff8c"
+    },
+    "registered/run/device_adapter_ast_proof.json": {
+      "bytes": 840,
+      "sha256": "f2378f7aafab4e3fbf83287cac2b063d815364b4344e7d7629802cc9dad4d517"
+    },
+    "registered/run/calls/0001_model_load.reserved.json": {
+      "bytes": 100,
+      "sha256": "56beb5c2308bb7d265e5f1aa45e33d31e15af99ad7a66a7249c61d9fc5b05d4e"
+    },
+    "termination_diagnostic/completion.json": {
+      "bytes": 665,
+      "sha256": "21507b454cd1f1ac24272093b17abff46f074a117ccc67827460ff605baa3057"
+    }
+  }
+}
