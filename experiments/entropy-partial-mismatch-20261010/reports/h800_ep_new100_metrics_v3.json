@@ -1,0 +1,193 @@
+{
+  "N": 1024,
+  "SNRs": [
+    4,
+    10,
+    19
+  ],
+  "actual_closed_calls": 5397,
+  "actual_runtime": {
+    "cuda": "12.8",
+    "cudnn": 91900,
+    "interop_threads": 2,
+    "numpy": "2.2.6",
+    "python": "3.10.12",
+    "threads": 6,
+    "torch": "2.11.0+cu128"
+  },
+  "actual_unique_pairs": 849,
+  "archive": {
+    "bytes": 2199579,
+    "members": 11682,
+    "name": "new100_metrics_exact_closed.tar.gz",
+    "sha256": "b8070a627d7ba4bf44c5327e71b95b7f9e84a499a085267ac995adfa390a0c3a",
+    "uncompressed_bytes": 17689695
+  },
+  "bootstrap_calls": 0,
+  "call_counts": {
+    "convnext_reconstruction": 849,
+    "convnext_reference": 100,
+    "dinov2_vitl14_reconstruction": 849,
+    "dinov2_vitl14_reference": 100,
+    "image_scores": 849,
+    "lpips_alexnet_backbone_forward": 1698,
+    "lpips_pair": 849,
+    "model_constructions": 3,
+    "reference_preparations": 100
+  },
+  "failure_mix": {
+    "EC_VAR_PARTIAL@10": {
+      "body_CRC_rejects": 0,
+      "fixed_gray": 0,
+      "header_rejects": 0,
+      "logical_frames": 300,
+      "source_statuses": {
+        "ARITHMETIC_SOURCE_DECODED": 300
+      }
+    },
+    "EC_VAR_PARTIAL@19": {
+      "body_CRC_rejects": 0,
+      "fixed_gray": 0,
+      "header_rejects": 0,
+      "logical_frames": 300,
+      "source_statuses": {
+        "ARITHMETIC_SOURCE_DECODED": 300
+      }
+    },
+    "EC_VAR_PARTIAL@4": {
+      "body_CRC_rejects": 0,
+      "fixed_gray": 0,
+      "header_rejects": 0,
+      "logical_frames": 300,
+      "source_statuses": {
+        "ARITHMETIC_SOURCE_DECODED": 300
+      }
+    },
+    "EC_VAR_WHOLE@10": {
+      "body_CRC_rejects": 0,
+      "fixed_gray": 0,
+      "header_rejects": 0,
+      "logical_frames": 300,
+      "source_statuses": {
+        "ARITHMETIC_SOURCE_DECODED": 300
+      }
+    },
+    "EC_VAR_WHOLE@19": {
+      "body_CRC_rejects": 0,
+      "fixed_gray": 0,
+      "header_rejects": 0,
+      "logical_frames": 300,
+      "source_statuses": {
+        "ARITHMETIC_SOURCE_DECODED": 300
+      }
+    },
+    "EC_VAR_WHOLE@4": {
+      "body_CRC_rejects": 0,
+      "fixed_gray": 0,
+      "header_rejects": 0,
+      "logical_frames": 300,
+      "source_statuses": {
+        "ARITHMETIC_SOURCE_DECODED": 300
+      }
+    },
+    "RAW_PARTIAL@10": {
+      "body_CRC_rejects": 13,
+      "fixed_gray": 0,
+      "header_rejects": 0,
+      "logical_frames": 300,
+      "source_statuses": {
+        "KEEP_ACTUAL_HARD_TOKENS": 300
+      }
+    },
+    "RAW_PARTIAL@19": {
+      "body_CRC_rejects": 0,
+      "fixed_gray": 0,
+      "header_rejects": 0,
+      "logical_frames": 300,
+      "source_statuses": {
+        "KEEP_ACTUAL_HARD_TOKENS": 300
+      }
+    },
+    "RAW_PARTIAL@4": {
+      "body_CRC_rejects": 0,
+      "fixed_gray": 0,
+      "header_rejects": 0,
+      "logical_frames": 300,
+      "source_statuses": {
+        "KEEP_ACTUAL_HARD_TOKENS": 300
+      }
+    },
+    "RAW_WHOLE@10": {
+      "body_CRC_rejects": 0,
+      "fixed_gray": 0,
+      "header_rejects": 0,
+      "logical_frames": 300,
+      "source_statuses": {
+        "KEEP_ACTUAL_HARD_TOKENS": 300
+      }
+    },
+    "RAW_WHOLE@19": {
+      "body_CRC_rejects": 0,
+      "fixed_gray": 0,
+      "header_rejects": 0,
+      "logical_frames": 300,
+      "source_statuses": {
+        "KEEP_ACTUAL_HARD_TOKENS": 300
+      }
+    },
+    "RAW_WHOLE@4": {
+      "body_CRC_rejects": 0,
+      "fixed_gray": 0,
+      "header_rejects": 0,
+      "logical_frames": 300,
+      "source_statuses": {
+        "KEEP_ACTUAL_HARD_TOKENS": 300
+      }
+    }
+  },
+  "four_metrics": [
+    "psnr_db",
+    "lpips_alex",
+    "dinov2_vitl14_cosine",
+    "convnext_top1_source_prediction"
+  ],
+  "historical_score_reuse": 0,
+  "independent_audit_sha256": "ecd6b4df8a7b6c1f9c7db6c6944338f8fd7dcee2c144cb1490d281ac57434aa7",
+  "logical_frames": 3600,
+  "metric_identity_sha256": "f93d1b980a4516bdd5c82bec7bdd8ca910647d38df9fad78cf7c3f4883c28a45",
+  "noise_count": 3,
+  "notes": [
+    "All3600 logical outcomes retain their own receive failures, even when exact pixel pairs share a score.",
+    "849 actually scored pairs and2751 same-run reuses are distinct counts. Both source and reconstruction pixels plus evaluator identity form the cache key.",
+    "The unchanged four metric definitions were evaluated in the explicitly bound H800 runtime; old-host bitwise identity is not claimed.",
+    "The separate statistical report contains source-paired confidence intervals. No policy was selected on new100."
+  ],
+  "policy_selection": false,
+  "population": "independent_confirmation_new100",
+  "receipt_sha256": {
+    "completion": "fb9a55892564bf2b7686bb12fe41161f97f75bb4f634f39bad561d3b49ba8c5f",
+    "metric_identity": "37560c043047c34b7d643c49ca43ab610cf6865bd42f741fc0a10fc802aa85a0",
+    "metric_rows": "2db8d6791775709218dfff90283f1ad67a938da8dea147af75247c8122c6a03e",
+    "owner_actual_wait": "4120f0068628b827285c885d2686a031604c5c0cb6b405d315109788565cb36f"
+  },
+  "reused_pairs": 2751,
+  "schema": "NEW100_FOUR_METRIC_ACTUAL_CLOSURE_PUBLIC_V3",
+  "scientific_calls_during_audit": {
+    "bootstrap": 0,
+    "channel": 0,
+    "encoder": 0,
+    "metrics": 0,
+    "model": 0,
+    "source_RX": 0,
+    "source_TX": 0
+  },
+  "source_and_policy_sha256": {
+    "content_gate": "f61eff55dee0ae885f838071b664397b758e205e97666124a5b795ba1948c7c1",
+    "policy_bundle": "94227d8f4fc22bb029d3ac690128824d589a46b3a4087c15ec5b6752caf208c2",
+    "selection": "68f5472e9d1ae5b41b23906bd1c5716cc1748bfeab130681154f979a5d4fbd0c",
+    "source_manifest": "84a0d06db637471fb043bc470b3e8befa029cd238eefadccd8013415a7c0bdf4"
+  },
+  "source_count": 100,
+  "status": "ACTUAL_COMPLETE_AND_INDEPENDENTLY_AUDITED",
+  "unresolved": 0
+}
