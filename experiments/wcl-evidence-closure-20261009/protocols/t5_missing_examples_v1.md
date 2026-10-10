@@ -1,0 +1,25 @@
+# T5: minimal fixed development example completion
+
+This independent extension fills only missing display frames for the already fixed development sources `[0,25,50,75,4,21,24,29,33,41,52,60,64,87,92,95]`, N1024, SNR 1/10/19 dB and noise seed2001. It does not use holdout quality, select new strategies, score metrics, bootstrap, train, infer an entropy column, or start a successor. Root must first run metadata registration, inspect its actual missing-frame list and then explicitly launch the two bounded branches.
+
+The existing Swin1, all continuous-codec examples, and all raw whole/partial/direct examples are pinned and reused. Swin10/19 old per-frame paths were checked by the coordinator and all32 are missing. Registration rechecks those exact paths and subtracts any newly existing checksum-verified frame. An unreceipted old archive blocks replay. Adaptive BPG fixed16 previously completed only13dB; the new48 frames use the original frozen1/10/19 policies3000/3007/3013. No native256 BPG output or other SNR is substituted. Missing HiFi remains missing.
+
+Adaptive BPG's old13dB source-codec cache already contains the frozen search over all15 profile capacities for each source. Read each old completion, retain its original request SHA, source ID, preprocessing SHA and old completion binding, and use its original `fits[profile_id].selected` complete BPG stream. Verify its byte length, SHA and capacity. There are zero new source encodes and no source-quality search in this runner. A missing or changed source cache stops registration; it does not trigger encoding. Keep the complete15-profile qualified header catalogue. Instantiate the actual original LDPC backend and require its identity/layouts to match the completed original qualification. The public scrambler counter remains the original fixed16 ordinal for each SNR. AWGN remains the original `A3_DEVELOPMENT_TIMING` namespace with the historical source index, SNR and seed2001. Receive-side code sees actual IQ/header-selected MCS and then actual parsed BPG bytes only. CRC/header/parser/decode failures produce the original fixed gray fallback and remain in the displayed population.
+
+Swin uses its original isolated torch1.12.1 environment, original deterministic FP32/B1 flags, exact user-selected80000 checkpoint, original paid side information, six body channels, and original source-ID/SNR/seed2001 standard-noise rule. The header decoder is charged before the actual call. It receives only observed header IQ, N and SNR; the full receiver accepts only observed frame IQ, N and SNR. Keep Swin19 and label it as outside the training and calibration range. No converged/official-optimum claim is made.
+
+The two new branch ledgers are independent. The maximum is32 Swin frames/32 header calls plus48 BPG frames/96 header+body calls:80 frames and128 actual packet decodes in total. Each frame gets an immutable reservation before encoding/transmission. Existing attempts and unresolved reservations cannot automatically restart. Each branch uses its own owner lock. Swin also takes the existing shared visual lock and refuses another GPU process. BPG uses two CPU threads and original CPU-only executable; it may run concurrently with GPU work when the coordinator permits. Both have a finite3600-second cap, explicit deadline, STOP files and no retry. The root launches each through the existing `run_recorded_child.py` and retains actual wait/exit0 evidence before calling it complete.
+
+Registration, using the actual original remote request paths:
+
+```sh
+"$UM_PY" "$R/experiments/wcl-evidence-closure-20261009/scripts/t5_missing_examples.py" register \
+  --root "$R" --out "$R/outputs/WCL-EVIDENCE-CLOSURE-20261009/T5_examples/missing_v1" \
+  --a5-request "$R/outputs/PAPER-SUPPLEMENT-20261008/a5_adaptive_fixed16_materials_v1/request.json" \
+  --baseline-request "$R/outputs/MAIN-RAW64-20261007/prepared_v1/takeover_common500_baseline_materials_r2/request.json" \
+  --deadline-unix "$DEADLINE_UNIX"
+```
+
+The resulting `registration.json` gives exact executable and child argv for each branch. For `ADAPTIVE_BPG` set `CUDA_VISIBLE_DEVICES=''`, `OMP_NUM_THREADS=2`, `MKL_NUM_THREADS=2`, `OPENBLAS_NUM_THREADS=2`. For `SWIN80K` set `CUDA_VISIBLE_DEVICES=0`, `CUBLAS_WORKSPACE_CONFIG=:4096:8`. Wrap each listed child argv in a separate actual-wait observer; do not re-register or launch while the same branch is already running.
+
+Each new frame exports float32 `reconstruction.npz` (`rgb`, `source_rgb`, and transmitted/observed IQ when transmission occurred), a PNG and a completion receipt. Request metadata retains internal method/path mappings; final figures use descriptive method labels. Preserve external seed2001 and original raw mechanism seed6201 explicitly: methods share fixed sources and workpoints but their historical noise namespaces are not identical waveforms. Failure examples are retained, with no per-method best-noise selection. Entropy examples require a later separate frozen-policy registration and do not consume this budget.

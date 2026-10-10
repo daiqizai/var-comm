@@ -1,0 +1,27 @@
+# SwinJSCC paid side-information audit
+
+Status: **REUSE_EXACT** for the frozen paid adapter, source code identity, and completed native parity evidence. This audit reads existing assets only. It creates no new neural output, channel trial, calibration result, or holdout statistic.
+
+At N1024 the deployed adapter carries six selected channels, 768 body complex symbols, and 256 protected header complex symbols. The header payload is 73 bits: **32 bits of actual per-image float32 normalization power and 41 bits encoding the selected six-channel subset among 320 channels**. CRC16 and six terminating zero bits produce 95 convolutional-code input bits. The rate-1/2 mother word has 190 bits; deterministic repetition/rate matching fills 512 transmitted bits (256 QPSK symbols). These 256 positions are protection, not 256 symbols of raw auxiliary data or uncharged padding.
+
+| Field | Per-image variation | When RX needs it | Actual bits/protection | Can it be pre-shared or removed? | Verified code evidence |
+|---|---|---|---|---|---|
+| N, channel count C, SNR | Fixed for a working point | Before header/body interpretation and decoder conditioning | No transmitted field: N maps to C using `RATES`; SNR is a known system operating condition | Already pre-shared; no charged field remains to remove | `swin_protocol.py:14-27,106-110`; `swin_model.py:115,120-121` |
+| Selected channel positions | Content dependent, even though C=6 is fixed | Before scattering received body values into 320 decoder coordinates | 41-bit combinatorial subset rank, jointly convolutionally protected | Cannot pre-share the actual subset. A fixed mask changes the neural operating rule and is a new variant. No order field is needed: sorted channel indices are reconstructed from the subset | vendor `net/encoder.py:340-378`; `swin_model.py:66-86,90-105`; `swin_protocol.py:46-69,87-119` |
+| Normalization power | Actual per-image float32 power | Before undoing normalization in the received decoder coordinates | IEEE-754 float32, 32 bits, same protected packet | Cannot replace by an uncharged per-image value. Quantization or a fixed coefficient changes the protocol and requires new parity/quality validation | `swin_model.py:78-82,100-104`; `swin_protocol.py:87-96,113-119` |
+| CRC | Derived from payload, 16 bits | Header acceptance | CRC16 inside protected packet | Removing it changes the failure rule; no equivalence claim | `scale_channel.py:55-72,99-108`; `swin_protocol.py:110-120` |
+| Trellis termination | Six fixed zero bits | Terminated convolutional decoding | Six bits, included in the 95-bit information block | Known zero does not mean free: it terminates the actual selected code | `scale_channel.py:99-108` |
+| Redundancy | Layout fixed | Header recovery | 190 mother-coded bits repeated into 512 transmitted bits | Can be changed only as a newly frozen protection layout. Shortening the header does not automatically add supported body channels | `scale_channel.py:90-108`; `swin_protocol.py:20-29,109-111` |
+| Frame padding | None in original N1024 adapter | N/A | 0 | A hypothetical shorter header with unchanged C6 leaves capacity unused unless a legal usage is implemented | `swin_protocol.py:20-29` |
+
+All five locally audited code files exactly match the corresponding registered SHA-256, including the vendor encoder. `adapter_validation.json` preserves these identities and verifies all **44/44** completed native diagnostic outputs against their original completion file. In the 20 existing C6/13 dB calibration cases, the cached contexts contain **three distinct masks and 20 distinct normalization powers** (4.300510406494141 to 9.706865310668945). This is direct cached evidence that fixed C does not imply fixed auxiliary values; it is not a test-population estimate.
+
+The native-forward parity diagnostic uses the native model's actual noisy decoder observation and exact mask/power. Its 20/20 pass result, maximum RGB absolute difference 5.364418029785156e-7, and maximum uint8 difference of one are reusable. This free-context diagnostic does not validate an unpaid-context deployment baseline and does not establish optimal header protection.
+
+## Decision on a compact variant
+
+No identical-semantics payload field can simply be deleted: the work-point fields are already shared, and the variable mask is already fixed-length combinatorially encoded at ceil(log2(binomial(320,6))) = 41 bits. The 32-bit float represents the actual normalization coefficient. This does not rule out a separately calibrated lossy metadata code or a different protection layout, but neither is part of the completed adapter.
+
+The existing code could rate-match a shorter packet, but that alone is an untested new protection policy. With unchanged trained C6 it yields no extra latent channels; C7 was never trained and C13 requires 1664 body symbols. Therefore this audit retains the original baseline and reports the limitation. It does **not** declare 256 symbols globally optimal and does **not** create a new variant merely to make a new performance row.
+
+Exact local source paths and hashes are in `provenance.json`; protocol bit counts for N1024 and N2048 are in `header_budget.csv`. The paths quoted above refer respectively to `.research/external_comparison_20261004/runtime/`, `.research/external_comparison_20261004/vendor_readonly/swin/`, and `.research/main_raw64_20261008_paper_supplement/actual_remote/src/var_comm/` under the workspace.

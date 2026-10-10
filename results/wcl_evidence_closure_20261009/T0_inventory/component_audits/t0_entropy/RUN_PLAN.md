@@ -1,0 +1,15 @@
+# T1 execution implications from the T0 entropy audit
+
+This plan does not start jobs. Root owns SSH/GPU admission and the common experiment protocol.
+
+1. Read-only remote qualification: compare the eight implementation SHA values in provenance.json; compare historical H completion SHA; verify the chosen32 source checkpoint+stream NPZ closure. Expected new model/PHY calls: 0.
+2. Bind exact original calibration1000 and train20k lists. Fixed32 can be first32 of original calibration order (candidate supplied), fixed100 must use one common registered rule across entropy families. Do not independently pick based on historical lengths or quality.
+3. For VAR source lengths/roundtrip receipts, extract verified existing m7/m8/m9 records: up to96 source×prefix records, expected new probability/encode calls 0 if historical bytes and reconstruction state satisfy the new gate. Missing clean reconstruction equivalence may require at most96 renders; first search exact existing state caches.
+4. For static scale-shared CDFs, read training manifests and NPZ member headers. If original-view full scales1–9 for all20k already exist, count directly with 0 neural calls. If only cached m1–m8 exists, verify ID coverage and use original view only; do not substitute flips or calibration-fitted counts. Extract only missing token scales/images with the frozen tokenizer after cost qualification. Upper-bound absent-all-assets scenario:20,000 tokenizer evaluations, no VAR or Dc calls. This is a contingency estimate, not a launch request.
+5. Freeze legal body profiles/headers/fallback before new evaluation. Existing H has only16/64QAM and m6–m9; low-SNR QPSK or shorter fallback, if necessary, is a new admitted layout requiring qualification. Do not silently claim old H covers4dB.
+6. Once protocol fixed: each family first100 calibration images for candidate screening, then top3 legal per SNR on1,000×3noise. For exactly3 candidates at each of3SNR, at most27,000 candidate-frames per family at full calibration stage; actual render count can be much lower by exact received-token state reuse. Need explicit candidate counts before quoting pilot cost.
+7. Frozen new family common500 formal phase =500×3SNR×3noise=4,500 frames. Two families =9,000, plus calibration/source prep. Existing raw output is reused. Changes in profile/modulation/noise cannot reuse an incompatible actual PHY event.
+8. Cost stage:16 fixed sources×3SNR×3 measured repeats=144 single-output samples per family after warm-up, with one exclusive computation window and online source/entropy/FEC stages actually included. Reuse the old timing boundary, not cached online work.
+9. N2048 follows the N1024 evidence. It needs new legal catalog/m10 support as needed, calibration-only family choice, and the pre-fixed100-source test. No N512 or entropy-partial expansion is auto-added.
+
+Historical H quality cells are not mapped as REUSE_EXACT until exact source, noise, wire configuration, null-class/model and numerical identities have been checked. Scientific completion is different from current local cache availability.

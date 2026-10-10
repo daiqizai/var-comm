@@ -1,0 +1,83 @@
+{
+  "status": "T1_SINGLE_ENTROPY_FAMILY_FROZEN_CALIBRATION_ONLY",
+  "family": "EC_VAR_WHOLE",
+  "N": 1024,
+  "snrs": [
+    4,
+    10,
+    19
+  ],
+  "original_policy_freeze": {
+    "path": "/home/liulu/projects/VAR_COMM/outputs/WCL-EVIDENCE-CLOSURE-20261009/T1_entropy_whole/frozen_policy.json",
+    "sha256": "08097679bd01e6988fc4574d4f74ab57e1a891b2837a2f7a77713565ace7f70d"
+  },
+  "selection_metric": "equal_weight_mean_of_three_fullcal_frozen_champion_DINOv2_L_means",
+  "criterion_by_family": {
+    "EC_STATIC_WHOLE": 0.6421321132717033,
+    "EC_VAR_WHOLE": 0.6760349907436304
+  },
+  "tie_break": "family_lexical",
+  "policies": {
+    "4": {
+      "candidate_id": "m7_q2_r2-3",
+      "N": 1024,
+      "target_m": 7,
+      "q": 2,
+      "nominal_rate": "2/3",
+      "k": 1274,
+      "n": 1912,
+      "header_symbols": 68,
+      "body_symbols": 956,
+      "frame_tail_symbols": 0,
+      "length_bits": 13,
+      "crc_bits": 16,
+      "source_capacity": 1245,
+      "actual_ldpc_layout_status": "NOT_QUALIFIED_BY_SOURCE_ONLY_CHECK",
+      "calibration_DINOv2_L": 0.5189017083607614
+    },
+    "10": {
+      "candidate_id": "m9_q4_r2-3",
+      "N": 1024,
+      "target_m": 9,
+      "q": 4,
+      "nominal_rate": "2/3",
+      "k": 2549,
+      "n": 3824,
+      "header_symbols": 68,
+      "body_symbols": 956,
+      "frame_tail_symbols": 0,
+      "length_bits": 13,
+      "crc_bits": 16,
+      "source_capacity": 2520,
+      "actual_ldpc_layout_status": "NOT_QUALIFIED_BY_SOURCE_ONLY_CHECK",
+      "calibration_DINOv2_L": 0.6902042177083592
+    },
+    "19": {
+      "candidate_id": "m9_q6_r5-6",
+      "N": 1024,
+      "target_m": 9,
+      "q": 6,
+      "nominal_rate": "5/6",
+      "k": 4780,
+      "n": 5736,
+      "header_symbols": 68,
+      "body_symbols": 956,
+      "frame_tail_symbols": 0,
+      "length_bits": 13,
+      "crc_bits": 16,
+      "source_capacity": 4751,
+      "actual_ldpc_layout_status": "NOT_QUALIFIED_BY_SOURCE_ONLY_CHECK",
+      "calibration_DINOv2_L": 0.8189990461617708
+    }
+  },
+  "uses": [
+    "T5_fixed16_examples",
+    "T6_additional_budget"
+  ],
+  "holdout_used_for_selection": false,
+  "source_count": 1000,
+  "noise_count": 3,
+  "holdout_files_read": false,
+  "new_model_calls": 0,
+  "new_packet_decodes": 0
+}

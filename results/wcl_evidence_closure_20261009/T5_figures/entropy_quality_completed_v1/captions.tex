@@ -1,0 +1,13 @@
+% Directly consumed completed statistics; no new bootstrap or evaluation.
+\newcommand{\TfiveEntropyQualityCaption}{Same-prior source-coding comparison at $N=1024$.
+The original partial-scale raw-token system (NeST-Com) is compared with complete-scale transmission using static or VAR-conditional entropy coding and the same frozen VAR completion model.
+This is a post-hoc same-source supplement on the previously examined 500-source holdout, with three registered noises per source; all scheduled frames, including failures, remain in the statistics.
+Lines show CSV means and shaded bands reproduce the existing pointwise 95\% source-bootstrap confidence intervals after averaging the three noises, with no multiple-comparison adjustment.
+The original raw means and intervals are unchanged. ConvNeXt reports source-prediction agreement in percent, not classification accuracy.
+Each method uses its calibration-frozen deployed protocol; raw KEEP and entropy-code rejection/fallback rules differ, so the contrast is not compression alone. Source pairing does not imply identical received observations for different waveforms.}
+
+\newcommand{\TfiveEntropyPairedCaption}{Source-paired differences at $N=1024$: each complete-scale entropy-coded system minus the original partial-scale raw-token system (NeST-Com).
+Markers and error bars reproduce the existing paired CSV means and pointwise 95\% source-bootstrap intervals on 500 common sources, each averaged over three noises.
+The horizontal line is zero. Positive differences favor the entropy-coded system for PSNR, DINOv2-L cosine similarity and prediction agreement; negative LPIPS differences favor it.
+Agreement differences are percentage points, not relative percent changes. Zero means and intervals crossing zero are retained, including the VAR-conditional entropy system's 19~dB agreement result.
+These are post-hoc same-source comparisons of the complete deployed protocols, including their distinct registered failure rules; the differences are not obtained by subtracting marginal intervals.}

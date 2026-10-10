@@ -1,0 +1,19 @@
+# T4 read-only resource and quality assembly
+
+`t4_export_bpg_existing.py` consumes only completed adaptive BPG resource CSVs, metric rows and published metric CSVs. Each consumed file must match its original completion SHA. It joins the9000 actual frames by exact frame ID and checks sourceID, source index, SNR, noise seed, MCS, status, reconstruction/reference SHA, PSNR and actual energy. The full500x6x3 grid remains, including every failure. Original CSV bytes are copied unchanged into `original/`; an enriched per-frame CSV adds the existing four metrics and rho. This does not run a codec, model, PHY, channel or bootstrap.
+
+```powershell
+python experiments/wcl-evidence-closure-20261009/scripts/t4_export_bpg_existing.py --resources results/paper_supplement_20261008/a1_bpg_adaptive/a1b_adaptive_v1/resources_v1 --metrics results/paper_supplement_20261008/a1_bpg_adaptive/metrics_v1 --out results/wcl_evidence_closure_20261009/T4_resources_cost/bpg_existing_v1
+```
+
+`energy_summary.csv` reports actual saved E and rho=E/(2N): mean, standard deviation(ddof=0), min/max and linear empirical5/50/95percentiles. Missing observations remain missing, with counts. SOURCE_UNFIT has no waveform and must not carry either ideal or zero waveform energy. All overall quality means retain the complete source/noise grid. Conditional quality first averages selected noise outcomes per represented source; its frame/source counts and minimum/maximum selected noise count are reported. Published overall CIs are copied after a mean reconciliation. Conditional CIs remain absent and zero-count conditions are explicit. Agreement CSV values remain proportions.
+
+`t4_summarize.py` assembles explicitly supplied completed exports into a new immutable directory. Original raw/P/Swin and later adaptive BPG evidence retain provenance columns. Optional `--entropy-completion` plus `--entropy-per-frame` requires the actual completed scored holdout and checksum-bound CSV. Source/method/SNR/seed duplicates or incomplete500x3 cells fail admission. Resource aliases accept actual saved T1 fields `E_frame`, `rho`, `actual_k`, `actual_n`, `header_symbols`, `body_symbols`, `frame_padding_symbols`, `target_m`, `actual_m`, `transmitted_token_count` and `arithmetic_bits`. N may be the sum of the three actually recorded symbol allocations. Missing fields are listed explicitly; no policy or ideal constellation assumption fills them.
+
+Optional `--timing-completion` plus `--timing-per-call` requires actual `T4_FIXED16_ONLINE_TIMING_COMPLETE`,1152total calls,576measured calls and zero unresolved reservations. Overall and conditional latency uses measured calls only. Each method/SNR must contain16sourcesx3repeats. Warmups remain in the copied per-call file. CRC/header rejection and gray-output conditions are reported separately because KEEP CRC-rejected frames can produce non-gray outputs. These conditions overlap and must not be summed.
+
+```powershell
+python experiments/wcl-evidence-closure-20261009/scripts/t4_summarize.py --raw-export results/wcl_evidence_closure_20261009/T4_resources_cost/raw_existing_v1 --bpg-export results/wcl_evidence_closure_20261009/T4_resources_cost/bpg_existing_v1 --out results/wcl_evidence_closure_20261009/T4_resources_cost/summary_available_v1
+```
+
+This first actual assembly intentionally has neither entropy nor new timing inputs. `missing_fields.csv` lists both unavailable inputs. `timing_summary.csv` contains only column names; no zero-latency or other invented result is inserted. Later completion must use a new output directory with the optional arguments. Input scientific files, old statistics and previous exports are never overwritten. `t4_resource_selfcheck.py` tests arithmetic, absent-energy handling, retained failures and timing condition semantics using explicitly engineering-only scalar fixtures, never a fake model or PHY qualification.

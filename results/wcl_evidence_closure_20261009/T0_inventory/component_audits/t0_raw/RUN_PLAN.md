@@ -1,0 +1,12 @@
+# Raw-side execution accounting after T0
+
+This is a bounded plan, not a launch or a scientific result.
+
+1. Freshly verify the remote catalogue/policy/freeze hashes and existing RX/image/score paths. Do not rerun original common500, BPG, Kodak or original unified timing. Verify train20k token-cache contents before budgeting static frequencies.
+2. T5 can use existing summary and paired tables immediately. Six-SNR WHOLE and PARTIAL data are complete. The stable fixed16 image population is development; label it accurately. Check missing BPG 10/19/low-SNR exact-source assets before any deterministic reconstruction.
+3. T4 original raw/P/Swin actual energy and failures are complete in A4 v2. Publish or reuse the existing tables and derived rho columns. New entropy families require their own resource, parse-failure and timing records; old results cannot stand in for them.
+4. T2 pilot: first100 entries in the original calibration manifest, original seed4101, SNR10/19, all106 unique K0 actions. Total21,200 logical frames. Maximum42,400 header/body packet calls before cache reuse, not including later full calibration. Original whole shortlist covers three actions at each SNR; if exact source/seed/counter/protocol/received-state match is established, up to600 pilot frames and their scores may be reused. Otherwise retain the 21,200 bound. Correct-token same-state renders can share deterministic output; do not represent all CRC rejects by clean images.
+5. T2 full calibration: union of pilot top5, original whole winner, original partial winner, and all seven relevant full-budget whole actions for each audited SNR; de-duplicate exact actions. Conservative upper bound is14 actions per SNR, hence84,000 logical frames across1,000×3×2, before exact reuse. If the interpretation of 'relevant' narrows this set, document it before ranking and do not silently remove strong protection. Keep all106 pilot candidates regardless of runtime. Actual new rendering cost can only be measured after RX state deduplication; do not state a GPU ETA yet.
+6. Only changed expanded-WHOLE winners trigger post-freeze same-source holdout additions:1,500 frames per changed SNR, at most3,000 at the initial10/19 points. No partial-policy reselection is implied.
+
+No operations in this audit mutate the original root budget or start T2. New permitted scientific calls need an independent version, deterministic cache keys, durable completion receipts and bounded batches under the coordinator. Negative or zero improvements are valid completion outcomes.
