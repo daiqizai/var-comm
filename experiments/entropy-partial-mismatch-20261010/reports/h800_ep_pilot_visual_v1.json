@@ -1,0 +1,227 @@
+{
+  "schema": "H800_EP_ORIGINAL100_PILOT_VISUAL_PUBLIC_STATUS_V1",
+  "status": "PASS_H800_ORIGINAL100_PILOT_RECONSTRUCTIONS_ONLY",
+  "publication_state": "CLOSED_ACTUAL_RECEIPT_PROJECTION",
+  "request_sha256": "b46f78b01390516d8a8729bb6e7bac897ba24f290c246c456d0c0cd490176bb3",
+  "actual_owner": {
+    "phase": "run_owner",
+    "actual_wait": true,
+    "returncode": 0,
+    "elapsed_seconds": 1019.0124587940518,
+    "cpu_affinity": [
+      7,
+      8
+    ],
+    "target_GPU": 2,
+    "log_sha256": "02eec40fcb85d56252429672c867b5ef5564fef4d753a6f29243d92ae4e0e552"
+  },
+  "source_population": "ORIGINAL_CALIBRATION_FIRST100",
+  "source_count": 100,
+  "SNRs": [
+    4,
+    10,
+    19
+  ],
+  "noise_seeds": [
+    4101
+  ],
+  "candidate_count": 144,
+  "logical_frames": 43200,
+  "actual_counts": {
+    "caps": {
+      "decoder_forward": 43200,
+      "encoder": 0,
+      "model_load": 1,
+      "prior_scale": 864000,
+      "source_rx": 43200,
+      "source_tx": 0,
+      "var_render": 43200
+    },
+    "completed": {
+      "decoder_forward": 1408,
+      "encoder": 0,
+      "model_load": 1,
+      "prior_scale": 25142,
+      "source_rx": 1408,
+      "source_tx": 0,
+      "var_render": 1408
+    },
+    "reserved": {
+      "decoder_forward": 1408,
+      "encoder": 0,
+      "model_load": 1,
+      "prior_scale": 25142,
+      "source_rx": 1408,
+      "source_tx": 0,
+      "var_render": 1408
+    },
+    "unresolved": 0
+  },
+  "reuse": {
+    "new_actual_source_inputs": 1409,
+    "closed48": 453,
+    "same_run": 41338
+  },
+  "new_float32_archives": 1409,
+  "logical_outcomes_by_SNR": {
+    "4": {
+      "logical_frames": 14400,
+      "actual_RX_PAYLOAD_PARSED": 2943,
+      "reconstruction_tokens": 2943,
+      "source_status_ARITHMETIC_SOURCE_DECODED": 2943,
+      "actual_RX_CRC_REJECT": 11457,
+      "reconstruction_gray": 11457,
+      "source_status_CRC_REJECT": 11457
+    },
+    "10": {
+      "logical_frames": 14400,
+      "actual_RX_PAYLOAD_PARSED": 7679,
+      "reconstruction_tokens": 7679,
+      "source_status_ARITHMETIC_SOURCE_DECODED": 7679,
+      "actual_RX_CRC_REJECT": 6721,
+      "reconstruction_gray": 6721,
+      "source_status_CRC_REJECT": 6721
+    },
+    "19": {
+      "logical_frames": 14400,
+      "actual_RX_PAYLOAD_PARSED": 14400,
+      "reconstruction_tokens": 14400,
+      "source_status_ARITHMETIC_SOURCE_DECODED": 14400
+    }
+  },
+  "old48_call_counts_preserved": true,
+  "exact_float32_images_preserved": true,
+  "original_frozen_models_and_source_math_preserved": true,
+  "model_state_identity": {
+    "decoder": "bf1d64bf8ff7eeda416032daa2ada1654fb37de2553235e85d364211ddfefad1",
+    "vae": "6830fc533a34d52c8f765a7b212782a5b5ef6138992099e8a817ce920fe6fe2b",
+    "var": "b82cb0855b24e1d0d8d0aacebbb2d2d6728c2dcc6509b667dfa697c9330347d5"
+  },
+  "numeric_settings": {
+    "FP32": true,
+    "TF32": false,
+    "batch_size": 1,
+    "cudnn_benchmark": false,
+    "cudnn_deterministic": true,
+    "deterministic": true,
+    "precision": "highest",
+    "runtime": {
+      "cuda": "12.8",
+      "cudnn": 91900,
+      "interop_threads": 2,
+      "numpy": "2.2.6",
+      "python": "3.10.12",
+      "threads": 6,
+      "torch": "2.11.0+cu128"
+    }
+  },
+  "native_binding_sha256": "eb641b1f3139960b67b6342417eba09fb0aaed26784c93f99c1d85c9437a4868",
+  "source_math_SHA": "db4349f936b2cd0c267932cc286e2661e1f7d56dd10d1c4e4a5d7d90ec279252",
+  "source_codec_SHA": "65a9f599bef2205c15f864f40ec07f27d8c9d03ed2d318838706f29dd1b3cb4e",
+  "received_render_core_SHA": "4ee75147eec3e1008045bc7cfd30eb0cb0ff96d0468097384251a48870deabb4",
+  "code_bindings": {
+    "experiments/entropy-partial-mismatch-20261010/scripts/ep_phy.py": "12cad3e495fc91d8f6819b895674df08e312da3833291019b8966a2211ec8c75",
+    "experiments/entropy-partial-mismatch-20261010/scripts/ep_plan.py": "7f354687caa3271ce4375f598f4d9e3ff6086df28d8be478c80835ab4ccd7862",
+    "experiments/entropy-partial-mismatch-20261010/scripts/ep_qualify_phy.py": "87db9e0bf0b366a0fb51eca9ac431b24044c7ff031e4c617ef9d49b63d58d224",
+    "experiments/entropy-partial-mismatch-20261010/scripts/ep_source_codec.py": "65a9f599bef2205c15f864f40ec07f27d8c9d03ed2d318838706f29dd1b3cb4e",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_ep32_source_gate_v1.py": "5ffd10b0e44e18667b9de87ac5dfbdf01a0a99948d081a8293b61c20815787c7",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_ep48_link_core_v1.py": "4ee75147eec3e1008045bc7cfd30eb0cb0ff96d0468097384251a48870deabb4",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_ep48_link_gate_v1.py": "2d904126bcd99465a971314148e09aa2b4a9f9e1dbf1bcf3595ec42a702f6882",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_pilot_core_v1.py": "3f0ea97b7902de4c24e80ebcfe731b160863ac252ba7ff81948e86b7ca0103cb",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_pilot_phy_v1.py": "61683057d883ae6ecd317d7ab998930e9e367fade54ca3ef97d791431f90aaed",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_pilot_source_v1.py": "661d6f1c8c45b3b324c8c488118ccb4c96c3ea8217281bd4d6bb0ebd014403e2",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_pilot_visual_v1.py": "d790fb8787ceea4f8c200eb9edaacd226b1903a1a5293513adb6f4c1abb46f7f",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_same_host_codec_v1.py": "04972f2c45d88e61d5d6d1abe528ec3db2838efa045171e520dd59db0171782f",
+    "experiments/entropy-partial-mismatch-20261010/scripts/h800_single_rx_v1.py": "d2a8410f02078ba44f08d9e2e490174fb6f4549f60df2b4300a56592e6fd2f4a",
+    "experiments/entropy-partial-mismatch-20261010/scripts/leo_runtime_verify_v1.py": "77a059e9c8f4d4328b338274ef2dd8580c6634bd3e1d5ba0e6613b7237422981",
+    "experiments/entropy-partial-mismatch-20261010/scripts/leo_shared_preflight.py": "0f7473aa003991edca43a4587bbd03dfef0955e13f85cf23ffaff1dae1cf66ab",
+    "experiments/entropy-partial-mismatch-20261010/scripts/leo_single_rx_diagnostic_v2.py": "08835b22a2c4378cd462ae68690d2d00e2865971c130d4456dc21122d6df6de7",
+    "experiments/entropy-partial-mismatch-20261010/scripts/leo_whole_gate_v1.py": "06c8f1659eed5d67c9bcd368a91f6c35628d83136e4a9ff4e2fbe356cb65f81b",
+    "experiments/entropy-partial-mismatch-20261010/scripts/leo_whole_math_v1.py": "db4349f936b2cd0c267932cc286e2661e1f7d56dd10d1c4e4a5d7d90ec279252"
+  },
+  "receipt_pins": {
+    "registered/request.json": "b46f78b01390516d8a8729bb6e7bac897ba24f290c246c456d0c0cd490176bb3",
+    "registered/run/completion.json": "399fe3748a15d6975e07373dceadf2eea43d05b616928b88693d4bc76c4bc3e1",
+    "registered/run/worker_completion.json": "6a1df8f8b70861f876d6cc37091d95283631ab19a25758cc610e32e905197ff0",
+    "registered/run/actual_child_wait.json": "d620922a3e836122adcb1071c777b7f79f5369bb379a1d0dc713a109dd37fb84",
+    "run_owner_actual_wait.json": "3a02556e66692d9745abc53552c1c182fd6fdcffe01d0f5b996fa7a6c67e3660"
+  },
+  "closed_CPU_pins": {
+    "completion": "29c33fb4b25aa07041924f9f5f763e8a8526a6ef764062164f683aa868c40340",
+    "owner_actual_wait": "631550af0d92fa53b72f0cdb38bde602fff7e6a229a3c382529e70ac7ab24409"
+  },
+  "export_verification": {
+    "status": "CLOSED_PILOT_VISUAL_ALL_MEMBERS_LINKS_FLOAT32_AND_MODEL_CALLS_VERIFIED",
+    "archive_files": 103369,
+    "uncompressed_bytes": 1375180910,
+    "archive_bytes": 994770575,
+    "archive_sha256": "ac963a1155bc30580576096e4a60577ffe922831527bff0604c852d9b0c45416",
+    "export_manifest_sha256": "cd7d56ccb037e12d63606b90cde2d22edbf73cf3cf912a053121e2a095a947d1",
+    "logical_frames": 43200,
+    "new_float32_archives": 1409,
+    "new_reconstruction_kinds": {
+      "tokens": 1408,
+      "gray": 1
+    },
+    "actual_fixed_half_gray_archives": 1,
+    "reuse": {
+      "new_actual_source_inputs": 1409,
+      "closed48": 453,
+      "same_run": 41338
+    },
+    "actual_counts": {
+      "caps": {
+        "decoder_forward": 43200,
+        "encoder": 0,
+        "model_load": 1,
+        "prior_scale": 864000,
+        "source_rx": 43200,
+        "source_tx": 0,
+        "var_render": 43200
+      },
+      "completed": {
+        "decoder_forward": 1408,
+        "encoder": 0,
+        "model_load": 1,
+        "prior_scale": 25142,
+        "source_rx": 1408,
+        "source_tx": 0,
+        "var_render": 1408
+      },
+      "reserved": {
+        "decoder_forward": 1408,
+        "encoder": 0,
+        "model_load": 1,
+        "prior_scale": 25142,
+        "source_rx": 1408,
+        "source_tx": 0,
+        "var_render": 1408
+      },
+      "unresolved": 0
+    },
+    "model_call_reserved_records": 29367,
+    "model_call_completed_records": 29367,
+    "every_logical_to_physical_to_image_SHA_verified": true,
+    "every_new_image_float32_CHW_3_256_256": true,
+    "every_model_call_context_matches_reconstruction_evidence": true,
+    "old48_float32_reference_archives_verified": 48,
+    "old48_call_counts_preserved": true,
+    "source_truth_or_TX_CDF_used": false,
+    "quality_scores": 0,
+    "new_scientific_calls_during_export": 0
+  },
+  "source_truth_used": false,
+  "TX_CDF_used": false,
+  "source_TX_calls": 0,
+  "PHY_calls": 0,
+  "quality_scores": 0,
+  "training_updates": 0,
+  "automatic_successor": false,
+  "production_admission": false,
+  "limits": [
+    "Identical actual decoder inputs reuse exact same-identity reconstructions; logical frames are not new model calls.",
+    "All actual float32 images and SHA-pinned old48 references are retained without PNG quantization.",
+    "Header, CRC, parser and source-decoder failures remain in the logical population and use the frozen half-gray output.",
+    "This closes pilot reconstruction only; four-metric scoring, ranking, full calibration and confirmation require separate actual evidence."
+  ]
+}
