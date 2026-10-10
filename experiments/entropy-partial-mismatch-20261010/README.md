@@ -1,5 +1,13 @@
 # Entropy partial scales and one-step configuration mismatch
 
+## H800 actual48 image link gate completed (2026-10-10)
+
+The fixed first4 original calibration sources at4/10/19 dB, seed4101 and four registered targets per point completed all48 actual paid-channel and reconstruction frames. The PHY ledger closed96/96 decodes; the visual ledger closed model1, source RX48, render48, Dc48 and prior-scale866 within the960 cap, with no unresolved calls. Thirty reconstructions used a received positive-K profile and18 used a whole-scale profile; no fixed-gray output occurred in this small gate. All48 exported float32 image arrays and their frame bindings were independently verified. The CPU and GPU owners exited0 after29.18s and183.39s; these are engineering owner durations, not online timing measurements.
+
+This closes the source, physical-link and image-link engineering prerequisites. It does not establish comparative quality. Pilot ranking, full calibration, new100 confirmation and mismatch evaluation remain **NOT_RUN** at this snapshot. Continue with the original100-source,144-candidate calibration pilot after its exact missing assets and finite execution registration are complete. Reuse only individually verified source/event states, and preserve every prior gate call. Historical source-exposure auditing remains open; no new100 pixels have been selected or inspected.
+
+[Closed image gate report](reports/h800_ep48_link_gate_v1.json).
+
 ## H800 first32 source and real PHY gates completed (2026-10-10)
 
 Two actual component gates are closed. The original calibration first32 source gate completed 32 fresh H800 TX passes, 576 independent partial RX decodes and 64 m4/m5 whole RX decodes; all 640 decoded-token comparisons and independently recomputed CDF witnesses passed. The exact budget closed at model load1, TX32, RX640 and prior-scale4928, with encoder/render/Dc0 and no unresolved calls. The actual owner exited0 after419.63s. Fresh whole m6-m9 streams were generated but their whole RX endpoints were outside this gate. The separate real PHY gate passed all96 body and361 header decodes (457/457, unresolved0). Its first attempt stopped before any decode because the visual environment lacks Sionna; the successful fresh attempt used the already-restored frozen LDPC environment and unchanged backend identity checks. Earlier cross-host failures remain unchanged.
