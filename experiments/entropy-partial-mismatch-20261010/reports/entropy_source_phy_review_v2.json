@@ -1,0 +1,60 @@
+{
+  "schema": "EP_ENTROPY_SOURCE_PHY_REVIEW_ADDENDUM_V2",
+  "status": "READ_ONLY_DESIGN_REVIEW_PASS_NOT_EXECUTED",
+  "created_at_utc": "2026-10-10T05:04:29.741701+00:00",
+  "previous_review": [
+    {
+      "path": "experiments/entropy-partial-mismatch-20261010/reports/entropy_source_phy_review_v1.md",
+      "sha256": "3095c965372300ba8767426ade41bf85b2957a9c749ee49e2f447859b0e27e6c"
+    },
+    {
+      "path": "experiments/entropy-partial-mismatch-20261010/reports/entropy_source_phy_review_v1.json",
+      "sha256": "c3471a77e672c10d9df0c3c0b98f9c7f3e8028d932c69cf2b3584530fcad1045"
+    }
+  ],
+  "reviewed_files": [
+    {
+      "path": "experiments/entropy-partial-mismatch-20261010/scripts/ep_plan.py",
+      "sha256": "7f354687caa3271ce4375f598f4d9e3ff6086df28d8be478c80835ab4ccd7862"
+    },
+    {
+      "path": "experiments/entropy-partial-mismatch-20261010/PROTOCOL.md",
+      "sha256": "c458844e95b0e448352067356edb8bd2328d4f881ef1bf0bce87ef7dd4fa62be"
+    }
+  ],
+  "report": {
+    "path": "experiments/entropy-partial-mismatch-20261010/reports/entropy_source_phy_review_v2.md",
+    "sha256": "a693cafa65ee786dfc54555ad5654a74b9ddb186852459c28421c797f4d77baf"
+  },
+  "scope": "Added fixed48 real-image link gate only; previous reviewed implementation retained",
+  "planned_gate": {
+    "original_calibration_sources": 4,
+    "snrs": [
+      4,
+      10,
+      19
+    ],
+    "noise_seed": 4101,
+    "target_actions_per_snr": 4,
+    "logical_frames": 48,
+    "packet_cap": 96,
+    "independent_RX_VAR_cap": 48,
+    "reconstruction_cap": 48,
+    "quality_scoring": false,
+    "source_selection": "original ordered first4",
+    "action_selection": "old frozen entropy-whole target m and MCS with K0 plus three registered fractional K"
+  },
+  "prerequisites": [
+    "first32 real source qualification complete",
+    "457-call new real PHY qualification complete",
+    "owned bounded executor implemented and bound"
+  ],
+  "execution_acceptance_note": "Record actual positive-K accepted path count; no positive-K success means no such end-to-end qualification claim, with no adaptive retries.",
+  "tests_executed_for_addendum": 0,
+  "model_calls": 0,
+  "packet_calls": 0,
+  "network_calls": 0,
+  "new_source_draws": 0,
+  "complete_calibration_render_orchestration_implemented": false,
+  "experiment_ready_to_run": false
+}

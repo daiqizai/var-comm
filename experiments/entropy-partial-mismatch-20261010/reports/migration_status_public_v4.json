@@ -1,0 +1,439 @@
+{
+  "schema": "LEO_MIGRATION_PUBLIC_STATUS_V4_DRAFT",
+  "status": "V5_STOPPED_CROSS_HOST_BITSTREAM_EXACT_MISMATCH",
+  "baseline_commit": "ca26ceb383e93fc4ee56298dcf896720188f86f6",
+  "evidence_cutoff": "v5 owner/child actually exited1 after first encoder exact PASS and first m4 bitstream exact FAIL; no independent RX or reconstruction performed",
+  "tracked_restore": {
+    "missing_files_restored": 9966,
+    "bytes": 6763425406,
+    "actual_wait_exit_code": 0,
+    "HEAD_index_refs_unchanged": true
+  },
+  "frozen_environment": {
+    "regular_files_restored": 54014,
+    "symlinks_created": 0,
+    "recorded_link_metadata": 15,
+    "status": "ORIGINAL_BYTES_RESTORED_AND_PRIVATE_IMPORTS_ADMITTED",
+    "numeric_equivalence_certified": false
+  },
+  "gate_v2": {
+    "status": "FAILED_CUDA_VISIBILITY",
+    "actual_owner_exit_code": 1,
+    "actual_child_exit_code": 1,
+    "model_load_reserved": 1,
+    "completed_calls": {
+      "decoder_forward": 0,
+      "encoder": 0,
+      "model_load": 0,
+      "prior_scale": 0,
+      "source_rx": 0,
+      "source_tx": 0,
+      "var_render": 0
+    },
+    "unresolved_reservations": 1,
+    "automatic_retry": false
+  },
+  "device_diagnosis": {
+    "separate_NVML_and_CUDA_UUID_namespaces": true,
+    "same_PCI_device_verified": true,
+    "explicit_tensor_allocations": 0,
+    "model_loads": 0,
+    "repair_is_engineering_not_numeric_acceptance": true,
+    "status": "DIAGNOSED_NVML_UUID_MAPPING_ZERO_PUBLIC_COUNT",
+    "observations": [
+      {
+        "mask_kind": "CUDA_UUID",
+        "available": true,
+        "device_count": 0,
+        "raw_cuda_count": 1,
+        "NVML_count": 0,
+        "actual_child_exit_code": 0
+      },
+      {
+        "mask_kind": "fixed_ordinal5",
+        "available": true,
+        "device_count": 1,
+        "raw_cuda_count": 1,
+        "NVML_count": 1,
+        "actual_child_exit_code": 0
+      }
+    ],
+    "actual_CUDA_UUID_and_PCI_unchanged": true,
+    "causal_source": "Frozen torch device_count accepts a zero NVML UUID-intersection result and falls back to the raw CUDA count only for a negative NVML result.",
+    "diagnostic_children_total": 3,
+    "successful_enumeration_children": 2,
+    "failed_receipt_construction_children": 1,
+    "failed_diagnostic_preserved": true,
+    "environment_comparison_scope": "Recorded v3 string environment and reconstructed limits; historical unrecorded rlimit details and earlier standalone probe full environment remain unobservable.",
+    "production_framework_count_patched": false,
+    "count_cache_injected": false
+  },
+  "gate_v3": {
+    "status": "FAILED_CUDA_VISIBILITY_V3",
+    "actual_owner_exit_code": 1,
+    "actual_child_exit_code": 1,
+    "owner_elapsed_seconds": 195.970271688886,
+    "model_load_reserved": 1,
+    "completed_calls": {
+      "decoder_forward": 0,
+      "encoder": 0,
+      "model_load": 0,
+      "prior_scale": 0,
+      "source_rx": 0,
+      "source_tx": 0,
+      "var_render": 0
+    },
+    "unresolved_reservations": 1,
+    "allocator_cap_applied": false,
+    "v3_failure_receipt_sha256": "89fbc75d051e4c8c2f029f30a192b75d09dbf07cb57872619740b449232e6fd5",
+    "request_sha256": "9d635e72fc680dd423b102c41653dba5f7d3ac99e69a4f65e95a7ad994d25340",
+    "map_seconds": 6.105,
+    "prepare_seconds": 130.342,
+    "source_of_running_status": "Actual original failure and wait receipts safely exported and individually SHA-verified",
+    "success_model_load_observed_by_this_draft": false,
+    "numeric_equivalence_certified": false,
+    "v3_actual_child_wait_sha256": "0923eff6767843d1cc6bf76f9f3a0661baef44acea81e0f3b3ad5ab1a7c8696a",
+    "v3_run_owner_actual_wait_sha256": "e9c24a43736842aa05029fadd5a2727d52af1a00953de50397d78447da61bcb1"
+  },
+  "new_science": {
+    "entropy_partial_calibration": "NOT_RUN",
+    "new100_confirmation": "NOT_RUN",
+    "one_step_mismatch": "NOT_RUN",
+    "new_training_updates": 0,
+    "scientific_quality_result_available": false
+  },
+  "receipt_pins": {
+    "tracked_materialization_owner": {
+      "sha256": "9e848a41e919f9de5588237ad4634ff6fb475c724ab063b9b8bf6e4f034a3f7c",
+      "bytes": 1223
+    },
+    "tracked_materialization_worker": {
+      "sha256": "2c36aafb112f4b94607f0157597057566d3c90994cce17cca99fb49b1e241f08",
+      "bytes": 1384
+    },
+    "environment_restore": {
+      "sha256": "e08e68e05d0954cb65b9d749cdd060b684697270a2e7c7417c1e7652966e46ab",
+      "bytes": 2382
+    },
+    "runtime_relocation": {
+      "sha256": "12868e9b72f34d39fac3bc1eafd9db58e1a43264b94772309251e97ca095c7fd",
+      "bytes": 2495833
+    },
+    "failed_gate_v2_worker": {
+      "sha256": "3d69508ee1785b1617a1ff0a00bf062c368839bfa55592f87648e30513181d76",
+      "bytes": 2334
+    },
+    "failed_gate_v2_child_wait": {
+      "sha256": "0923eff6767843d1cc6bf76f9f3a0661baef44acea81e0f3b3ad5ab1a7c8696a",
+      "bytes": 129
+    },
+    "failed_gate_v2_owner_wait": {
+      "sha256": "37f01324d99d2d16a39ca0b5a1dc0ae754903740d1e0cbc87247f74450455aaf",
+      "bytes": 115
+    },
+    "cuda_identity_diagnostic": {
+      "sha256": "a1719c8498c9b624dd07f1ee932c32c4531a991ea3686df84ca610e0aeef0bad",
+      "bytes": 667
+    },
+    "cuda_uuid_visibility_diagnostic": {
+      "sha256": "bb031069517d5b68e5e56d4c099fe4ed8fbe5097f12c0daac909e7370ff89c14",
+      "bytes": 438
+    },
+    "snapshot_v3": {
+      "sha256": "4be58ba98f4fda70e9d099305f262aceb8c622f436564873c5a6f374d91ec637",
+      "bytes": 793
+    },
+    "snapshot_v3_manifest": {
+      "sha256": "779c14c0df0e4a81ab761ecc1317adedc702a989fe402eed7c208e97cdff63a1",
+      "bytes": 181509
+    },
+    "latest_linux_engineering_wait": {
+      "sha256": "1efbdbc97beb94cbdf8b858190f51eb23ed8708fe4146e34df8eac74a372169f",
+      "bytes": 531
+    },
+    "gate_v3_worker_failure": {
+      "sha256": "89fbc75d051e4c8c2f029f30a192b75d09dbf07cb57872619740b449232e6fd5",
+      "bytes": 2334
+    },
+    "gate_v3_actual_child_wait": {
+      "sha256": "0923eff6767843d1cc6bf76f9f3a0661baef44acea81e0f3b3ad5ab1a7c8696a",
+      "bytes": 129
+    },
+    "gate_v3_run_owner_actual_wait": {
+      "sha256": "e9c24a43736842aa05029fadd5a2727d52af1a00953de50397d78447da61bcb1",
+      "bytes": 1469
+    },
+    "complete_owner_environment_device_diagnostic": {
+      "sha256": "de88a79156a9f419cf2b30ff30df6869adcf95c865fad8155b690c888e8fd9d0",
+      "bytes": 7005
+    },
+    "frozen_torch_cuda_count_source": {
+      "sha256": "9d6ebdf17ea55ae566dc01682878645ab870f96d613d1ef8ad31c317b5400c12",
+      "bytes": 68281
+    }
+  },
+  "publication_boundary": "Receipt pins summarize engineering evidence. Private full runtime inventories, credentials, connection configuration, other users process details and large assets are excluded.",
+  "historical_checkpoint_v3": {
+    "name": "preparation_snapshot_v3",
+    "new_files": 64,
+    "new_bytes": 22645106,
+    "prior_snapshot": "preparation_snapshot_v2",
+    "selected_prior_references": 162,
+    "standalone_full_project_backup": false,
+    "state_at_snapshot": "FAILED_CUDA_VISIBILITY_AND_REPAIR_PREPARED_NOT_RUN"
+  },
+  "gate_v4": {
+    "status": "STOPPED_UNREGISTERED_NEW_HOST_NATIVE_LIBRARY",
+    "request_sha256": "23e359ecffd978cda071d8b418164e0e498dc32a8596db35abd77bfc77b54e0a",
+    "map_actual_pass": true,
+    "map_seconds": 5.99,
+    "prepare_actual_pass": true,
+    "prepare_seconds": 125.182,
+    "owner_started": true,
+    "actual_owner_exit_code": 1,
+    "actual_child_exit_code": 1,
+    "success_model_load_observed_by_this_draft": false,
+    "numeric_equivalence_certified": false,
+    "source_of_status": "Actual final worker_failure and actual_child_wait receipts, matched to frozen source failure line184",
+    "fresh_request_required": true,
+    "earlier_requests_replayed": false,
+    "actual_owner_elapsed_seconds": 227.43100813496858,
+    "cuda_dual_identity_passed": true,
+    "allocator_cap_applied_bytes": 17179869184,
+    "model_construction_and_state_hash_checks_reached": true,
+    "model_wrapper_completed": false,
+    "model_load_reserved": 1,
+    "model_load_completed": 0,
+    "unresolved": 1,
+    "encoder_source_tx_source_rx_render_completed": 0,
+    "first_unregistered_library": "libbz2.so.1.0.4",
+    "worker_failure_sha256": "9e24890d09568f6ceea3af4c9c94b5089e8f1e3fef431a081aa1ea2a57511727",
+    "actual_child_wait_sha256": "0923eff6767843d1cc6bf76f9f3a0661baef44acea81e0f3b3ad5ab1a7c8696a",
+    "cuda_identity_sha256": "407dfda3f2ac7b9950cc90c66fd7b579036b8a00de50eede0343c26c8fa3e937",
+    "numerical_runtime_sha256": "4c8268b5f31614483d233c5542a1123c175857476e5b06d8cd9d0e5e5732e293"
+  },
+  "cpu_publication_checks": {
+    "mandatory_repository_suite": {
+      "status": "ACTUAL_PASS",
+      "tests": 264
+    },
+    "new_engineering_suite": {
+      "status": "ACTUAL_PASS",
+      "test_files": 12,
+      "tests": 118,
+      "original_metadata_restored_files": 3,
+      "original_metadata_restored_bytes": 629511,
+      "restoration_verified_original_SHA": true,
+      "test_criteria_or_scientific_results_changed": false
+    },
+    "device_repair_regression": {
+      "status": "ACTUAL_LINUX_PASS",
+      "tests": 29,
+      "scopes": [
+        7,
+        18,
+        4
+      ],
+      "overlaps_new_engineering_suite": true,
+      "not_added_to_118": true
+    },
+    "source_of_status": "Root executor actual completed checks report; no tests rerun by this draft update",
+    "numerical_qualification_implied": false,
+    "final_staged_repository_verifier": "PENDING_AT_THIS_CUTOFF",
+    "native_addendum_and_ancestry_tests": {
+      "status": "ACTUAL_LINUX_PASS",
+      "tests": 9,
+      "overlaps_prior_118": false,
+      "additional_affected_regressions": 29,
+      "affected_regressions_overlap_prior_118": true,
+      "log_sha256": "62371b5d152915e56f8fc7d41ae99fb425cc0b611d4b0810acd421dd3450258b"
+    }
+  },
+  "device_repair_implementation_v4": {
+    "review": "READ_ONLY_NARROW_DIFF_PASS",
+    "files": {
+      "scripts/leo_whole_gate_v1.py": "186c1fcec0ffce76565f7bd6bbccab84c2b62ef0938fb06e84a07c58581fd52f",
+      "scripts/leo_whole_math_v1.py": "db4349f936b2cd0c267932cc286e2661e1f7d56dd10d1c4e4a5d7d90ec279252",
+      "tests/test_leo_cuda_device_identity_v1.py": "67c7f74090170bcc23b079d60428d75a74bd525375e9d104c5df7a55421e4f2c"
+    },
+    "only_changed_gate_functions": [
+      "check_cuda_environment",
+      "cuda_environment_binding",
+      "device_identity_binding"
+    ],
+    "math_bytes_unchanged_from_integrated_v3": true,
+    "NVML_index_UUID_PCI_checks_unchanged": true,
+    "actual_CUDA_UUID_PCI_checks_unchanged": true,
+    "new_request_binds_explicit_mask_and_order": true,
+    "old_request_without_binding_rejected": true,
+    "local_tests_or_science_repeated_for_review": false,
+    "numerical_thresholds_or_budget_changed": false
+  },
+  "host_native_addendum": {
+    "status": "CPU_IMPORT_OBSERVED_NOT_NUMERICAL",
+    "actual_child_exit": 0,
+    "seconds": 36.30356,
+    "loaded_library_count": 106,
+    "new_host_library_count": 8,
+    "unregistered_personal_library_count": 0,
+    "model_calls": 0,
+    "explicit_tensor_calls": 0,
+    "old_host_byte_identity_claimed": false,
+    "all_future_lazy_GPU_libraries_observed": false,
+    "sha256": "a0d1cc3dfb2e55cfd5dfcd74e027fb0d3d8747d484186d36d448be9e4ed9be90",
+    "completion_sha256": "cca3c26ef5f60cd569d792345d37c7b620fe5b620f1c902c257d98c1c86f031e",
+    "admitted_in_v5_model_initialization": true
+  },
+  "gate_v5": {
+    "status": "STOPPED_NO_RETRY",
+    "mismatch_layer": "bitstream",
+    "request_sha256": "454c51046aba4f784549a7c8de1b993e6ff86db21538b9a189366ddb22e45150",
+    "actual_owner_exit_code": 1,
+    "actual_child_exit_code": 1,
+    "owner_elapsed_seconds": 266.8221341879107,
+    "counts": {
+      "caps": {
+        "decoder_forward": 6,
+        "encoder": 2,
+        "model_load": 1,
+        "prior_scale": 156,
+        "source_rx": 12,
+        "source_tx": 2,
+        "var_render": 6
+      },
+      "completed": {
+        "decoder_forward": 0,
+        "encoder": 1,
+        "model_load": 1,
+        "prior_scale": 9,
+        "source_rx": 0,
+        "source_tx": 1,
+        "var_render": 0
+      },
+      "reserved": {
+        "decoder_forward": 0,
+        "encoder": 1,
+        "model_load": 1,
+        "prior_scale": 9,
+        "source_rx": 0,
+        "source_tx": 1,
+        "var_render": 0
+      },
+      "unresolved": 0
+    },
+    "encoder_witness": {
+      "actual_dtype": "int64",
+      "actual_sha256": "682f0976d4e23d7a0034bec992b3a7176b84f60f572a3bbf0b46ee5cd684ad92",
+      "actual_shape": [
+        680
+      ],
+      "exact": true,
+      "expected_dtype": "int64",
+      "expected_sha256": "682f0976d4e23d7a0034bec992b3a7176b84f60f572a3bbf0b46ee5cd684ad92",
+      "expected_shape": [
+        680
+      ],
+      "max_abs_difference": 0.0,
+      "name": "s0_encoder"
+    },
+    "first_stream_witness": {
+      "actual_dtype": "uint8",
+      "actual_sha256": "498434c08b2af309db57e7b7128d50ddcff8ec6787c60755cd2224f60d964f52",
+      "actual_shape": [
+        311
+      ],
+      "exact": false,
+      "expected_dtype": "uint8",
+      "expected_sha256": "5468113fe151b5539b0a4170b67df399a208d756dbdd12d7b85bf7015d24a9b9",
+      "expected_shape": [
+        311
+      ],
+      "max_abs_difference": 1.0,
+      "name": "s0_tx_m4"
+    },
+    "different_bits": 137,
+    "first_different_bit_zero_based": 33,
+    "old_CDF": "UNOBSERVABLE_IN_SELECTED_SEED",
+    "cause_uniquely_identified": false,
+    "new_host_TX_RX_self_consistency": "NOT_RUN",
+    "old_bitstream_compatibility": "FAIL",
+    "mathematical_thresholds_relaxed": false,
+    "automatic_retry": false,
+    "receipt_pins": {
+      "run_owner_actual_wait.json": {
+        "bytes": 1470,
+        "sha256": "7f73823daa2d62d003a9e28e4c9389e1eb1ec871d14e525f8775489aff240c99"
+      },
+      "registered_gate/run/worker_failure.json": {
+        "bytes": 1876,
+        "sha256": "1bcf9ef57e6ef616fe3477ef3a219d703e8fdde0402eb06c34bf2a6418b05cc7"
+      },
+      "registered_gate/run/actual_child_wait.json": {
+        "bytes": 129,
+        "sha256": "0923eff6767843d1cc6bf76f9f3a0661baef44acea81e0f3b3ad5ab1a7c8696a"
+      },
+      "registered_gate/run/checks/s0_encoder.json": {
+        "bytes": 373,
+        "sha256": "fbd09a62d199d43006be96969cd1d2ec52d1387b6cc3cbf8c2b79732cd301dac"
+      },
+      "registered_gate/run/checks/s0_tx_m4.json": {
+        "bytes": 372,
+        "sha256": "2fe7102771ca58448522018e666e710f40504f7612eb25ef464792dbfba34a12"
+      },
+      "registered_gate/run/cdf_trace_at_failure.json": {
+        "bytes": 1718,
+        "sha256": "f36b4507451be9022fdf90899594820a9d5fa3996f6f3dab248ac4cfdfe5be6c"
+      },
+      "registered_gate/run/cuda_device_identity.json": {
+        "bytes": 678,
+        "sha256": "407dfda3f2ac7b9950cc90c66fd7b579036b8a00de50eede0343c26c8fa3e937"
+      },
+      "registered_gate/run/numerical_runtime.json": {
+        "bytes": 1027,
+        "sha256": "9a51f5b9c2429667ec5821195d10d0d6a12fb07a30f523d5183b7c8c28e40e7b"
+      }
+    }
+  },
+  "current_implementation": {
+    "gate_sha256": "06c8f1659eed5d67c9bcd368a91f6c35628d83136e4a9ff4e2fbe356cb65f81b",
+    "input_map_sha256": "b7224728fc22b233745b3ff358308f0c6e4135a6f0adacbb7ce2459203a78cd0",
+    "math_sha256": "db4349f936b2cd0c267932cc286e2661e1f7d56dd10d1c4e4a5d7d90ec279252",
+    "math_bytes_unchanged": true,
+    "baseline_or_verified_descendant_required": true,
+    "original_math_source_pins_remain_exact": true
+  },
+  "historical_checkpoint_v4": {
+    "name": "preparation_snapshot_v4",
+    "status": "FAILED_CUDA_VISIBILITY_V3_DIAGNOSIS_PENDING",
+    "new_files": 48,
+    "new_bytes": 149659,
+    "prior_snapshots": [
+      "preparation_snapshot_v2",
+      "preparation_snapshot_v3"
+    ],
+    "exact_prior_references": 4,
+    "referenced_prior_bytes": 15200777,
+    "standalone_full_project_backup": false,
+    "active_diagnostics_included": false,
+    "manifest": {
+      "bytes": 37465,
+      "sha256": "f3ec6173776043fccfa271bd0134b89d778da2ed61dad6947149dd2a699e25e4"
+    },
+    "verified": {
+      "bytes": 782,
+      "sha256": "81f4efe03623e5f6954772199ebd1fc4d2c753b6757ca2d9c7d837907c097a10"
+    }
+  },
+  "local_checkpoint": {
+    "name": "preparation_snapshot_v5",
+    "state_at_snapshot": "V4_NATIVE_CLOSURE_FAILURE_AND_CPU_ADDENDUM_READY",
+    "new_files": 90,
+    "new_bytes": 311550,
+    "exact_prior_references": 9,
+    "referenced_prior_bytes": 15202030,
+    "manifest_sha256": "99ff6ea6c73f08e206c3f1c083ae4704b2188fd8556611da3fbc8e91b3581bf2",
+    "verified_sha256": "f2081429e5160441eeaf5d9615118ec92a54b270d6aa2c4549697f44e2a5eda8",
+    "numerical_gate_v5_included": false,
+    "standalone_full_project_backup": false
+  }
+}

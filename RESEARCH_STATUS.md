@@ -1,3 +1,7 @@
+## Entropy-partial and mismatch extension: engineering preparation (2026-10-10)
+
+[Current migration and resume status](experiments/entropy-partial-mismatch-20261010/reports/leo_shared_migration_v4.md): the worktree and frozen private environments are restored. The v5 GPU check matched680 encoder tokens but failed old/new m4 bitstream equality; independent RX and reconstruction remain untested. Formal entropy-partial calibration, new100 confirmation and one-step mismatch evaluation remain **NOT_RUN**. The existing264 CPU regressions,118 extension checks and9 additional native-admission tests passed. Published WCL T0–T6 results remain unchanged and historical monitors stay paused.
+
 ## Completed WCL supplementary evidence (2026-10-10 publication)
 
 [T0–T6 final report, results and figures](results/wcl_evidence_closure_20261009/README.md) are complete. The finite expanded calibration retains the original N1024 whole-scale winners. Same-prior VAR entropy coding improves N1024/19 dB quality at greater TX cost. The separate N2048 confirmation completed 2,700 method frames: partial-scale PSNR increments over raw whole-scale are +1.220451, +0.059652 and exactly zero dB at 4/10/19 dB. The report retains uncertainty, negative results and the different 500/100-source populations.
