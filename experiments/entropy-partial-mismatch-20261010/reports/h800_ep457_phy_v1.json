@@ -1,0 +1,248 @@
+{
+  "attempts": [
+    {
+      "cause": "ModuleNotFoundError: No module named 'sionna'",
+      "failure": {
+        "path": "runtime/qualification/h800_ep457_phy_v1_attempt1/failure.json",
+        "sha256": "df25df003b01b931e0bb899f834fa9d7990ff3e1d6b179a5238e37de33f561a1"
+      },
+      "id": "h800_ep457_phy_v1_attempt1",
+      "log": {
+        "path": "runtime/qualification/h800_ep457_phy_v1_attempt1/prepare.log",
+        "sha256": "5afdc6a13fb0bd1dc105bfdf020061e5716ea2f76daf7265477dde8283f03fc8"
+      },
+      "neural_model_calls": 0,
+      "packet_decodes": 0,
+      "phase": "prepare",
+      "prepare_wait": {
+        "actual_wait": true,
+        "automatic_retry": false,
+        "elapsed_seconds": 0.676696915179491,
+        "log_sha256": "5afdc6a13fb0bd1dc105bfdf020061e5716ea2f76daf7265477dde8283f03fc8",
+        "pin": {
+          "path": "runtime/qualification/h800_ep457_phy_v1_attempt1/prepare_actual_wait.json",
+          "sha256": "5c9ee6f279b036aaf0207d09431d5b6ee7ef08bd722616ba825a4dc217c6d30f"
+        },
+        "returncode": 1,
+        "timeout": false
+      },
+      "preserved": true,
+      "runtime_role": "frozen_visual_py310",
+      "scientific_call_retried": false,
+      "source_images_read": 0,
+      "status": "PREPARE_FAILED_ZERO_DECODE"
+    },
+    {
+      "CUDA_VISIBLE_DEVICES": "",
+      "authorization": "Separate fresh attempt authorized after diagnosing zero-call dependency-role mismatch.",
+      "automatic_retry": false,
+      "automatic_successor": false,
+      "cpu_affinity": [
+        0,
+        1
+      ],
+      "cpu_threads": 2,
+      "elapsed_seconds": 45.482918492052704,
+      "environment": {
+        "path": "runtime/qualification/h800_ep457_phy_v2_attempt1/environment.json",
+        "sha256": "9a88c004dd4e6639621d5f1cd853646eb5bae435d37a7893c9ffa06859ab8339"
+      },
+      "id": "h800_ep457_phy_v2_attempt1",
+      "maximum_owner_seconds": 3600,
+      "nice": 10,
+      "owner_completion": {
+        "path": "runtime/qualification/h800_ep457_phy_v2_attempt1/completion.json",
+        "sha256": "57149725c1f5955e74e7f47e727d484540b3c5edbf3cba4d1f1a451fb28624f0"
+      },
+      "prepare_wait": {
+        "actual_wait": true,
+        "automatic_retry": false,
+        "elapsed_seconds": 26.872998610837385,
+        "log_sha256": "a8c2a23138af93c719daab8d708b726c13e49f9377f4e75e9de6bf467ee27590",
+        "pin": {
+          "path": "runtime/qualification/h800_ep457_phy_v2_attempt1/prepare_actual_wait.json",
+          "sha256": "c35de89c39a954e43f7b2234e925b8c79093e4e3162c830e713f0b4faf1deefd"
+        },
+        "returncode": 0,
+        "timeout": false
+      },
+      "qualify_wait": {
+        "actual_wait": true,
+        "automatic_retry": false,
+        "elapsed_seconds": 18.60586838098243,
+        "log_sha256": "efdfae797a2d966d493064513b450a8b0c4881f368f3722a4ac8deccbbe9b09a",
+        "pin": {
+          "path": "runtime/qualification/h800_ep457_phy_v2_attempt1/qualify_actual_wait.json",
+          "sha256": "51f18ccc0c725a4345a297448d2ce23df5c0177e7311b56cad955386728b6496"
+        },
+        "returncode": 0,
+        "timeout": false
+      },
+      "runtime_role": "frozen_ldpc_py311",
+      "runtime_role_receipt": {
+        "path": "runtime/qualification/h800_ep457_phy_v2_attempt1/runtime_role.json",
+        "sha256": "66643b59653fb7f32b6119e694e3e9945654b58ee013a16420ce246fd3652ca6"
+      },
+      "status": "PASS_OWNED_REAL_PHY457"
+    }
+  ],
+  "backend_identity": {
+    "bit_mapping": "original_MAIN_q2_q4_and_q6_Gray_I_then_Q;nominal_Es2;no_frame_normalization",
+    "decoder": {
+      "cn_schedule": "flooding",
+      "cn_update": "boxplus-phi",
+      "early_stop": false,
+      "hard_out": true,
+      "harq_mode": false,
+      "llr_max": 20.0,
+      "num_iter": 20,
+      "precision": "single",
+      "prune_pcm": true,
+      "return_infobits": true,
+      "vn_update": "sum"
+    },
+    "device": "cpu",
+    "implementation": "Sionna_5G_LDPC_WCL_T1_ADAPTER_V1",
+    "original_backend_identity": {
+      "bit_mapping": "component_Gray_00_-3_01_-1_10_3_11_1_over_sqrt5;QPSK_0_plus1_1_minus1",
+      "cuda": "12.8",
+      "decoder": {
+        "cn_schedule": "flooding",
+        "cn_update": "boxplus-phi",
+        "early_stop": false,
+        "hard_out": true,
+        "harq_mode": false,
+        "llr_max": 20.0,
+        "num_iter": 20,
+        "precision": "single",
+        "prune_pcm": true,
+        "return_infobits": true,
+        "vn_update": "sum"
+      },
+      "decoder_source_sha256": "44d84b92b749e2970f94d92cd348a11648e2286b4d851faa0af8b21d08f0da23",
+      "encoder_source_sha256": "34d8db6660b2e84708a8fb534f63c194f6f2b964e3693fcffc9dcaf21532ccfd",
+      "implementation": "Sionna_5G_LDPC",
+      "power_protocol": "fixed_constellation_average_Es2",
+      "precision": "float32",
+      "rate_matching": "Sionna RV0; filler removal, first2Z and tail puncturing; supported n only",
+      "scrambling": "public_PCG64_SHA256_protocol_session_frame_group_counter_after_rate_matching_v1",
+      "torch": "2.11.0+cu128",
+      "version": "2.2.0"
+    },
+    "power_protocol": "fixed_constellation_average_Es2_no_per_frame_normalization",
+    "precision": "float32",
+    "rate_matching": "Sionna RV0; filler removal, first2Z and tail puncturing; supported n only",
+    "scrambling": "WCL_T1_public_PCG64_SHA256_protocol_session_counter_after_RV0_v1"
+  },
+  "input_bindings": {
+    "outputs/PRIOR-AWARE-UEP-20261004-V1/ldpc_qualification.json": "d23d9dc2c9c08855f2b539db90f51b83d034b61d97a3e0bf19093db95a232dd7"
+  },
+  "local_audit": {
+    "actual_ssh_wait": true,
+    "archive_sha256": "53f59481834adef3b7cdb0b5c4369b6bde8f95edcca728d17317fbbfedda2c83",
+    "count": 484,
+    "elapsed_seconds": 9.046999999991385,
+    "manifest_sha256": "9f1a3651e98f5f86c8903509125dbffe2078878703c56346a630d0826cc94010",
+    "private_relative_directory": ".research/entropy_partial_mismatch_20261010/leo_migration_plan_v1/h800_ep457_closed_v2",
+    "returncode": 0,
+    "status": "CLOSED_RECEIPTS_EXACT_LOCAL_COPY",
+    "total_bytes": 4786141
+  },
+  "publication_scope": {
+    "absolute_private_library_paths_published": false,
+    "automatic_next_stage_started": false,
+    "backend_identity_or_thresholds_relaxed": false,
+    "original_failed_attempt_preserved": true,
+    "raw_scientific_receipts_modified": false
+  },
+  "qualification": {
+    "actual_body_decodes": 96,
+    "actual_constructor_validation": true,
+    "actual_header_decodes": 361,
+    "actual_layout_count": 12,
+    "all_pinned_qualification_outputs_locally_verified": 460,
+    "catalogue_sha256": "687cc3b3760a46acca57afaa36b6b2f304c8a8df13d657bcd1f8c98d704e4a3e",
+    "completion": {
+      "path": "VAR_COMM/outputs/WCL-ENTROPY-PARTIAL-20261010/H800_PHY457_v2/completion.json",
+      "sha256": "ee7a5d9359e82dba62bfdaa3f4d1246815a05f13f393edd23500a6bdd6f6967d"
+    },
+    "elapsed_seconds": 17.140921080950648,
+    "ledger": {
+      "cap": 457,
+      "total": 457,
+      "unresolved": 0
+    },
+    "neural_model_calls": 0,
+    "new_bootstrap": 0,
+    "original_ledger_opened": false,
+    "packet_decode_count": 457,
+    "profile_count": 360,
+    "request": {
+      "path": "VAR_COMM/outputs/WCL-ENTROPY-PARTIAL-20261010/H800_PHY457_v2/request.json",
+      "sha256": "f3ad369abec18d74108c79cb6e6ecd1fc07378d441cd8a0e54aff15b71b30515"
+    },
+    "source_images_read": 0,
+    "sqlite_read_only_verification": {
+      "cap": 457,
+      "event_kind_counts": {
+        "body": 96,
+        "header": 361
+      },
+      "request_sha256": "f3ad369abec18d74108c79cb6e6ecd1fc07378d441cd8a0e54aff15b71b30515",
+      "status_counts": {
+        "COMPLETE": 457
+      }
+    }
+  },
+  "repository_commit_at_launch": "c0dd5dd7867a7ee42112cfd267a0385d5759ab96",
+  "restored_reference": {
+    "action": "Restored the missing original reference using exact bytes; no different file overwritten.",
+    "path": "outputs/PRIOR-AWARE-UEP-20261004-V1/ldpc_qualification.json",
+    "sha256": "d23d9dc2c9c08855f2b539db90f51b83d034b61d97a3e0bf19093db95a232dd7"
+  },
+  "schema": "H800_EP457_PHY_PUBLIC_PROJECTION_V1",
+  "scope": "Real CPU LDPC and paid-header component qualification with generated bits; no image-quality, source-codec, calibration, or production admission claim.",
+  "source_bindings": {
+    "experiments/entropy-partial-mismatch-20261010/scripts/ep_phy.py": "12cad3e495fc91d8f6819b895674df08e312da3833291019b8966a2211ec8c75",
+    "experiments/entropy-partial-mismatch-20261010/scripts/ep_plan.py": "7f354687caa3271ce4375f598f4d9e3ff6086df28d8be478c80835ab4ccd7862",
+    "experiments/entropy-partial-mismatch-20261010/scripts/ep_qualify_phy.py": "87db9e0bf0b366a0fb51eca9ac431b24044c7ff031e4c617ef9d49b63d58d224",
+    "experiments/main-raw64-20261007/main_raw64_packet_adapter.py": "8414b29d63cbe340a164708da9278769479d5559915b97de64e4383d4caeb928",
+    "experiments/main-raw64-20261007/main_raw64_plan_only.py": "6005bf8b5668034b63cd22082a21dfacfe02c9c06f812172746bc6f6f901ddd0",
+    "experiments/prior-aware-grouped-mcs-v1/ldpc_backend.py": "b085a300899bfd996f3a068955fa9694ea0fd911fd2de248022ddf9523211a3f",
+    "experiments/prior-aware-grouped-mcs-v1/profiles.py": "f9ea41595efa976a93c921f7be5241ad83d30777f4cc7735f099b6db7fcc86f0",
+    "experiments/prior-aware-grouped-mcs-v1/uep_common.py": "65080a95fd227f7f7001127356f81ab691899a9a540dc8ffba9fbe0ad72eb758",
+    "experiments/prior-aware-grouped-mcs-v1/uep_phy.py": "1f1fad07942e30cbc844e0cc3c2d7da7c747b568639d27115dc33eaec49cc65b",
+    "experiments/wcl-evidence-closure-20261009/scripts/t2_ledger.py": "372355ac0f2b32274da89e3d1790f9c748eaa42e97bafb0b99ce140b8594200f",
+    "src/cadsd_jscc/__init__.py": "f31575711d8dd52836a06892033b9ae1dffe7b1c2f757fa5c75808497af5c6ba",
+    "src/cadsd_jscc/exact_budget_strong_jscc.py": "f3adc9167430535b60e899c282e85fb8575924600ea8f60f27daf92edf6003fd",
+    "src/cadsd_jscc/strong_jscc.py": "53a239171c1377098fcd9c46dd787c5b0cbf3a87218b093e291c6df358329a71",
+    "src/cadsd_jscc/var_decoder_tuning.py": "c5c24e829cc575c2d8e10ca09ad78514ea527814f2015346b626ec0ca0c91ddd",
+    "src/cadsd_jscc/var_prefix_consistency.py": "fbea59d09406c5413cff9401ba01c00a93740ec1fb8b021914e3e561208573cd",
+    "src/var_comm/__init__.py": "c808deaa8398e26a5f437d96c06b3ab5d0f9111daf0e541409ab6f8a0a146a42",
+    "src/var_comm/base_conditioning.py": "bcddb899b13d6a04be647ddb4a92e89000d1733e3af4d6091af64ec4447f3bb0",
+    "src/var_comm/entropy.py": "f3adf956fba05d60e687472fa153e0bf684119ef6c8885a75fe4ea21962b2b2b",
+    "src/var_comm/failure_replay.py": "98d89f27cf38abd0824f4607e92654b55afdc49c5304c346c1afdacdc06b32a1",
+    "src/var_comm/frozen_timing_adapters.py": "e15bebd5354e97125af07e15efd226e3dad4363d60733426f9cbcb6b89f6b3e6",
+    "src/var_comm/hybrid_correction.py": "2862c62a955222d812a5f8361e9eee73252eb2df6642194c85c57b6e862f02a0",
+    "src/var_comm/hybrid_training.py": "84c658997f6a8017e900579605445c550d0b739e4abf475b005aa0bbd0c81ef0",
+    "src/var_comm/learned_prefix.py": "b076fb769eb1307597bee3fd57cf708472f57129a1d2200a0f75c49f801fc082",
+    "src/var_comm/mode_policies.py": "b5f5a00de7f0e3eee2f80958619e2e7a203e4bee5d02b607d672ca0581629f4b",
+    "src/var_comm/next_scale_prior.py": "568217086c94ee7607abc256415d705a11702ffcaaed9c79ca04d5e9a62da562",
+    "src/var_comm/online_timing.py": "2704ab691d5f5bf29abde69daf0a1e901ee256b6a92a3a893e6debf7da05ad19",
+    "src/var_comm/prefix_learning_support.py": "8652dad77a112afdb51f7287f519e3bacfb8a7fe749878ee96ec214c00d271ba",
+    "src/var_comm/prefix_refinement.py": "8d8c06b0294df3efdc9f35f321683293eb7e2d0292b4d11accba533c4d621c1f",
+    "src/var_comm/prefix_training_data.py": "8b077284e9f9031f28db263ce4ecf0ef06757900fbe283aacdd11be5f6ab9c43",
+    "src/var_comm/progressive.py": "61821ad63d3b4cad2476f1d074ec3901a6b61c488d93db57bcebfda089a16ed9",
+    "src/var_comm/quality.py": "589d43a9dede2327c67d363f3b8b879cfb184e40e6a58b1aa2ae9b675d63a1a5",
+    "src/var_comm/scale_channel.py": "35cae80a94d3997584342b6e4566a6cff53cf4914ca4745a59b0a9bba48c8145",
+    "src/var_comm/study.py": "289e340c214a04d9bf2ffadd6c93fcbb77c11306f687624aa3dd358ec38d748e",
+    "src/var_comm/token_trellis.cpp": "035058221b35df245fe1520a0e14f741528b53d84c0a987359d0df0d226a7b52",
+    "src/var_comm/weight_closure.py": "84d48dd7247d74d74a934e507f6a9ef3718172ba5087d5ffe8c9e2bf3177fc24",
+    "src/var_comm/whole_entropy.py": "5d08d2f8c218f0bdf5b6d2a8ca7b3aa729baa75e274531afbfd8f31c95b24a5b",
+    "src/var_comm/whole_frame.py": "8ff405c0b5aece03d7f67434c3b799ea15afe0277e2469ba2736d318365dc13a",
+    "src/var_comm/whole_list.cpp": "acd3a6682c7357865ca3a40f420d2980ab72d4cfcc61fc3f01b47fa8f6b353b0",
+    "src/var_comm/whole_list.py": "ff8f21875909507886787b218c2e7461e5a7dd2242f83c4773fdced89b994a1c",
+    "src/var_comm/whole_study.py": "61e00e7e7f2a66986ec477a000ce09faf461f1db7d8d3b65116ae3a856f5c818"
+  },
+  "status": "PASS_ACTUAL_457_PHY_COMPONENT_ONLY"
+}
