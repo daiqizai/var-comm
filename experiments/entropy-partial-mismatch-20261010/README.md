@@ -2,6 +2,8 @@
 
 Prepared on published `ca26ceb383e93fc4ee56298dcf896720188f86f6`. The shared-server worktree and frozen private environments are restored and import-checked. CUDA device enumeration has been diagnosed and repaired; the v5 numerical check matched680 encoder tokens but failed old/new m4 bitstream equality (137 of311 bits differ). No independent RX or reconstruction has yet run, and the exact failure remains preserved. See the [current migration report](reports/leo_shared_migration_v4.md), [CPU checks](reports/shared_host_cpu_checks_v1.json) and [resume instructions](RESUME.md). New entropy-partial calibration, new100 confirmation and one-step mismatch evaluation remain **NOT_RUN**. Historical monitors remain paused.
 
+A separate one-source m4 RX diagnostic is implemented and CPU-tested. Its first actual owner stopped at shared-GPU resource admission before launching a child: model and RX calls were both0. The numerical RX result remains **NOT_RUN**, and v5 cross-host failure is unchanged. See the [actual diagnostic status](reports/leo_single_rx_diagnostic_v1.json).
+
 ## Scope
 
 Priority is the missing entropy partial-scale cell at N1024 and 4/10/19 dB.

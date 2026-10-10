@@ -1,0 +1,85 @@
+{
+  "schema": "LEO_SINGLE_RX_PUBLIC_STATUS_V1",
+  "status": "RESOURCE_ADMISSION_STOP_BEFORE_CHILD",
+  "request_sha256": "462f319a61ade1417be385a3c13d9f48dde0cbd5094daa8095c539192d275f2c",
+  "purpose": "New-host source0 m4 internal self-consistency only; v5 cross-host FAIL remains unchanged",
+  "actual_owner_exit_code": 1,
+  "actual_owner_elapsed_seconds": 123.89632738940418,
+  "actual_gpu_child_started": false,
+  "actual_model_calls": 0,
+  "actual_independent_RX_calls": 0,
+  "actual_scientific_call_reservations": 0,
+  "numerical_RX_result": "NOT_RUN",
+  "stop_reason": "Selected GPU exceeded the existing50-percent prelaunch utilization ceiling; exact utilization was not retained by this failure receipt",
+  "caps": {
+    "decoder_forward": 0,
+    "encoder": 0,
+    "model_load": 1,
+    "prior_scale": 4,
+    "source_rx": 1,
+    "source_tx": 0,
+    "var_render": 0
+  },
+  "same_device_as_v5": true,
+  "resource_policy": {
+    "GPU_workers": 1,
+    "CPU_affinity_count": 2,
+    "nice": 10,
+    "torch_allocator_cap_bytes": 17179869184,
+    "prelaunch_free_memory_min_MiB": 20480,
+    "prelaunch_utilization_max_percent": 50,
+    "max_seconds": 900
+  },
+  "inputs": {
+    "existing_source_index": 0,
+    "m": 4,
+    "actual_saved_bits": 311,
+    "new_sources": 0,
+    "comparison_tokens_read_only_after_RX_returns": true,
+    "TX_CDF_hashes_are_external_assertions_only": true
+  },
+  "v5_cross_host_verdict": "FAIL_UNCHANGED",
+  "automatic_retry": false,
+  "production_admission": false,
+  "timing_measurement": false,
+  "formal_science": {
+    "calibration": "NOT_RUN",
+    "new100": "NOT_RUN",
+    "mismatch": "NOT_RUN"
+  },
+  "local_CPU_tests": {
+    "tests": 12,
+    "actual_exit_code": 0,
+    "scientific_calls": 0
+  },
+  "independent_code_review": "PASS_NO_BLOCKERS",
+  "implementation": {
+    "runner_sha256": "2935a1bc597b1cbdd8ef5c22f31ef550adf704e3d8795b55dc482e51bdb6daff",
+    "test_sha256": "369753a75d52bf4574e53a021cbf2aee067ba0326d23a27ffd835a9c5dd666d1",
+    "whole_gate_math_unchanged": true
+  },
+  "receipts": {
+    "prepare_actual_wait.json": {
+      "sha256": "a1807588bc13c51a47afe7d1fd9a97f0cbfefa66f06e27b47e14dccded4ba481",
+      "bytes": 223
+    },
+    "run_owner_actual_wait.json": {
+      "sha256": "dd2abe997c07872141c39cc8d2cb123eb79ae4d0a36ecb29a3469496b79f49d1",
+      "bytes": 226
+    },
+    "registered/request.json": {
+      "sha256": "462f319a61ade1417be385a3c13d9f48dde0cbd5094daa8095c539192d275f2c",
+      "bytes": 23973
+    },
+    "registered/run/failure.json": {
+      "sha256": "deac394723c197d886a8ba53164d090a485adbcfd8906661476806644e585c97",
+      "bytes": 1351
+    }
+  },
+  "previous_publication": {
+    "remote_main_verified": "a9e802209b94d593a1d5ee13b4874a1ebfc60665",
+    "ordinary_push": true,
+    "repository_verifier": "ACTUAL_PASS",
+    "verifier_log_sha256": "41a67af29f4e52953d255744582d1b310cae7ae80407ff33c8095d76352756b9"
+  }
+}
