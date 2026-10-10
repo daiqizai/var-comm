@@ -1,0 +1,50 @@
+{
+  "schema": "BASELINE_STRENGTH_RESUME_V1",
+  "parent_repository_commit": "c6144ae5cb0c98ae67227baacf9e6a7bdfd6e251",
+  "P": {
+    "parent_step": 40000,
+    "mode": "FULL_MODEL_ADAMW_ORDER_AND_RNG_STATE",
+    "checkpoint_sha256": "12b979260ebf46dc3ec6a453ef7218d734f9b6aed6c3157c3676a833c3bb7df9",
+    "optimizer_steps": [
+      40000
+    ],
+    "source_count": 20000
+  },
+  "Swin": {
+    "parent_step": 80000,
+    "mode": "WEIGHTS_ONLY_INITIALIZATION_WITH_FRESH_ADAM_ORDER_AND_RNG",
+    "checkpoint_sha256": "8857b8c5ed91a5c316084e8c252a8e2168e424a767378389436d96268e65ba21",
+    "user_authorization": "2026-10-11 user explicitly permits weight initialization and new optimizer with disclosure",
+    "missing_parent_fields": [
+      "optimizer",
+      "order",
+      "channel_rng",
+      "global_rng",
+      "scheduler_state"
+    ],
+    "new_initial_lr": 0.0001,
+    "old_81551_checkpoint_found": false
+  },
+  "data": {
+    "manifest_sha256": "38decb3937d1bdc9edf94d35da41d42ad4133e4e3c4c1d612b00f7149b8db55f",
+    "restored_files": 421,
+    "bytes": 7347111940,
+    "train_sources": 20000,
+    "calibration_sources": 1000,
+    "exact_original_shard_SHA_verified": true,
+    "new_downloads": 0
+  },
+  "storage": {
+    "code": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/baseline-strength-20261011",
+    "checkpoints": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-checkpoint/liulu/var_comm/baseline_strength_20261011",
+    "regenerable_cache_and_logs": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011",
+    "old_assets_reused_without_moving": true,
+    "new_pfs_symlinks": 0
+  },
+  "formal_scope": {
+    "P_maximum_total": 100000,
+    "Swin_maximum_added": 120000,
+    "Swin_maximum_total": 240000,
+    "capacity_branch": false
+  }
+}

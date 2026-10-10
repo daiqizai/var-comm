@@ -1,3 +1,11 @@
+## Baseline-strength continuation started (2026-10-11)
+
+The user authorized P64/3 continuation and a Swin1–19dB adapted extension. R0 restored and hash-verified the original20k/1k RGB and latent caches (421 files, no dataset download). P restores complete40k model/AdamW/order/RNG state. The available Swin80k file is weights-only; the user explicitly authorized fresh Adam/order/RNG initialization, with historical80k exposure retained and the difference disclosed. Both actual H800 engineering preflights passed; the failed Swin microbatch16 allocator attempt is retained, and microbatch4 preserves effective16 within the private16GiB limit. The independent GPU0/P and GPU2/Swin owners start with full original-source calibration; dispatch and calibration are not additional completed updates.
+
+Finite training/calibration/selection is running or preparing its initial calibration. No new final quality result, convergence claim, capacity experiment, holdout selection or timing completion is made. Milestone diagnostics and common500/new100 evaluation remain pending after selection. Historical digital/old-baseline results and paused monitors remain unchanged. New storage follows the personal code/checkpoint/tmp classification.
+
+[Protocol](experiments/baseline-strength-20261011/PROTOCOL.md), [R0 inventory and amendments](results/baseline_strength_20261011/R0_inventory/R0_inventory.md).
+
 ## Independent new100 four-arm quality confirmation completed (2026-10-11)
 
 All authorized quality stages for the independently fixed100 sources are now actually closed: four frozen methods at N1024, SNR4/10/19dB and three noises produce3,600 retained logical outcomes. The H800 GPU0 reconstruction owner completed1,151 new renders and538 independent entropy decodes;2,449 logical outcomes reuse identical actual inputs. The separately closed metric owner constructed three metric models, prepared100 references and scored849 unique pixel pairs, with2,751 same-run reuses. Every logical receive failure remains attached to its own row. RAW partial at10dB has13/300 body-CRC rejections, all retaining the actual hard tokens under the original KEEP rule; no fixed-gray result is substituted.

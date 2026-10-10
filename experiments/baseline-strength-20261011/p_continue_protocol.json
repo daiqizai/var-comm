@@ -1,0 +1,54 @@
+{
+  "effective_batch": 16,
+  "precision": "FP32",
+  "TF32": false,
+  "calibration_sources": 1000,
+  "train_sources": 20000,
+  "stable_absolute_relative_threshold": 0.002,
+  "holdout_for_selection": false,
+  "branch": "P",
+  "parent_step": 40000,
+  "initial_resume": "FULL_STATE",
+  "parent_sha256": "12b979260ebf46dc3ec6a453ef7218d734f9b6aed6c3157c3676a833c3bb7df9",
+  "first_stop": 80000,
+  "maximum_step": 100000,
+  "microbatch": 4,
+  "train_snrs": [
+    1,
+    4,
+    7,
+    13,
+    19
+  ],
+  "calibration_seeds": [
+    4101,
+    4102,
+    4103
+  ],
+  "calibration_interval": 2500,
+  "optimizer": "AdamW",
+  "loss_coefficients": [
+    1,
+    0.1,
+    0.01
+  ],
+  "LR": [
+    [
+      40001,
+      60000,
+      0.0002
+    ],
+    [
+      60001,
+      70000,
+      0.0001
+    ],
+    [
+      70001,
+      100000,
+      3e-05
+    ]
+  ],
+  "stability_window": 5000,
+  "regular_full_checkpoint_interval": 1000
+}
