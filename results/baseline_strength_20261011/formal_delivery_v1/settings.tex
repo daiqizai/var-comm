@@ -1,0 +1,19 @@
+\paragraph{Continued adapted baselines.}
+We keep the tokenizer, unconditional VAR and shared image decoder frozen.
+The latent continuous baseline retains its original 495,208-parameter communication
+module and resumes the complete 40k training state. Its calibration-selected 100k
+checkpoint satisfies the preregistered empirical plateau criterion under the tested
+learning-rate schedule. The adapted SwinJSCC baseline starts from the 80k weights
+with newly initialized optimizer, sampling and random states, extends training SNRs
+to the integers 1--19 dB, and retains the original C6/C13 training interfaces and paid
+side information. Its selected 200k checkpoint reaches the additional 120k-update
+budget while the calibration objective is still improving; convergence is not claimed.
+The old 80k result at 19 dB remains outside its original training/calibration range.
+After freezing these selections, we evaluate N1024 on the original 500 sources at
+1/4/7/10/13/19 dB and, separately, on the previously published 100-source cohort at
+4/10/19 dB, using three registered noise replicates per source. These are subsequent
+same-source baseline supplements, not newly blind tests. We average within source
+before applying the original 10,000-replicate paired bootstrap (seed 2026100701).
+All failure cases remain in the denominators, and no evaluation score feeds back
+to checkpoint selection. ConvNeXt prediction agreement measures agreement with
+the original image prediction, not ground-truth classification accuracy.

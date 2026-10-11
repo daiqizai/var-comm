@@ -58,13 +58,51 @@ After statistics close, the successor exports milestone, bottleneck and final
 comparison figures through `plot_evaluation.py`. Generation is not visual QA:
 the heartbeat must open the PNGs before publishing their final delivery.
 
-## Status and remaining work
+## Formal results delivered
 
-This publication delivers the training figures and verified final training
-recovery increment, and installs the finite statistics/figure successor. It
-does not claim completed holdout results, statistical intervals or fair timing.
-Live state is in `results/baseline_strength_20261011/paired_supplement_v1`.
-Timing still requires the registered same-device exclusive resource window;
+The existing chain and CPU successor have now closed normally, with actual
+exit-zero receipts: 18,000 common500 and 1,800 existing-new100 method frames,
+72 new single-method intervals and 120 direct source-paired contrasts.
+All four final PNG groups were opened and visually reviewed. Vector PDF,
+editable SVG, 600 dpi PNG, exact plot rows and captions are under
+`results/baseline_strength_20261011/final_comparison_figures_v1`.
+The independently audited report and English settings are under
+`results/baseline_strength_20261011/formal_delivery_v1`.
+
+Re-export figures without inference, simulation or bootstrap:
+
+```sh
+python experiments/baseline-delivery-20261012/plot_evaluation.py final
+```
+
+The once-only `package_final.py` validates the closed statistical and figure
+receipts and creates the publication report. It has already run; do not rerun
+over the existing report. `statistics.py run` must never be repeated simply to
+regenerate figures. Published completion records retain the original stage
+history; use the independent statistical completion to establish its closure.
+
+## Timing remains pending
+
+`timing_contract.py` provides original exclusive-resource admission and finite,
+crash-safe case reservations, with three no-science CPU tests. This module is
+infrastructure, not a qualified executable six-method timing endpoint.
+The current four digital arms are raw whole/partial and conditional-entropy
+whole/partial; the old T4 static-entropy arm cannot substitute for the last arm.
+Fixed development indices, SNRs 4/10/19, batch1, three warmups and three measured
+repeats are retained. The two selected continuous baselines share these settings.
+Actual timed components must start from fresh image encoding and real received
+fields, include fresh entropy fallback attempts, and exclude disk-journal I/O.
+
+Pure Sionna 2.2.0 and its missing pure-Python import dependency were copied
+byte-for-byte from existing frozen assets into personal temporary storage.
+Importing the exact original LDPC sources in the visual Python environment now
+succeeds without CUDA initialization or packet calls. This is not numerical or
+full-endpoint qualification. Original environments remain unchanged. The fixed
+16 source archives and their source metadata hashes match; historical cached
+codec receipts are not present in that seed and cannot stand in for fresh encoding.
+
+Timing still needs endpoint qualification and the original exclusive resource
+window. No competing process is stopped, no GPU global setting is changed, and
 old 4090D measurements must not be presented as a fair H800 comparison.
 
 Full final recovery states (P100000 and Swin200000), raw training logs and

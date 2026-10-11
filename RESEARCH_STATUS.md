@@ -1,3 +1,11 @@
+## Formal common500/new100 baseline supplement delivered (2026-10-12)
+
+Both selected baselines completed all 19,800 formal frames: original common500 (18,000) and existing new100 (1,800), with actual exit-zero receipts. Source/model/noise/metric identities, complete grids, duplicates and failure denominators passed. The original source-level bootstrap produced only the registered new intervals and contrasts; all old intervals were copied unchanged. Four final comparison figure groups have vector PDF, editable SVG and 600 dpi PNG, and were actually opened for visual inspection. No further training, reselection or scientific budget was added.
+
+[Formal report and paired contrasts](results/baseline_strength_20261011/formal_delivery_v1/REPORT.md), [common500 figure](results/baseline_strength_20261011/final_comparison_figures_v1/common500_new_old_baselines.svg), [new100 figure](results/baseline_strength_20261011/final_comparison_figures_v1/new100_new_old_baselines.svg). These are subsequent comparisons on existing cohorts, not newly blind tests. The old Swin80k/19dB range limitation and new Swin's changed training recipe/budget-limited status remain explicit.
+
+Same-machine timing is still unfinished: pure frozen LDPC dependencies now import in the visual environment, but the six-method endpoint still needs qualification and the original exclusive resource window. Three no-science tests cover timing crash replay, finite packet charging and rejection of cached source work. Import success is not timing qualification. The prior 4090D timings are not mixed into an H800 comparison.
+
 ## Full milestone and bottleneck diagnostics delivered; common500 running (2026-10-12)
 
 Milestones closed with actual exit0 and all96,000 logical frames (91,800 new plus4,200 verified reuses). The separate P bottleneck diagnostic closed with actual exit0 and900 frames (300 new plus600 verified reuses). Exact grids, source identities, hashes, failures and duplicate counts were checked. Three diagnostic figure groups have vector PDF, editable SVG, 600 dpi PNG and actual visual review.
