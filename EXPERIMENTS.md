@@ -1,3 +1,11 @@
+## Learning curves delivered; statistics successor waiting (2026-10-12)
+
+The completed training histories now have actual vector PDF, editable SVG and 600 dpi PNG figures, with visual review. All60,000 P and120,000 Swin additional updates are represented; calibration objectives, per-SNR cells and learning-rate changes are retained. Full final training recovery states (P100000 and Swin200000) and raw logs have been copied to the local Lu_Data final_training_20261012_v1 increment and checked by SHA256. The increment depends on existing model/data/runtime archives.
+
+The original GPU scoring chain continues unchanged. A separate once-only CPU successor is running and waiting for normal scoring closure, then calculate only new source-paired statistics and export diagnostic/final figures. Old intervals are reused, not resampled. Preparation and plots are not completed holdout evaluation. Final statistical/figure visual review, exclusive-window fair timing and their publication/backup remain outstanding.
+
+[Delivery entry and reproduction](experiments/baseline-delivery-20261012/README.md), [learning curves](results/baseline_strength_20261011/training_figures_v1/training_calibration_curves.svg).
+
 ## Training closed; automatic diagnostic and holdout successor launched (2026-10-12)
 
 Both actual training owners exited0. P selected total100000 and satisfies the registered plateau condition. Swin selected total200000 after120000 additional updates and stopped at its budget while still improving; it is not labeled converged. The frozen calibration objectives are0.03941082926963766 (P) and0.006566026536579253 (Swin), with different objective definitions and no direct cross-method loss comparison.
