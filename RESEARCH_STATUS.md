@@ -1,3 +1,11 @@
+## Training closed; automatic diagnostic and holdout successor launched (2026-10-12)
+
+Both actual training owners exited0. P selected total100000 and satisfies the registered plateau condition. Swin selected total200000 after120000 additional updates and stopped at its budget while still improving; it is not labeled converged. The frozen calibration objectives are0.03941082926963766 (P) and0.006566026536579253 (Swin), with different objective definitions and no direct cross-method loss comparison.
+
+At the user's request, a single detached successor now runs milestone diagnostics, P bottleneck diagnostics, common500 and existing-new100 in that order. Complete original500 source/latent bytes were recovered and hash-verified from the local backup. The final evaluation budget remains19800 new method frames. Successors require actual exit-zero, complete output and identity checks; failures stop without retry. This publication records launch, not finished diagnostic or holdout quality. New statistical intervals and exclusive-window timing remain pending. The old15-minute monitor remains paused.
+
+[Automatic execution and scope](experiments/baseline-followthrough-20261012/README.md), [launch report](results/baseline_strength_20261011/automatic_followthrough_v1/REPORT.md).
+
 ## Interim baseline evaluation completed while training continues (2026-10-11)
 
 An independent GPU0 job completed7200 method frames: original calibration first100, N1024, six SNRs and three noises, comparing fixed P40k/P80k and Swin80k/Swin150k snapshots. Actual exit0 and all4200 overlapping original-calibration outcomes were verified. P PSNR increases0.1965–0.2801dB; Swin increases0.4161–0.9031dB. P improves all four displayed means at all six SNRs; Swin agreement decreases0.67pp at7dB and0.33pp at19dB, retained in the report. These descriptive calibration results have no bootstrap intervals and do not enter selection or stopping. Swin changes include the approved optimizer reset and expanded SNR coverage. Original80k/19dB remains out of range.
