@@ -1,3 +1,13 @@
+## Full milestone and bottleneck diagnostics delivered; common500 running (2026-10-12)
+
+Milestones closed with actual exit0 and all96,000 logical frames (91,800 new plus4,200 verified reuses). The separate P bottleneck diagnostic closed with actual exit0 and900 frames (300 new plus600 verified reuses). Exact grids, source identities, hashes, failures and duplicate counts were checked. Three diagnostic figure groups have vector PDF, editable SVG, 600 dpi PNG and actual visual review.
+
+On the full1,000-source calibration diagnostics, selected P100k minus parent40k improves PSNR by0.2300--0.3664dB; selected Swin200k minus parent80k improves it by0.6131--1.0876dB across six SNR values. All four parent-relative means improve, but late checkpoint DINO/ConvNeXt declines remain in the curves. No bootstrap or holdout-based selection is involved. Swin training changes and old80k/19dB range limits remain explicit.
+
+The existing owner has automatically started common500 scoring and will continue to existing-new100. A separate once-only CPU successor waits for full scoring closure before new source-paired statistics and final figure export. Formal holdout quality and fair exclusive-window timing remain pending.
+
+[Closed diagnostic report and tables](results/baseline_strength_20261011/diagnostic_delivery_v1/REPORT.md), [P milestones](results/baseline_strength_20261011/diagnostic_delivery_v1/figures/P_milestone_metrics.svg), [Swin milestones](results/baseline_strength_20261011/diagnostic_delivery_v1/figures/Swin_milestone_metrics.svg).
+
 ## Learning curves delivered; statistics successor waiting (2026-10-12)
 
 The completed training histories now have actual vector PDF, editable SVG and 600 dpi PNG figures, with visual review. All60,000 P and120,000 Swin additional updates are represented; calibration objectives, per-SNR cells and learning-rate changes are retained. Full final training recovery states (P100000 and Swin200000) and raw logs have been copied to the local Lu_Data final_training_20261012_v1 increment and checked by SHA256. The increment depends on existing model/data/runtime archives.
