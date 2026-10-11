@@ -1,8 +1,9 @@
 # Baseline delivery after frozen training
 
 This independent directory does not change the running scoring-chain code.
-It adds no training, model inference, channel simulation, checkpoint selection,
-or timing budget. Original science files are read-only inputs.
+The delivered statistics/plot scripts add no training, inference, simulation or
+checkpoint selection. The independent timing owner executes only the already
+authorized finite timing budget. Original science files are read-only inputs.
 
 `plot_training.py` exports the actual full training and calibration histories.
 Training losses use explicitly labeled non-overlapping 500-update means; all
@@ -83,9 +84,12 @@ history; use the independent statistical completion to establish its closure.
 
 ## Timing remains pending
 
-`timing_contract.py` provides original exclusive-resource admission and finite,
-crash-safe case reservations, with three no-science CPU tests. This module is
-infrastructure, not a qualified executable six-method timing endpoint.
+`timing_owner.py`, `timing_runtime.py` and `timing_endpoints.py` now provide the
+independent six-method entry, guarded by `timing_contract.py`. Ten no-model CPU
+tests pass, including actual RX fields, CRC rejection, raw KEEP, fresh fallback
+attempts, replay protection and an exact native-library addendum. Registration
+and a real resource-gated invocation completed without model/packet calls.
+Actual fixed warmups, numerical qualification and timing are still pending.
 The current four digital arms are raw whole/partial and conditional-entropy
 whole/partial; the old T4 static-entropy arm cannot substitute for the last arm.
 Fixed development indices, SNRs 4/10/19, batch1, three warmups and three measured
@@ -110,3 +114,34 @@ metadata were verified at
 `D:/Lu_Data/VAR_COMM_BASELINE_STRENGTH_20261011/final_training_20261012_v1`.
 This is an increment depending on the existing original input/model/runtime
 recovery archives, not a standalone complete-project package.
+
+### Registered once-only timing entry
+
+Run from the remote repository, after checking actual locks/receipts. The owner
+returns WAIT without model imports if any GPU has another resident compute job.
+An admitted launch writes a unique launch record and obtains actual child exit.
+Never repeat `prepare` over the registration or `run` after an actual attempt.
+
+```sh
+python experiments/baseline-delivery-20261012/timing_owner.py run
+```
+
+The owner chooses the frozen visual Python interpreter for its child. A successful
+resource check is not numerical qualification. Each source/SNR/method uses three
+fresh fixed warmups and three fresh measurements, verifying repeat identity and
+tokenizer identity against original source metadata, without extra test frames.
+No evaluation network runs in the window. TX/RX and software end-to-end intervals
+synchronize CUDA; noise generation is separately recorded/subtracted. File
+journals, hash audits, STOP-file checks and resource queries are outside the
+measurement window; packet charges and model call accounting remain in memory.
+Original raw433/whole144/partial360 receive catalogues are retained. P/Swin use
+original timing noise2001; raw uses original development6201 and development-slot
+counter; entropy uses original T1 full-frame6201 and its original counter.
+
+The already-built token-trellis library has a source/build/library SHA binding
+and an explicit private in-memory native inventory addendum. This is not a claim
+of old-host native byte identity. Original inventories and environment files are
+unchanged. The pre-launch adapter correction and prior registration are retained
+as revision evidence; no scientific case existed when the correction was made.
+If the real runtime rejects a new dependency or numerical output, retain its
+failure and consumed case records, diagnose it, and do not automatically retry.

@@ -1,3 +1,11 @@
+## Six-method timing entry registered; actual timing awaits exclusive resources (2026-10-12)
+
+Training, formal common500/new100 scoring, paired statistics and visually checked figures are already delivered at commit3ccfe6e. Their completed scientific calls must not be repeated. The independent six-method timing owner is now implemented and SHA-registered, with10 passing no-model CPU tests. The actual entry returned WAIT before any model or packet call: all four GPUs still have resident jobs. Full endpoint numerical qualification and timing values remain pending; no H800 timing comparison is claimed.
+
+The finite owner retains fixed development16, SNR4/10/19, batch1, three fresh warmups and three measured repetitions, six methods,1,728 total frames/864 measured frames and2,304 maximum digital packet decodes. It uses fresh visual encoding, real terminated arithmetic streams including every fallback attempt, original paid received fields and failure rules, and the selected P100k/Swin200k weights. Raw/entropy noise is6201 with their distinct original namespaces/counters; continuous P/Swin noise is2001 from the original timing receipt. No cached source stream or transmitter truth enters RX.
+
+The original all-GPU/process exclusive gate remains unchanged. Only new process resource adapters were added; inverse-AST evidence, exact private dependency and native library bindings are retained. The first real fixed warmups must still pass fresh-token and repeated waveform/receiver/output identity checks. Any actual failed attempt stops without automatic replay. See[entry and boundaries](experiments/baseline-delivery-20261012/README.md) and[registered timing plan](results/baseline_strength_20261011/timing/six_method_v1/registration.json).
+
 ## Full milestone and bottleneck diagnostics delivered; common500 running (2026-10-12)
 
 Milestones closed with actual exit0 and all96,000 logical frames (91,800 new plus4,200 verified reuses). The separate P bottleneck diagnostic closed with actual exit0 and900 frames (300 new plus600 verified reuses). Exact grids, source identities, hashes, failures and duplicate counts were checked. Three diagnostic figure groups have vector PDF, editable SVG, 600 dpi PNG and actual visual review.
