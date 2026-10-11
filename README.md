@@ -1,3 +1,9 @@
+## Interim baseline evaluation completed while training continues (2026-10-11)
+
+An independent GPU0 job completed7200 method frames: original calibration first100, N1024, six SNRs and three noises, comparing fixed P40k/P80k and Swin80k/Swin150k snapshots. Actual exit0 and all4200 overlapping original-calibration outcomes were verified. P PSNR increases0.1965–0.2801dB; Swin increases0.4161–0.9031dB. P improves all four displayed means at all six SNRs; Swin agreement decreases0.67pp at7dB and0.33pp at19dB, retained in the report. These descriptive calibration results have no bootstrap intervals and do not enter selection or stopping. Swin changes include the approved optimizer reset and expanded SNR coverage. Original80k/19dB remains out of range.
+
+Both training jobs continued; final model selection, full milestone diagnostics and final holdout evaluation remain pending. [Results and complete tables](results/baseline_strength_20261011/interim_cal100_v1/REPORT.md).
+
 ## Baseline-strength continuation started (2026-10-11)
 
 The user authorized P64/3 continuation and a Swin1–19dB adapted extension. R0 restored and hash-verified the original20k/1k RGB and latent caches (421 files, no dataset download). P restores complete40k model/AdamW/order/RNG state. The available Swin80k file is weights-only; the user explicitly authorized fresh Adam/order/RNG initialization, with historical80k exposure retained and the difference disclosed. Both actual H800 engineering preflights passed; the failed Swin microbatch16 allocator attempt is retained, and microbatch4 preserves effective16 within the private16GiB limit. The independent GPU0/P and GPU2/Swin owners start with full original-source calibration; dispatch and calibration are not additional completed updates.
