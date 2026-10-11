@@ -1,0 +1,151 @@
+{
+  "schema": "BASELINE_RESOURCE_TUNING_V1",
+  "observed_unix": 1791690968.0387037,
+  "authorization": "User requests increased utilization when spare resources permit",
+  "status": "APPLIED_AND_RUNNING",
+  "changes": [
+    "P moved from GPU0 to GPU1 after verified full safe checkpoint and old worker exit75",
+    "Both branches use six low-load logical CPU cores on GPU-local NUMA0, with original six compute threads",
+    "Swin remains on GPU2; two total training workers; no extra model replicas"
+  ],
+  "unchanged": [
+    "effective batch16",
+    "microbatch",
+    "training source and calibration sets",
+    "model and frozen modules",
+    "loss and optimizer state",
+    "sample order and RNG state",
+    "learning-rate and stopping rules",
+    "FP32 deterministic settings and 16GiB private allocator cap",
+    "original code and protocol files"
+  ],
+  "shared_host_caveat": "Observational short-window training throughput, not an exclusive-hardware complexity benchmark or cross-device bitwise equivalence claim",
+  "P_safe_checkpoint": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-checkpoint/liulu/var_comm/baseline_strength_20261011/P/full_065356_safe_pause.pt",
+    "sha256": "8b952236f3449d14c50221f326fdc962f7d8958c72207a1389c04ecb43620f78",
+    "step": 65356,
+    "reason": "safe_pause"
+  },
+  "old_P_exit": {
+    "branch": "P",
+    "mode": "train",
+    "attempt": "v1",
+    "gpu": 0,
+    "owner_pid": 92469,
+    "command": [
+      "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_visual_py310/bin/python",
+      "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/baseline-strength-20261011/run_continue.py",
+      "P",
+      "--mode",
+      "train"
+    ],
+    "started_utc": "2026-10-10T19:21:26.681295+00:00",
+    "worker_pid": 92473,
+    "exit_code": 75,
+    "elapsed_seconds": 30648.97070196201,
+    "actual_child_waited": true
+  },
+  "branches": {
+    "P": {
+      "status": {
+        "status": "TRAINING",
+        "pid": 383981,
+        "global_step": 65525,
+        "added_step": 25525,
+        "lr": 0.0001,
+        "train_loss": 0.035314635664690286,
+        "N": 1024,
+        "snr": null,
+        "seconds": 0.90971565595828,
+        "seen_sources": 408400,
+        "memory_reserved": 7595884544,
+        "last_full_calibration": 65000,
+        "updated_unix": 1791690960.8826764
+      },
+      "worker_pid": 383981,
+      "physical_gpu": 1,
+      "cpu_affinity": [
+        47,
+        49,
+        51,
+        57,
+        59,
+        77
+      ],
+      "thread_count_unchanged": 6,
+      "source_binding_hashes_verified": true,
+      "update_sequence_contiguous": true,
+      "latest_observed_step": 65531,
+      "baseline_last200_mean_step_seconds": 1.3238607470795978,
+      "cpu_only_trial": {
+        "mean_step_seconds": 1.2981602743723972,
+        "measured_updates": 48
+      },
+      "final_window": {
+        "first_step": 65432,
+        "last_step": 65531,
+        "updates": 100,
+        "mean_step_seconds": 0.919317283143755
+      },
+      "observed_step_time_reduction_percent": 30.557856241923865,
+      "observed_throughput_increase_percent": 44.00477086131141,
+      "latest_checkpoint": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-checkpoint/liulu/var_comm/baseline_strength_20261011/P/full_065356_safe_pause.pt",
+        "sha256": "8b952236f3449d14c50221f326fdc962f7d8958c72207a1389c04ecb43620f78",
+        "step": 65356,
+        "reason": "safe_pause"
+      }
+    },
+    "Swin": {
+      "status": {
+        "status": "TRAINING",
+        "pid": 92548,
+        "global_step": 119025,
+        "added_step": 39025,
+        "lr": 0.0001,
+        "train_loss": 0.008198764058761299,
+        "N": 1024,
+        "snr": 5,
+        "seconds": 0.46613445901311934,
+        "seen_sources": 624400,
+        "memory_reserved": 5817499648,
+        "last_full_calibration": 115000,
+        "updated_unix": 1791690966.2808013
+      },
+      "worker_pid": 92548,
+      "physical_gpu": 2,
+      "cpu_affinity": [
+        17,
+        23,
+        55,
+        61,
+        67,
+        87
+      ],
+      "thread_count_unchanged": 6,
+      "source_binding_hashes_verified": true,
+      "update_sequence_contiguous": true,
+      "latest_observed_step": 119028,
+      "baseline_last200_mean_step_seconds": 0.616913037057966,
+      "cpu_only_trial": {
+        "mean_step_seconds": 0.5738856766005517,
+        "measured_updates": 109
+      },
+      "final_window": {
+        "first_step": 118929,
+        "last_step": 119028,
+        "updates": 100,
+        "mean_step_seconds": 0.4657719570072368
+      },
+      "observed_step_time_reduction_percent": 24.499576272778256,
+      "observed_throughput_increase_percent": 32.4495877815119,
+      "latest_checkpoint": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-checkpoint/liulu/var_comm/baseline_strength_20261011/Swin/resume_1.pt",
+        "sha256": "d7074cce19e94f4ae77e03bd28d7f42cc64c2542f85b26e11c60d6fe885a977b",
+        "step": 119000,
+        "reason": "regular"
+      }
+    }
+  },
+  "gpu_snapshot": "0, 64, 47814, 62\n1, 96, 19658, 72\n2, 57, 32085, 42\n3, 71, 20642, 51\n"
+}
