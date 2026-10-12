@@ -2,8 +2,8 @@
 
 This finite update retains the generative receiver comparison without expanding
 the external baseline roster. Main common500 performance curves remain unchanged.
-The human instruction chooses a bounded final-link update as the first step;
-this registration does not authorize a600-output quantitative study.
+This implementation takes the bounded fixed16 final-link update as the first
+step. The optional600-output quantitative study is not started by this entry.
 
 ## Roles and claims
 

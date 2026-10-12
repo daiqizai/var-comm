@@ -217,3 +217,8 @@ CPU checks require Python 3.10+, numpy, torch, PyYAML, LPIPS/torchvision and pyt
 - [Previous publication overview](docs/history/publication_README_before_20260923.md) and [previous worktree overview](docs/history/worktree_README_before_20260923.md).
 
 Repository migration does not certify the previous repair task as complete. No original A/B training, new method, or GPU quality evaluation is part of this migration.
+
+
+## 2026-10-12 final-link HiFi fixed16 delivery
+
+Complete16 HiFi recoveries now use the final Swin200k encoder, confirming decoder and identical paired received waveform at N1024/13dB. All16 full253-step calls and24 missing final-baseline frames actually exit0; eight earlier baseline frames were verified and reused. No training, scoring or bootstrap. Full16 and selected five-column figures are delivered separately from the explicitly historical Swin80k fixed16 table; common500 curves remain unchanged. Shared-GPU runtime is not a fair speed comparison. [Report](results/hifi_final_fixed16_20261012/REPORT.md).
