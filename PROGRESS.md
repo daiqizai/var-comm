@@ -1,3 +1,7 @@
+## Redundant storage cleaned at user request (2026-10-12)
+
+Deleted437 VAR_COMM-owned redundant files totaling10,526,892,735 logical bytes:116 superseded recovery snapshots,9 SHA-matched local-backed archives and312 synthetic test temporary files. Final complete P100k/Swin200k states, every calibration model weight, original inputs, scientific results, failure records and timing dependencies remain. All timing bindings and final recovery hashes passed after deletion. Retired intermediate optimizer/RNG snapshots are not individually recoverable; final complete migration states remain both remotely and on Lu_Data. No scientific job was launched. [Actual cleanup inventory](results/baseline_strength_20261011/storage_cleanup_20261012/README.md).
+
 ## Six-method timing entry registered; actual timing awaits exclusive resources (2026-10-12)
 
 Training, formal common500/new100 scoring, paired statistics and visually checked figures are already delivered at commit3ccfe6e. Their completed scientific calls must not be repeated. The independent six-method timing owner is now implemented and SHA-registered, with10 passing no-model CPU tests. The actual entry returned WAIT before any model or packet call: all four GPUs still have resident jobs. Full endpoint numerical qualification and timing values remain pending; no H800 timing comparison is claimed.
