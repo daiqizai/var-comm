@@ -1,0 +1,75 @@
+{
+  "status": "PASS_FINAL_SWIN_OPERATOR",
+  "checkpoint_sha256": "572d7acaceed2712d885ebd351f65ef6042f7716082d81f63bf45fbf8aadbd45",
+  "calibration_source": "n01440764/ILSVRC2012_val_00045866_n01440764",
+  "source_bindings": {
+    "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/inputs/rgb/calibration/shard_0000.pt": "cc225e8ce22698af1434810465ab2c9631e3e7f75eb98f3b60c23b23410d7070"
+  },
+  "native_parity": {
+    "encoder_max_abs": 0.0,
+    "decoder_max_abs": 0.0,
+    "mask_exact": true,
+    "input_detach_removed_only_for_posterior": true
+  },
+  "derivatives": [
+    {
+      "objective": "waveform",
+      "loss": 0.012101761065423489,
+      "gradient_l2": 0.0031266565569942374,
+      "gradient_nonzero_elements": 196608,
+      "direction": "full_gradient_sign",
+      "input_gradient_includes_encoder_and_decoder": false,
+      "fixed_received_mask_and_gain": true,
+      "comparisons": [
+        {
+          "epsilon": 0.001,
+          "analytic": 1.0589886022937385,
+          "central_difference": 1.0589179582893848,
+          "absolute_error": 7.064400435363716e-05,
+          "tolerance": 0.031769858068812155,
+          "passed": true
+        },
+        {
+          "epsilon": 0.0003,
+          "analytic": 1.0589886022937385,
+          "central_difference": 1.058958781262239,
+          "absolute_error": 2.9821031499510653e-05,
+          "tolerance": 0.031769858068812155,
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "objective": "confirming_rgb",
+      "loss": 0.00016621217946521938,
+      "gradient_l2": 4.8938641806940674e-05,
+      "gradient_nonzero_elements": 196608,
+      "direction": "full_gradient_sign",
+      "input_gradient_includes_encoder_and_decoder": true,
+      "fixed_received_mask_and_gain": true,
+      "comparisons": [
+        {
+          "epsilon": 0.001,
+          "analytic": 0.016178473181511187,
+          "central_difference": 0.01617557427380234,
+          "absolute_error": 2.898907708846765e-06,
+          "tolerance": 0.0004855541954453356,
+          "passed": true
+        },
+        {
+          "epsilon": 0.0003,
+          "analytic": 0.016178473181511187,
+          "central_difference": 0.01617789772960047,
+          "absolute_error": 5.75451910716368e-07,
+          "tolerance": 0.0004855541954453356,
+          "passed": true
+        }
+      ],
+      "passed": true
+    }
+  ],
+  "confirming_decoder_same_as_Swin": true,
+  "training_updates": 0,
+  "ADM_probe_steps": 0
+}
