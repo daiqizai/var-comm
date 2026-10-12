@@ -1,0 +1,244 @@
+% NeST-Com v5 -- editorial revision of v4, 2026-10-12.
+% Evidence snapshot: 260a2393c6c4e25b4647c525ec88406df432d4cd.
+% See CHANGES_v5.md and SOURCES_v4.md; the evidence snapshot is unchanged.
+% Review copy: author fields and the final-link qualitative PDF need insertion.
+% Qualified same-machine timing remains pending and is NOT assigned old values.
+\documentclass[journal]{IEEEtran}
+\usepackage{amsmath,amssymb,graphicx,booktabs,multirow,cite,xcolor}
+\usepackage[T1]{fontenc}
+\usepackage{url,microtype}
+\usepackage[hidelinks]{hyperref}
+\graphicspath{{figures/}}
+\hypersetup{pdftitle={NeST-Com: Channel-Adaptive Digital Image Transmission With Next-Scale Generative Priors},
+ pdfsubject={Revised v5 review draft},pdfkeywords={NeST-Com, digital image transmission, generative prior}}
+\newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
+\newcommand{\raw}{\textsc{NeST-Com} (raw)}
+\newcommand{\ec}{\textsc{NeST-Com} (entropy-coded)}
+% Set false to omit the qualitative figure in a text-only review.
+\newif\ifqualitative
+\qualitativetrue
+\begin{document}
+\title{NeST-Com: Channel-Adaptive Digital Image Transmission With Next-Scale Generative Priors}
+\author{\todo{Author names and order}%
+\thanks{\todo{Affiliations, corresponding-author email, and funding.}}}
+\markboth{NeST-Com -- Revised Manuscript Draft}{Digital Transmission With Next-Scale Generative Priors}
+\maketitle
+
+\begin{abstract}
+Next-scale generative priors permit reconstruction from transmitted token prefixes, but fixed wireless budgets require coordinating source information and protection. We propose NeST-Com, which jointly configures prefix depth, partial-scale tokens, and LDPC--QAM coding. Its raw implementation avoids transmitter-side autoregressive inference, while an entropy-coded extension improves source efficiency. On 500 images with 1024 complex channel uses, the raw scheme improves prediction agreement over a perceptually trained latent-space JSCC baseline by 6.9--13.2 percentage points. Separate 100-image tests show that partial scales also improve entropy-coded transmission by 0.34--0.64 dB, while low-SNR fidelity remains a limitation.
+\end{abstract}
+\begin{IEEEkeywords}
+Digital image transmission, semantic communication, visual autoregressive model, generative prior, link adaptation.
+\end{IEEEkeywords}
+
+\section{Introduction}
+\IEEEPARstart{G}{enerative} priors let a receiver infer image information not explicitly transmitted. Deep joint source-channel coding (JSCC) learns continuous channel mappings~\cite{bourtsoulatze2019deep,yang2023swinjscc}; diffusion-based receivers use the actual observation to guide generative recovery~\cite{wang2025diffcom}. Token communication instead provides an explicit digital interface through source coding, error correction, and modulation~\cite{qiao2025tokcom}.
+
+Visual autoregressive (VAR) models predict residual token maps from coarse to fine~\cite{tian2024var}, enabling one receiver to reconstruct from different valid prefixes. ARPC exploits scale selection, missing-scale prediction, and entropy coding for progressive compression~\cite{arpc2026}. Ada-TokenCom combines token-prefix transmission and generation with modulation and coding scheme (MCS) adaptation under a long-term resource constraint~\cite{adatokencom2026}.
+
+We study a \emph{hard per-image channel-use budget}. Whole-scale source lengths need not match finite-length LDPC--QAM capacities: the first seven and eight VAR scales contain 155 and 255 tokens, leaving intermediate payloads unavailable. A shorter prefix can be protected more strongly but cannot transmit part of the next map. Entropy coding reduces the prefix's bit count without necessarily eliminating these stopping boundaries.
+
+NeST-Com coordinates \emph{transmitted information} and \emph{generated representation} by jointly selecting a whole-scale prefix, partial boundary tokens, and an LDPC--QAM layout. A predict--overwrite--advance receiver uses the received prefix to condition a frozen VAR. We evaluate raw and conditional-entropy-coded implementations against whole-scale transmission, continuous JSCC, and diffusion-based reception.
+
+\section{System Model and Proposed Scheme}
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.98\textwidth]{fig_system.pdf}
+\caption{NeST-Com's raw transmission path. An SNR-dependent configuration sets the prefix and channel protection; the received prefix conditions VAR completion. The entropy-coded variant replaces raw-index serialization (Sec.~\ref{sec:entropy}). The frame contains a protected header, coded body, and energized known filler.}
+\label{fig:system}
+\end{figure*}
+
+\subsection{Next-Scale Representation and Prefix Interface}
+The frozen VAR tokenizer~\cite{tian2024var} maps an RGB image $\mathbf x\in\mathbb R^{3\times256\times256}$ to $\mathbf F\in\mathbb R^{32\times16\times16}$ and then to ten residual token maps $\mathbf r_1,\ldots,\mathbf r_S$. Their side lengths are $s_k\in(1,2,3,4,5,6,8,10,13,16)$, in this order. Map $k$ has $L_k=s_k^2$ indices from a 4096-entry codebook; all maps together contain 680 tokens. The selected source prefix is
+\begin{equation}
+\pi(m,K)=\big[\operatorname{vec}(\mathbf r_1),\ldots,\operatorname{vec}(\mathbf r_m),\mathbf r_{m+1}[1{:}K]\big],
+\label{eq:prefix}
+\end{equation}
+where vectorization and $[1{:}K]$ follow raster order. For $m<S$, $0\le K<L_{m+1}$; a full boundary map is represented by $(m+1,0)$, and $(S,0)$ denotes all scales. The transmitter selects $(m,K)$ before encoding each frame.
+
+\subsection{Raw Digital Transmission and Resource Accounting}
+Let $T(m,K)=\sum_{k\le m}L_k+K$. The raw interface uses 12 bits per selected index and one body CRC16:
+\begin{equation}
+B_{\rm raw}=12T(m,K),\quad k_a=B_{\rm raw}+16,\quad
+R_{{\rm eff},a}=k_a/n_a,
+\label{eq:raw}
+\end{equation}
+where $n_a$ is the actual transmitted bit count after LDPC rate matching. We use one supported 5G NR LDPC code block~\cite{3gpp38212} and $M$-QAM, $M\in\{4,16,64\}$. A 12-bit public configuration ID is separately protected by CRC16, six convolutional-code tail bits, and rate matching to 136 coded bits, occupying $N_h=68$ QPSK symbols. Every admitted frame satisfies
+\begin{equation}
+N_h+\frac{n_a}{\log_2 M}+N_{{\rm idle},a}=N.
+\label{eq:budget}
+\end{equation}
+Unused positions carry known QPSK filler symbols with energy 2 per symbol.
+
+All constellations have nominal average symbol energy $E_s=2$. The channel is $\mathbf y=\mathbf s+\mathbf n$, where $\mathbf n\sim\mathcal{CN}(\mathbf0,N_0\mathbf I)$ and $N_0=2\cdot10^{-\mathrm{SNR}_{\rm dB}/10}$. Both endpoints know the operating SNR. QAM frames have fixed nominal average symbol energy and composition-dependent total energy. Each image occupies one frame, without feedback or retransmission.
+
+\subsection{Receiver and Shared Visual Models}
+The header is decoded first; its recovered ID identifies the body layout. An invalid header produces a fixed RGB-0.5 image. For the raw body, actual LDPC hard decisions are retained even after CRC rejection (KEEP), and may therefore contain errors.
+
+A fresh VAR forward uses the fixed null-class embedding. Complete received maps condition the next-scale prediction. At the boundary map, all positions are predicted in parallel, then the received positions are overwritten:
+\begin{equation}
+\widetilde r_{m+1,j}=\begin{cases}
+\widehat r_{m+1,j},&j\le K,\\
+\arg\max_v p_{\rm VAR}(r_{m+1,j}=v\mid\widetilde{\mathbf r}_{\le m}),&j>K.
+\end{cases}
+\label{eq:overwrite}
+\end{equation}
+Here $\widehat r$ denotes the LDPC hard decision. The merged map updates the accumulated residual latent and conditions finer scales; the other boundary positions retain their initial predictions. The completed latent is decoded by $D_c$.
+
+The tokenizer and VAR remain pretrained and frozen. Before this link study, $D_c$ was adapted on the same 20,000 training images with MSE$+0.1$LPIPS, using continuous, fully quantized, and interpolated completed-prefix latents in proportions $50/25/25\%$. Its checkpoint was selected on the 1000-image calibration set and then frozen and shared with latent-space JSCC. The communication stage uses these fixed visual models without channel-specific fine-tuning.
+
+\subsection{Conditional Entropy-Coded Implementation}
+\label{sec:entropy}
+The enhanced interface encodes the selected tokens with a 32-bit arithmetic coder and integer CDFs of total mass $2^{24}$, derived from the same null-class VAR. At the boundary scale, the coder uses the first $K$ CDF rows conditioned on the complete coarser prefix. The receiver reconstructs the probability state from the decoded tokens.
+
+For a terminated arithmetic stream of length $b_{\rm EC}(\mathbf x;m,K)$, the body contains a 13-bit length field, the stream, known padding, and CRC16. It uses all $N-68$ body symbols and satisfies
+\begin{equation}
+ b_{\rm EC}(\mathbf x;m,K)+13+16\le k_a,\qquad
+ n_a=(N-68)\log_2 M.
+\label{eq:entropy}
+\end{equation}
+For each image, a frozen SNR-specific target falls back through prescribed shorter endpoints until the actual stream fits, without reconstruction-quality search. Whole-scale policies permit only whole endpoints; partial policies also admit quarter scales. Invalid headers, body CRCs, length/padding syntax, or arithmetic termination produce the fixed fallback.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.98\textwidth]{fig_main_final.pdf}
+\caption{Quality versus SNR on 500 images at $N=1024$, using the 100k latent-space JSCC and 200k adapted SwinJSCC checkpoints. Shading: source-level pointwise 95\% intervals. Higher PSNR, DINOv2-L similarity, and agreement, and lower LPIPS indicate better performance.}
+\label{fig:curves}
+\end{figure*}
+
+\subsection{Offline Configuration Selection}
+For raw coding, complete scales and feasible $K$ values near one-quarter, one-half, three-quarters, and the largest legal fraction of the next map are combined with nominal rates $\{1/3,1/2,2/3,3/4,5/6\}$ and the three modulations. Nominal-length and full-budget layouts are both considered. Backend checks and deduplication yield 433 wire configurations at $N=1024$. A clean-quality/link-probability proxy screens candidates; the initial three whole-scale and two positive-$K$ candidates per SNR undergo actual-link calibration, with the whole-scale winner retained in the partial family. The configuration is selected by
+\begin{equation}
+\hat a_\gamma=\arg\max_{a\in\mathcal A_{\rm cal}(N,\gamma)}
+\frac{1}{3|\mathcal C|}\sum_{\mathbf x\in\mathcal C}\sum_{\ell=1}^{3}
+Q(\mathbf x,\hat{\mathbf x}_{a,\ell}),
+\label{eq:selection}
+\end{equation}
+where $Q$ is DINOv2 ViT-L/14 cosine similarity~\cite{oquab2024dinov2}, $|\mathcal C|=1000$, and actual decoding failures remain included.
+
+At $N=1024$, entropy policies separately calibrate whole/quarter-scale targets for $m=4,\ldots,9$ and nominal rates $\{1/2,2/3,3/4,5/6\}$, then freeze before confirmation. Only the entropy interface requires transmitter-side autoregressive probability inference.
+
+\section{Experimental Results}
+\subsection{Experimental Setup}
+The study uses disjoint sets of 20,000 ImageNet training images, 1000 calibration images, 100 development images, and 500 evaluation images. All methods share the same $256\times256$ RGB preprocessing. At $N=1024$, $N/(3\cdot256^2)=1/192$. The main evaluation uses SNRs $\{1,4,7,10,13,19\}$~dB and three channel realizations per source. A separate 100-image set tests the entropy extension at 4/10/19~dB. Subsequent baseline updates are evaluated on these same sets against the frozen digital policies.
+
+\emph{Latent-space JSCC} transmits the continuous $32\times16\times16$ representation through convolutional communication layers (width 64, three residual blocks, 495,208 trainable communication parameters) and uses the same $D_c$. Its loss is RGB MSE$+0.1$LPIPS$+0.01$ standardized latent MSE, with training SNRs $\{1,4,7,13,19\}$~dB. Calibration selected the 100k checkpoint after continuation from 40k, meeting the predefined empirical plateau criterion. Its $2N$ real outputs form $N$ complex symbols normalized to total energy $2N$.
+
+\emph{SwinJSCC (adapted)}~\cite{yang2023swinjscc} uses the author's SA+RA architecture, RGB MSE, the same 20k training set, and jointly trained channel counts 6 and 13. The 200k checkpoint continues the 80k model with a fresh optimizer and integer SNRs 1--19~dB; training ends at its budget limit with calibration MSE still decreasing. At $N=1024$, six channels occupy 768 body symbols and 256 protected auxiliary symbols for the mask and power. The receiver obtains both fields from the decoded header.
+
+\emph{Adaptive-resolution BPG + LDPC}~\cite{bellard2014bpg} selects among 14 legal MCSs on 100 calibration images. Its fixed per-image source procedure searches resolution/quantization using actual file size and source distortion, with resolutions 32/64/128/256 and bicubic restoration to 256. The complete file, length field, CRC, header, and coding are charged. All test images fit the budget.
+
+Metrics are PSNR, LPIPS-Alex~\cite{zhang2018lpips}, DINOv2-L cosine similarity, and source--reconstruction top-1 prediction agreement of frozen ConvNeXt-Tiny~\cite{liu2022convnext}. ConvNeXt predictions are reserved for evaluation. All frames, including decoding failures, enter the statistics. We average the three channel realizations within each source, then use 10,000 source-level bootstrap resamples for pointwise 95\% intervals and paired method differences.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.98\textwidth]{fig_partial_deltas.pdf}
+\caption{Partial-scale minus whole-scale performance within each source-coding interface on the separate 100-image set, $N=1024$. Error bars: source-paired 95\% intervals.}
+\label{fig:partial}
+\end{figure*}
+
+\subsection{Main Comparison on 500 Images}
+
+In Fig.~\ref{fig:curves}, relative to latent-space JSCC, \raw{} improves DINOv2-L similarity by 0.089--0.177 and prediction agreement by 6.87--13.20 percentage points across all six SNRs, with corresponding paired intervals above zero. Its LPIPS is worse at 1--10~dB; the differences at 10, 13, and 19~dB are $+0.00567$, $-0.00247$, and $-0.02941$, respectively. PSNR is lower through 13~dB, but higher by $0.321$~dB $[0.248,0.396]$ at 19~dB. SwinJSCC and adaptive BPG have higher PSNR, whereas \raw{} has lower LPIPS and higher representation similarity and agreement throughout these tested points. At 19~dB the PSNR deficit to SwinJSCC is 2.13~dB.
+
+\ifqualitative
+\begin{figure*}[t]
+\centering
+\IfFileExists{figures/fig_qualitative_final.pdf}{%
+\includegraphics[width=0.98\textwidth]{fig_qualitative_final.pdf}}{%
+\fbox{\parbox[c][3.18in][c]{0.94\textwidth}{\centering
+\textbf{Figure 4 placeholder}\par\medskip
+\small Original / SwinJSCC / Latent-space JSCC / HiFi-DiffCom / NeST-Com\par\medskip
+\textcolor{red}{Final-checkpoint reconstruction panel to insert.}}}}
+\caption{Illustrative development images at $N=1024$, 13~dB (sources 21 and 92, selected from the fixed16 gallery after viewing earlier examples). SwinJSCC and HiFi use the 200k checkpoint, identical observations, and decoded auxiliary fields; latent-space JSCC uses 100k. Channel seeds are fixed at 2001 for continuous methods and 6201 for digital transmission.}
+\label{fig:qualitative}
+\end{figure*}
+\fi
+
+\subsection{Same-Prior Mechanism and Entropy Extension}
+\begin{table}[t]
+\centering
+\caption{Raw same-prior comparisons on 500 images.}
+\label{tab:ablation}
+\setlength{\tabcolsep}{3pt}\footnotesize
+\begin{tabular}{cllrr}
+\toprule
+SNR (dB) & Prefix & Tokens / QAM & PSNR & Agr. (\%)\\
+\midrule
+10 & Whole & 155 / 64 & 18.54 & 71.2\\
+10 & Partial & 230 / 16 & 19.71 & 78.1\\
+19 & Whole & 255 / 64 & 20.22 & 81.6\\
+19 & Partial & 397 / 64 & 21.57 & 82.6\\
+\midrule
+13 & Direct $D_c$ & Same received tokens & 18.82 & 47.2\\
+13 & With VAR & Same received tokens & 20.29 & 81.6\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:ablation} compares the two transmission granularities under the same prior. Expanded screening of all 106 whole-scale actions at 10/19~dB, followed by full calibration of ten contenders per SNR, retained the selected whole-scale configurations. At 10~dB, allowing partial scales changes the selected raw configuration from 155 tokens with 64-QAM at $R_{\rm eff}=1876/5628$ to 230 tokens with 16-QAM at $2776/3824$. Despite 66 body-CRC rejections out of 1500 frames versus none for the whole-scale policy, it improves PSNR by 1.18~dB and agreement by 6.87 points. At 19~dB, the raw partial policy sends $m=8,K=142$ at $4780/5736$ and improves PSNR by 1.34~dB over the raw whole-scale winner. The whole-scale configuration uses 340 known filler symbols. At 7~dB the two policies select the same configuration. Partial scales therefore provide additional source--protection choices within the same budget.
+
+The completion ablation holds the received tokens and $D_c$ fixed. Direct decoding sets missing residual contributions to zero. At 13~dB, VAR completion increases agreement from 47.2\% to 81.6\% (Table~\ref{tab:ablation}), showing the contribution of generated residual maps beyond the transmitted prefix.
+
+
+A stronger whole-scale comparator uses the same VAR for conditional entropy coding. On the original 500 images at 19~dB, it fits the full nine-scale prefix for all sources and exceeds raw partial PSNR by 0.258~dB. Static entropy coding fits that prefix for only 2/500 sources.
+
+The separate 100-image experiment shows that partial scales remain useful \emph{after conditional entropy coding} (Fig.~\ref{fig:partial}). Their PSNR increments over entropy-coded whole prefixes are $0.531\,[0.421,0.656]$, $0.641\,[0.503,0.785]$, and $0.343\,[0.281,0.409]$~dB at 4/10/19~dB; LPIPS and DINOv2-L also improve with intervals excluding zero. Agreement improves by 7 points at 10~dB, has an interval spanning zero at 4~dB, and is identical at 19~dB. At 19~dB, \ec{} also exceeds latent-space JSCC by $0.974\,[0.785,1.175]$~dB, while SwinJSCC retains higher PSNR.
+
+\subsection{Generative Receiver Comparison}
+
+HiFi-DiffCom~\cite{wang2025diffcom} provides a system-level generative receiver comparison\ifqualitative{} (Fig.~\ref{fig:qualitative})\fi. It reconstructs the 16 fixed development images at $N=1024$, 13~dB using a 253-step posterior schedule, frozen unconditional ADM, and Swin200k forward/confirming operators. The received waveform and decoded auxiliary fields condition the posterior.
+
+\subsection{Bandwidth and SNR Sensitivity} An independent $N=2048$ confirmation on 100 sources yields raw partial-minus-whole PSNR increments of 1.220, 0.060, and exactly 0~dB at 4/10/19~dB; at 19~dB, all compared digital schemes transmit all ten scales and give identical outputs. The benefit of finer transmission granularity therefore vanishes once the entire representation fits.
+
+In a transmitter-SNR mismatch diagnostic, overestimating by one 3-dB configuration step reduces raw PSNR by 7.62--9.58~dB. This sensitivity identifies accurate SNR-dependent configuration as an important operating requirement.
+
+% TODO: Add the same-machine TX/RX timing table when measurements are available.
+
+\section{Conclusion}
+NeST-Com coordinates transmitted information and receiver-side generation through fine-grained prefix and channel configuration under a fixed budget. Partial scales improve both raw and conditional-entropy-coded implementations. Relative to the evaluated continuous baselines, the raw scheme preserves higher representation similarity and prediction agreement, while sacrificing pixel fidelity at low SNR. The granularity benefit vanishes when the full representation fits, and SNR overestimation sharply degrades reconstruction.
+
+% Bibliography entries below are retained from the source-checked v3 entries.
+% See SOURCES_v4.md for provenance and final author-side bibliography checks.
+\IEEEtriggeratref{2}
+\bibliographystyle{IEEEtran}
+\begin{thebibliography}{99}
+
+\bibitem{bourtsoulatze2019deep}
+E.~Bourtsoulatze, D.~B. Kurka, and D.~G\"und\"uz, ``Deep joint source-channel coding for wireless image transmission,'' \emph{IEEE Trans. Cogn. Commun. Netw.}, vol.~5, no.~3, pp.~567--579, Sep. 2019, doi: 10.1109/TCCN.2019.2919300.
+
+\bibitem{yang2023swinjscc}
+K.~Yang, S.~Wang, J.~Dai, X.~Qin, K.~Niu, and P.~Zhang, ``SwinJSCC: Taming Swin Transformer for deep joint source-channel coding,'' \emph{IEEE Trans. Cogn. Commun. Netw.}, vol.~11, no.~1, pp.~90--104, Feb. 2025, doi: 10.1109/TCCN.2024.3424842.
+
+\bibitem{wang2025diffcom}
+S.~Wang, J.~Dai, K.~Tan, X.~Qin, K.~Niu, and P.~Zhang, ``DiffCom: Channel received signal is a natural condition to guide diffusion posterior sampling,'' \emph{IEEE J. Sel. Areas Commun.}, vol.~43, no.~7, pp.~2651--2666, Jul. 2025, doi: 10.1109/JSAC.2025.3559158.
+
+\bibitem{qiao2025tokcom}
+L.~Qiao, M.~B. Mashhadi, Z.~Gao, R.~Tafazolli, M.~Bennis, and D.~Niyato, ``Token communications: A large model-driven framework for cross-modal context-aware semantic communications,'' \emph{IEEE Wireless Commun.}, vol.~32, no.~5, pp.~80--88, Oct. 2025, doi: 10.1109/MWC.001.2500084.
+
+\bibitem{tian2024var}
+K.~Tian, Y.~Jiang, Z.~Yuan, B.~Peng, and L.~Wang, ``Visual autoregressive modeling: Scalable image generation via next-scale prediction,'' in \emph{Advances in Neural Information Processing Systems}, vol.~37, 2024.
+
+\bibitem{arpc2026}
+Z.~Zhang, Y.~Xia, B.~Chen, T.~Zhang, H.~Wang, and H.~Qiu, ``Autoregressive-based progressive coding for ultra-low bitrate image compression,'' in \emph{Proc. Int. Conf. Learn. Represent. (ICLR)}, 2026.
+
+\bibitem{adatokencom2026}
+Z.~Zhang, L.~Qiao, M.~B. Mashhadi, Z.~Gao, M.~Bennis, and K.~Huang, ``Ada-TokenCom: Rate-adaptive token communications via large-model-driven token compression and generation,'' arXiv:2608.28086v1, 2026.
+
+\bibitem{3gpp38212}
+3GPP, ``NR; Multiplexing and channel coding,'' TS~38.212, ver.~16.5.0, Mar. 2021.
+
+\bibitem{oquab2024dinov2}
+M.~Oquab \emph{et al.}, ``DINOv2: Learning robust visual features without supervision,'' \emph{Trans. Mach. Learn. Res.}, 2024.
+
+\bibitem{bellard2014bpg}
+F.~Bellard, ``BPG image format,'' 2014. Accessed: Oct.~9, 2026. [Online]. Available: \url{https://bellard.org/bpg/}
+
+\bibitem{zhang2018lpips}
+R.~Zhang, P.~Isola, A.~A. Efros, E.~Shechtman, and O.~Wang, ``The unreasonable effectiveness of deep features as a perceptual metric,'' in \emph{Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit. (CVPR)}, 2018, pp.~586--595.
+
+\bibitem{liu2022convnext}
+Z.~Liu, H.~Mao, C.-Y. Wu, C.~Feichtenhofer, T.~Darrell, and S.~Xie, ``A ConvNet for the 2020s,'' in \emph{Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit. (CVPR)}, 2022, pp.~11976--11986.
+
+\end{thebibliography}
+\end{document}

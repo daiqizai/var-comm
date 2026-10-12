@@ -222,3 +222,8 @@ Repository migration does not certify the previous repair task as complete. No o
 ## 2026-10-12 final-link HiFi fixed16 delivery
 
 Complete16 HiFi recoveries now use the final Swin200k encoder, confirming decoder and identical paired received waveform at N1024/13dB. All16 full253-step calls and24 missing final-baseline frames actually exit0; eight earlier baseline frames were verified and reused. No training, scoring or bootstrap. Full16 and selected five-column figures are delivered separately from the explicitly historical Swin80k fixed16 table; common500 curves remain unchanged. Shared-GPU runtime is not a fair speed comparison. [Report](results/hifi_final_fixed16_20261012/REPORT.md).
+
+
+## Manuscript v5 (2026-10-12)
+
+[NeST-Com WCL v5 PDF, TeX and changes](paper/manuscripts/nestcom_wcl_v5_20261012/README.md) are archived exactly as supplied. This is a review draft with Figure 4 and author fields pending. Its evidence snapshot is `260a2393c6c4e25b4647c525ec88406df432d4cd`; publishing the draft does not certify the separately requested scientific audit.
