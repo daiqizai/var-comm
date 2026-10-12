@@ -1,3 +1,11 @@
+## Eight additional reconstruction candidates recovered (2026-10-12)
+
+The original server became accessible. Verified and exported the remaining fixed16 sources33,41,52,60,64,87,92,95 atN1024/13dB using existing caches, preserving all seven image columns and fixed first noise. Four panels havePDF/SVG/600dpi PNG, actual visual review and a SHA-verified local/Lu_Data delivery. Total available candidates now16; no new science, final user selection or claim of final100k/200k holdout reconstruction. [Candidates09–16](paper/figures/additional_candidates_20261012/README.md).
+
+## Reconstruction examples revised at user request (2026-10-12)
+
+Retained second-row source21 and replaced the other three rows using the first three sources of the other verified display bundle: final order0,21,25,50. Both five-column comparison and four-column mechanism panels were rendered and visually checked. All seven images in row b are pixel-identical to the prior version. Existing N1024/13dB, fixed first noises and historical40k/80k development labels remain; no scientific calls. This is a user-requested illustrative selection, not a newly preregistered sample. [Revised panels](paper/figures/reselected_examples_20261012/README.md).
+
 ## figures4papers layout trial delivered (2026-10-12)
 
 Applied the user-requested scientific-figure-making skill to the existing common500 main comparison and fixed development photo panels. Seven layouts have vector-curve PDF, editable SVG and600dpi PNG, with actual visual review; data CSV bytes and all28 source display PNGs match the prior delivery. No scientific calls or image enhancement. Original figures remain unchanged. Historical qualitative40k/80k labels remain separate from final100k/200k performance curves. [Trial figures and reproduction](paper/figures/figures4papers_trial_20261012/README.md).
