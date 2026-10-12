@@ -1,3 +1,9 @@
+## Main-paper performance and qualitative comparison figures (2026-10-12)
+
+A new four-method common500 figure combines the proposed raw partial-scale method, selected latent100k/Swin200k baselines and adaptive-resolution BPG + LDPC. All96 mean/interval rows are read directly from published CSVs; no new scientific or bootstrap calls. Five layouts (one composite and four single panels) have PDF/SVG/600dpi PNG exports and actual visual review. [Figure and English caption](paper/figures/final_paper_comparisons_20261012/README.md).
+
+The accompanying existing HiFi five-column and digital four-column panels are explicitly development examples at N1024/13dB. Their latent40k/Swin80k versions must not be represented as the final100k/200k models. Same sources and fixed first noises are retained; no best-noise selection or substitute SNR. Fair H800 timing remains pending and no model was launched for this delivery.
+
 ## Redundant storage cleaned at user request (2026-10-12)
 
 Deleted437 VAR_COMM-owned redundant files totaling10,526,892,735 logical bytes:116 superseded recovery snapshots,9 SHA-matched local-backed archives and312 synthetic test temporary files. Final complete P100k/Swin200k states, every calibration model weight, original inputs, scientific results, failure records and timing dependencies remain. All timing bindings and final recovery hashes passed after deletion. Retired intermediate optimizer/RNG snapshots are not individually recoverable; final complete migration states remain both remotely and on Lu_Data. No scientific job was launched. [Actual cleanup inventory](results/baseline_strength_20261011/storage_cleanup_20261012/README.md).
