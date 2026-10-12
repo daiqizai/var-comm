@@ -1,0 +1,646 @@
+{
+  "schema_version": "1.0",
+  "document_date": "2026-10-12",
+  "repository": "daiqizai/var-comm",
+  "reviewed_commit": "7fbb85555f682f25d13db1c2d3d91951eb942684",
+  "status": "REDRAW_SPECIFICATION_NOT_NEW_EXPERIMENT_AUTHORIZATION",
+  "main_selection": [
+    "M01",
+    "M02",
+    "M03",
+    "M04",
+    "MT01"
+  ],
+  "alias_resolution_rules": [
+    "Aliases identify display families only; cohort, N, SNR, checkpoint hash, protocol and metric identities must ALSO match.",
+    "Unversioned P1024 must NOT map to latent_final. Resolve its checkpoint from provenance.",
+    "Do not merge common500, new100, calibration1000 or development under a shared method name.",
+    "Unknown or missing input rows must raise an explicit error; never substitute zero, old checkpoints or another SNR.",
+    "Do not manufacture paired confidence intervals by subtracting marginal endpoints.",
+    "Older timing measurements cannot fill the pending six-method measurement table."
+  ],
+  "methods": [
+    {
+      "key": "nest_raw",
+      "legend": "NeST-Com (raw)",
+      "full_name": "NeST-Com with fixed-length token coding",
+      "chinese": "本文固定长度token实现",
+      "color": "#0F4D92",
+      "linestyle": "-",
+      "marker": "o",
+      "known_exact_aliases": [
+        "RAW_PARTIAL",
+        "RAW64_PARTIAL_VAR_COMPLETION"
+      ],
+      "known_id_patterns": [
+        "^RAW64_PARTIAL_VAR_COMPLETION_SNR_(1|4|7|10|13|19)$"
+      ],
+      "caption_note": "Raw refers to 12-bit token indices, not raw RGB. VAR completion is used at the receiver."
+    },
+    {
+      "key": "nest_entropy",
+      "legend": "NeST-Com (entropy-coded)",
+      "full_name": "NeST-Com with VAR-conditional entropy coding",
+      "chinese": "本文条件熵编码增强实现",
+      "color": "#3775BA",
+      "linestyle": "-",
+      "marker": "D",
+      "known_exact_aliases": [
+        "EC_VAR_PARTIAL"
+      ],
+      "known_id_patterns": [],
+      "caption_note": "Sender-side VAR probability computation is required; do not label this implementation sender-prior-free."
+    },
+    {
+      "key": "whole_raw",
+      "legend": "Whole-scale prefix + VAR (raw)",
+      "full_name": "Whole-scale-prefix transmission with fixed-length token coding and VAR completion",
+      "chinese": "raw完整尺度前缀对照",
+      "color": "#767676",
+      "linestyle": "--",
+      "marker": "o",
+      "known_exact_aliases": [
+        "RAW_WHOLE",
+        "RAW64_WHOLE_VAR_COMPLETION"
+      ],
+      "known_id_patterns": [
+        "^RAW64_WHOLE_VAR_COMPLETION_SNR_(1|4|7|10|13|19)$"
+      ],
+      "markerface": "none",
+      "caption_note": "Whole-scale prefix permits K=0, not necessarily all ten scales."
+    },
+    {
+      "key": "whole_entropy",
+      "legend": "Whole-scale prefix + VAR (entropy-coded)",
+      "full_name": "Whole-scale-prefix transmission with VAR-conditional entropy coding and VAR completion",
+      "chinese": "条件熵编码完整尺度前缀对照",
+      "color": "#4D4D4D",
+      "linestyle": "-.",
+      "marker": "D",
+      "known_exact_aliases": [
+        "EC_VAR_WHOLE"
+      ],
+      "known_id_patterns": [
+        "^EC_VAR_WHOLE_SNR_(4|10|19)$"
+      ],
+      "markerface": "none",
+      "caption_note": "A matched internal control, not a native ARPC implementation."
+    },
+    {
+      "key": "whole_static",
+      "legend": "Whole-scale prefix + VAR (static entropy)",
+      "full_name": "Whole-scale-prefix transmission with static entropy coding and VAR completion",
+      "chinese": "固定统计熵编码完整尺度对照",
+      "color": "#8A735A",
+      "linestyle": ":",
+      "marker": "s",
+      "known_exact_aliases": [],
+      "known_id_patterns": [
+        "^EC_STATIC_WHOLE_SNR_(4|10|19)$"
+      ],
+      "markerface": "none"
+    },
+    {
+      "key": "partial_no_completion",
+      "legend": "Partial-scale, no completion (raw)",
+      "full_name": "Partial-scale transmission without generative completion",
+      "chinese": "同接收token直接解码消融",
+      "color": "#B07A25",
+      "linestyle": ":",
+      "marker": "x",
+      "known_exact_aliases": [
+        "RAW64_PARTIAL_DIRECT_DC"
+      ],
+      "known_id_patterns": [
+        "^RAW64_PARTIAL_DIRECT_DC_SNR_(1|4|7|10|13|19)$"
+      ],
+      "caption_note": "Use identical received tokens and Dc as the paired completion arm. Missing residual contributions are zero, not codebook index zero."
+    },
+    {
+      "key": "latent_final",
+      "legend": "Latent-space JSCC",
+      "full_name": "Perceptually trained latent-space joint source-channel coding",
+      "chinese": "最终潜空间连续JSCC基线",
+      "color": "#B64342",
+      "linestyle": "--",
+      "marker": "s",
+      "known_exact_aliases": [
+        "P100000"
+      ],
+      "known_id_patterns": [],
+      "trained_updates": 100000,
+      "stop_status": "PLATEAU_UNDER_REGISTERED_RECIPE",
+      "mixed_version_legend": "Latent-space JSCC (100k)"
+    },
+    {
+      "key": "swin_final",
+      "legend": "SwinJSCC (adapted)",
+      "full_name": "Adapted SwinJSCC",
+      "chinese": "最终SwinJSCC适配基线",
+      "color": "#42949E",
+      "linestyle": "-.",
+      "marker": "^",
+      "known_exact_aliases": [
+        "Swin200000"
+      ],
+      "known_id_patterns": [],
+      "trained_updates": 200000,
+      "stop_status": "BUDGET_CAP_WHILE_IMPROVING",
+      "training_snr_db": [
+        1,
+        19
+      ],
+      "mixed_version_legend": "SwinJSCC (adapted, 200k)"
+    },
+    {
+      "key": "bpg_adaptive",
+      "legend": "Adaptive-resolution BPG + LDPC",
+      "full_name": "Adaptive-resolution BPG with LDPC coding",
+      "chinese": "自适应分辨率传统数字基线",
+      "color": "#9A4D8E",
+      "linestyle": ":",
+      "marker": "v",
+      "known_exact_aliases": [],
+      "known_id_patterns": [
+        "^BPG_ADAPTIVE_DOWNSAMPLING_LDPC_N1024_SNR_(1|4|7|10|13|19)$"
+      ]
+    },
+    {
+      "key": "latent_40k",
+      "legend": "Latent-space JSCC (40k)",
+      "full_name": "Historical 40k latent-space JSCC checkpoint",
+      "chinese": "历史P40k",
+      "color": "#B64342",
+      "linestyle": ":",
+      "marker": "s",
+      "known_exact_aliases": [
+        "P40000",
+        "P40k"
+      ],
+      "known_id_patterns": [
+        "^P1024_SNR_(1|4|7|10|13|19)$"
+      ],
+      "trained_updates": 40000,
+      "markerface": "none",
+      "alias_scope": "P1024_SNR_* is accepted only with provenance establishing the old 40k common500 release."
+    },
+    {
+      "key": "swin_80k",
+      "legend": "SwinJSCC (adapted, 80k)",
+      "full_name": "Historical 80k adapted SwinJSCC checkpoint",
+      "chinese": "历史Swin80k",
+      "color": "#42949E",
+      "linestyle": ":",
+      "marker": "^",
+      "known_exact_aliases": [
+        "Swin80000",
+        "Swin80k",
+        "SwinJSCC80k"
+      ],
+      "known_id_patterns": [
+        "^SWIN80K_N1024_SNR_(1|4|7|10|13|19)$"
+      ],
+      "trained_updates": 80000,
+      "markerface": "none",
+      "caption_note": "19 dB is outside the old training and calibration range."
+    },
+    {
+      "key": "hifi_historical",
+      "legend": "HiFi-DiffCom (adapted)",
+      "full_name": "Adapted HiFi-DiffCom reconstruction using the historical Swin80k observation",
+      "chinese": "历史HiFi配对恢复",
+      "color": "#8A5E9B",
+      "linestyle": "-.",
+      "marker": "p",
+      "known_exact_aliases": [
+        "HiFiDiffCom"
+      ],
+      "known_id_patterns": [],
+      "receiver_observation_parent": "swin_80k",
+      "forbidden_cohorts": [
+        "common500",
+        "new100"
+      ],
+      "historical_only": true
+    },
+    {
+      "key": "full_latent_reference",
+      "legend": "Full-latent reference",
+      "full_name": "Direct image decoding from the untransmitted full latent",
+      "chinese": "免费完整latent诊断参考",
+      "color": "#272727",
+      "linestyle": "none",
+      "marker": "*",
+      "known_exact_aliases": [
+        "F_direct_Dc_free_latent_reference"
+      ],
+      "known_id_patterns": [],
+      "caption_note": "Not an achievable equal-channel-budget upper bound; diagnostic use only."
+    },
+    {
+      "key": "original",
+      "legend": "Original",
+      "full_name": "Original image",
+      "chinese": "原图",
+      "color": "#272727",
+      "linestyle": "none",
+      "marker": "none",
+      "known_exact_aliases": [
+        "source"
+      ],
+      "known_id_patterns": [],
+      "image_column_only": true
+    }
+  ],
+  "metrics": [
+    {
+      "key": "psnr_db",
+      "label": "PSNR (dB)",
+      "delta_label": "ΔPSNR (dB)",
+      "display_scale": 1,
+      "better": "higher",
+      "display_decimals": 2
+    },
+    {
+      "key": "lpips_alex",
+      "label": "LPIPS",
+      "delta_label": "ΔLPIPS",
+      "display_scale": 1,
+      "better": "lower",
+      "display_decimals": 3,
+      "variant": "LPIPS-Alex; retain original input scaling"
+    },
+    {
+      "key": "dinov2_vitl14_cosine",
+      "label": "DINOv2-L similarity",
+      "delta_label": "ΔDINOv2-L similarity",
+      "display_scale": 1,
+      "better": "higher",
+      "display_decimals": 3,
+      "variant": "DINOv2 ViT-L/14 cosine similarity"
+    },
+    {
+      "key": "convnext_top1_source_prediction",
+      "label": "Prediction agreement (%)",
+      "delta_label": "ΔPrediction agreement (pp)",
+      "display_scale": 100,
+      "better": "higher",
+      "display_decimals": 1,
+      "meaning": "Agreement with the source-image ConvNeXt prediction, not ground-truth classification accuracy"
+    }
+  ],
+  "figures": [
+    {
+      "id": "M01",
+      "filename": "fig01_system_overview",
+      "role": "main",
+      "title": "System overview and prefix-conditioned reconstruction",
+      "kind": "editable schematic",
+      "status": "DRAW_FROM_FROZEN_IMPLEMENTATION",
+      "methods": [
+        "nest_raw",
+        "nest_entropy"
+      ],
+      "source_paths": [
+        "scripts/plot_paper_user_selected_examples.py",
+        "reports/token_channel_efficiency_20260923_source_A.md"
+      ],
+      "notes": "Schematic sources are orientation only; read actual frozen packet and receive implementations before labeling details."
+    },
+    {
+      "id": "M02",
+      "filename": "fig02_main_common500",
+      "role": "main",
+      "title": "Reconstruction quality under a fixed channel-use budget",
+      "kind": "2x2 line panels with marginal pointwise CIs",
+      "status": "READY_FROM_PUBLISHED_TABLES",
+      "cohort": "common500",
+      "N": 1024,
+      "snr_db": [
+        1,
+        4,
+        7,
+        10,
+        13,
+        19
+      ],
+      "source_count": 500,
+      "noise_count": 3,
+      "methods": [
+        "nest_raw",
+        "latent_final",
+        "swin_final",
+        "bpg_adaptive"
+      ],
+      "source_paths": [
+        "paper/figures/final_paper_comparisons_20261012/plot_data.csv"
+      ]
+    },
+    {
+      "id": "M03",
+      "filename": "fig03_partial_scale_gains_new100",
+      "role": "main",
+      "title": "Benefit of partial-scale transmission under two source-coding interfaces",
+      "kind": "two paired-difference panels with direct paired CIs",
+      "status": "READY_FROM_PUBLISHED_TABLES",
+      "cohort": "new100",
+      "N": 1024,
+      "snr_db": [
+        4,
+        10,
+        19
+      ],
+      "source_count": 100,
+      "noise_count": 3,
+      "methods": [
+        "nest_raw",
+        "whole_raw",
+        "nest_entropy",
+        "whole_entropy"
+      ],
+      "plotted_metrics": [
+        "psnr_db",
+        "dinov2_vitl14_cosine"
+      ],
+      "contrasts": [
+        {
+          "label": "Raw coding",
+          "method": "nest_raw",
+          "reference": "whole_raw"
+        },
+        {
+          "label": "VAR-conditional entropy coding",
+          "method": "nest_entropy",
+          "reference": "whole_entropy"
+        }
+      ],
+      "source_paths": [
+        "results/entropy_partial_new100_20261011/paired.csv"
+      ]
+    },
+    {
+      "id": "M04",
+      "filename": "fig04_qualitative_final_checkpoints",
+      "role": "main",
+      "title": "Qualitative reconstruction comparison",
+      "kind": "fixed-source reconstruction grid",
+      "status": "CHECK_OR_RENDER_FINAL_BASELINE_IMAGES",
+      "cohort": "development",
+      "N": 1024,
+      "snr_db": [
+        13
+      ],
+      "source_indices": [
+        21,
+        92,
+        95,
+        75
+      ],
+      "methods": [
+        "original",
+        "swin_final",
+        "latent_final",
+        "nest_raw"
+      ],
+      "source_paths": [
+        "paper/figures/user_selected_examples_20261012/provenance.csv",
+        "paper/figures/user_selected_examples_20261012/selection_and_integrity.json"
+      ],
+      "notes": "The linked current comparison images are OLD baselines. Never relabel them as final; native source/digital assets can be reused after identity checking."
+    },
+    {
+      "id": "MT01",
+      "filename": "table01_online_cost",
+      "role": "main_candidate",
+      "title": "Online computational cost",
+      "kind": "table",
+      "status": "BLOCKED_UNTIL_ACTUAL_UNIFIED_TIMING",
+      "N": 1024,
+      "snr_db": [
+        19
+      ],
+      "methods": [
+        "nest_raw",
+        "nest_entropy",
+        "whole_raw",
+        "whole_entropy",
+        "latent_final",
+        "swin_final"
+      ],
+      "source_paths": [
+        "results/baseline_strength_20261011/timing/six_method_v1/registration.json"
+      ],
+      "notes": "Registration is not a timing result. No fabricated placeholders in a publication-ready table."
+    },
+    {
+      "id": "S01",
+      "filename": "s01_prefix_reconstruction",
+      "role": "optional_supplement_or_thesis",
+      "title": "Reconstruction from different scale prefixes",
+      "status": "SOURCE_VERSION_CHECK_REQUIRED",
+      "source_paths": [
+        "reports/token_channel_efficiency_20260923_source_A.md"
+      ]
+    },
+    {
+      "id": "S02",
+      "filename": "s02_raw_whole_partial_common500",
+      "role": "optional_supplement_or_thesis",
+      "title": "Whole-scale versus partial-scale transmission",
+      "status": "READY_FROM_PUBLISHED_TABLES",
+      "source_paths": [
+        "results/wcl_evidence_closure_20261009/T5_figures/"
+      ]
+    },
+    {
+      "id": "S03",
+      "filename": "s03_four_digital_modes_new100",
+      "role": "optional_supplement_or_thesis",
+      "title": "Raw and entropy-coded transmission",
+      "status": "READY_FROM_PUBLISHED_TABLES",
+      "source_paths": [
+        "results/entropy_partial_new100_20261011/summary.csv"
+      ]
+    },
+    {
+      "id": "S04",
+      "filename": "s04_entropy_vs_final_baselines_new100",
+      "role": "optional_supplement_or_thesis",
+      "title": "Entropy-coded NeST-Com versus continuous baselines",
+      "status": "READY_FROM_PUBLISHED_TABLES",
+      "source_paths": [
+        "results/baseline_strength_20261011/paired_supplement_v1/new100/"
+      ]
+    },
+    {
+      "id": "S05",
+      "filename": "s05_same_received_tokens_completion",
+      "role": "optional_supplement_or_thesis",
+      "title": "Effect of VAR completion",
+      "status": "VERIFY_PAIRED_RECEIVED_STATE",
+      "source_paths": [
+        "results/main_raw64_20261007/final_common500_r6/",
+        "paper/figures/user_selected_examples_20261012/"
+      ]
+    },
+    {
+      "id": "S06",
+      "filename": "s06_budget_dependence",
+      "role": "optional_supplement_or_thesis",
+      "title": "Dependence on the channel-use budget",
+      "status": "READY_FROM_PUBLISHED_TABLES",
+      "source_paths": [
+        "results/wcl_evidence_closure_20261009/T6_budget2048/v1/"
+      ]
+    },
+    {
+      "id": "S07",
+      "filename": "s07_actual_source_lengths",
+      "role": "optional_supplement_or_thesis",
+      "title": "Actual source-code lengths and payload fit",
+      "status": "READY_FROM_PUBLISHED_TABLES",
+      "source_paths": [
+        "results/wcl_evidence_closure_20261009/T1_entropy_whole/v3/source_lengths.csv"
+      ]
+    },
+    {
+      "id": "S08",
+      "filename": "s08_resource_accounting",
+      "role": "optional_supplement_or_thesis",
+      "title": "Selected configurations and resource accounting",
+      "status": "VERIFY_PROFILE_SPECIFIC_FIELDS",
+      "source_paths": [
+        "results/wcl_evidence_closure_20261009/T4_resources_cost/summary_completed_v2/"
+      ]
+    },
+    {
+      "id": "S09",
+      "filename": "s09_baseline_learning",
+      "role": "optional_supplement_or_thesis",
+      "title": "Baseline training and checkpoint diagnostics",
+      "status": "READY_FROM_PUBLISHED_TABLES",
+      "source_paths": [
+        "results/baseline_strength_20261011/training_figures_v1/",
+        "results/baseline_strength_20261011/diagnostic_delivery_v1/"
+      ]
+    },
+    {
+      "id": "S10",
+      "filename": "s10_latent_bottleneck",
+      "role": "optional_supplement_or_thesis",
+      "title": "Bottleneck diagnostic of latent-space JSCC",
+      "status": "READY_FROM_PUBLISHED_TABLES",
+      "source_paths": [
+        "results/baseline_strength_20261011/automatic_followthrough_v1/bottleneck/"
+      ]
+    },
+    {
+      "id": "S11",
+      "filename": "s11_snr_mismatch",
+      "role": "optional_supplement_or_thesis",
+      "title": "Sensitivity to transmitter-side SNR mismatch",
+      "status": "RESOLVE_CLOSED_STATISTICAL_TABLES",
+      "source_paths": [
+        "experiments/entropy-partial-mismatch-20261010/reports/"
+      ]
+    },
+    {
+      "id": "S12",
+      "filename": "s12_kodak_crops",
+      "role": "optional_supplement_or_thesis",
+      "title": "Frozen-policy transfer to Kodak crops",
+      "status": "CHECK_HISTORICAL_MODEL_VERSIONS",
+      "source_paths": [
+        "results/paper_supplement_20261008/"
+      ]
+    },
+    {
+      "id": "S13",
+      "filename": "s13_metric_references",
+      "role": "optional_supplement_or_thesis",
+      "title": "Interpretation of perceptual and representation metrics",
+      "status": "REQUIRE_ACTUAL_COMPLETION_NOT_ONLY_REGISTRATION",
+      "source_paths": [
+        "experiments/external-comparison-20261004/metric_reference_preregistration.json"
+      ]
+    },
+    {
+      "id": "S14",
+      "filename": "s14_quality_processing_tradeoff",
+      "role": "optional_supplement_or_thesis",
+      "title": "Measured quality–time trade-off",
+      "status": "BLOCKED_UNTIL_ACTUAL_UNIFIED_TIMING",
+      "source_paths": [
+        "results/baseline_strength_20261011/timing/six_method_v1/"
+      ]
+    },
+    {
+      "id": "S15",
+      "filename": "s15_paired_external_differences",
+      "role": "optional_supplement_or_thesis",
+      "title": "Source-paired differences against final baselines",
+      "status": "READY_FROM_PUBLISHED_TABLES",
+      "source_paths": [
+        "results/baseline_strength_20261011/paired_supplement_v1/common500/paired.csv",
+        "results/baseline_strength_20261011/paired_supplement_v1/new100/paired.csv"
+      ]
+    },
+    {
+      "id": "S16",
+      "filename": "s16_historical_gallery",
+      "role": "optional_supplement_or_thesis",
+      "title": "Historical qualitative gallery",
+      "status": "HISTORICAL_ONLY",
+      "source_paths": [
+        "paper/figures/user_selected_examples_20261012/",
+        "paper/figures/additional_candidates_20261012/"
+      ]
+    },
+    {
+      "id": "S17",
+      "filename": "s17_additional_frozen_ablations",
+      "role": "optional_supplement_or_thesis",
+      "title": "Additional frozen ablations",
+      "status": "REQUIRE_MATCHED_PROTOCOL_EVIDENCE",
+      "source_paths": []
+    }
+  ],
+  "default_export": {
+    "formats": [
+      "pdf",
+      "svg",
+      "png"
+    ],
+    "png_dpi": 600,
+    "editable_svg_text": true,
+    "vector_pdf_curves_and_labels": true,
+    "native_reconstruction_pixels_unchanged": true,
+    "save_source_data": true,
+    "save_caption": true,
+    "save_provenance": true
+  },
+  "suggested_style": {
+    "font_family": [
+      "Arial",
+      "Helvetica",
+      "DejaVu Sans",
+      "sans-serif"
+    ],
+    "axes_label_pt": 8.5,
+    "tick_pt": 8,
+    "legend_pt": 8,
+    "panel_title_pt": 9,
+    "line_width_pt": 1.5,
+    "marker_size_pt": 4,
+    "ci_alpha": 0.12,
+    "single_column_width_in": [
+      3.4,
+      3.5
+    ],
+    "double_column_width_in": [
+      6.8,
+      7.0
+    ],
+    "note": "Project recommendations at final print size, not journal-mandated numeric requirements."
+  }
+}

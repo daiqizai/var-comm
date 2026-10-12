@@ -1,0 +1,1 @@
+Numerical table pending actual six-method timing under the original all-GPU exclusive-resource gate. Column layout: Method | Transmitter(ms) | Receiver(ms) | Software end-to-end(ms). Use19dB for every method; full4/10/19dB breakdown accompanies it. No old-device times or numeric placeholders are supplied. Registration is not completion.

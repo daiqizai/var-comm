@@ -516,3 +516,8 @@ cell约束修正预注册：`reports/var_prefix_consistency_preregistration_2026
 
 
 2026-10-04: Prior-aware UEP N1024 actual-link evaluation, independent ConvNeXt validation, matched P1024 10 dB, fixed examples and cost measurements completed. DELIVER_AND_STOP_NO_EXTENSION. See [UEP report](reports/uep_prior_aware_20261004.md). No new model training or holdout access.
+
+
+## 2026-10-12 paper redraw and fixed final-checkpoint examples
+
+Registry-based NeST-Com redraw: 24 figure groups / 30 PDF-SVG-600dpi PNG figure versions in `paper/figures/redraw_v1/`. Published full-precision intervals are reused;722 numeric plot rows verified, no bootstrap or scoring. Eight registered final-checkpoint inference frames (P100k/Swin200k, sources21/92/95/75,N1024,13dB,noise2001) actually exit0; unchanged digital images reuse their verified original observations. Final and historical HiFi galleries stay separate. Six-method timing remains WAIT under the original exclusive-resource gate; no timing values fabricated. See `experiments/figure-redraw-20261012/README.md` and delivery validation.
