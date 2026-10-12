@@ -1,3 +1,7 @@
+## User-selected paper reconstruction panels (2026-10-12)
+
+The user chose candidates06,15,16,04: white shaggy dog,broccoli,pastries,shopping cart. Five-column comparison and four-column mechanism panels were rendered from verified historical development caches atN1024/13dB. All28 native display images remain pixel-identical, with fixed noise and latent40k/Swin80k labels. User selection after gallery review is explicitly disclosed; no scientific calls or change to quantitative results. PDF/SVG/600dpi PNG were visually reviewed. [Selected panels](paper/figures/user_selected_examples_20261012/README.md).
+
 ## Eight additional reconstruction candidates recovered (2026-10-12)
 
 The original server became accessible. Verified and exported the remaining fixed16 sources33,41,52,60,64,87,92,95 atN1024/13dB using existing caches, preserving all seven image columns and fixed first noise. Four panels havePDF/SVG/600dpi PNG, actual visual review and a SHA-verified local/Lu_Data delivery. Total available candidates now16; no new science, final user selection or claim of final100k/200k holdout reconstruction. [Candidates09–16](paper/figures/additional_candidates_20261012/README.md).
