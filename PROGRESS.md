@@ -1,3 +1,7 @@
+## figures4papers layout trial delivered (2026-10-12)
+
+Applied the user-requested scientific-figure-making skill to the existing common500 main comparison and fixed development photo panels. Seven layouts have vector-curve PDF, editable SVG and600dpi PNG, with actual visual review; data CSV bytes and all28 source display PNGs match the prior delivery. No scientific calls or image enhancement. Original figures remain unchanged. Historical qualitative40k/80k labels remain separate from final100k/200k performance curves. [Trial figures and reproduction](paper/figures/figures4papers_trial_20261012/README.md).
+
 ## Main-paper performance and qualitative comparison figures (2026-10-12)
 
 A new four-method common500 figure combines the proposed raw partial-scale method, selected latent100k/Swin200k baselines and adaptive-resolution BPG + LDPC. All96 mean/interval rows are read directly from published CSVs; no new scientific or bootstrap calls. Five layouts (one composite and four single panels) have PDF/SVG/600dpi PNG exports and actual visual review. [Figure and English caption](paper/figures/final_paper_comparisons_20261012/README.md).
