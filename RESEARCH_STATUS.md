@@ -1,3 +1,9 @@
+## 2026-10-14: guarded CPU delivery entry prepared for the running R1 calibration
+
+A separate CPU-only delivery entry has been implemented and checked with synthetic fixtures. It requires the registered owner and all five stages to have actually exited successfully, then audits the existing frame grid, identities, execution ledger and frozen selection outputs. It does not invoke a model, channel, bootstrap or policy selection. Calibration means, channel-failure outcomes and the original GO decision remain unchanged. Large derived frame tables stay in the personal runtime directory; only lightweight summaries, reports and SHA manifests are publication candidates. This milestone publishes an entry, not completed R1 quality results or an R2 launch.
+
+[CPU delivery contract](experiments/layered-mismatch-raw-20261013/r1_delivery_v1/README.md).
+
 ## 2026-10-14: clean R0 supplement closed; finite R1 calibration started
 
 The approved clean supplement has actually completed 5,400 VAR reconstructions, 5,400 DINO-L reconstruction scores and 200 source embeddings. Both stages and their owner exited successfully. Together with the already completed 88,896 body-packet trials and reused historical evidence, the once-only read-only finalizer authenticated the complete R0 grid and froze the calibration nominations. The screening proxy remains an approximation, not an image-level bound or a GO result; historical 4090D evidence is not relabeled as a new H800 run.

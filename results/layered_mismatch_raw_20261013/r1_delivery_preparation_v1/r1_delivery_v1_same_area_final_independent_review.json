@@ -1,0 +1,102 @@
+{
+  "active_quality_outputs_read": false,
+  "active_scientific_files_modified": false,
+  "approved": true,
+  "bootstrap_calls": 0,
+  "channel_calls": 0,
+  "code_bindings": {
+    "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\.research\\layered_mismatch_raw_20261013\\r1_delivery_v1\\README.md": "d096d466a0ed5344264c15f8c379ccf8e9f95990a1a1daf1c37b9b089c0fe2f1",
+    "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\.research\\layered_mismatch_raw_20261013\\r1_delivery_v1\\deliver.py": "94b6986e1db8a6082f0a02a6a91855fd79b926a390bb1551a1bc785d06bfd1b3",
+    "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\.research\\layered_mismatch_raw_20261013\\r1_delivery_v1\\test_deliver.py": "8f324275393380f1b995db5c1c5c30033118d082ddc6b917110ef37c8dae3895"
+  },
+  "coordinator_reported_probe_findings": "Root reported: renameat2 NOREPLACE EINVAL/22; TMP-to-CODE hard link EXDEV/18; CODE same-directory hard link succeeds, duplicate EEXIST/17 preserves bytes/inode, and directory fsync succeeds. These are parent-reported remote probes, not executed by this reviewer. The final candidate no longer relies on cross-area hard links.",
+  "coordinator_reported_remote_probe_locations": [
+    "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/r1_delivery_pfs_noreplace_probe_20261014_v1/receipt.json",
+    "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/r1_delivery_pfs_file_publish_probe_20261014_v1/receipt.json",
+    "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/layered_mismatch_raw_20261013/r1_delivery_preparation_v1/pfs_cross_area_probe/receipt.json",
+    "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/layered_mismatch_raw_20261013/r1_delivery_preparation_v1/pfs_same_directory_probe_v2/receipt.json"
+  ],
+  "coordinator_reported_same_directory_probe_sha256": "922bed58391260e07eb67bfa0cf6a64e4db99a05f6a47728571114ab6ade9e1e",
+  "created_utc": "2026-10-13T18:38:04.021048+00:00",
+  "fixed_master_sha256": "70bb0747a749a3d63d10d5fdb8fac1af37a2e37e82310208d31c6823fde0ac47",
+  "intended_deployed_code_bindings": {
+    "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/layered-mismatch-raw-20261013/r1_delivery_v1/README.md": "d096d466a0ed5344264c15f8c379ccf8e9f95990a1a1daf1c37b9b089c0fe2f1",
+    "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/layered-mismatch-raw-20261013/r1_delivery_v1/deliver.py": "94b6986e1db8a6082f0a02a6a91855fd79b926a390bb1551a1bc785d06bfd1b3",
+    "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/layered-mismatch-raw-20261013/r1_delivery_v1/test_deliver.py": "8f324275393380f1b995db5c1c5c30033118d082ddc6b917110ef37c8dae3895"
+  },
+  "metric_calls": 0,
+  "model_calls": 0,
+  "publication_review": {
+    "acceptance_rule": "README and manifest explicitly require actual delivery-process exit zero, no publication failure, final completion marker, its manifest SHA and every artifact SHA. Marker presence alone is insufficient, including if final directory fsync failed after the link.",
+    "atomic_marker_only": "The fully prepared completion receipt is copied with O_EXCL/O_NOFOLLOW into completion.pending.json inside the final light CODE directory, verified against the original source byte count/SHA before and after copying, and fsynced. os.link then atomically creates completion.json from that pending file in the SAME directory without replacement, followed by directory fsync. No cross-area hard link, rename, automatic fallback or deletion occurs. Only the marker is atomic; directories can appear before completion.",
+    "claim_and_reservation": "Permanent exclusive-create claim is fsynced and bound by SHA/device/inode; each final directory uses exclusive mkdir. Existing directory, regular file or dangling symbolic link is refused without overwrite.",
+    "exclusive_files": "New destination files use O_EXCL and O_NOFOLLOW on Linux, copy complete bytes, flush/fsync and verify SHA and byte size. Directory device/inode identity is checked before/after copies. Original scientific inputs/results remain untouched.",
+    "explicit_compatibility_revision": "The original PFS NOREPLACE call failed EINVAL/22. The following explicit publication revision encountered TMP-to-CODE hard-link EXDEV/18 in a pure-file capability probe, before any actual delivery. The final reviewed implementation copies the completion receipt across areas then links only within the final CODE directory. Both historical source/review/test/probe scenes remain untouched.",
+    "failure_retention": "Failure keeps the permanent claim, staging, any partial final directories/files and phase/type/errno receipt. Successful staging is also kept. No deletion or automatic retry occurs.",
+    "final_manifest_verification": "Heavy files are published first, then light files excluding completion.json. Before the final link the directories are reidentified, published manifest SHA must equal the prepared completion receipt binding, and every manifest file is checked for bytes and SHA. Synthetic mutation of an already published heavy file stops before os.link.",
+    "pending_receipt": "completion.pending.json is preserved completion metadata, alongside the final hard-link marker; it is excluded from the payload manifest self-hash cycle. The marker, bound manifest and all payload hashes must validate, and the delivery process must actually exit zero without a publication failure receipt.",
+    "storage_limit": "The unchanged 10000000-byte repository limit and complete heavy CSVs in personal tmp remain. Completion/manifest do not falsely declare a standalone recovery package or R2.",
+    "synthetic_coverage": "Existing file/directory, symbolic-link lstat rejection, changed claim bytes/inode, duplicate final link, exact second-stage failure, unsupported link without fallback, heavy mutation, and post-link fsync failure are exercised. The symbol-link test mocks lstat and forbids open/is_file; it creates no PFS or local symbolic link. Final same-area test enforces identical source/destination parents for os.link and verifies pending/marker inode equality and exact receipt bytes."
+  },
+  "qualification": {
+    "actual_wait": true,
+    "all_three_final_files_pinned_before_and_after_tests": true,
+    "elapsed_seconds": 7.907000000006519,
+    "original_CPU_import_guard_proof": {
+      "bytes": 382,
+      "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\.research\\layered_mismatch_raw_20261013\\r1_delivery_independent_cpu_v2\\real_cpu_import_guard.json",
+      "sha256": "69352544a6708ae2e0e4bc7cc36ab70043237e01e35ccc353fc33ce3a1e4c0ec"
+    },
+    "python": "3.12.14 (main, Aug 25 2026, 14:01:42) [MSC v.1944 64 bit (AMD64)]",
+    "receipt": {
+      "bytes": 889,
+      "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\.research\\layered_mismatch_raw_20261013\\r1_delivery_independent_cpu_pfs_v5\\receipt.json",
+      "sha256": "7084e32b814b5336cf5dd57aa91e288e5f5a00717d42f0ec89c7c4fea0f63948"
+    },
+    "returncode": 0,
+    "stderr": {
+      "bytes": 4939,
+      "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\.research\\layered_mismatch_raw_20261013\\r1_delivery_independent_cpu_pfs_v5\\stderr.log",
+      "sha256": "a74fb7a34361596f37475762a00b8146e82b96ca89df35c788e0a32c001c5c1d"
+    },
+    "tests_discovered": 32,
+    "tests_passed": 32,
+    "tests_skipped": 0,
+    "unchanged_core_AST_proof": {
+      "bytes": 795,
+      "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\.research\\layered_mismatch_raw_20261013\\r1_delivery_independent_cpu_pfs_v5\\unchanged_core_proof.json",
+      "sha256": "056840e50965a065f36a946c94957fa79f84366f962d81f0dce9396fdbc702f6"
+    }
+  },
+  "real_PFS_symlinks_created": 0,
+  "remote_execution": 0,
+  "remote_uploads": 0,
+  "required_before_actual_use": [
+    "Root must run the frozen 32 synthetic tests in the original Linux CPython/PFS environment, with CUDA hidden and no scientific runtime access.",
+    "Actual R1 owner and all children must later be genuinely closed with successful waits and full authenticated ledgers before invoking delivery.",
+    "This review does not approve a scientific retry, changed model/strategy/budget, R2, or delivery based solely on a marker."
+  ],
+  "reselection_calls": 0,
+  "reviewer": "/root/resource_relax_review",
+  "schema": "R1_CPU_DELIVERY_SAME_AREA_PUBLICATION_REVIEW_V4",
+  "scientific_calls": 0,
+  "status": "PASS_CPU_ENGINEERING_ONLY_PENDING_ORIGINAL_LINUX_TESTS",
+  "supersedes_publication_portion_of": {
+    "bytes": 10423,
+    "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\.research\\layered_mismatch_raw_20261013\\r1_delivery_v1_pfs_final_independent_review.json",
+    "sha256": "ef613aeeac05bc6cde683843b49135b19ea6352d678c160817f54175b9cf8356"
+  },
+  "unchanged_scientific_and_cpu_closure_checks": {
+    "closure_before_quality_or_output": "PASS: fixed master, COMPLETE_R1_CHAIN, five actual stage waits, actual dispatcher owner wait, exact argv and registration pins, process identities gone and unheld locks before deep audits.",
+    "exact_stage_wait_types": "PASS: actual_wait is True; integer returncode 0, integer PID, optional integer start_ticks; interruption flags reject. Bool cannot impersonate zero or PID/ticks.",
+    "failure_and_zero_results": "PASS: software failure/partial/unclosed cases stop; valid channel rejection, gray output, wrong legal IDs, negative metrics and zero-state rows retained. Unattempted CRC has separate null/attempted denominator; conditional means not mislabeled paired effects.",
+    "frozen_science_unchanged": "PASS: original registration, active science source, 15/14/12/2 resource policy, budget, sources/noise, metrics and GO are read-only dependencies, not changed.",
+    "full_grid_and_ledgers": "PASS by static routing: original bound CPU PHY/visual/score ledger APIs authenticate 32400 physical /43200 logical, 200 sources and three noises, packet/input/image/model/metric hashes. Actual closure itself has not been checked in this review.",
+    "metadata_fixes": "PASS: JSON gate string-key roundtrip preserves numeric values; exact original raw header CRC/legality flags required; report preserves sign and escapes NO_GO identifiers in TeX.",
+    "no_scientific_or_selection_execution": "PASS: no model/PHY/scoring/bootstrap/selection entry called. Original reductions check the saved means/ranking/tie order/winners/J/gate only. Installed import/audit guard passes actual source-only CPU imports and rejects scientific imports, writes and subprocesses during audit.",
+    "preflight_stage_status_and_registration": "PASS: before quality access, each stage completion status exactly matches original owner.closed_stage; PHY uses bound PHY child registration, visual uses visual child registration, projection/score/selection use master. The small PHY ledger must show 32400 complete/reserved, complete/reserved packets <=108000 and zero unresolved. Rehashed wrong status/child registration is rejected before quality access by synthetic fixture.",
+    "source_and_output_identity": "PASS: original CSV/JSON scientific outputs copied byte-identically after arithmetic identity checks; source pixels read only for completed-score preprocessing audit and never provided to RX.",
+    "stable_process_identity": "PASS: cross-time comparisons use exact non-bool integer PID and start_ticks, not transient R/S/D states. Changed start_ticks rejected; original live or zombie identity rejected. Initial detached supervisor is explicitly only observed gone and has no invented child wait.",
+    "storage_and_scope": "PASS: original 10000000-byte limit retained, full derived physical/logical/winner rows in personal tmp, only light results in repository, no model/array/new CI export. Non-standalone dependencies and R2_NOT_REGISTERED_NOT_RUN explicit."
+  }
+}
