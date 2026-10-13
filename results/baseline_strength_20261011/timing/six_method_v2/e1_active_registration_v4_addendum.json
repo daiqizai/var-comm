@@ -1,0 +1,38 @@
+{
+  "schema": "E3_E1_ACTIVE_V4_REGISTRATION_ADDENDUM_20261013",
+  "status": "READ_ONLY_DIFFERENCE_REVIEW_NO_BOUND_FILE_CHANGE",
+  "checked_unix": 1791881170.3002136,
+  "active_E1_registration": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/entropy_main_common500_20261013/registration_v4.json",
+    "sha256": "2551cd1492e4f8354e8ee882a189b9fd498786f46868ab1b20a5638bf5791956"
+  },
+  "E1_owner_launch": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/entropy_main_common500_20261013_v1/owner_launch.json",
+    "sha256": "28a1932a74b1031d8e741a2b1ac9445813f86024fb07f9a634cdccb7cdcc5d76"
+  },
+  "historical_E1_snapshot_pin": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/entropy_main_common500_20261013/registration.json",
+    "sha256": "fb0c231f2d8c31243d67c4f13df422fd05fb8a6c980f564a330be3b2e6df63e2"
+  },
+  "bound_waiter": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/baseline-delivery-20261012/timing_revision_v2/after_emain.py",
+    "sha256": "b8759170c42dcf88256e635fb4717ef858c50da6f30eb8b776e1281852a32684"
+  },
+  "bound_successor_registration": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/baseline_strength_20261011/timing/six_method_v2/successor_registration.json",
+    "sha256": "2eecffba15de57b3aa7616cbd5f95eb8faebfb55ab6b543c4a3773501583414c"
+  },
+  "meaning": "The successor pins the original E1 registration only as an unchanged historical snapshot. It does not execute E1 registration()/code_bindings verification. Actual admitted E1 execution uses v4, as pinned by the real owner launch. Dynamic handoff requires all four actual exit-zero stages and their completion hashes, the complete4500 scoring receipt, frame rows and source streams. The separate v4 prelaunch changes therefore do not cause a stale-code admission failure here.",
+  "checks": {
+    "old_registration_byte_pin_matches": true,
+    "active_owner_points_to_v4": true,
+    "old_E1_code_bindings_reverified_by_waiter": false,
+    "E1_code_in_timing_registration": false,
+    "dynamic_closed_stage_hashes_required": true,
+    "waiter_modified": false,
+    "timing_registration_modified": false,
+    "coordination_release_created": false,
+    "new_model_or_packet_calls": 0
+  },
+  "future_reporting": "Label E1 as active registration_v4 and retain the historical original pin as a predecessor. This addendum supplements provenance only; it neither releases the waiter nor substitutes for actual scoring completion."
+}

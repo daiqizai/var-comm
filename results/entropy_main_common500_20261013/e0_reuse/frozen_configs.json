@@ -1,0 +1,65 @@
+{
+  "policies": {
+    "10": {
+      "N": 1024,
+      "body_symbols": 956,
+      "candidate_id": "m8_K126_q4_r2-3",
+      "crc_bits": 16,
+      "family": "EC_VAR_PARTIAL",
+      "header_symbols": 68,
+      "k": 2549,
+      "length_bits": 13,
+      "n": 3824,
+      "nominal_rate": "2/3",
+      "q": 4,
+      "source_capacity_bits": 2520,
+      "target_K": 126,
+      "target_m": 8
+    },
+    "19": {
+      "N": 1024,
+      "body_symbols": 956,
+      "candidate_id": "m9_K192_q6_r5-6",
+      "crc_bits": 16,
+      "family": "EC_VAR_PARTIAL",
+      "header_symbols": 68,
+      "k": 4780,
+      "length_bits": 13,
+      "n": 5736,
+      "nominal_rate": "5/6",
+      "q": 6,
+      "source_capacity_bits": 4751,
+      "target_K": 192,
+      "target_m": 9
+    },
+    "4": {
+      "N": 1024,
+      "body_symbols": 956,
+      "candidate_id": "m7_K25_q2_r2-3",
+      "crc_bits": 16,
+      "family": "EC_VAR_PARTIAL",
+      "header_symbols": 68,
+      "k": 1274,
+      "length_bits": 13,
+      "n": 1912,
+      "nominal_rate": "2/3",
+      "q": 2,
+      "source_capacity_bits": 1245,
+      "target_K": 25,
+      "target_m": 7
+    }
+  },
+  "winner_binding": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/reports/h800_ep_full_calibration_winners_v2.json",
+    "sha256": "bb6139fb06b73368f877c514e29d21667d6234ed3b7533a1b7d9a285772df864"
+  },
+  "noise_seeds": [
+    6201,
+    6202,
+    6203
+  ],
+  "noise_rule": "t1_phy.standard_noise(source_id,seed); SHA256 canonical([PROTOCOL,'paired_standard_AWGN',str(source_id),seed]) first16 little-endian PCG64 standard_normal((1024,2))",
+  "counter_rule": "([1,4,7,10,13,19].index(snr)*500+source_index)*3+(noise_seed-6201)",
+  "wire_session": "WCL_T1_ENTROPY_WHOLE_PHY_20261009_V1",
+  "new_selection_calls": 0
+}

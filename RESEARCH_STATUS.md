@@ -1,3 +1,13 @@
+## Common500 entropy-partial supplement and shared-H800 timing (2026-10-13)
+
+The user authorized only the frozen EC_VAR_PARTIAL supplement on the original 500 sources, N1024, SNR 4/10/19 dB, and three original T1 noise realizations: 4,500 new method frames. E0 verified all 500 pixel/token/source-order bindings and complete matching references. Published strong-reference quality and intervals are reused; no training, strategy change, test-based selection, new bandwidth or second-stage expansion is authorized.
+
+The source/PHY/independent receiver/scoring owner has actually started under registration_v4; completed scientific calls will not be replayed. Follow-up statistics require actual exit-zero receipts from all four stages and the complete 4,500-frame grid. The finite statistical supplement creates only 12 new marginal and 60 new paired intervals with the original source-level bootstrap; existing intervals remain unchanged. Actual stream lengths, every attempted fallback, transmitted prefix and packet failures are retained. See [scope and execution](experiments/entropy-main-common500-20261013/README.md) and [reuse audit](results/entropy_main_common500_20261013/e0_reuse/audit.json).
+
+The user's latest instruction explicitly removes the exclusive-server requirement for the registered six-method timing. A separately bound v2 waits for this supplement's actual scoring closure, then runs all six methods serially on the same H800 in a shared environment, recording resident workloads and load. The fixed16/SNR4,10,19/batch1/three-warmup-plus-three-measured contract and 1,728-call/2,304-packet caps remain. Shared measurements must not be described as uncontended hardware latency. Original v1 and its historical exclusive gate remain untouched. [Shared timing revision](experiments/baseline-delivery-20261012/timing_revision_v2/README.md).
+
+This entry records audited reuse, real execution and automatic handoff, not completed quality, statistics or timing delivery. Both old recurring monitors remain paused. No E4 expansion will start automatically.
+
 ## Main-paper performance and qualitative comparison figures (2026-10-12)
 
 A new four-method common500 figure combines the proposed raw partial-scale method, selected latent100k/Swin200k baselines and adaptive-resolution BPG + LDPC. All96 mean/interval rows are read directly from published CSVs; no new scientific or bootstrap calls. Five layouts (one composite and four single panels) have PDF/SVG/600dpi PNG exports and actual visual review. [Figure and English caption](paper/figures/final_paper_comparisons_20261012/README.md).

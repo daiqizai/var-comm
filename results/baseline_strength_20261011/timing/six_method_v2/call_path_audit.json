@@ -1,0 +1,59 @@
+{
+  "schema": "E3_TIMING_CALL_PATH_REVIEW_20261013_V2",
+  "status": "REGISTERED_NOT_EXECUTED_WAIT_COORDINATOR",
+  "prior_launch_exists": false,
+  "new_launch_exists": false,
+  "case_budget": 1728,
+  "measured_cases": 864,
+  "packet_cap": 2304,
+  "original_registration_sha256": "3f033df41233b8ce4e9be24692789eebbc50f5d260dedf50eac5cca7e9603249",
+  "revision_registration_sha256": "6c2a531055cd611824130505e820dfdae314c747db31024431399b0561719c97",
+  "original_code_changed": false,
+  "scientific_calls": 0,
+  "findings": [
+    {
+      "function": "MixedPublicCatalogue.verify",
+      "call_sites": [
+        "raw transmit_frame",
+        "raw Receiver.receive"
+      ],
+      "old_issue": "static433 profile and523 alias hashes inside every TX/RX",
+      "new_boundary": "original verify before and after each complete case; in-window call bypasses only static rehash"
+    },
+    {
+      "function": "named array_sha and metadata identity helpers",
+      "old_issue": "pure trace hashes included in TX/RX",
+      "new_boundary": "real helper executes in explicitly measured audit section; duration separately recorded and excluded; raw wall retained"
+    }
+  ],
+  "retained_scientific_work": [
+    "image encoding/VQ",
+    "VAR CDF probabilities",
+    "complete terminated arithmetic stream including fallback attempts",
+    "CRC and actual LDPC",
+    "scrambling seed hash",
+    "noise generation rule",
+    "public received profile and field validity",
+    "length and known-padding checks",
+    "arithmetic canonical re-encode",
+    "independent entropy decode",
+    "VAR completion and Dc"
+  ],
+  "resource_authorization": "latest explicit user no-exclusive instruction",
+  "fixed_GPU_index": 0,
+  "initial_free_required_MiB": 18432,
+  "private_allocator_cap_GiB": 16,
+  "initial_utilization_max_percent": 25,
+  "in_run_free_safety_MiB": 2048,
+  "all_GPU_idle_required": false,
+  "E1_coordinator_release_required": true,
+  "other_jobs_stopped": 0,
+  "global_GPU_settings_modified": false,
+  "code": {
+    "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/baseline-delivery-20261012/timing_revision_v2/timing_audit_v2.py": "24ff4fd0a6455f5fb2d3304f499ef766b496caeef617f7b3e1c772fec8005679",
+    "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/baseline-delivery-20261012/timing_revision_v2/test_timing_v2.py": "a61e0e05bbfaf9c9dba9ca271db58c101addf8e3215394b2dd34ec126bb16bea",
+    "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/baseline-delivery-20261012/timing_revision_v2/timing_owner_v2.py": "ef35e3c0b1f1ed50840ca6473b596bad865e791ce28743e197b49fae88f0dc50",
+    "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/baseline-delivery-20261012/timing_revision_v2/after_emain.py": "b8759170c42dcf88256e635fb4717ef858c50da6f30eb8b776e1281852a32684"
+  },
+  "E2_CPU_parallel_permitted": true
+}
