@@ -305,3 +305,22 @@ Completed actual432 fresh P100k/Swin200k method frames using all24 previously fr
 Delivery: [four-method results](results/generalization_kodak_final_20261013/README.md), [full48-row table](results/generalization_kodak_final_20261013/analysis_v1/summary.csv), [source-level paired intervals](results/generalization_kodak_final_20261013/analysis_v1/paired.csv), [four-metric vector figure](results/generalization_kodak_final_20261013/analysis_v1/kodak24_N1024_final_four_methods.pdf), and [concise main-text paragraph](results/generalization_kodak_final_20261013/manuscript_results.tex). Complete1152 source means and3456 metric cells are included. The original Kodak10000 source-bootstrap indices andseed2026100901 were reused; old intervals were not recomputed. PNG was actually opened and vector PDF/SVG checks passed.
 
 The results are a tradeoff: raw has lower PSNR than Swin200k at allthree SNRs but better LPIPS/DINO/prediction agreement; against P100k,4dB PSNR/LPIPS are worse and19dB are better. Agreement10/19dB against P has pairedCIs includingzero. This24-center-crop comparison does not establish native-resolution performance, full-corpus disjointness or uniform dominance. Swin200k retains its weight-initialized additional-training/reset-state and expanded1–19dB provenance; convergence is not claimed. The first scorer metadata failure occurred before any model call; the failure, originalregistration and zero-call recovery mapping are preserved. No completed scientific call was repeated. Other pending audits/timing are not declared completed by this supplement.
+
+## Layered raw SNR-mismatch R0 - 2026-10-13
+
+The separately authorized finite raw two-group mismatch study completed source
+and historical-result auditing and CPU preparation. Original calibration1000
+and development100 pixels/tokens were authenticated; fixed cal200 uses source
+ID hashes only. The real CPU backend admits all433 single profiles plus201 U
+and55 EEP profiles (689 IDs). A targeted exact-received-token audit reuses3400
+historical clean-Q values. The remaining screening gap is5400 clean source/state
+pairs and1852 exact BLER layout/SNR points (1389 at selection SNR4/7/10).
+
+No new scientific packet, reconstruction, real-image score or bootstrap was
+run. No R1 shortlist, scientific registration or GO result exists. A bounded
+supplement proposal is awaiting the user's decision; it is not charged to the
+original R1/R2 budget. The shared timing v6 remains unchanged and resource-
+waiting;576 prior complete calls remain preserved. Historical automations are
+paused. [Audit and scope](results/layered_mismatch_raw_20261013/README.md),
+[gap proposal](results/layered_mismatch_raw_20261013/R0_GAP_DECISION.md),
+[protocol](experiments/layered-mismatch-raw-20261013/PROTOCOL.md).

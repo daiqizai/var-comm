@@ -1,0 +1,52 @@
+{
+  "status": "PASS_INDEPENDENT_CPU_PREPARATION_REVIEW",
+  "scope": "Read-only code review plus synthetic CPU tests; no scientific stage has run.",
+  "selection": {
+    "receipt": "selection_review.json",
+    "sha256": "b95851a79c1d2eaf416311c4897ab902866ec1b29765e846e90a89683b8304f7",
+    "tests_run": 19
+  },
+  "r1_phy": {
+    "receipt": "r1_phy_review.json",
+    "sha256": "f96bb8af6f4ee45eb978bb1ab3ebdb1d52077aac6cfa4928f87f330ef909f948",
+    "tests_run": 20,
+    "included_upstream_tests": 16,
+    "additional_independent_tests": 4
+  },
+  "resolved_blockers": [
+    "Shortlist validation is mandatory before quality reduction.",
+    "S_robust may retain fixed nominal/backoff KEEP anchors without additional calls.",
+    "One canonical candidate ID per physical wire; duplicate arm aliases retain metadata only."
+  ],
+  "remaining_readiness": {
+    "R0_coverage": "Incomplete; no final nominees selected from unknown probabilities or quality.",
+    "new_BLER_or_clean_quality": "NOT_RUN; extra sampling awaits separate budget authorization.",
+    "R1_registration": "NOT_CREATED",
+    "R1_actual_PHY": "NOT_RUN",
+    "R1_reconstruction_metrics": "NOT_RUN",
+    "R2": "NOT_RUN"
+  },
+  "latest_clean_quality_authority": {
+    "path": "results/layered_mismatch_raw_20261013/r0_reuse/final_audit.json",
+    "sha256": "29352dcd9bc914a511dabc50eb49fa708c892cd84e0a55539b2d91861d0dabbb",
+    "reused_clean_endpoint_source_pairs": 3400,
+    "missing_clean_endpoint_source_pairs": 5400,
+    "U_EEP_missing_pairs": 1000
+  },
+  "missing_exact_layout_SNR_points_all_four_true_SNRs": 1852,
+  "proposed_limited_extra_BLER": {
+    "SNRs": [
+      4,
+      7,
+      10
+    ],
+    "unique_missing_points": 1389,
+    "trials_per_point": 64,
+    "maximum_packets": 88896,
+    "status": "PROPOSED_NOT_RUN"
+  },
+  "real_model_calls": 0,
+  "real_packet_calls": 0,
+  "real_source_channel_calls": 0,
+  "bootstrap_calls": 0
+}

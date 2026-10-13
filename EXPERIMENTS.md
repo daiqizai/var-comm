@@ -605,3 +605,22 @@ The source/PHY/independent receiver/scoring owner has actually started under reg
 The user's latest instruction explicitly removes the exclusive-server requirement for the registered six-method timing. A separately bound v2 waits for this supplement's actual scoring closure, then runs all six methods serially on the same H800 in a shared environment, recording resident workloads and load. The fixed16/SNR4,10,19/batch1/three-warmup-plus-three-measured contract and 1,728-call/2,304-packet caps remain. Shared measurements must not be described as uncontended hardware latency. Original v1 and its historical exclusive gate remain untouched. [Shared timing revision](experiments/baseline-delivery-20261012/timing_revision_v2/README.md).
 
 This entry records audited reuse, real execution and automatic handoff, not completed quality, statistics or timing delivery. The existing `var-comm` continuation monitor is ACTIVE for authorized completion; the legacy 15-minute `var-raw64-holdout` monitor remains PAUSED. No E4 expansion will start automatically.
+
+## Layered raw SNR-mismatch R0 - 2026-10-13
+
+The separately authorized finite raw two-group mismatch study completed source
+and historical-result auditing and CPU preparation. Original calibration1000
+and development100 pixels/tokens were authenticated; fixed cal200 uses source
+ID hashes only. The real CPU backend admits all433 single profiles plus201 U
+and55 EEP profiles (689 IDs). A targeted exact-received-token audit reuses3400
+historical clean-Q values. The remaining screening gap is5400 clean source/state
+pairs and1852 exact BLER layout/SNR points (1389 at selection SNR4/7/10).
+
+No new scientific packet, reconstruction, real-image score or bootstrap was
+run. No R1 shortlist, scientific registration or GO result exists. A bounded
+supplement proposal is awaiting the user's decision; it is not charged to the
+original R1/R2 budget. The shared timing v6 remains unchanged and resource-
+waiting;576 prior complete calls remain preserved. Historical automations are
+paused. [Audit and scope](results/layered_mismatch_raw_20261013/README.md),
+[gap proposal](results/layered_mismatch_raw_20261013/R0_GAP_DECISION.md),
+[protocol](experiments/layered-mismatch-raw-20261013/PROTOCOL.md).

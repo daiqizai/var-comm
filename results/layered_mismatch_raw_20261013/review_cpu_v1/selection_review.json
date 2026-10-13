@@ -1,0 +1,54 @@
+{
+  "actual_exit_code": 0,
+  "bootstrap_calls": 0,
+  "original_blockers": [
+    {
+      "evidence": "Initial inspected selector did not invoke validate_shortlist; a four-U nomination could remain below its logical cap.",
+      "id": "R1_CAP_BYPASS",
+      "status": "FIXED_SELECTOR_VALIDATES_SHORTLIST_BEFORE_REDUCING",
+      "verification": "Synthetic complete 32400-row four-U fixture is rejected."
+    },
+    {
+      "evidence": "Initial inspected S_robust loop admitted only arm S, excluding mandatory fixed anchor outputs unless separately nominated as S.",
+      "id": "ANCHOR_EXCLUSION_FROM_STRONG_SINGLE",
+      "status": "FIXED_ANCHOR_KEEP_RESULTS_AUTOMATICALLY_INCLUDED",
+      "verification": "Nominal-anchor DINO 0.9 becomes S_robust and prevents false GO against U 0.65, without new rows."
+    },
+    {
+      "evidence": "Separate candidate IDs for one physical key could create inconsistent logical reductions.",
+      "id": "PHYSICAL_ALIAS_REPLAY",
+      "status": "FIXED_ONE_CANONICAL_CANDIDATE_PER_PHYSICAL_KEY_WITHIN_HAT",
+      "verification": "False alias rejected; canonical S/S_nom reuse reduces logical rows and keeps one observation."
+    }
+  ],
+  "r0_gap": {
+    "missing_exact_layout_snr_points": 1852,
+    "no_new_bler_budget_assumed": true,
+    "no_unique_fair_shortlist_determined": true,
+    "note": "Original R1 36000 covers nominated complete frames, not arbitrary scans of hundreds of missing body layouts. Updated clean-Q coverage belongs to r0_reuse final addendum; no missing success probabilities are filled with 0/1."
+  },
+  "readiness_limit": "This pure-data function does not authenticate files by itself. Scientific owner must validate registered cal200/nomination hashes, frozen anchor/configuration identities, actual exit0 of PHY/visual/scoring, frame ledger and artifact SHAs before invoking it. Returned requires_authenticated_actual_stage_closure is a requirement, not a receipt.",
+  "real_channel_calls": 0,
+  "real_model_calls": 0,
+  "real_phy_calls": 0,
+  "reviewed_unix": 1791896147.1369224,
+  "reviewer_source_sha256": "da3341d12042a6ac8cd45b90527d6f3c4ee1732c1c6362f540c8b88a3b2e139e",
+  "source_bindings": {
+    "contract.py": "7532dad4b66893e0045073d783624190125c64857aedf2e89e524618c6f83603",
+    "policy_selection.py": "4e0ecd283b7408314889a18176090d5a220957e99bb0d28f23894a33838d062c",
+    "test_contract.py": "5923e9e7efd59527251bf28b6f9900866c0dfc0d7b6875a832e851fcf08b5815",
+    "test_policy_selection.py": "051b84c90d2a28669c54e729e550eb5148b252f10c223623581c9ce5e183a317"
+  },
+  "status": "PASS_READ_ONLY_SELECTION_REVIEW_AFTER_FIXES",
+  "synthetic_data_only": true,
+  "test_count": 19,
+  "torch_imported": false,
+  "verified": [
+    "per-hat U3/S3/EEP2 plus two fixed anchors and total10 physical",
+    "same actual receive identity required for KEEP/DROP; anchors reuse KEEP without additional DROP budget",
+    "source-first three-noise average; .75 matched+.25 true=hat-3; true=hat+3 excluded from selection",
+    "equal weighting of hats in both U-S_robust and U-S_back3; means>=.01 and both hats strictly positive",
+    "ConvNeXt excluded; PSNR targets remain separate; no bootstrap during selection",
+    "complete cal200 grid, duplicates/missing/foreign source/noise rejected"
+  ]
+}

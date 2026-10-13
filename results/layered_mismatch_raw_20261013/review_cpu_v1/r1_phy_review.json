@@ -1,0 +1,43 @@
+{
+  "status": "PASS_CPU_PREPARATION_ONLY",
+  "actual_exit_code": 0,
+  "tests_run": 20,
+  "failures": 0,
+  "errors": 0,
+  "reviewed_unix": 1791896599.6882102,
+  "source_bindings": {
+    "r1_phy.py": "cd4e25660d637d82632622d765fcb0234a642c369a9f6801755b589ad551856b",
+    "test_r1_phy.py": "9bea1b2f47e115c5cfac6340d4e13d661ebbd1e1dc4ae6b630f157a5e15eaea1",
+    "grouped_wire.py": "c257c83fef31a7729deab0325991d32940de931815c9f650b429dd6c0b7467c1",
+    "contract.py": "7532dad4b66893e0045073d783624190125c64857aedf2e89e524618c6f83603"
+  },
+  "reviewer_source_sha256": "de51dd425badc87a607018f14b2cd0ccc7723788da77b924cf9101511666a3b9",
+  "real_PHY_constructed": false,
+  "real_packet_encodes": 0,
+  "real_packet_decodes": 0,
+  "real_source_channel_calls": 0,
+  "model_calls": 0,
+  "bootstrap_calls": 0,
+  "synthetic_arrays_only": true,
+  "torch_imported": false,
+  "scientific_registration": "NOT_CREATED",
+  "scientific_run": "NOT_RUN",
+  "source_truth_boundary": "Source pixels/tokens are authenticated only in the TX source loader and post-RX audit. The real receive function accepts received samples, true SNR, public counter, fixed method-domain selector and audit tag; it does not accept TX profile ID, original tokens or source image.",
+  "verified": [
+    "Candidate IDs are canonical catalogue IDs; one physical wire per hat is sent once, rule aliases retain arms metadata.",
+    "Single KEEP and DROP derive from the same actual receive event; DROP never invokes another decode.",
+    "Fixed original raw433 single RX domain and mixed raw433+G2 always-DROP domain remain separate.",
+    "Source manifest selects the exact hash-ranked original-calibration200; source archive and checkpoint hashes and both arrays are checked.",
+    "Source/model-free CPU fixtures cannot constitute scientific qualification.",
+    "Immutable frame/packet reservations precede callbacks; unresolved failures block replay and further work; caps unchanged.",
+    "Completed exact-identity reuse verifies the saved result pin before returning without transmit/noise/receive.",
+    "Both actual_E and frozen legacy E are checked against the actual float64 waveform and its hash.",
+    "Frozen raw original array_sha formula equals the new wire array_sha formula; exact real interfaces were read without importing the backend."
+  ],
+  "limitations": [
+    "Only finite PHY preparation is reviewed. No real registration, owner launch, model reconstruction, metrics, selection, or R2 was executed.",
+    "Future owner must bind the finalized nominations, source/input/code/dual-domain identities and preserve actual child exit evidence.",
+    "Unknown BLER/clean-Q values cannot be inferred or consumed. R0 additional sampling is still awaiting user budget authorization.",
+    "R1 output is COMPLETE_R1_PHY_ONLY; it is not a quality result or authorization to launch R2."
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "status": "CPU_WORKER_PREPARED_SCIENCE_NOT_RUN",
+  "scope": "R1 PHY worker and synthetic unit tests only; not a complete scientific launch chain",
+  "entry": "experiments/layered-mismatch-raw-20261013/r1_phy.py",
+  "test_entry": "experiments/layered-mismatch-raw-20261013/test_r1_phy.py",
+  "not_yet_available": [
+    "Reviewed and frozen R1 nominations",
+    "Actual reviewed R1 scientific registration and resource/deadline assignments",
+    "Owning process with lock, dispatch, real wait receipt and recovery coordination",
+    "Actual PHY runtime construction and numerical qualification",
+    "Registered reconstruction and four-metric scoring workers",
+    "Full source-to-PHY-to-visual-to-score chain and its completion audit"
+  ],
+  "current_execution": {
+    "scientific_registration_created": false,
+    "scientific_owner_launched": false,
+    "real_runtime_constructed": false,
+    "real_packet_calls": 0,
+    "model_calls": 0,
+    "qualification": "NOT_RUN",
+    "R1": "NOT_RUN",
+    "R2": "NOT_RUN"
+  },
+  "future_registration_contract": {
+    "schema": "LAYERED_RAW_R1_PHY_REGISTRATION_V1",
+    "status": "REGISTERED_R1_PHY_V1",
+    "must_pin": [
+      "nominations", "cal200_sources", "grouped_catalogue",
+      "raw_runtime_request", "calibration_request", "mismatch_core",
+      "mismatch_plan", "r1_phy", "grouped_wire", "contract"
+    ],
+    "must_record": [
+      "plan_id", "caps", "namespace", "automatic_successor=false",
+      "training_updates=0", "historical_reuse_admitted=false",
+      "single_catalogue_digest", "grouped_catalogue_digest",
+      "expected_physical_frames", "expected_logical_var_images",
+      "runtime.python", "runtime.CUDA_VISIBLE_DEVICES", "runtime.threads",
+      "runtime.cpu_affinity", "runtime.output_directory", "runtime.stop_file",
+      "runtime.deadline_unix", "runtime.max_seconds"
+    ],
+    "storage": "Future actual output/journal/log directories must be assigned under the user's modelTeam/liberai-tmp/liulu storage, with code and lightweight receipts under personal code/liulu. This note allocates no real run directory.",
+    "runtime": "Original raw request CPU_python (frozen_ldpc_py311); CUDA hidden; two CPU threads and two assigned CPU affinity entries. No real runtime is constructed by import or metadata validation.",
+    "no_register_command": true
+  },
+  "source_identity": {
+    "source_manifest": "results/layered_mismatch_raw_20261013/r0_reuse/cal200_sources.json",
+    "selection": "Authenticated original calibration1000 ranked by contract.select_cal200; selection_slot is 0..199 and supplies the public counter.",
+    "arrays": "Original uint8 CHW 3x256x256 pixels and int64 680 tokens are independently authenticated against migrated archive pins and original source checkpoints. No token generation is requested.",
+    "common500_loader_used": false,
+    "development_or_holdout_used_for_R1": false,
+    "raw_receiver_internal_phase": "The unchanged original raw Receiver ledger API requires phase='raw_holdout'; this legacy internal API string does not identify the experiment population. New physical input identities, event_prefix and records explicitly identify LAYERED_RAW_CAL200_V1 and cal200. The original common500 source loader is never called."
+  },
+  "physical_and_logical_identity": {
+    "physical": "One actual TX-channel-RX event for each distinct source/hat/canonical physical candidate/true SNR/noise seed.",
+    "logical": "One score-facing row per canonical candidate and receiver rule. Arms and nomination_indices are alias metadata and do not increase the quality denominator.",
+    "single_views": "KEEP and DROP are derived from the same raw433 actual event; DROP never repeats packet decoding. Original KEEP actual receiver state is preserved.",
+    "grouped_views": "DROP only, including wrong but valid old single-group profile IDs parsed inside the mixed public catalogue.",
+    "receiver_domains": "Original single baselines keep the original raw433 domain. New two-group receiver uses the explicitly bound mixed catalogue. Both digests are registered separately.",
+    "channel": "contract.standard_noise and contract.public_counter use source_id/selection_slot, estimated SNR, registered seed and cal200 namespace. True SNR scales the shared standard noise. Source image, original tokens and transmitted ID do not enter the RX function."
+  },
+  "accounting": {
+    "max_physical_frames": 36000,
+    "max_packet_decodes": 108000,
+    "max_unique_logical_var_images": 46800,
+    "reservation": "Immutable physical and actual packet reservations precede calls. Unknown failure preserves unresolved reservations and blocks automatic replay.",
+    "reuse": "Only an already complete record with the identical full input identity can be reused inside the same journal. This worker does not reopen or automatically resume a historical attempt.",
+    "completion": "COMPLETE_R1_PHY_ONLY is not reconstruction, metric, policy-selection or R2 completion. All those stages remain explicitly NOT_RUN.",
+    "successor": "No automatic scientific successor is implemented by this worker."
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "branches": [
+    {
+      "binding": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/reports/parallel_v2_20261005.md",
+        "sha256": "eca7e6c28ab8ecbfee0237adbfbb8dfaa35d402e2a4439a585bb528b8a106dbb",
+        "bytes": 5764
+      },
+      "kind": "unknown_instantaneous_CSI_Rayleigh_probability_model",
+      "status": "F1_UNCERTAIN_F2_NOT_STARTED",
+      "reuse": "historical_reference_only_not_new_AWGN_frames"
+    },
+    {
+      "binding": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/reports/content_feedback_probe_20261005.md",
+        "sha256": "638f554a55592e441ab100df2cfe3603dc9ab5a64710d1a0100b39eb701190ee",
+        "bytes": 3366
+      },
+      "kind": "Rayleigh_feedback_working_model",
+      "status": "V_TERMINAL_MISSING_ASSET",
+      "reuse": "historical_reference_only_not_new_AWGN_frames"
+    },
+    {
+      "binding": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/reports/two_stage_feedback_model_20261005.md",
+        "sha256": "466d33cb903659784cb3993e20be8974d8840ff9c1ee57db4870f43ec4ffb88f",
+        "bytes": 8069
+      },
+      "kind": "two_stage_feedback_table_integration",
+      "status": "NO_NEW_REAL_CHANNEL_RECONSTRUCTIONS",
+      "reuse": "historical_reference_only_not_new_AWGN_frames"
+    },
+    {
+      "binding": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/reports/tx_csi_uncertainty_literature_preparation_20260916.md",
+        "sha256": "48d0363a3682fbed4674ffd3c52b01bd0b83b436dc53a2c0915ec3aa7303858f",
+        "bytes": 9300
+      },
+      "kind": "literature_preparation",
+      "status": "NO_CSI_EXPERIMENT_IN_THIS_DOCUMENT",
+      "reuse": "historical_reference_only_not_new_AWGN_frames"
+    }
+  ],
+  "old_mismatch": {
+    "population": "posthoc_first100_subset_of_original_common500_holdout_NOT_development100",
+    "request": {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/qualification/h800_mismatch_phy_v1_attempt1/registered/request.json",
+      "sha256": "9e587fcec3be465d8d6c43a7123400635441918befbbd45a6339f0f208af2faf",
+      "bytes": 9574611
+    },
+    "noise_seeds": [
+      6201,
+      6202,
+      6203
+    ],
+    "counter": "(original_6_SNR_index*500+source_index)*3+noise_index",
+    "reuse": "frozen models/configurations/API only; no old frame is admitted under new source/noise contract"
+  },
+  "new_noise": {
+    "namespace": "UEP_MISMATCH_RAW_V1",
+    "cal_seeds": [
+      4101,
+      4102,
+      4103
+    ],
+    "dev_seeds": [
+      2001,
+      2002,
+      2003
+    ],
+    "key": "canonicalJSON([namespace,split,exact_source_id,hat,seed]); full SHA256 big-endian PCG64; trueSNR and configuration absent",
+    "counter": "(hat_index*source_count+selection_slot)*3+noise_index"
+  }
+}

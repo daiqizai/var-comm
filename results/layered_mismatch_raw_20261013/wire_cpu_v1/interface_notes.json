@@ -1,0 +1,52 @@
+{
+  "status": "CPU_PREPARATION_ONLY_NOT_SCIENTIFIC_QUALIFICATION",
+  "entry": "experiments/layered-mismatch-raw-20261013/grouped_wire.py",
+  "source_interfaces": {
+    "public_catalogue": "Catalogue(catalogue_json['profiles']); immutable copy with unique paid IDs in [0,4095]",
+    "source_serialize": "serialize_groups(actual_source_scales, public_profile); raster order only; TX only",
+    "transmitter": "transmit(profile_id, payloads, public_counter, catalog, backend); no true SNR input",
+    "receiver": "receive(noisy_samples, true_snr, public_counter, catalog, backend); no transmitter ID, original pixels/tokens, clean waveform or oracle inputs",
+    "audit": "audit_after_receiver(event, tx_profile_id, tx_payloads); returns separate truth labels without mutating event"
+  },
+  "backend": {
+    "constructor": "ActualPhyBackend(raw_backend, legacy_phy, raw64_packet, header, packet_ledger)",
+    "actual_precondition": "Owner must bind the actual modules/runtime and verify_catalogue(catalog) against actual backend plan metadata before registered scientific execution.",
+    "packet_ledger": "Mandatory begin/done/failed callback for each actual header/body TX or RX call; begin occurs before invocation and can reject budget admission; no retry.",
+    "modulation": "Explicit QPSK=2,16QAM=4,64QAM=6 dispatch through current main_raw64_packet_adapter; historical old else=4 is never used for 64QAM.",
+    "public_scrambling_session": "UEP_MISMATCH_RAW_V1_BODY",
+    "noise_generation": "Not implemented or run by this module; owner supplies actual noisy samples from the registered namespace/counter/channel."
+  },
+  "receive_rule": {
+    "effective_rule": "DROP at first CRC-rejected group; gray RGB=0.5 without valid base, only j complete scales for base-only, actual full selected prefix when both accepted",
+    "later_group": "G2 is physically decoded even when G1 fails so its real CRC state is retained; it never bypasses the missing base in reconstruction.",
+    "legal_wrong_header": "Decode according to the received legal public ID. Original G1 formats remain legal but use DROP within the new grouped receiver, regardless of their historical KEEP metadata.",
+    "old_single_baselines": "Unchanged separate original raw433 receiver/domain; this new mixed-domain receiver is not substituted for their physical outputs.",
+    "undetected_errors": "CRC-accepted actual wrong values remain in the reconstruction state. Truth comparisons occur only after RX, in a separate audit result.",
+    "infrastructure_failure": "Malformed backend dimensions or contradictory CRC flags raise and are preserved; not converted into protocol gray failures."
+  },
+  "resource_accounting": {
+    "complex_uses": "68 + group1.symbols + group2.symbols + idle_symbols = 1024",
+    "each_group": "12 bits per token + CRC16; independent actual LDPC packet; q from explicit modulation",
+    "energy": "Record actual header/group/idle/frame sum-squared energy and actual frame mean Es. No per-frame normalization or base-group power boost. Idle symbols are original [1,1] with energy 2 each."
+  },
+  "reference_source_sha256": {
+    "experiments/prior-aware-grouped-mcs-v1/actual_phy.py": "9791a7966ab738cd86f8f02735df2d7d09db496cfaf7c1124b468d0c7d2ceb43",
+    "experiments/prior-aware-grouped-mcs-v1/uep_phy.py": "1f1fad07942e30cbc844e0cc3c2d7da7c747b568639d27115dc33eaec49cc65b",
+    "experiments/prior-aware-grouped-mcs-v1/uep_common.py": "65080a95fd227f7f7001127356f81ab691899a9a540dc8ffba9fbe0ad72eb758",
+    "experiments/main-raw64-20261007/main_raw64_packet_adapter.py": "8414b29d63cbe340a164708da9278769479d5559915b97de64e4383d4caeb928",
+    "experiments/main-raw64-20261007/main_raw64_plan_only.py": "6005bf8b5668034b63cd22082a21dfacfe02c9c06f812172746bc6f6f901ddd0"
+  },
+  "path_correction": "The package's experiments/main-raw64-20261007/actualcal_r3/main_raw64_packet_adapter.py is absent in this checkout. The canonical bound adapter is experiments/main-raw64-20261007/main_raw64_packet_adapter.py.",
+  "completed_checks": [
+    "24 synthetic CPU tests passed locally and on the remote frozen visual Python environment, with CUDA hidden remotely.",
+    "All 689 actual CPU-planned public profiles passed grouped-wire structural validation, digest d6d2ea52c855521807d7209e42c505ed4f761da50c2ab9fff47ca9e4aa724d1e; this check did not import Torch.",
+    "No historical protocol/source/scientific result or active timing source was modified."
+  ],
+  "not_run": [
+    "Real header/LDPC encode or decode",
+    "Real channel simulation or BLER",
+    "Visual encoding/reconstruction/metrics",
+    "R1 candidate selection or any GO decision",
+    "R2 evaluation"
+  ]
+}

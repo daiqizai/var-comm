@@ -1,0 +1,75 @@
+{
+  "plan_id": "NESTCOM_LAYERED_RAW_SNR_MISMATCH_V1",
+  "status": "PROPOSED_NOT_EXECUTED",
+  "evidence_commit": "2887b4ab40191e5a0eaa597181d002892aa76813",
+  "budget_complex_uses": 1024,
+  "header_complex_uses": 68,
+  "body_complex_uses": 956,
+  "modulation_bits_per_complex_symbol": [
+    2,
+    4,
+    6
+  ],
+  "source_interface": "raw_12bit_raster",
+  "groups": 2,
+  "crc_bits_per_group": 16,
+  "group_receiver_rule": "longest_contiguous_crc_accepted_prefix_or_gray",
+  "tx_snr_estimates_db": [
+    7,
+    10
+  ],
+  "errors_hat_minus_true_db": [
+    3,
+    0,
+    -3
+  ],
+  "selection_distribution": {
+    "e0": 0.75,
+    "e_plus3": 0.25
+  },
+  "distribution_type": "prespecified_hypothetical_stale_CSI_not_measured_estimator",
+  "rx_uses_true_snr": true,
+  "primary_selection_metric": "dinov2_vitl14_cosine",
+  "independent_evaluation_metric": "convnext_source_prediction_agreement",
+  "calibration_sources": 200,
+  "calibration_pool": "original1000",
+  "candidate_limits_per_hat": {
+    "U": 3,
+    "S": 3,
+    "EEP": 2,
+    "fixed_anchors": 2
+  },
+  "pilot_physical_method_frame_cap": 36000,
+  "test_sources": 100,
+  "test_pool": "original_development100_reused_not_new_blind",
+  "test_main_methods": 5,
+  "test_main_frame_cap": 9000,
+  "same_payload_control_frame_cap": 1800,
+  "test_total_physical_frame_cap": 10800,
+  "test_total_logical_image_output_cap": 14400,
+  "calibration_noise_seeds": [
+    4101,
+    4102,
+    4103
+  ],
+  "test_noise_seeds": [
+    2001,
+    2002,
+    2003
+  ],
+  "noise_namespace": "UEP_MISMATCH_RAW_V1",
+  "statistical_bootstrap_seed": 2026101307,
+  "bootstrap_replicates": 10000,
+  "go_rule": {
+    "aggregate_DINO_gain_vs_each_strong_single_and_backoff": 0.01,
+    "both_hat_point_estimates_positive": true
+  },
+  "separate_engineering_targets": {
+    "matched_PSNR_loss_max_db": 0.3,
+    "same_policy_overestimate_PSNR_loss_max_db": 3.0
+  },
+  "new_training_updates": 0,
+  "raw_success_does_not_authorize_entropy_or_fading_extension": true,
+  "timing_priority": "continue_existing_shared_H800_recovery_no_same_GPU_UEP_contention",
+  "scope_note": "Planning limits, not model-call receipts or claims of universal optimality."
+}
