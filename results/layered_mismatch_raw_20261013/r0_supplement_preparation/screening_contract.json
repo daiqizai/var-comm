@@ -1,0 +1,121 @@
+{
+  "EEP_profiles": 55,
+  "U_profiles": 201,
+  "aliases": "Same physical candidate may fill multiple family roles. Keep one canonical ID, evaluate unique physical frame once, preserve all arm metadata.",
+  "anchors": "Original PARTIAL frozen nominal/backoff are mandatory KEEP anchors; actual KEEP outcomes eligible S_robust winner. No proxy KEEP failure quality is inferred.",
+  "catalogue_profiles": 689,
+  "contract_sha256": "7532dad4b66893e0045073d783624190125c64857aedf2e89e524618c6f83603",
+  "exact_body_groups": 687,
+  "fixed_probability": "n_correct/n_blocks; use archived counts and intervals unchanged, new missing points exactly64, Wilson95% published separately",
+  "historical_selection_points": 672,
+  "independence": "conditional independent group correctness; IID scrambled payload BLER is a screening approximation, not image-payload validation",
+  "input_bindings": {
+    "anchors": {
+      "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\results\\layered_mismatch_raw_20261013\\candidates_cpu_v1\\anchors.json",
+      "sha256": "5dad7693c7cf7cd2e291d7aa326a019416f0208611a65991b3f542bb6f42c323"
+    },
+    "catalogue": {
+      "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\results\\layered_mismatch_raw_20261013\\candidates_cpu_v1\\catalogue.json",
+      "sha256": "0c50e88f06a9af4f62b2e6da8da9a5cb9ff555b3203ee7fdcb9ba48ccdaa78ae"
+    },
+    "clean_missing": {
+      "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\results\\layered_mismatch_raw_20261013\\r0_reuse\\clean_quality_missing_pairs.json",
+      "sha256": "4c21bf729e6fd952199a976f177cc31806749912fd898e003acabce44df5fe02"
+    },
+    "coverage": {
+      "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\results\\layered_mismatch_raw_20261013\\candidates_cpu_v1\\coverage_v2\\coverage_rows.json",
+      "sha256": "b2a22edf2683bc1ae77d97ca23105f4520314d040cb582b422ceba58575707fe"
+    },
+    "coverage_report": {
+      "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\results\\layered_mismatch_raw_20261013\\candidates_cpu_v1\\coverage_v2\\coverage_report.json",
+      "sha256": "21b2bae8da872a6bf7abd95dd61d873e57f25efc66eaff5b1856505cc83b40b1"
+    },
+    "gap": {
+      "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\results\\layered_mismatch_raw_20261013\\R0_GAP_DECISION.md",
+      "sha256": "f9bcf0aa1c152b9ae89982b2fed943f62fb9b61c6553ce1184acce7190fb4fe0"
+    },
+    "gray": {
+      "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\results\\layered_mismatch_raw_20261013\\r0_reuse\\historical_clean_coarse_cal200.csv",
+      "sha256": "83617420174a2df368a09a5d879d03811f0a526268d8aacd2319449de880debb"
+    },
+    "groups": {
+      "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\results\\layered_mismatch_raw_20261013\\candidates_cpu_v1\\groups_by_phy_key.json",
+      "sha256": "00a494706a22e47ddbeaab40e69918d455e95b51b552318ef9e95d19f5184517"
+    },
+    "matched": {
+      "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\results\\layered_mismatch_raw_20261013\\candidates_cpu_v1\\coverage_v2\\matched_bler_rows.json",
+      "sha256": "0484594ba0f4c3264c44590746b287e341400aebc98ef13d5b99bc23ea42d585"
+    },
+    "old_clean": {
+      "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\results\\layered_mismatch_raw_20261013\\r0_reuse\\historical_raw_intact_cal200.csv",
+      "sha256": "11251293b4ab4f3221d17007fe4f41960a92440928d52550da0ebd2495913ad5"
+    },
+    "reuse_audit": {
+      "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\results\\layered_mismatch_raw_20261013\\r0_reuse\\final_audit.json",
+      "sha256": "29352dcd9bc914a511dabc50eb49fa708c892cd84e0a55539b2d91861d0dabbb"
+    },
+    "source": {
+      "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\results\\layered_mismatch_raw_20261013\\r0_reuse\\cal200_sources.json",
+      "sha256": "afc8a99bb964d20a73e39f552464ff008627022bad39f3cabbcda2cac8b2e00f"
+    }
+  },
+  "missing_selection_points": 1389,
+  "no_adaptive_trials": true,
+  "no_after_result_rule_changes": true,
+  "no_q6_exclusion": true,
+  "nominations": "NOT_RUN",
+  "original_R1_caps": {
+    "logical_var_images": 46800,
+    "packet_decodes": 108000,
+    "physical_frames": 36000,
+    "sources": 200
+  },
+  "original_R2_caps": {
+    "logical_images": 14400,
+    "main_logical_frames": 9000,
+    "packet_decodes": 32400,
+    "payload_physical_frames": 1800,
+    "physical_frames": 10800,
+    "sources": 100
+  },
+  "per_hat_caps": {
+    "EEP": 2,
+    "S": 3,
+    "S_back3": 1,
+    "S_nom": 1,
+    "U": 3
+  },
+  "proxy_false_accept": "Header/body false accepts are approximated as non-correct outcomes, not scored as actual received wrong tokens. This approximation is not a guaranteed lower bound; real R1 retains every false accept and failure.",
+  "proxy_formula_grouped": "ph*p1*(p2*Q(m,K)+(1-p2)*Q(j,0))+(1-ph*p1)*Qgray",
+  "proxy_formula_single": "ph*p1*Q(m,K)+(1-ph*p1)*Qgray",
+  "ranking": "per source .75*DROP_proxy(hat)+.25*DROP_proxy(hat-3); math.fsum then divide200; all legal candidates; no13dB",
+  "rule_id": "LAYERED_RAW_R0_DROP_PROXY_NOMINATION_V1",
+  "scientific_calls_by_prepare": 0,
+  "scientific_execution": "NOT_RUN",
+  "selection_snrs": [
+    4,
+    7,
+    10
+  ],
+  "single_profiles": 433,
+  "source_code_sha256": "a1968d3196c5ebb4a733b31c7de4bbc1b316e562756b23300723cf6f4b66d7c0",
+  "source_count": 200,
+  "source_embedding_accounting": "200 source DINO embeddings are preprocessing for the 5400 newly scored images; counted separately, not 200 extra VAR reconstructions.",
+  "status": "FROZEN_RULE_BEFORE_NEW_SCREENING_RESULTS",
+  "supplement_caps": {
+    "body_trials": 88896,
+    "clean_dino_scores": 5400,
+    "clean_var_reconstructions": 5400,
+    "header_trials": 0,
+    "missing_layout_snr_points": 1389,
+    "snr13_trials": 0,
+    "source_dino_embeddings": 200,
+    "training_updates": 0
+  },
+  "tie_order": [
+    "descending exact float J_DROP_proxy",
+    "ascending physical wire_key",
+    "ascending canonical candidate_id"
+  ],
+  "training": 0
+}

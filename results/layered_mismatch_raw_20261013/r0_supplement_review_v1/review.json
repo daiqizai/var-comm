@@ -1,0 +1,49 @@
+{
+  "status": "PASS_INDEPENDENT_R0_ENTRY_REVIEW",
+  "actual_exit_code": 0,
+  "tests_run": 48,
+  "source_bindings": {
+    "r0_bler.py": "45bd0ba15fcf68031547afcdf03bbb4bc52216f173d3577f34d4966d81ae55df",
+    "test_r0_bler.py": "95b78155e82b8b798ea54239c310d1b40abe7328a62482dbfac7cc3f8bd76527",
+    "r0_clean.py": "f34c6495d0ce0988188a0946d538a46c37bc21ddc7a07595206b324ee73cebed",
+    "test_r0_clean.py": "ea4878e8e21812a77fbd9498333ba5075b5cf8201b4e1528ce82beac0ee972ad"
+  },
+  "reviewer_sha256": "14679e7f57bf7145b69c4334680aebcc91cf4d1b4717a3ad14b756318fa02e0f",
+  "torch_imported": false,
+  "real_backend_constructions": 0,
+  "real_packet_calls": 0,
+  "real_model_calls": 0,
+  "real_source_channel_calls": 0,
+  "bootstrap_calls": 0,
+  "synthetic_arrays_only": true,
+  "created_unix": 1791898607.8972542,
+  "verified": [
+    "Frozen exact missing body grid1389 at4/7/10;64 trials per cell; existing672 body points and header points are not rerun.",
+    "Real original adapter transmit/receive and CRC1D/2D signatures were read; synthetic wrappers cover q2/q4/q6 without LDPC or channel calls.",
+    "Es2 convention uses original modulation and per-component variance10^(-SNR/10); no per-frame normalization; actual energy is recorded.",
+    "Correct/reject/undetected form exclusive outcomes; software failure stays unresolved and cannot be rewritten as a CRC rejection.",
+    "Reservation precedes TX; completed exact-identity reuse consumes no new random input/TX/RX; unresolved attempts cannot automatically resume.",
+    "Clean new5400 and reused3400 form exact44x200 source-endpoint grid; no original result is overwritten.",
+    "Original render_received receives only the clean raster prefix; exactly5400 renders/54000 prior scales/5400 decoder forwards are counted.",
+    "Only DINO-L is loaded; original prepare_reference/score and identical image preprocessing are retained; source200 and reconstruction5400 counted separately.",
+    "Timing v6 uses O6/owner.lock exclusive; supplemental owners/children retain shared lock until actual wait, avoiding check-then-launch overlap.",
+    "Pre-model WAIT consumes zero model/packet calls; original code and timingv6 scientific files remain untouched."
+  ],
+  "original_findings": [
+    {
+      "id": "TIMING_RUNTIME_LOCATION",
+      "status": "FIXED",
+      "detail": "Use actual TMP six_method_timing_v6, not O6/RUN."
+    },
+    {
+      "id": "TIMING_CHECK_LAUNCH_RACE",
+      "status": "FIXED",
+      "detail": "O6 shared lock held by owner and inherited child FD, original timing exclusive lock unchanged."
+    }
+  ],
+  "readiness_limits": [
+    "Registration drafts cannot run; root must freeze reviewed registration with actual resource/deadline assignment.",
+    "Scientific numerical qualification is inherited where explicitly bound; no new real-model/packet qualification was run by this review.",
+    "Pure ranking requires authenticated actual exits/output pins and the full source/689-profile domain; successful CPU tests do not provide those results."
+  ]
+}

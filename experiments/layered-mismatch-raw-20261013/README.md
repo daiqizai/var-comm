@@ -30,3 +30,7 @@ No new training, entropy-code grouping, N2048, extra SNRs, fading, feedback,
 source ordering or automatic sample enlargement is authorized. Results may
 be NO_GO or ONE_POINT_PROMISING. At the registered final boundary, deliver the
 actual results and stop.
+
+## User-approved R0 supplement
+
+The original inventory remains preserved. The human subsequently approved the finite missing-evidence supplement. Its reviewed CPU packet owner is now running; the clean GPU stage is registered and waiting for resource admission. R1/R2 have not started. See the independently registered supplement and actual execution milestone in `results/layered_mismatch_raw_20261013/r0_supplement_preparation/`.

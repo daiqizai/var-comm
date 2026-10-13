@@ -1,5 +1,10 @@
 ## Common500 entropy-coded quality and source analysis complete; timing unresolved (2026-10-13)
 
+## 2026-10-13: finite layered-raw R0 supplement launched
+
+The user explicitly approved 88,896 additional body-packet trials and 5,400 clean VAR plus DINO-L source/endpoint scores. The original R1/R2 limits and decision rules are unchanged. Original evidence is reused. The CPU BLER owner has actually started; its immutable milestone snapshot records 6144 completed packet trials. The clean GPU registration is complete but its initial admission returned WAIT with zero model calls; this is not reconstruction completion. R1, R2 and the six-method timing remainder are not reported as complete. See [R0 supplement](experiments/layered-mismatch-raw-20261013/R0_SUPPLEMENT.md) and [execution evidence](results/layered_mismatch_raw_20261013/r0_supplement_preparation/execution_milestone_v1.json).
+
+
 ## 2026-10-13: EMAIN quality delivered; shared timing recovery registered
 
 The original common500 entropy-coded partial-scale supplement is complete:

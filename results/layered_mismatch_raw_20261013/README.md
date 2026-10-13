@@ -70,3 +70,7 @@ authenticated output. No listed check launches an experiment automatically.
 
 Models, crops, original archives and environments remain private dependencies;
 they are not included in this repository or a lightweight backup increment.
+
+## User-approved R0 supplement
+
+The original inventory remains preserved. The human subsequently approved the finite missing-evidence supplement. Its reviewed CPU packet owner is now running; the clean GPU stage is registered and waiting for resource admission. R1/R2 have not started. See the independently registered supplement and actual execution milestone in `results/layered_mismatch_raw_20261013/r0_supplement_preparation/`.
