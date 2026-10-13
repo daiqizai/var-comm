@@ -1,3 +1,9 @@
+## 2026-10-14: reviewed CPU closure entry for the recovered R1 calibration
+
+An independent CPU-only closure entry and one-time dispatcher now cover the recovered R1 chain. They require the original PHY/projection actual exit 0, preserve the original owner/visual exit 1, and separately verify the recovery owner and three new stages have actually exited 0. The original auxiliary resource-history attachment is separately SHA bound; the failed audit is unchanged. Completed source-grid, failure-ledger and saved-selection audits retain the original numerical and CSV functions. No reconstruction, metric model, channel, bootstrap, policy selection or R2 is invoked. Both entries passed independent review and 36 synthetic tests in the original CPU environment. Their production execution remains gated on genuine scientific closure; this milestone does not report completed quality or GO. The recovery scientific owner continues independently.
+
+[CPU delivery contract](../../experiments/layered-mismatch-raw-20261013/r1_cache_recovery_delivery_v1/README.md).
+
 ## 2026-10-14: diagnosed R1 initialization failure; reviewed recovery in progress
 
 R1 PHY completed all 32,400 physical frames and the source-free reception projection completed 43,200 logical frames, both with actual exit 0. The first visual process exited 1 during Torch initialization because a temporary-file probe reached a cache outside its permitted receiver directory. No weights or reconstruction forwards completed in that failed attempt. Its failure, ledger and actual exit remain unchanged.
