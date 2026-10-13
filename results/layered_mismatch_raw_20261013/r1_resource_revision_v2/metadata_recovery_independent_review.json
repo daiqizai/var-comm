@@ -1,0 +1,83 @@
+{
+  "schema": "R1_RESOURCE_V2_PY311_REVIEW_METADATA_RECOVERY_V1",
+  "status": "PASS_METADATA_ONLY_RECOVERY",
+  "approved": true,
+  "reviewer": "/root/resource_relax_review",
+  "created_utc": "2026-10-13T17:11:42.240769+00:00",
+  "scientific_calls": 0,
+  "probe": {
+    "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\.research\\layered_mismatch_raw_20261013\\r1_resource_proof_py311.json",
+    "sha256": "d4688e7b0e2b42d4e043a20f7cd92752cd9001a283ee85493630cbed907818d8"
+  },
+  "old_review": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/layered_mismatch_raw_20261013/r1_resource_revision_v2/coordinator_review.json",
+    "sha256": "694817a432bfd9248bcd44663172398c3532dd7c38f3e722b85f9b808bb7c72e",
+    "bytes": 8702
+  },
+  "independent_review": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/layered_mismatch_raw_20261013/r1_resource_revision_v2/independent_review.json",
+    "sha256": "5595192e2315943e8b1f39acf9c1262212cb4c650fdae7b2d63b6ac430615a54",
+    "bytes": 10322
+  },
+  "local_interpreter": "3.12.14 (main, Aug 25 2026, 14:01:42) [MSC v.1944 64 bit (AMD64)]",
+  "registration_interpreter": "3.11.15 (main, Mar  3 2026, 09:26:23) [GCC 11.4.0]",
+  "registration_executable": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_ldpc_py311/bin/python",
+  "evidence": [
+    {
+      "file": "shared.py",
+      "source_SHA_equal": true,
+      "permitted_substitutions": 5,
+      "each_interpreter_inverse_AST_equal": true,
+      "empty_type_params_fields_omitted": 17,
+      "py312_dump_without_empty_type_params_equals_actual_py311": true
+    },
+    {
+      "file": "owner.py",
+      "source_SHA_equal": true,
+      "permitted_substitutions": 0,
+      "each_interpreter_inverse_AST_equal": true,
+      "empty_type_params_fields_omitted": 10,
+      "py312_dump_without_empty_type_params_equals_actual_py311": true
+    },
+    {
+      "file": "registration_builder.py",
+      "source_SHA_equal": true,
+      "permitted_substitutions": 8,
+      "each_interpreter_inverse_AST_equal": true,
+      "empty_type_params_fields_omitted": 4,
+      "py312_dump_without_empty_type_params_equals_actual_py311": true
+    },
+    {
+      "file": "receiver_visual.py",
+      "source_SHA_equal": true,
+      "permitted_substitutions": 2,
+      "each_interpreter_inverse_AST_equal": true,
+      "empty_type_params_fields_omitted": 37,
+      "py312_dump_without_empty_type_params_equals_actual_py311": true
+    },
+    {
+      "file": "score_selection.py",
+      "source_SHA_equal": true,
+      "permitted_substitutions": 1,
+      "each_interpreter_inverse_AST_equal": true,
+      "empty_type_params_fields_omitted": 35,
+      "py312_dump_without_empty_type_params_equals_actual_py311": true
+    }
+  ],
+  "checks": {
+    "semantic_proof_fields_equal": true,
+    "all_original_and_revised_source_SHA_equal": true,
+    "all_substitution_counts_equal": true,
+    "every_internal_inverse_AST_equal": true,
+    "no_registered_directory_at_probe": true,
+    "no_scientific_launch_at_probe": true
+  },
+  "diagnosis": "Python 3.12 ast.dump includes empty type_params fields absent from the actual Python 3.11 AST serialization. Omitting exactly these empty fields in each old-source local AST reproduces all five actual CPY3.11 hashes. No code bytes or scientific semantics differ.",
+  "authorized_minimal_recovery": "Preserve original coordinator_review.json and failed metadata attempt; create coordinator_review_py311.json with exact frozen CPY3.11 proof. Keep builder strict equality and all source/AST constraints unchanged. Execute no scientific call as part of this metadata correction.",
+  "does_not_authorize": [
+    "Changing frozen source or weakening inverse-AST proof",
+    "Repeating completed scientific calls",
+    "Resetting an already registered scientific deadline",
+    "Treating a metadata receipt as numerical qualification or R1 completion"
+  ]
+}

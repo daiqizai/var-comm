@@ -1,0 +1,83 @@
+{
+  "R1": "NOT_RUN",
+  "R2": "NOT_RUN",
+  "metadata_identity_revision": {
+    "adapter_proof": {
+      "declared_bytes_type": "int_not_bool",
+      "inverse_AST_equal": true,
+      "optional_checkpoint_keys": [
+        "bytes"
+      ],
+      "original_phy": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/layered-mismatch-raw-20261013/r1_phy.py",
+        "sha256": "cd4e25660d637d82632622d765fcb0234a642c369a9f6801755b589ad551856b"
+      },
+      "other_selected_fields_exact": true,
+      "path_sha_exact": true,
+      "real_stat_and_SHA_required": true,
+      "replacement_new": "_strict_selected_identity(row, selected)",
+      "replacement_old": "all(row[key] == selected[key] for key in selected)",
+      "science_changes": 0
+    },
+    "explicit_runner": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/layered-mismatch-raw-20261013/r1_source_identity_revision_v1/runner.py",
+    "no_new_scientific_calls": true,
+    "original_failure": {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/layered_mismatch_raw_20261013/r1_resource_revision_v2/metadata_failure_audit.json",
+      "sha256": "578be63f7a3a28bc01985cdbb6d636f022235cfebcc1577b1325ff15af4d6edd"
+    },
+    "recovery_proof": {
+      "existing_files_rewritten": false,
+      "inverse_AST_equal": true,
+      "original_builder": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/layered-mismatch-raw-20261013/r1_execution_resource_v2/registration_builder.py",
+        "sha256": "a83457f7ac430d39128018f0c333ea61a71ecd0f98862f5a63b418cf8d606475"
+      },
+      "original_deadline_unix": 1791954813.2221007,
+      "original_max_seconds": 43200,
+      "partial_file_sha256": {
+        "nominations.json": "498572dc2cacb8772ffe86e77c02e9a90027a3fe8bba5c37106821f2b237bfba",
+        "phy_registration.json": "19207028a83c96e0b99bb1aa3109b2f9a5ff22f0d557132fcde8899dd19749e2"
+      },
+      "science_calls": 0,
+      "substitutions": [
+        {
+          "new": "_verify_partial(directory)",
+          "old": "s.require(directory == s.OUT / 'registered' and not directory.exists(), 'Fresh authoritative registration directory required')"
+        },
+        {
+          "new": "deadline_unix=_original_deadline",
+          "old": "deadline_unix=time.time() + max_seconds"
+        },
+        {
+          "new": "bindings.update(review['code_bindings'])\n    bindings.update(_additional_bindings)",
+          "old": "bindings.update(review['code_bindings'])"
+        },
+        {
+          "new": "_verify_partial_directory_again(directory)",
+          "old": "directory.mkdir(parents=True)"
+        }
+      ]
+    },
+    "review": {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/layered_mismatch_raw_20261013/r1_resource_revision_v2/identity_coordinator_review.json",
+      "sha256": "f4d4dd01e9ac1853926a78c48013ad63ca18ece9304d1984d6c85d8540aa2d95"
+    }
+  },
+  "phy_registration": {
+    "bytes": 3508,
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/layered_mismatch_raw_20261013/r1_execution_v1/registered/phy_registration.json",
+    "sha256": "19207028a83c96e0b99bb1aa3109b2f9a5ff22f0d557132fcde8899dd19749e2"
+  },
+  "registration": {
+    "bytes": 40583,
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/layered_mismatch_raw_20261013/r1_execution_v1/registered/registration.json",
+    "sha256": "70bb0747a749a3d63d10d5fdb8fac1af37a2e37e82310208d31c6823fde0ac47"
+  },
+  "scientific_calls": 0,
+  "status": "REGISTERED_NOT_LAUNCHED",
+  "visual_registration": {
+    "bytes": 30846,
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/layered_mismatch_raw_20261013/r1_execution_v1/registered/visual_registration.json",
+    "sha256": "bdec4911370fa14cd4430dbb4cea8da7e76486242ed95c2a3629d6ff0f744828"
+  }
+}

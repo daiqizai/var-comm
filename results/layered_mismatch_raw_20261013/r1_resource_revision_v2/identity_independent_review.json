@@ -1,0 +1,135 @@
+{
+  "schema": "R1_METADATA_IDENTITY_ADAPTER_INDEPENDENT_REVIEW_V1",
+  "status": "R1_METADATA_IDENTITY_ADAPTER_REVIEW_PASS",
+  "approved": true,
+  "reviewer": "/root/resource_relax_review",
+  "created_utc": "2026-10-13T17:32:21.683370+00:00",
+  "scientific_calls": 0,
+  "qualification": "Independent CPU engineering and actual read-only metadata checks only; no model, packet, bootstrap or registered scientific call.",
+  "code_bindings": {
+    "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\experiments\\layered-mismatch-raw-20261013\\r1_source_identity_revision_v1\\pin_adapter.py": "b5ef71138eb18414bcfc1a9a3ca259baa3353acbbfcbb2d94008594ea37d5f2f",
+    "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\experiments\\layered-mismatch-raw-20261013\\r1_source_identity_revision_v1\\runner.py": "ac7f7bed91481252c125ba2947baf0e8643366d99d544ac63d7e9db447e568dd",
+    "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\experiments\\layered-mismatch-raw-20261013\\r1_source_identity_revision_v1\\recover_registration.py": "fb9e83e8adb68e5c253bb6f0fbd344908bf026b1d5c299dbb260450c1084d103",
+    "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\experiments\\layered-mismatch-raw-20261013\\r1_source_identity_revision_v1\\test_metadata_revision.py": "74f0a4a86f69c7adccd3fd5429351a3340399daea710c95e044d82b541ecc18d"
+  },
+  "adapter_proof": {
+    "original_phy": {
+      "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\experiments\\layered-mismatch-raw-20261013\\r1_phy.py",
+      "sha256": "cd4e25660d637d82632622d765fcb0234a642c369a9f6801755b589ad551856b"
+    },
+    "replacement_old": "all(row[key] == selected[key] for key in selected)",
+    "replacement_new": "_strict_selected_identity(row, selected)",
+    "inverse_AST_equal": true,
+    "optional_checkpoint_keys": [
+      "bytes"
+    ],
+    "path_sha_exact": true,
+    "declared_bytes_type": "int_not_bool",
+    "real_stat_and_SHA_required": true,
+    "other_selected_fields_exact": true,
+    "science_changes": 0
+  },
+  "recovery_proof": {
+    "original_builder": {
+      "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\experiments\\layered-mismatch-raw-20261013\\r1_execution_resource_v2\\registration_builder.py",
+      "sha256": "a83457f7ac430d39128018f0c333ea61a71ecd0f98862f5a63b418cf8d606475"
+    },
+    "partial_file_sha256": {
+      "nominations.json": "498572dc2cacb8772ffe86e77c02e9a90027a3fe8bba5c37106821f2b237bfba",
+      "phy_registration.json": "19207028a83c96e0b99bb1aa3109b2f9a5ff22f0d557132fcde8899dd19749e2"
+    },
+    "original_deadline_unix": 1791954813.2221007,
+    "original_max_seconds": 43200,
+    "inverse_AST_equal": true,
+    "substitutions": [
+      {
+        "old": "s.require(directory == s.OUT / 'registered' and not directory.exists(), 'Fresh authoritative registration directory required')",
+        "new": "_verify_partial(directory)"
+      },
+      {
+        "old": "deadline_unix=time.time() + max_seconds",
+        "new": "deadline_unix=_original_deadline"
+      },
+      {
+        "old": "bindings.update(review['code_bindings'])",
+        "new": "bindings.update(review['code_bindings'])\n    bindings.update(_additional_bindings)"
+      },
+      {
+        "old": "directory.mkdir(parents=True)",
+        "new": "_verify_partial_directory_again(directory)"
+      }
+    ],
+    "existing_files_rewritten": false,
+    "science_calls": 0
+  },
+  "independent_test": {
+    "actual_exit_code": 0,
+    "test_count": 25,
+    "unittest_elapsed_seconds": 0.315,
+    "tool_chunk": "c54efe",
+    "command": [
+      "C:\\Users\\11946\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+      "-B",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "experiments/layered-mismatch-raw-20261013/r1_source_identity_revision_v1",
+      "-p",
+      "test_metadata_revision.py",
+      "-v"
+    ]
+  },
+  "actual_metadata_preflight": {
+    "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\.research\\layered_mismatch_raw_20261013\\r1_remaining_metadata_preflight.json",
+    "sha256": "184f9eac846fc2ed0903fce566b9ff6fd1c6226cfe509ed0a9f2fe6e7b2c7945"
+  },
+  "checks": [
+    {
+      "name": "Narrow optional-size compatibility",
+      "result": "PASS",
+      "detail": "Only checkpoint dictionaries accept either path/SHA or path/SHA/bytes. Both pins require real SHA validation, exact path/SHA equality, and optional bytes must be exact int (not bool), nonnegative, and equal to real stat. Unknown checkpoint fields reject. Every other original selected field remains exact."
+    },
+    {
+      "name": "Unchanged scientific PHY functions",
+      "result": "PASS",
+      "detail": "Original PHY source has an exact SHA pin. Its only textual replacement is the cal200 selected-identity comparator; inverse AST equals original. Executing it in a private module preserves a single global namespace for validation/run/source_scales/execute_frame. No original source file is changed."
+    },
+    {
+      "name": "All consumers share adapter",
+      "result": "PASS",
+      "detail": "Explicit pinned runner covers dispatcher, owner, PHY, CPU RX projection, visual, score and selection. Installed r1_phy module is the same one used by direct imports and score/receiver audit imports. Each child keeps original script/action adjacency and original registration arguments."
+    },
+    {
+      "name": "Flag-first CLI defect corrected before deployment",
+      "result": "PASS",
+      "detail": "Initial positional REMAINDER design rejected owner/dispatch flags; independent review reproduced it. Final parse_envelope strictly parses wrapper prefix and passes the complete original tail unchanged, including --registration and --expected-registration first. Synthetic tests cover both and subcommand entry."
+    },
+    {
+      "name": "Partial registration stays immutable",
+      "result": "PASS",
+      "detail": "Only exact original nominations/PHY files are accepted. Their original SHA and reconstructed canonical bytes must match; they are never rewritten. Unknown extra files, changed runtime, existing dispatch/scientific stage and expired original deadline reject."
+    },
+    {
+      "name": "Finite deadline and scientific scope retained",
+      "result": "PASS",
+      "detail": "Original deadline 1791954813.2221007 and max_seconds 43200 are inherited exactly with original affinities. Four exact builder substitutions restore original AST. Original source populations, namespaces, budgets, numeric flags, GO gate and timing locks remain unchanged."
+    },
+    {
+      "name": "Bound metadata recovery and RX isolation",
+      "result": "PASS",
+      "detail": "Master adds the adapter review and original zero-science failure pins plus all four new code pins. Visual projection retains only original source-free fields with code pins; no master/calibration/metadata-failure files are passed to visual process. Original fileguard is unchanged."
+    },
+    {
+      "name": "Complete remaining metadata preflight",
+      "result": "PASS",
+      "detail": "Original model bundle build and validation ran with in-memory writes only; all 200 actual checkpoint pairs and all remaining original PHY registration checks passed. No new model/packet/array call. 18 groups, 32400 physical and 43200 logical rows are within original caps."
+    }
+  ],
+  "findings": [],
+  "limits": [
+    "This review is metadata recovery authorization, not R1 scientific completion or numerical qualification.",
+    "Root must compare exact CPY3.11 proofs and remote source hashes to this review before writing final review; original failed records must remain unchanged.",
+    "Unknown scientific failures remain stop-and-diagnose without automatic retry; completed scientific calls are not replayed."
+  ]
+}

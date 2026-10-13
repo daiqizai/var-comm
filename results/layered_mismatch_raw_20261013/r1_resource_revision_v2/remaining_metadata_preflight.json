@@ -1,0 +1,59 @@
+{
+  "schema": "R1_REMAINING_METADATA_PREFLIGHT_V1",
+  "status": "PASS_READ_ONLY_ACTUAL_METADATA",
+  "reviewer": "/root/resource_relax_review",
+  "created_utc": "2026-10-13T17:25:44.591360+00:00",
+  "executable": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_ldpc_py311/bin/python",
+  "python": "3.11.15",
+  "scientific_calls": 0,
+  "source_array_loads": 0,
+  "model_imports": false,
+  "actual_file_writes": 0,
+  "steps": [
+    {
+      "name": "model_bundle",
+      "actual_exit_code": 0,
+      "tool_chunk": "94e148",
+      "detail": "Original build_model_bundle with only writes captured in memory; original validate_bundle passed with real pinned metadata. No exceptions swallowed.",
+      "math_pins": 4,
+      "weight_pins": 3,
+      "author_files": 7,
+      "runtime_files": 34722,
+      "captured_output_dictionaries": 2
+    },
+    {
+      "name": "all_calibration200_checkpoint_metadata",
+      "actual_exit_code": 0,
+      "tool_chunk": "7149fc",
+      "records": 200,
+      "only_optional_bytes_different": 200,
+      "all_other_original_fields_exact": true,
+      "path_SHA_exact": true,
+      "bytes_exact_int_and_actual_stat": true,
+      "both_pins_hashed": true,
+      "registration_files": [
+        "nominations.json",
+        "phy_registration.json"
+      ],
+      "runtime_launch_exists": false
+    },
+    {
+      "name": "complete_saved_PHY_registration_preflight",
+      "actual_exit_code": 0,
+      "tool_chunk": "742f00",
+      "detail": "A private temporary clone replaces only exact source-checkpoint equality with a strict optional-byte comparator. Inverse AST returns original exactly. Original module globals/source were not changed. This is not the production adapter approval.",
+      "groups": 18,
+      "physical_frames": 32400,
+      "logical_var_images": 43200,
+      "deadline_unix": 1791954813.2221007,
+      "phy_registration_sha256": "19207028a83c96e0b99bb1aa3109b2f9a5ff22f0d557132fcde8899dd19749e2",
+      "nominations_sha256": "498572dc2cacb8772ffe86e77c02e9a90027a3fe8bba5c37106821f2b237bfba",
+      "all_remaining_original_checks_pass": true
+    }
+  ],
+  "limitations": [
+    "Metadata only, not numerical qualification or scientific completion.",
+    "Production adapter, consumer routing and partial-registration recovery still require separate code review.",
+    "Master/visual registration not yet created or claimed verified on disk."
+  ]
+}
