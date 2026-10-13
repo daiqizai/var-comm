@@ -1,3 +1,11 @@
+## 2026-10-14: diagnosed R1 initialization failure; reviewed recovery in progress
+
+R1 PHY completed all 32,400 physical frames and the source-free reception projection completed 43,200 logical frames, both with actual exit 0. The first visual process exited 1 during Torch initialization because a temporary-file probe reached a cache outside its permitted receiver directory. No weights or reconstruction forwards completed in that failed attempt. Its failure, ledger and actual exit remain unchanged.
+
+A separately reviewed recovery places temporary and compiler caches inside the receiver output. It inherits the completed PHY/projection without replay, and retains the original model, source isolation, math flags, noise, frame budget and absolute deadline. Twenty-six synthetic CPU tests and a real zero-model import/flags probe passed. The earlier probe rejected a module-discovery request; that engineering failure is retained and was not a channel invocation. The single registered recovery has actually started visual reconstruction, with scoring and frozen selection following automatically. R1 quality/GO and R2 are not complete or authorized by this entry milestone. The historical CPU delivery entry requires the original failed owner to exit successfully and must not be run on this recovery; a separate closure adapter is required.
+
+[Recovery contract](../../experiments/layered-mismatch-raw-20261013/r1_cache_recovery_v1/README.md).
+
 ## 2026-10-14: guarded CPU delivery entry prepared for the running R1 calibration
 
 A separate CPU-only delivery entry has been implemented and checked with synthetic fixtures. It requires the registered owner and all five stages to have actually exited successfully, then audits the existing frame grid, identities, execution ledger and frozen selection outputs. It does not invoke a model, channel, bootstrap or policy selection. Calibration means, channel-failure outcomes and the original GO decision remain unchanged. Large derived frame tables stay in the personal runtime directory; only lightweight summaries, reports and SHA manifests are publication candidates. This milestone publishes an entry, not completed R1 quality results or an R2 launch.

@@ -1,0 +1,33 @@
+Traceback (most recent call last):
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/layered-mismatch-raw-20261013/r1_cache_recovery_probe_v1/probe.py", line 194, in <module>
+    args=parser.parse_args();run(args.model_bundle_sha256)
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/layered-mismatch-raw-20261013/r1_cache_recovery_probe_v1/probe.py", line 166, in run
+    with DenyTensorOps():ns['apply_numeric_flags'](torch)
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/layered-mismatch-raw-20261013/r1_execution_resource_v2/receiver_visual.py", line 445, in apply_numeric_flags
+    torch.use_deterministic_algorithms(True);torch.set_float32_matmul_precision('highest')
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/external/home/liulu/.local/lib/python3.10/site-packages/torch/__init__.py", line 1522, in use_deterministic_algorithms
+    import torch._inductor.config as inductor_config
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/external/home/liulu/.local/lib/python3.10/site-packages/torch/_inductor/__init__.py", line 11, in <module>
+    from .standalone_compile import CompiledArtifact  # noqa: TC001
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/external/home/liulu/.local/lib/python3.10/site-packages/torch/_inductor/standalone_compile.py", line 13, in <module>
+    from torch._dynamo.aot_compile_types import BundledAOTAutogradSerializableCallable
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/external/home/liulu/.local/lib/python3.10/site-packages/torch/_dynamo/__init__.py", line 13, in <module>
+    from . import (
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/external/home/liulu/.local/lib/python3.10/site-packages/torch/_dynamo/aot_compile.py", line 15, in <module>
+    from torch._dynamo.convert_frame import GraphRuntimeEnv
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/external/home/liulu/.local/lib/python3.10/site-packages/torch/_dynamo/convert_frame.py", line 62, in <module>
+    from torch._dynamo.symbolic_convert import TensorifyState
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/external/home/liulu/.local/lib/python3.10/site-packages/torch/_dynamo/symbolic_convert.py", line 60, in <module>
+    from . import (
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/external/home/liulu/.local/lib/python3.10/site-packages/torch/_dynamo/trace_rules.py", line 3894, in <module>
+    add(_name)
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/external/home/liulu/.local/lib/python3.10/site-packages/torch/_dynamo/trace_rules.py", line 3686, in add
+    module_spec = find_spec(import_name)
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_python_base_v1/lib/python3.10/importlib/util.py", line 103, in find_spec
+    return _find_spec(fullname, parent_path)
+  File "<frozen importlib._bootstrap>", line 945, in _find_spec
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/layered-mismatch-raw-20261013/r1_cache_recovery_probe_v1/probe.py", line 117, in find_spec
+    self.reject('channel_import_requests',fullname)
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/layered-mismatch-raw-20261013/r1_cache_recovery_probe_v1/probe.py", line 114, in reject
+    raise RuntimeError('Zero-science probe rejected '+kind+': '+detail)
+RuntimeError: Zero-science probe rejected channel_import_requests: tensorflow
