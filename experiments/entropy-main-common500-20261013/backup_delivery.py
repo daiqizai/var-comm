@@ -127,6 +127,13 @@ def qualify():
     require(plots['status']=='EMAIN_CSV_ONLY_PAPER_FIGURES_COMPLETE','Actual figure export closure required')
     for folder,done in ((OUT/'analysis_v1',stats),(OUT/'figures_v1',plots)):
         for path,digest in done['outputs'].items():require(sha(folder/path)==digest,'Completed output changed: '+path)
+    review_path=OUT/'visual_review_v1.json'
+    review=read(review_path)
+    require(review['status']=='PASS_ACTUAL_FIVE_PNG_VISUAL_REVIEW','Actual five-PNG visual review required')
+    png_outputs={name:digest for name,digest in plots['outputs'].items() if name.endswith('.png')}
+    require(len(png_outputs)==5 and review['png_sha256']==png_outputs,'Visual review must bind all five exported PNGs')
+    for name,digest in png_outputs.items():
+        require(sha(OUT/'figures_v1'/name)==digest,'Visually reviewed PNG changed: '+name)
     followers=[]
     for folder in sorted(OUT.glob('analysis_followthrough_v*')):
         if not (folder/'launch.json').exists():continue
@@ -141,7 +148,8 @@ def qualify():
     return dict(scientific_registration=dict(path=str(actual_registration),sha256=sha(actual_registration)),
                 score_completion_sha256=sha(OUT/'scoring_completion.json'),statistics_completion_sha256=sha(OUT/'analysis_v1/completion.json'),
                 figures_completion_sha256=sha(OUT/'figures_v1/completion.json'),completed_cpu_owner=followers[0],
-                formal_png_visual_review=plots.get('visual_review','UNKNOWN'),all_scientific_calls_closed=True,E3_timing_included=False)
+                formal_png_visual_review=dict(status=review['status'],path=str(review_path),sha256=sha(review_path)),
+                all_scientific_calls_closed=True,E3_timing_included=False)
 
 
 def build():

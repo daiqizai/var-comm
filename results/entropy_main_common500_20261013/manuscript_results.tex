@@ -1,0 +1,28 @@
+% Manuscript fragment, not a standalone LaTeX document.
+% Rounded only for prose; source precision: analysis_v1/summary.csv,
+% analysis_v1/paired.csv and analysis_v1/length_summary.csv.
+On the original 500-source population, the frozen entropy-coded partial-scale
+implementation was evaluated at $N=1024$ and SNRs of 4, 10, and 19\,dB using
+three registered noise realizations per source, without retraining or
+reselection. Relative to entropy-coded whole-scale transmission, its PSNR
+gains were 0.616, 0.705, 0.337\,dB, respectively (source-paired 95\% intervals:
+$[0.564,0.673]$, $[0.639,0.770]$, and $[0.305,0.369]$).
+LPIPS and DINOv2-L similarity also improved at all three points. The gain was
+not uniform across all criteria: at 19\,dB, the ConvNeXt source-prediction
+agreement difference was $-0.2$ percentage points, with interval
+$[-2.0,1.6]$. This agreement is not classification accuracy.
+
+The comparison retains a distortion--perceptual tradeoff. PSNR remained lower
+than adapted SwinJSCC and adaptive-resolution BPG+LDPC at all three SNRs,
+and lower than latent-space JSCC at 4 and 10\,dB, although DINOv2-L similarity
+and prediction agreement were higher. LPIPS was worse than latent-space JSCC
+at 4\,dB; its 10\,dB paired difference included zero. Actual terminated streams
+used 93.08, 95.21, 94.63\% of the available source-payload capacity on average. The target
+prefix did not fit for 99.6, 99.6, 95.6\% of sources, but deterministic fallback
+found a legal prefix in every case; this is not a channel failure. Whole-scale
+fallback occurred for 3, 190, 126 of the 500 sources. All 4,500 realized
+frames were retained and successfully source-decoded. These are subsequent
+frozen-policy results on an already used population, with pointwise intervals;
+raw/entropy framing and failure-rule differences preclude a pure two-factor
+interpretation. No latency advantage is claimed while common-environment
+timing remains unfinished.

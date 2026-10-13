@@ -1,0 +1,13 @@
+{
+  "status": "SYNTHETIC_FIXTURE_FAILURE_BEFORE_REGISTRATION",
+  "test_source_sha256": "ac5436da781329e02469b546a0d34f5ba6f1a1a7c701a21e5e16e5d3c80578f2",
+  "tests_attempted": 11,
+  "errors": 1,
+  "error": "NameError: name 'torch' is not defined in inert vendor-constructor test namespace",
+  "cause": "The actual vendor constructor refers to torch.nn.MSELoss, while the inert test namespace only exposed nn.",
+  "repair": "Expose a SimpleNamespace torch.nn stub; do not import Torch.",
+  "registration_existed": false,
+  "new_model_calls": 0,
+  "new_channel_calls": 0,
+  "checked_unix": 1791885007.114257
+}
