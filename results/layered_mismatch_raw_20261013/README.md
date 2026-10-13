@@ -1,3 +1,9 @@
+## 2026-10-14 current execution snapshot
+
+The body supplement is complete (88,896 trials). At 2026-10-14 00:08:23 Asia/Shanghai (2026-10-13 16:08:23 UTC) the new quality-only resource revision had actual owner/render launch records, but no completed clean stage; R1 remains unregistered. The old zero-science waiter has been retired. This new entry changes resource admission and allocation limits only: 15/14/12/2 GiB for admission free / running free plus own / allocator cap / absolute running free. GPU3, batch one, the original 6/2 mathematical threads, FP32/TF32-off and all scientific budgets remain. The six-method timing gate is unchanged. See [the separate registration and limitations](r0_clean_resource_revision_v2/README.md).
+
+Sections below retain earlier dated preparation and execution history; their earlier waiting/approval statements are not the current launch state. A launch does not establish clean-Q completion, R0 nomination, R1 GO, or R2 authorization.
+
 # Layered raw mismatch: R0 preparation and verified reuse
 
 This separate raw study implements the user's 2026-10-13 execution package.

@@ -1,3 +1,9 @@
+## 2026-10-14: finite clean-quality supplement started under reviewed memory limits
+
+Following the user's request to relax resource requirements, a separate quality-only entry now enforces 15 GiB free at admission, 14 GiB free plus verified current-process reservation while running, a 12 GiB PyTorch allocator cap, and a 2 GiB absolute running margin. The previous zero-science waiter was retired before this one-time owner started. The original 5,400 clean VAR/DINO pairs, 200 source embeddings, frozen models, source identities, FP32/TF32-off and 6/2 mathematical threads are unchanged. This does not modify the registered six-method timing gate or authorize R1/R2 early.
+
+At 2026-10-14 00:08:23 Asia/Shanghai (2026-10-13 16:08:23 UTC), the registered owner and render child had actual launch records; no successful stage exit or complete clean grid was yet observed. This is a dated execution snapshot, not completion or numerical-qualification evidence. Historical allocator reservation is not a measured live-tensor allocation peak, and the smaller cap does not prove that every frame will fit or remain bitwise identical. Unknown failure stops without automatic retry. [Resource amendment](experiments/layered-mismatch-raw-20261013/RESOURCE_REVISION_V2.md) and [registration/evidence](results/layered_mismatch_raw_20261013/r0_clean_resource_revision_v2/README.md).
+
 ## Common500 entropy-coded quality and source analysis complete; timing unresolved (2026-10-13)
 
 ## 2026-10-13: all 88,896 supplemental packet trials completed

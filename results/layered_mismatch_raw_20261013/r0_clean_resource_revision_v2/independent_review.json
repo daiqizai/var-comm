@@ -1,0 +1,64 @@
+{
+  "schema": "R0_CLEAN_RESOURCE_REVISION_INDEPENDENT_REVIEW_V2",
+  "status": "PASS_CPU_ENGINEERING_REVIEW_NOT_SCIENTIFIC_QUALIFICATION",
+  "approved": true,
+  "reviewer": "/root/resource_relax_review",
+  "entry_sha256": "a06240e23aa8206f36aa6fa2a904efe023994f8fa46e4e8a334957fb70023045",
+  "test_sha256": "b992d3d6d19848db9f8f26912c66d6bf691fe0e4fc8f8c87062ddc0346473d3c",
+  "old_entry_sha256": "f34c6495d0ce0988188a0946d538a46c37bc21ddc7a07595206b324ee73cebed",
+  "source_manifest_sha256": "afc8a99bb964d20a73e39f552464ff008627022bad39f3cabbcda2cac8b2e00f",
+  "schedule_sha256": "acc4b0610854e6be4bfcd9971556fd23d8c9faa30474f3d13d7473bcfef71778",
+  "clean_VAR_cap": 5400,
+  "dino_reconstruction_cap": 5400,
+  "source_DINO_cap": 200,
+  "scientific_calls_during_review": 0,
+  "CPU_tests": {
+    "command": "python -B experiments/layered-mismatch-raw-20261013/test_r0_clean_resource_v2.py",
+    "actual_returncode": 0,
+    "passed": 43,
+    "seconds_reported_by_unittest": 0.423,
+    "real_backend_was_compiled_but_not_constructed": true,
+    "constructor_execution_used_only_stub_model": true,
+    "GPU_model_tensor_channel_calls": 0
+  },
+  "resource_policy": {
+    "prelaunch_free_GiB": 15,
+    "runtime_free_plus_own_GiB": 14,
+    "allocator_cap_GiB": 12,
+    "absolute_free_GiB": 2,
+    "math_threads": 6,
+    "interop_threads": 2,
+    "scheduling_CPUs": 2,
+    "overlap_with_v6_timing": false
+  },
+  "review_findings": [
+    "The original r0_clean.py remains byte-identical. The new entry is independent and preserves the original output/runtime location to retain once-only scientific attempt markers.",
+    "The original SHA-checked device-injection adapter runs before the new bounded allocator adapter. Restoring exactly the gate import and cap assignment produces the original complete Backend AST. All model and rendering definitions remain unchanged.",
+    "The real Backend constructor bytecode contains a 12 GiB cap instead of 16 GiB. The original allocator-setting statement precedes load_models and decoder construction. A stub constructor test confirms cap installation precedes the stub model call without constructing any real model.",
+    "The DINO-only stage installs the same 12 GiB cap before its only MetricEvaluator construction. Its function AST matches the original after reversing only that cap constant.",
+    "The GPU admission, absolute runtime free memory, current-process reserved-credit limit, and policy evidence consistently use 15/2/12 GiB and a 14 GiB free-plus-own threshold. Host RAM, CPU, filesystem, GPU identity, and utilization checks remain unchanged.",
+    "The complete worker AST is restored by reversing only its call to adapt_backend_limited. plan, render_one, validate_source, validate_image, token_count, guard_for, owner and wait_child are unchanged. CAPS, MODELS, FLAGS, SIZES, OFFSETS and MISSING_STATES are unchanged.",
+    "Registration requires a pinned zero-science retirement receipt and absence or replacement identity of the original waiter. Prelaunch also rejects existing owner_launch, render, score, failure, actual_wait and complete scientific output markers. The original timing and owner locks and inherited-descriptor behavior remain unchanged.",
+    "No empty_cache, precision, batch-size, decoder, algorithm flag, token order, model weight, source population, budget or extra qualification call was added. A runtime scientific failure is preserved and is not automatically retried."
+  ],
+  "retirement_readonly_check": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/layered_mismatch_raw_20261013/r0_clean_resource_revision_v2/retirement.json",
+    "sha256": "13723b5da728e95d1a6362ac5d776efbbe5d23b6421fe4db05da991d14ddc22a",
+    "status": "RETIRED_ZERO_SCIENCE",
+    "original_pid": 2126794,
+    "original_start_ticks": 158575713,
+    "original_proc_directory_absent_at_review": true,
+    "owner_invocations": 0,
+    "scientific_owner_launch_count": 0,
+    "scientific_calls": 0,
+    "pidfd_exit_observed": true,
+    "waitpid_exit_code_not_claimed": true,
+    "retirement_metadata_errors_preserved": true
+  },
+  "limitations": [
+    "Historical same-model FP32 batch-one visual jobs reached 16066281472 bytes of PyTorch reserved memory. Their approximately 1.84 GiB inter-frame allocated value is not a peak-allocated measurement. This review therefore does not prove that 12 GiB fits.",
+    "The reduced allocator limit is a declared quality-experiment resource revision. Frozen source definitions and numeric flags are preserved, but no new bitwise-repeatability or memory qualification has been run or claimed.",
+    "The first actual scheduled frame must be part of the existing 5400-call budget. OOM or any other unknown scientific failure must stop and retain the original ledger and evidence; it is not authorization for automatic retry or an additional qualification frame.",
+    "This review does not change or qualify the six-method timing entry, R1 registration, or R2 gate."
+  ]
+}
