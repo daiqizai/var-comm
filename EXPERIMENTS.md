@@ -1,5 +1,15 @@
 ## Common500 entropy-coded quality and source analysis complete; timing unresolved (2026-10-13)
 
+## 2026-10-13: all 88,896 supplemental packet trials completed
+
+The separately approved R0 body-packet supplement actually exited successfully: 1,389 missing cells × 64 trials, 88,896 completed and zero unresolved records. A read-only audit authenticated the full ledger, recorded waveform/receive hashes, counters, runtime and existing intervals; it ran no new scientific call. The clean 5,400-pair VAR/DINO supplement remains resource-waiting and R1/R2 remain unregistered. These packet probabilities are an IID scrambled-payload pre-screen approximation, not image-level quality or a GO result. See [closed packet segment](results/layered_mismatch_raw_20261013/r0_bler_delivery_v1/README.md).
+
+
+## 2026-10-13: finite layered-raw calibration entry prepared
+
+The complete PHY → receiver projection → reconstruction → scoring → calibration-selection entry is now implemented and reviewed with CPU-only checks. R1 is not registered or launched: the actual R0 supplement must close before the shortlist is frozen. The original calibration200, frame limits, DINO objective and GO decision are unchanged; no training, added qualification frames or automatic development launch is introduced. Source truth is isolated from the reconstruction worker, and the existing timing task retains its registered GPU0 priority. See [entry preparation](results/layered_mismatch_raw_20261013/r1_execution_preparation_v1/README.md) and its dated execution snapshot.
+
+
 ## 2026-10-13: finite layered-raw R0 supplement launched
 
 The user explicitly approved 88,896 additional body-packet trials and 5,400 clean VAR plus DINO-L source/endpoint scores. The original R1/R2 limits and decision rules are unchanged. Original evidence is reused. The CPU BLER owner has actually started; its immutable milestone snapshot records 6144 completed packet trials. The clean GPU registration is complete but its initial admission returned WAIT with zero model calls; this is not reconstruction completion. R1, R2 and the six-method timing remainder are not reported as complete. See [R0 supplement](experiments/layered-mismatch-raw-20261013/R0_SUPPLEMENT.md) and [execution evidence](results/layered_mismatch_raw_20261013/r0_supplement_preparation/execution_milestone_v1.json).

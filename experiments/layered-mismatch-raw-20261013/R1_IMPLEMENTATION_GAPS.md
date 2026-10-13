@@ -1,5 +1,10 @@
 # R1 implementation gaps and frozen interfaces
 
+## 2026-10-13 entry preparation closure
+
+The implementation gaps described below are historical. The complete five-stage entry now exists under `r1_execution_v1/`, with independent CPU review and a strict zero-model import check. It is not registered or scientifically executed. Actual R0 clean closure and authenticated nominations remain prerequisites. See `results/layered_mismatch_raw_20261013/r1_execution_preparation_v1/`.
+
+
 Status: read-only design review. No R1 registration, PHY call, reconstruction,
 metric call, bootstrap, candidate selection, or R2 dispatch was performed by
 this review. New R0 BLER/clean results were not opened. This document proposes

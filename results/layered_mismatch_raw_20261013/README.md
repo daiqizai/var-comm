@@ -74,3 +74,11 @@ they are not included in this repository or a lightweight backup increment.
 ## User-approved R0 supplement
 
 The original inventory remains preserved. The human subsequently approved the finite missing-evidence supplement. Its reviewed CPU packet owner is now running; the clean GPU stage is registered and waiting for resource admission. R1/R2 have not started. See the independently registered supplement and actual execution milestone in `results/layered_mismatch_raw_20261013/r0_supplement_preparation/`.
+
+## Finite R1 execution entry
+
+The reviewed entry is prepared but has no scientific registration or launch. See `r1_execution_preparation_v1/README.md`; actual R0 closure remains a prerequisite.
+
+## Completed supplemental packet segment
+
+All 88,896 new body trials are authenticated in `r0_bler_delivery_v1/`. This does not close the clean supplement, nomination or R1/R2.

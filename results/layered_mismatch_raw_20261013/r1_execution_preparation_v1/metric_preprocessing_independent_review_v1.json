@@ -1,0 +1,49 @@
+{
+  "findings": [
+    "Original sourceuint8/255 and actualfloat32 reconstruction both CHW RGB256 and same[0,1]range.",
+    "LPIPS uses unchanged original AST pair expression with same normalization for both inputs; original AlexNet+linear weights only.",
+    "DINO original prepare_reference and score both call original dinov2_vitl14_features/preprocess; 1024-dimensional ViT-L/14 CLS and sourceprepared digestchecked.",
+    "PSNR is original float64MSE/-10log10 AST projection; original finite semantics retained.",
+    "DINO evaluator requests onlydinov2_vitl14; label_conditioned=false; labels read onlymetric process; noConvNeXt.",
+    "Metrics consume actual savedNPZ image includinggray/failure; noR0clean_Q substituted.",
+    "Equivalent normalized actual_input_key cache retains source/pixel/noise/observation/RX/model/image/metric identities; unnormalized stateSHA remains auditable perrow."
+  ],
+  "implementation": {
+    "bytes": 17475,
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_pilot_metrics_v1.py",
+    "sha256": "6bde19df620a7dbf391f5d406daa3b4c1de2a66d051c990c26ae9a2474c1ec8d"
+  },
+  "original_sources": {
+    "metric_models.py": {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/pilot_metric_code_seed_v1/metric_models.py",
+      "sha256": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066"
+    },
+    "quality.py": {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/pilot_metric_code_seed_v1/quality.py",
+      "sha256": "589d43a9dede2327c67d363f3b8b879cfb184e40e6a58b1aa2ae9b675d63a1a5"
+    },
+    "score_bpg_cached_holdout_r2.py": {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/pilot_metric_code_seed_v1/score_bpg_cached_holdout_r2.py",
+      "sha256": "d8e9f85c83f63a288cf0500e53857bc6e81c205cec93897e4d46f9f177c79d8e"
+    },
+    "step0_reference_metrics.py": {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/pilot_metric_code_seed_v1/step0_reference_metrics.py",
+      "sha256": "2c5b712fcf36e859e73ef6a680989ce9a8ef29884ab63b0c3e14e7720d7dae28"
+    }
+  },
+  "review_did_not_construct_models": true,
+  "reviewer": "entropy_e0_reuse",
+  "scientific_calls": 0,
+  "scope": "Static actual-source interface review, not numerical self-score qualification",
+  "score_entry": {
+    "bytes": 40339,
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/layered-mismatch-raw-20261013/r1_execution_v1/score_selection.py",
+    "sha256": "006b82957558ec222294e91a53cb1ba9f03f64e41ef3cfa282279d10d9c05771"
+  },
+  "score_tests": {
+    "bytes": 21436,
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/layered-mismatch-raw-20261013/r1_execution_v1/test_score_selection.py",
+    "sha256": "f9f43d015bff85bce90912209b40574b124c6a1be1a73baf5272c6cce1a0892b"
+  },
+  "status": "PASS_INDEPENDENT_STATIC_METRIC_PREPROCESSING_REVIEW"
+}
