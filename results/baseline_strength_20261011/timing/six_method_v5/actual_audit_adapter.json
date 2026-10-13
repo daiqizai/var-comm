@@ -1,0 +1,70 @@
+{
+  "schema": "SIX_METHOD_TIMING_AUDIT_EXCLUSIONS_V2",
+  "static_catalogue_check": "before and after every complete case",
+  "excluded_functions": [
+    {
+      "function": "_mismatch_original_keep_receiver.array_sha",
+      "source_file": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/mismatch_raw_dependencies_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/prepared_v1/main_physical_runtime_r2/main_raw_keep_receiver.py",
+      "function_source_sha256": "1c02574439635f0a26ecae8c3cb53e763292c79f0cd141e51f68efafaa3ec910",
+      "reason": "raw waveform/observation provenance fields only",
+      "output_values_preserved": true
+    },
+    {
+      "function": "_mismatch_original_keep_receiver.identity",
+      "source_file": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/mismatch_raw_action_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/prepared_v1/main_physical_runtime_r2/main_action_space.py",
+      "function_source_sha256": "6e99d3ed760fa3686a3c5905b2e4c043927827dc4ed64bae69c7f8a6868a7eac",
+      "reason": "received-state metadata digest; not a render cache key",
+      "output_values_preserved": true
+    },
+    {
+      "function": "main_raw64_plan_only.identity",
+      "source_file": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/mismatch_raw_dependencies_seed_v1/VAR_COMM/outputs/MAIN-RAW64-20261007/prepared_v1/phy/main_raw64_plan_only.py",
+      "function_source_sha256": "d8eebdb5b55c42bf56d27bb5721408514e10efdf3887f6e7d567117b7d6a75af",
+      "reason": "packet request/result/physical-description provenance",
+      "output_values_preserved": true
+    },
+    {
+      "function": "main_raw64_plan_only.new_identity",
+      "source_file": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/mismatch_raw_dependencies_seed_v1/VAR_COMM/outputs/MAIN-RAW64-20261007/prepared_v1/phy/main_raw64_plan_only.py",
+      "function_source_sha256": "ce1af357872cd30aefbdf2680276c75c8ddc7ee179cce69033b363751e47ee07",
+      "reason": "static backend provenance descriptor construction only",
+      "output_values_preserved": true
+    },
+    {
+      "function": "t1_phy.array_sha",
+      "source_file": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/wcl-evidence-closure-20261009/scripts/t1_phy.py",
+      "function_source_sha256": "0b338597c8168404005adb9a2cdbde3fc5609e2c030997c496c6114cbdcff80c",
+      "reason": "entropy packet array provenance; CRC and scramble unchanged",
+      "output_values_preserved": true
+    },
+    {
+      "function": "ep_phy.array_sha",
+      "source_file": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/ep_phy.py",
+      "function_source_sha256": "0b338597c8168404005adb9a2cdbde3fc5609e2c030997c496c6114cbdcff80c",
+      "reason": "entropy packet array provenance; CRC and scramble unchanged",
+      "output_values_preserved": true
+    }
+  ],
+  "clock_adapter": {
+    "original_AST_sha256": "ae2144be54e802ae84738892a029b1357a733bd170a2615fbd751924f853451c",
+    "inverse_AST_equal": true,
+    "changes": [
+      [
+        "endpoint.t.cuda.synchronize(); start = time.perf_counter()",
+        "endpoint.t.cuda.synchronize(); start = _audit_clock.now(); raw_start = time.perf_counter()"
+      ],
+      [
+        "outer = time.perf_counter()-start",
+        "outer = _audit_clock.now()-start; raw_outer = time.perf_counter()-raw_start"
+      ],
+      [
+        "TX_components=tx.seconds, RX_components=rx.seconds)",
+        "TX_components=tx.seconds, RX_components=rx.seconds,\n                   raw_wall_tx_seconds=tx.wall_seconds['TX_total'],\n                   raw_wall_rx_seconds=rx.wall_seconds['RX_total'],\n                   raw_wall_outer_seconds=raw_outer,\n                   audit_excluded_tx_seconds=tx.audit_seconds['TX_total'],\n                   audit_excluded_rx_seconds=rx.audit_seconds['RX_total'],\n                   audit_excluded_seconds=_audit_clock.excluded,\n                   audit_events=dict(_audit_clock.events))"
+      ]
+    ],
+    "scientific_case_expression_unchanged": true
+  },
+  "actual_hashes_executed": true,
+  "protocol_checks_excluded": false,
+  "global_clock_or_hashlib_modified": false
+}

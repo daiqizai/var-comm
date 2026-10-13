@@ -1,0 +1,73 @@
+{
+  "schema": "V6_CODE_PREPARATION_NO_SCIENTIFIC_REGISTRATION",
+  "checked_unix": 1791887917.8724425,
+  "status": "CPU_PASS_PENDING_ROOT_AND_INDEPENDENT_REVIEW",
+  "sources": [
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/baseline-delivery-20261012/timing_revision_v6/timing_owner_v6.py",
+      "sha256": "88392f7ba2483410b0c8ba5ab38b3b033f7ae33c12d38eef5e18b5a1e3af8d08",
+      "bytes": 11038
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/baseline-delivery-20261012/timing_revision_v6/recovery_adapter.py",
+      "sha256": "867427124e2551a804b58698e69a9e85e373cd4cd0c684033e904adc0010040f",
+      "bytes": 7508
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/baseline-delivery-20261012/timing_revision_v6/test_recovery.py",
+      "sha256": "2aa8148f3aa01aebfba192160e57a2786599531ec71c75d6e54f5a099fa205ec",
+      "bytes": 13690
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/baseline-delivery-20261012/timing_revision_v6/README.md",
+      "sha256": "5886426844c2081ddc252046af1a10a478e2353b5a201d8ee9eea6b9fa5f5504",
+      "bytes": 3749
+    }
+  ],
+  "cpu_tests": {
+    "interpreter": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_visual_py310/bin/python",
+    "command": [
+      "python",
+      "-B",
+      "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/baseline-delivery-20261012/timing_revision_v6/test_recovery.py"
+    ],
+    "CUDA_VISIBLE_DEVICES": "",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "observed_ssh_exit_code": 0,
+    "tests": 12,
+    "passed": 12,
+    "seconds_reported_by_unittest": 0.458,
+    "observed_stdout_tail": "Ran 12 tests in 0.458s\n\nOK",
+    "scope": "No model, encoding, decoding, channel, packet or reconstruction calls. Existing static counts/CDF metadata was loaded and validated; no fitting.",
+    "prior_fixture_history": [
+      {
+        "tests": 8,
+        "exit_code": 0,
+        "stage": "closure and resume only"
+      },
+      {
+        "tests": 12,
+        "exit_code": 1,
+        "errors": 1,
+        "stage": "added static validation test",
+        "reason": "Test fixture passed t1_entropy_core instead of its load_integer_codec entropy module; no model or arithmetic source call",
+        "fix": "Use original load_integer_codec(root) metadata/module loader, then validate the unchanged existing frozen static CDF"
+      }
+    ]
+  },
+  "scientific_calls": 0,
+  "new_registration": false,
+  "new_launch": false,
+  "cumulative_budget": {
+    "original_seconds": 14400,
+    "prior_enclosing_attempt_seconds_with_margin": 1331,
+    "v6_remaining_seconds": 13069
+  },
+  "authority": {
+    "document": "NeST_Com_熵编码主方案_实验安排_20261013.md",
+    "sha256": "802915ad9ef3ebf76bb6e25d9dda8eedbfe953e934b95e42f573ba55b1b43b39",
+    "line153": "1728 complete end-to-end calls",
+    "line223": "Preserve complete rows and failures; redo only genuinely missing or invalid work",
+    "root_budget_adjudication": "One failed fresh VAE/VQ subcomputation is explicit; complete calls remain1728, measurements864, packet cap2304; no completed call rerun"
+  }
+}

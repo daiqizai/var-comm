@@ -1,0 +1,209 @@
+{
+  "schema": "READ_ONLY_FAILED_TIMING_AUDIT_V1",
+  "checked_unix": 1791886907.2912147,
+  "scientific_calls_during_audit": 0,
+  "status": "PARTIAL_STOP_PRESERVED_NO_RETRY",
+  "actual_wait": {
+    "actual_child_waited": true,
+    "exit_code": 1,
+    "timed_out": false
+  },
+  "owner_worker_absent": true,
+  "actual_registration_sha256": "44b14186a878621ea15e18da8cbf50e185927e6390826d019cff0865afc666f6",
+  "completed_frames": 576,
+  "completed_measurements": 288,
+  "completed_warmups": 288,
+  "completed_methods": {
+    "RAW_WHOLE": 288,
+    "RAW_PARTIAL": 288
+  },
+  "identity_matched_complete_conditions": 96,
+  "fresh_token_hashes_match_frozen_source": true,
+  "case_cap": 1728,
+  "reserved_logical_slots": 577,
+  "unresolved_slot": {
+    "case": {
+      "method": "EC_VAR_WHOLE",
+      "source_index": 0,
+      "snr_db": 4,
+      "repeat": 0,
+      "phase": "warmup"
+    },
+    "state": "RESERVED",
+    "actual_packet_decodes": 0
+  },
+  "unstarted_slots": 1151,
+  "packet_cap": 2304,
+  "actual_packet_calls": 1152,
+  "remaining_packet_calls": 1152,
+  "root_cause": "Provider lambda closes over build-local ns, later reassigned to baseline.p_math namespace; IndependentProvider lookup then fails.",
+  "source_events": [
+    {
+      "line": 174,
+      "source": "ns=dict(np=endpoints.np,time=time)"
+    },
+    {
+      "line": 179,
+      "source": "codec.provider_factory=lambda:ns['IndependentProvider'](native,SimpleNamespace(cdf_function=codec.entropy.probability_cdf))"
+    },
+    {
+      "line": 216,
+      "source": "ns,_=baseline.p_math()"
+    }
+  ],
+  "pure_python_closure_reproduction": "KeyError IndependentProvider, no model import",
+  "failure_stage": {
+    "fresh_visual_encoder_completed": true,
+    "classification": "Proven from traceback reaching the next sequential encode statement; no separate VQ begin/done persisted ledger exists.",
+    "independent_provider_constructor_entered": false,
+    "entropy_stream_produced": false,
+    "channel_called": false,
+    "packet_decodes": 0,
+    "receiver_called": false
+  },
+  "budget_semantics": {
+    "registration_cap": "1728 ordered logical slots, each fresh_case begins one reservation.",
+    "physical_visual_counter": "No separate physical visual encoder begin/done counter or cap in CaseReservations. ModelCalls counts only explicit callback uses; failed frame tokens live only in process memory.",
+    "partial_case_data": "No token/latent/partial TX timing persisted for RESERVED slot. Processes are dead.",
+    "previous_calls_to_preserve": 576,
+    "fresh_encoder_calls_already_done": 577,
+    "fresh_encoder_calls_if_complete_original_grid_by_recovering_failed_slot": 1729,
+    "unavoidable_extra_fresh_encoder_calls": 1,
+    "completion_feasibility": "No zero-extra-visual-call recovery retains complete 3 fresh end-to-end warmups and 3 measurements for failed condition. Replaying fresh_case for this unresolved slot requires one additional VAE encoder/VQ physical call, explicitly beyond original one-per-slot physical total. It does not require extra packet calls or extra completed slots.",
+    "forbidden_alternatives": [
+      "Replaying any of completed first576 calls",
+      "Using frozen cached tokens as fresh TX input",
+      "Counting failed partial TX as full end-to-end warmup",
+      "Silently reducing warmups to two",
+      "Changing original failure ledger/registration"
+    ]
+  },
+  "permitted_next_step": "Only independent adapter and CPU tests may be prepared after root coordination; no recovery executed by this audit.",
+  "immutable_evidence": [
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/baseline_strength_20261011/timing/six_method_v5/registration.json",
+      "sha256": "44b14186a878621ea15e18da8cbf50e185927e6390826d019cff0865afc666f6",
+      "bytes": 114314
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/baseline_strength_20261011/timing/six_method_v5/launch.json",
+      "sha256": "138fb809d278df3ccb6e73a0697e804f629d50ef44b9ab7679b21adebd60c51f",
+      "bytes": 512
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/baseline_strength_20261011/timing/six_method_v5/worker_launch.json",
+      "sha256": "cd750b3cc754d85549fb9c89a0d555aa88fb4f13dd274678bddabf38128ee5fe",
+      "bytes": 45
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/baseline_strength_20261011/timing/six_method_v5/actual_wait.json",
+      "sha256": "6fbacb10c95d94880e9cb11d697d44a47796d7b91a6d774a9ea308fddc4ed14a",
+      "bytes": 74
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/baseline_strength_20261011/timing/six_method_v5/running_status.json",
+      "sha256": "c9827632b5ed1e8dbebaede4bb6de460f3e3f1d1d74c20516b67d8b93396405c",
+      "bytes": 3501
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/six_method_timing_v5/worker_failure.json",
+      "sha256": "41398d8cfdb71169e9958e41581858a238fd1d57dda858a8eaa0097f2f6ee60c",
+      "bytes": 3559
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/six_method_timing_v5/failure.json",
+      "sha256": "d12a5b07c4cd36c1c8d57a3961d0e8827e32379809b5a2cf06843a8b4a5f04fd",
+      "bytes": 1277
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/six_method_timing_v5/case_reservations.json",
+      "sha256": "6d1cf07012757c6c3f852e82409f4af409353a45cceafbe2c53e07ca5a274b21",
+      "bytes": 1509863
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/six_method_timing_v5/numerical_runtime.json",
+      "sha256": "7f204f8d0bf24654d50f95f19b1223b1589856e7653c2a50f017b7b8534fb056",
+      "bytes": 1081
+    }
+  ],
+  "source_bindings": [
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/baseline-delivery-20261012/timing_runtime.py",
+      "sha256": "a762e97de26103323a4d14e9dc5453c54fec7920ef2d0cc75771afa53d8e5be9",
+      "bytes": 12979
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/baseline-delivery-20261012/timing_contract.py",
+      "sha256": "e27e0db8af7d4284ebb319de717d82430fc7ab346d896f0632164ac1cc4f1438",
+      "bytes": 5822
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/baseline-delivery-20261012/timing_endpoints.py",
+      "sha256": "c28c90bb29c3ee5d5c34ad9a11ee07ab3fc67afbdda4de59a2ce785d22900e5b",
+      "bytes": 13512
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/baseline-delivery-20261012/timing_owner.py",
+      "sha256": "c59d4cf22c1c8da36861d9af8e28ade8d2c08d6219013ab4f03d6d88e26997d8",
+      "bytes": 14990
+    }
+  ],
+  "actual_runtime_files": [
+    {
+      "name": "case_reservations.json",
+      "bytes": 1509863
+    },
+    {
+      "name": "cuda_device_identity.json",
+      "bytes": 678
+    },
+    {
+      "name": "failure.json",
+      "bytes": 1277
+    },
+    {
+      "name": "native_dependency_admission.json",
+      "bytes": 1280
+    },
+    {
+      "name": "native_header_addendum.json",
+      "bytes": 888
+    },
+    {
+      "name": "native_linkage_before_first_case.json",
+      "bytes": 81136
+    },
+    {
+      "name": "native_linkage_loaded.json",
+      "bytes": 32488
+    },
+    {
+      "name": "numerical_runtime.json",
+      "bytes": 1081
+    },
+    {
+      "name": "raw_resource_adapter.json",
+      "bytes": 1043
+    },
+    {
+      "name": "resource_snapshots.jsonl",
+      "bytes": 1483260
+    },
+    {
+      "name": "visual_resource_adapter.json",
+      "bytes": 947
+    },
+    {
+      "name": "worker.log",
+      "bytes": 5141
+    },
+    {
+      "name": "worker_failure.json",
+      "bytes": 3559
+    }
+  ],
+  "notes": [
+    "v2 and v3 actually constructed models, each case0/packet0; v4 never launched.",
+    "Source/result identities and complete576 data are recoverable from journal; formal six-method CSVs do not exist because export occurs only after full completion."
+  ]
+}

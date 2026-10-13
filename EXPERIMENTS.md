@@ -1,5 +1,51 @@
 ## Common500 entropy-coded quality and source analysis complete; timing unresolved (2026-10-13)
 
+## 2026-10-13: EMAIN quality delivered; shared timing recovery registered
+
+The original common500 entropy-coded partial-scale supplement is complete:
+4500 logical frames, all four stages actually exit0, 12 new single-method and
+60 direct paired intervals, and five PDF/SVG/600dpi PNG figure groups. All five
+PNGs were actually opened and checked. Commit `d7579a02b3021846e27de85e498332b2f735f68c`
+was normally pushed and the remote SHA verified. The independent quality
+increment on Lu_Data contains 16,197 payload files and 1,084,785,621 archive
+bytes; archive SHA256 `c5e13427e2c03e50d30b5392397408e243198dde0c474b4c00a2911f5c6f0abb`
+and every payload SHA passed. It depends on the earlier model/data/environment
+recovery packages and does not contain the remaining timing results.
+
+The shared-H800 v5 timing attempt actually exited1 after completing 576 calls
+(RAW_WHOLE and RAW_PARTIAL, 288 each; 288 measured calls and 1152 packet decodes).
+Its first entropy-coded warmup completed fresh visual encoding but stopped
+before entropy-provider construction because a closure read a later-rebound
+Python namespace. The failed reservation and all 576 completed calls remain
+immutable. This is an incomplete six-method timing experiment.
+
+The separately reviewed v6 entry fixes that provider capture and loads the
+existing frozen STATIC receive table required by the unchanged public 144/360
+receive domains. It inherits the 576 completed rows without executing them and
+permits only the remaining 1152 complete calls. The user's plan defines 1728
+complete end-to-end calls and explicitly permits restoring truly missing work
+after a failure. The repeated incomplete warmup is disclosed: success would
+mean 1728 complete calls, 864 measurements and at most 2304 packet decodes, with
+1729 known fresh-visual/endpoint attempts including the original failed one.
+The cumulative four-hour envelope deducts 1331 prior seconds, leaving 13069.
+
+v6 registration SHA256:
+`54aafaca38b177266ef2c21cac23fce4dee2a0658e9bd9a0cfc5d2836baa269a`.
+At registration the GPU had only 10197 MiB free versus the unchanged 18432 MiB
+initial admission threshold: WAIT, no v6 launch or new scientific call. This
+is a timestamped registration snapshot; later state must be read from actual
+launch/ledger/child-wait receipts. v1/v4 remain unlaunched; v2/v3 construction
+failures and v5's partial failure are preserved and must not be restarted.
+
+The independent `timing_postprocess_v1` CPU entry passed 29 synthetic tests.
+Its actual v5 partial audit passed, preserving 576 COMPLETE and one RESERVED
+record without issuing a six-method performance table. Complete v6 delivery
+requires real child exit0 and a verified joint grid, identities and resources.
+All timing remains shared-environment latency, with raw wall/audit exclusions
+and the two execution segments disclosed; no old-hardware speed ratio applies.
+No E4 expansion, training, quality replay or bootstrap replay is authorized.
+
+
 The frozen entropy-coded partial-scale extension has actually completed all 4,500 method frames on the original 500 sources at N1024 and SNR 4/10/19 dB, with actual exit0 from source, PHY, independent reconstruction and scoring. The independent read-only receiver audit verifies all frame/counter/input/output identities, 1,500 actual source decodes and reconstructions plus 3,000 exact received-input reuses, and zero unresolved reservations. All 4,500 realized frames parsed and independently decoded successfully; no failure row was removed. Existing strong references are reused without training, reselection or altered policies.
 
 After averaging the three noises within each source, the original 10,000-replicate bootstrap (seed 2026100701) produced 12 new method intervals and 60 direct paired intervals; 72 historical intervals remain unchanged. Entropy partial-minus-whole PSNR gains are 0.616/0.705/0.337 dB at 4/10/19 dB, with improved LPIPS and DINOv2-L at all three points. The 19 dB prediction-agreement difference is -0.2 percentage points with 95% CI [-2.0, 1.6], so there is no uniform agreement gain. Relative to the raw partial implementation, PSNR improves 0.281/0.299/0.595 dB. PSNR remains lower than Swin200k and adaptive BPG at all three points, and lower than latent-space JSCC at 4/10 dB; LPIPS is worse than latent JSCC at 4 dB, and its 10 dB paired interval includes zero. These tradeoffs are retained, not used to retune the method.
