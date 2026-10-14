@@ -1,0 +1,25 @@
+{
+  "original_source_sha256": "53a5d13fb01ed35204922cd76e16e7bcbe3447bc67b51793084eda3754aaa34b",
+  "inverse_AST_equal": true,
+  "live_globals_preserved": true,
+  "substitutions": [
+    {
+      "original": "s.native.args.multiple_snr=','.join(str(v) for v in range(1,20))",
+      "replacement": "s.native.multiple_snr=list(range(1,20))"
+    },
+    {
+      "original": "codec.provider_factory=lambda:ns['IndependentProvider'](native,SimpleNamespace(cdf_function=codec.entropy.probability_cdf))",
+      "replacement": "codec.provider_factory=lambda _provider=ns['IndependentProvider']:_provider(native,SimpleNamespace(cdf_function=codec.entropy.probability_cdf))"
+    },
+    {
+      "original": "codec=ep_source_codec.PartialSourceCodec(ROOT)",
+      "replacement": "codec=ep_source_codec.PartialSourceCodec(ROOT)\n    import h800_ep48_link_core_v1 as _static_link\n    _static_link.bind_static(codec,visual_request['static'])"
+    }
+  ],
+  "original_files_modified": false,
+  "provider_capture": "Same IndependentProvider class, captured once as lambda default before P namespace assignment",
+  "provider_factory_body_math_unchanged": true,
+  "shared_visual_late_global_replacement_preserved": true,
+  "static_receive_domain": "Existing qualified bind_static with original relocated frozen table; preserves144/360 public profiles",
+  "new_source_tokens_or_channel_calls": 0
+}

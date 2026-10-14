@@ -1,3 +1,13 @@
+## 2026-10-14: completed six-method shared-H800 timing
+
+The six-method timing is fully closed: 576 original v5 completed calls were preserved and 1,152 missing complete calls were executed by the registered v6 recovery, for 1,728 complete calls, 864 measurements and 2,304 packet decodes. The separate actual CPU postprocess completed successfully with the original statistics source unchanged; full-precision tables, component summaries, inherited-call origins, receiver outcomes and English/Chinese reports are available. The historical v2/v3 initialization failures and v5 partial failure remain preserved. The failed entropy warmup is disclosed separately: 1,729 known fresh visual/endpoint attempts produced 1,728 complete calls.
+
+The user-authorized resource revision lowered only GPU0 startup free-memory admission from 18 GiB to 8 GiB. The same H800 device, utilization ceiling, 16 GiB private allocator cap, 2 GiB running free-memory floor, 6/2 threads, six CPU slots, frozen numerical protocol and remaining 13,069-second scientific budget were retained. These are two execution segments under changing shared load. Reported times are shared-environment latency; resource boundary samples do not prove absence of interference or continuous peak bounds. No cross-hardware or HiFi speed ratio is claimed.
+
+R0 remains complete. The recovered R1 calibration remains NO_GO_STOP, with no R2, additional scientific samples, training, selection changes or bootstrap replay. These calibration results are not a blind-test conclusion. Final timing and R1 scientific backup verification are separate remaining delivery steps.
+
+[Completed six-method timing report](../baseline_strength_20261011/timing/six_method_v6_delivery_v1/REPORT.md).
+
 ## 2026-10-14: completed R1 calibration; NO_GO_STOP
 
 R0 screening is complete. The recovered R1 calibration is fully closed: 32,400 physical frames and 43,200 logical VAR frames on the original 200 calibration sources. The original successful PHY/projection segments were reused; the original initialization failure and its failed model-load reservation remain preserved and disclosed separately. The recovered visual, scoring and selection stages exited successfully, followed by the actual CPU closure audit and final figures with both PNGs opened for visual review.

@@ -1,0 +1,27 @@
+% Fragment: shared-environment latency, milliseconds; no bootstrap intervals.
+\begin{tabular}{llrrrr}
+\hline
+Method & SNR (dB) & TX & RX & Software E2E & Channel \\
+\hline
+Whole-scale + VAR (raw) & 4 & 59.708 & 573.399 & 633.176 & 0.193 \\
+Whole-scale + VAR (raw) & 10 & 104.967 & 643.206 & 748.241 & 0.180 \\
+Whole-scale + VAR (raw) & 19 & 136.290 & 571.628 & 707.984 & 0.173 \\
+NeST-Com (raw) & 4 & 35.690 & 388.409 & 424.158 & 0.159 \\
+NeST-Com (raw) & 10 & 47.923 & 391.715 & 439.693 & 0.156 \\
+NeST-Com (raw) & 19 & 105.755 & 349.499 & 455.314 & 0.158 \\
+Whole-scale + VAR (entropy-coded) & 4 & 297.331 & 353.284 & 650.661 & 0.116 \\
+Whole-scale + VAR (entropy-coded) & 10 & 555.706 & 391.767 & 947.523 & 0.123 \\
+Whole-scale + VAR (entropy-coded) & 19 & 243.002 & 468.737 & 711.784 & 0.121 \\
+NeST-Com (entropy-coded) & 4 & 777.820 & 379.722 & 1157.590 & 0.124 \\
+NeST-Com (entropy-coded) & 10 & 1007.165 & 423.195 & 1430.408 & 0.122 \\
+NeST-Com (entropy-coded) & 19 & 938.258 & 503.974 & 1442.280 & 0.120 \\
+Latent-space JSCC (100k) & 4 & 18.103 & 23.953 & 42.104 & 0.222 \\
+Latent-space JSCC (100k) & 10 & 16.003 & 21.815 & 37.864 & 0.218 \\
+Latent-space JSCC (100k) & 19 & 15.586 & 22.620 & 38.253 & 0.219 \\
+SwinJSCC (adapted, 200k) & 4 & 26.926 & 20.626 & 47.599 & 0.156 \\
+SwinJSCC (adapted, 200k) & 10 & 28.404 & 22.162 & 50.615 & 0.159 \\
+SwinJSCC (adapted, 200k) & 19 & 28.083 & 21.943 & 50.074 & 0.158 \\
+\hline
+\end{tabular}
+% Means over 16 sources x 3 measured repetitions; all receiver outcomes included.
+% Channel is software noise generation, excluded from Software E2E. Full CSV includes median and p95.
