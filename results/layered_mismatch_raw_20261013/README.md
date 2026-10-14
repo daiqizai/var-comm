@@ -1,3 +1,13 @@
+## 2026-10-14: completed R1 calibration; NO_GO_STOP
+
+R0 screening is complete. The recovered R1 calibration is fully closed: 32,400 physical frames and 43,200 logical VAR frames on the original 200 calibration sources. The original successful PHY/projection segments were reused; the original initialization failure and its failed model-load reservation remain preserved and disclosed separately. The recovered visual, scoring and selection stages exited successfully, followed by the actual CPU closure audit and final figures with both PNGs opened for visual review.
+
+The frozen DINO-J gate is NO_GO_STOP. For both U minus S_robust and U minus S_back3, the stored mean difference is -0.009211461585946379 (7 dB: -0.004988394297348875; 10 dB: -0.013434528874543883). These calibration results do not establish a blind-test conclusion. R2 remains unregistered and unrun; no extra scientific samples, training, bootstrap, threshold changes or policy reselection were added. Negative and zero results are retained.
+
+The separate six-method shared-environment timing remains unfinished; its completed 576 calls are preserved. The user has now authorized relaxing its memory admission threshold, and that resource revision is being prepared while preserving the GPU0 device and numerical measurement protocol. Final scientific backup is a separate delivery step and is not claimed complete by this publication.
+
+[R1 calibration delivery](r1_cache_recovery_delivery_v1/REPORT.md).
+
 ## 2026-10-14: reviewed CPU closure entry for the recovered R1 calibration
 
 An independent CPU-only closure entry and one-time dispatcher now cover the recovered R1 chain. They require the original PHY/projection actual exit 0, preserve the original owner/visual exit 1, and separately verify the recovery owner and three new stages have actually exited 0. The original auxiliary resource-history attachment is separately SHA bound; the failed audit is unchanged. Completed source-grid, failure-ledger and saved-selection audits retain the original numerical and CSV functions. No reconstruction, metric model, channel, bootstrap, policy selection or R2 is invoked. Both entries passed independent review and 36 synthetic tests in the original CPU environment. Their production execution remains gated on genuine scientific closure; this milestone does not report completed quality or GO. The recovery scientific owner continues independently.
