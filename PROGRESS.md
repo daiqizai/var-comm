@@ -1,3 +1,18 @@
+## 2026-10-14 common500 supplemental quality metrics
+
+The six frozen methods now have all27000 original common500 image pairs /
+81000 DISTS, DreamSim and MS-SSIM scalar positions at N1024,4/10/19dB,
+three original noises per source. See results/quality_metrics_supplement_20261014_v1/common500.
+Every failure/gray frame is retained. The user separately authorized9000 missing
+P100k/Swin200k pixel replays; all9000 match the old pixelSHA and header state.
+No training, new samples/SNRs, checkpoint/policy selection, old-score replacement
+or main-figure change. Per-source three-noise means and10000 direct source-paired
+resamples(seed2026100701) report all three metrics and all15 method pairs with
+pointwise95% intervals; no global-winner or simultaneous-significance claim.
+The delivered13dB HiFi development16 remains separate. Original R1 NO_GO and
+six-method timing remain unchanged. Full restoration increment accompanies
+the normal publication; source/weights/environment prior packages are dependencies.
+
 ## 2026-10-14 saved-output HiFi metric supplement
 
 The original N1024/13 dB development16 HiFi display set and its final Swin200k
