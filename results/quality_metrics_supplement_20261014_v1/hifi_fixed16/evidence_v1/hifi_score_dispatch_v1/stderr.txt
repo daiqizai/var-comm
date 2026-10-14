@@ -1,0 +1,20 @@
+Traceback (most recent call last):
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/quality-metrics-supplement-20261014/hifi_score.py", line 199, in <module>
+    elif v.role=='run':run(v.expected_registration)
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/quality-metrics-supplement-20261014/hifi_score.py", line 124, in run
+    guard();models[name]=ledger.call('load_'+name,name,lambda loader=loader,name=name:loader(assets['models'][name],torch.device('cuda:0')))
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/quality-metrics-supplement-20261014/hifi_score.py", line 93, in call
+    try:value=fn()
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/quality-metrics-supplement-20261014/hifi_score.py", line 124, in <lambda>
+    guard();models[name]=ledger.call('load_'+name,name,lambda loader=loader,name=name:loader(assets['models'][name],torch.device('cuda:0')))
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/unified-metrics-20261002/metric_models.py", line 168, in load_dists
+    root = verify_tree(spec["implementation"], expected_revision=SOURCE_REVISIONS["dists"])
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/unified-metrics-20261002/metric_models.py", line 69, in verify_tree
+    root = Path(spec["path"]).resolve(strict=True)
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_python_base_v1/lib/python3.10/pathlib.py", line 1077, in resolve
+    s = self._accessor.realpath(self, strict=strict)
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_python_base_v1/lib/python3.10/posixpath.py", line 393, in realpath
+    path, ok = _joinrealpath(filename[:0], filename, strict, {})
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_python_base_v1/lib/python3.10/posixpath.py", line 428, in _joinrealpath
+    st = os.lstat(newpath)
+FileNotFoundError: [Errno 2] No such file or directory: '\\mnt\\pfs\\pfs-yc2F4O\\modelTeam\\liberai-tmp\\liulu\\liulu-var-comm\\baseline_strength_20261011\\quality_metrics_supplement_20261014_v1\\metric_assets\\VAR_COMM\\outputs\\UNIFIED-METRICS-20261002\\assets\\sources\\dists'

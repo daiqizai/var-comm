@@ -1,3 +1,15 @@
+## 2026-10-14 saved-output HiFi metric supplement
+
+The original N1024/13 dB development16 HiFi display set and its final Swin200k
+and P100k counterparts now have all 48 image pairs / 144 DISTS, DreamSim and
+MS-SSIM scalar scores. See results/quality_metrics_supplement_20261014_v1/hifi_fixed16.
+All16 per method are retained, with descriptive summaries and direct paired
+differences; no CI or common500 population claim. The six-method common500
+supplement waits for original P100k/Swin200k pixels by explicit user choice.
+No training, channel/receiver replay, selection feedback or main-figure change.
+Two zero-score initialization failures and the scoped metadata/private-dependency
+repairs are preserved. Original science, R1 NO_GO, old scores and timing are unchanged.
+
 ## 2026-10-14: completed six-method shared-H800 timing
 
 The six-method timing is fully closed: 576 original v5 completed calls were preserved and 1,152 missing complete calls were executed by the registered v6 recovery, for 1,728 complete calls, 864 measurements and 2,304 packet decodes. The separate actual CPU postprocess completed successfully with the original statistics source unchanged; full-precision tables, component summaries, inherited-call origins, receiver outcomes and English/Chinese reports are available. The historical v2/v3 initialization failures and v5 partial failure remain preserved. The failed entropy warmup is disclosed separately: 1,729 known fresh visual/endpoint attempts produced 1,728 complete calls.

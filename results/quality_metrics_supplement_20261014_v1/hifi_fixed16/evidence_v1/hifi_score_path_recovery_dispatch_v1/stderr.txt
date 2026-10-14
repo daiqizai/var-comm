@@ -1,0 +1,40 @@
+Traceback (most recent call last):
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/quality-metrics-supplement-20261014/hifi_score_path_recovery_v1.py", line 199, in <module>
+    elif v.role=='run':run(v.expected_registration)
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/quality-metrics-supplement-20261014/hifi_score_path_recovery_v1.py", line 124, in run
+    guard();models[name]=ledger.call('load_'+name,name,lambda loader=loader,name=name:loader(assets['models'][name],torch.device('cuda:0')))
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/quality-metrics-supplement-20261014/hifi_score_path_recovery_v1.py", line 93, in call
+    try:value=fn()
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/quality-metrics-supplement-20261014/hifi_score_path_recovery_v1.py", line 124, in <lambda>
+    guard();models[name]=ledger.call('load_'+name,name,lambda loader=loader,name=name:loader(assets['models'][name],torch.device('cuda:0')))
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/unified-metrics-20261002/metric_models.py", line 297, in load_dreamsim
+    official = importlib.import_module("dreamsim")
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_python_base_v1/lib/python3.10/importlib/__init__.py", line 126, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+  File "<frozen importlib._bootstrap>", line 1050, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1027, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1006, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 688, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 883, in exec_module
+  File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/quality_metrics_supplement_20261014_v1/metric_assets/VAR_COMM/outputs/UNIFIED-METRICS-20261002/assets/sources/dreamsim/dreamsim/__init__.py", line 1, in <module>
+    from .model import dreamsim, PerceptualModel
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/quality_metrics_supplement_20261014_v1/metric_assets/VAR_COMM/outputs/UNIFIED-METRICS-20261002/assets/sources/dreamsim/dreamsim/model.py", line 10, in <module>
+    from .feature_extraction.extractor import ViTExtractor
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/quality_metrics_supplement_20261014_v1/metric_assets/VAR_COMM/outputs/UNIFIED-METRICS-20261002/assets/sources/dreamsim/dreamsim/feature_extraction/extractor.py", line 12, in <module>
+    from .load_mae_as_vit import load_mae_as_vit
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/quality_metrics_supplement_20261014_v1/metric_assets/VAR_COMM/outputs/UNIFIED-METRICS-20261002/assets/sources/dreamsim/dreamsim/feature_extraction/load_mae_as_vit.py", line 4, in <module>
+    from transformers import ViTMAEModel
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/external/home/liulu/.local/lib/python3.10/site-packages/transformers/__init__.py", line 30, in <module>
+    from . import dependency_versions_check
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/external/home/liulu/.local/lib/python3.10/site-packages/transformers/dependency_versions_check.py", line 16, in <module>
+    from .utils.versions import require_version, require_version_core
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/external/home/liulu/.local/lib/python3.10/site-packages/transformers/utils/__init__.py", line 34, in <module>
+    from .chat_template_utils import DocstringParsingException, TypeHintParsingException, get_json_schema
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/external/home/liulu/.local/lib/python3.10/site-packages/transformers/utils/chat_template_utils.py", line 36, in <module>
+    import jinja2
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/external/home/liulu/.local/lib/python3.10/site-packages/jinja2/__init__.py", line 9, in <module>
+    from .environment import Environment as Environment
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/external/home/liulu/.local/lib/python3.10/site-packages/jinja2/environment.py", line 15, in <module>
+    from markupsafe import Markup
+ModuleNotFoundError: No module named 'markupsafe'
