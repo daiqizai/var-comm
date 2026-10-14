@@ -1,0 +1,50 @@
+{
+  "backend": {
+    "implementation": "Sionna_5G_LDPC",
+    "version": "2.2.0",
+    "encoder_source_sha256": "34d8db6660b2e84708a8fb534f63c194f6f2b964e3693fcffc9dcaf21532ccfd",
+    "decoder_source_sha256": "44d84b92b749e2970f94d92cd348a11648e2286b4d851faa0af8b21d08f0da23",
+    "decoder": {
+      "cn_update": "boxplus-phi",
+      "vn_update": "sum",
+      "cn_schedule": "flooding",
+      "num_iter": 20,
+      "llr_max": 20.0,
+      "hard_out": true,
+      "return_infobits": true,
+      "prune_pcm": true,
+      "harq_mode": false,
+      "precision": "single",
+      "early_stop": false
+    },
+    "bit_mapping": "component_Gray_00_-3_01_-1_10_3_11_1_over_sqrt5;QPSK_0_plus1_1_minus1",
+    "scrambling": "public_PCG64_SHA256_protocol_session_frame_group_counter_after_rate_matching_v1",
+    "power_protocol": "fixed_constellation_average_Es2",
+    "precision": "float32",
+    "rate_matching": "Sionna RV0; filler removal, first2Z and tail puncturing; supported n only",
+    "cuda": "12.8",
+    "torch": "2.11.0+cu128"
+  },
+  "device": "cpu",
+  "host": "aibox-rb80bf7d8e38-dc54b8fc7-zrgl7",
+  "cpu_affinity": [
+    0,
+    1
+  ],
+  "threads": 2,
+  "interop": 1,
+  "CUDA_initialized": false,
+  "numeric": "FP32 TF32off deterministic original2/1",
+  "mapping_sources": [
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/prior-aware-grouped-mcs-v1/uep_phy.py",
+      "sha256": "1f1fad07942e30cbc844e0cc3c2d7da7c747b568639d27115dc33eaec49cc65b",
+      "bytes": 6045
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/main-raw64-20261007/main_raw64_packet_adapter.py",
+      "sha256": "8414b29d63cbe340a164708da9278769479d5559915b97de64e4383d4caeb928",
+      "bytes": 15177
+    }
+  ]
+}

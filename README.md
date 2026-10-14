@@ -1,3 +1,20 @@
+## 2026-10-15 LE2 finite packet proxy delivered; stop before LE3
+
+LE0/LE1 and old raw R1 NO_GO are preserved. The new LE2 revision corrects
+the29bit length+CRC fields in each proportional allocation and nominates complete
+strategies from every Pilot50 source's actual fallback prefix quality. It covers
+single956 MCS and grouped reliability at7/10dB:18688 new packets,92 initial cells
+and18 topups within21504; no new wireless image/VAR/clean/training calls.
+Best grouped proxy J=.6919812165440816 versus single robust .7021032469582041,
+delta=-.010122030414122518: NO_PROMISING_MEASURED_CANDIDATE. Unmeasured layouts
+remain unknown and no global NO_GO or wireless image gain is claimed.
+Nine deduplicated diagnostic/exploratory LE3 candidates are delivered, no
+recommended positive proxy candidate; LE3 and power expansion are NOT_RUN.
+Gray hash-convention and CSV metadata failures with their real exits remain
+explicit; CPU-only final delivery exited0 without repeating any packet/score.
+See results/layered_entropy_le2_20261014_v1/delivery_v2/REPORT_zh.md.
+Scientific backups remain deferred at the user's explicit request.
+
 ## 2026-10-14 LE0/LE1 layered entropy source feasibility delivered
 
 Only LE0 and LE1 were authorized and completed. See
