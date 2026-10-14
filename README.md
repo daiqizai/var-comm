@@ -1,3 +1,23 @@
+## 2026-10-14 LE0/LE1 layered entropy source feasibility delivered
+
+Only LE0 and LE1 were authorized and completed. See
+results/layered_entropy_feasibility_20261014_v1/REPORT_zh.md.
+The deterministic pilot50 from original raw cal200 completed50 TX traversals,
+24 independent terminated two-stream RX proofs, and1200 clean source/endpoints
+(750 exact reuse,450 missing-state renders and DINO-L scores). Wireless image
+frames, packet trials, tokenization and training updates are all zero. The actual
+extra segmentation information cost is median30bit, range28--32bit, including
+the second13bit length field and16bit CRC. All terminal lengths are exact;
+first38 streams retain an explicit missing auxiliary finish-increment field.
+Source/model/CDF identities match. GPU3 resource stop and metric API failure
+remain disclosed with actual exits; successful science was not repeated.
+Actual Sionna group constructors and the capacity domain are independent design
+evidence; original ep_phy.Backend.plan is unchanged. Prospective LE2 has at most
+21504 packet trials if separately authorized. LE2/LE3/LE4 are NOT_RUN and no
+automatic next stage is scheduled. All evaluated old raw two-group candidates
+are dominated in the DINO and PSNR true7/10 planes; original R1 NO_GO is preserved.
+Clean-prefix quality and arithmetic packability do not assert wireless gains.
+
 ## 2026-10-14 common500 supplemental quality metrics
 
 The six frozen methods now have all27000 original common500 image pairs /
