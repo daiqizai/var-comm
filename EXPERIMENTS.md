@@ -1,3 +1,28 @@
+## 2026-10-16 T1-B symmetric m10 calibration delivered; stop before T1-C
+
+Both whole and partial families now include maximum target m10 with their
+separately frozen fallback chains. All old candidates/winners are retained.
+Source lengths collapse20 exact calibration aliases; four changed strategies
+are completely evaluated on originalcal1000 at4/10/19dB and4101/4102/4103.
+The36000 logical grid required22139 new physical events and44278
+packet decodes, within44278. Exact existing events/images/scores were reused;
+no source TX/tokenizer/training/test-set calls were added. One original RX
+initialization failed before Torch import; its failed model-load reservation
+is preserved. A separate runtime-library read boundary recovery inherited
+closed PHY without rerunning it and completed RX. A later UUID spelling
+assertion stopped metric initialization with zero model constructions/scores.
+Exact UUID normalization retained the same physical GPU and completed
+metrics and selection without repeating PHY or RX.
+
+Frozen old/new winners and all four metrics, all new logical frame scores,
+source means, paid-profile evidence and actual exits are delivered in
+results/t1b_m10_calibration_20261016_v1/delivery/REPORT_zh.md.
+There are2 changed family/SNR winners; calibration maximum differences
+are not independent test gains or novelty evidence. Old raw R1 NO_GO,
+LE0/LE1/LE2, fixed16 and shared timing stay unchanged.
+T1-C/common500/new100 source-boundary work and LE3 were NOT_RUN.
+No automatic successor. Scientific backups remain deferred by the user.
+
 ## 2026-10-16 Submission first batch delivered; m10 correction required
 
 T0/T1-A/T2/T3 only. Originalcal1000 completed1000 source TX and8 independent

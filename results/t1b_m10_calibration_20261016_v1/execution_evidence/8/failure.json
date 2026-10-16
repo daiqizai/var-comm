@@ -1,0 +1,21 @@
+{
+  "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/tb_receiver.py\", line 39, in run\n    n,render=ledger.call('model_load','once',lambda:build(routes,ledger,boundary,out,r['gpu_pci']))\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/submission-closure-20261016/common.py\", line 56, in call\n    try:value=fn()\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/tb_receiver.py\", line 39, in <lambda>\n    n,render=ledger.call('model_load','once',lambda:build(routes,ledger,boundary,out,r['gpu_pci']))\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/tb_native.py\", line 10, in build\n    import numpy as np,torch\n  File \"<frozen importlib._bootstrap>\", line 1027, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1006, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 688, in _load_unlocked\n  File \"<frozen importlib._bootstrap_external>\", line 879, in exec_module\n  File \"<frozen importlib._bootstrap_external>\", line 1016, in get_code\n  File \"<frozen importlib._bootstrap_external>\", line 1073, in get_data\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/tb_receiver.py\", line 20, in audit\n    if any(p==str(x)or p.startswith(str(x)+'/')for x in sensitive)and p not in allowed:raise PermissionError('RX truth/storage boundary: '+p)\nPermissionError: RX truth/storage boundary: /mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/external/home/liulu/.local/lib/python3.10/site-packages/torch/__init__.py\n",
+  "ledger": {
+    "caps": {
+      "model_load": 1,
+      "source_rx": 22139,
+      "var_render": 22139,
+      "prior_scale": 442780,
+      "decoder_forward": 22139
+    },
+    "counts": [
+      {
+        "kind": "model_load",
+        "status": "FAILED",
+        "count": 1
+      }
+    ],
+    "unresolved": 1
+  },
+  "automatic_retry": false
+}

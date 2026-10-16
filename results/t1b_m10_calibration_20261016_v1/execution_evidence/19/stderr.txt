@@ -1,0 +1,20 @@
+Traceback (most recent call last):
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/tb_receiver.py", line 76, in <module>
+    if __name__=='__main__':run(sys.argv[1])
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/tb_receiver.py", line 39, in run
+    n,render=ledger.call('model_load','once',lambda:build(routes,ledger,boundary,out,r['gpu_pci']))
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/submission-closure-20261016/common.py", line 56, in call
+    try:value=fn()
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/tb_receiver.py", line 39, in <lambda>
+    n,render=ledger.call('model_load','once',lambda:build(routes,ledger,boundary,out,r['gpu_pci']))
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/tb_native.py", line 10, in build
+    import numpy as np,torch
+  File "<frozen importlib._bootstrap>", line 1027, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1006, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 688, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 879, in exec_module
+  File "<frozen importlib._bootstrap_external>", line 1016, in get_code
+  File "<frozen importlib._bootstrap_external>", line 1073, in get_data
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/tb_receiver.py", line 20, in audit
+    if any(p==str(x)or p.startswith(str(x)+'/')for x in sensitive)and p not in allowed:raise PermissionError('RX truth/storage boundary: '+p)
+PermissionError: RX truth/storage boundary: /mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/external/home/liulu/.local/lib/python3.10/site-packages/torch/__init__.py
