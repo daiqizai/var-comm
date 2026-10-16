@@ -1,0 +1,39 @@
+# Implementation facts — frozen evidence, no new model search
+
+## Architecture and weights
+
+The actual VAR builder uses depth16, width1024, 16 attention heads, MLP ratio4, vocabulary4096, latent channels32, VAE base channels160, quantization residual sharing4. The ten patch sizes are 1,2,3,4,5,6,8,10,13,16 (680 tokens). Null class1000 and the frozen integer-CDF / completion rules are retained. Evidence: src/var_comm/next_scale_prior.py; the registered author-root models/__init__.py and models/var.py; source_registration.json and model_routes.json lineage.
+
+Actual full-loaded parameter counts from the completed timing runtime: VAE/tokenizer+original decoder **108,948,355**; VAR **310,283,520**; adapted D_c **64,663,171**; P communication module **495,208**; SwinJSCC **33,073,488**. All are frozen in evaluation. The P communication count is not the end-to-end P system total.
+
+CPU weight-tensor inventory confirms VAE encoder44,107,872; quant_conv9,248; quantizer parameters168,064 (209,024 stored elements minus40,960 EMA-usage buffer); original decoder64,653,923; post_quant_conv9,248. Tokenizer-side subtotal is **44,285,184**. VAR's VAE quantizer proxy is an unregistered tuple referencing the same quantizer: do not count it twice. D_c deep-copies decoder+post_quant_conv and has separate adapted weights. The unique NeST-Com tokenizer+VAR+D_c parameter subtotal is **419,231,875**; a runtime retaining unused original VAE decoder/post-conv stores **483,895,046** parameters. These are weight counts, not FLOPs, transmitted bits or an online latency claim. No system model constructor or inference was called for this metadata inventory.
+
+VAE file SHA256 `7c3ec27ae28a3f87055e83211ea8cc8558bd1985d7b51742d074fb4c2fcf186c`; VAR-d16 `4f6151aad91c94e03e224dd7358d8389fa05301c0c291279566998efb54b0ecb`; D_c checkpoint update0038000 `e3d757a5a16206f5f9be345d0e6330b0f1fd6c78bf167670e70378b429d931c4`. Actual state identities are retained in the registration/model routes; file SHA and state SHA are different domains. P100k and Swin200k are the completed selected final checkpoints, not older diagnostic P/Swin80k.
+
+Raw TX uses the frozen tokenizer and fixed-width token serialization without loading a VAR probability model for source coding. Entropy TX performs conditional VAR CDF evaluation. Both receivers use their actual received tokens, frozen completion and D_c; TX CDF, source pixels and untransmitted tokens are not receiver inputs. Entropy CRC/arithmetic failure rejects the stream; raw keeps its historically registered hard-token/KEEP rule. This is not the layered DROP-only proposal.
+
+## D_c adaptation
+
+Selected checkpoint is the registered update38,000 decoder, not a new training run. Original Stage-A optimizer AdamW, learning rate1e−5, weight decay0, gradient clip1, logical batch16/microbatch4. Each batch has exactly8 continuous F,4 quantized Fq,4 interpolated inputs; independent alpha Uniform[0,1]. Loss is image MSE +0.1 LPIPS. Original20k source images; no new spatial augmentation. Encoder/quantizer/VAR frozen; only copied decoder modules adapted. Full originalcal1000 selects the minimum50/25/25 mixture image loss; DINO is absent from this optimizer/checkpoint selection. Minimum4k and safetycap40k are protocol bounds, not claims of convergence. See experiments/var-latent-enhancement-20260917/configs/experiment.json, docs/stage_A_execution.md and source training.py.
+
+## Physical configuration
+
+`physical_workpoints.csv` lists both raw/entropy whole/partial configurations at4,10,19dB, including real k,n,BG,Z. `facts/entropy_12_actual_ldpc_layouts.csv` lists all12 original entropy MCS. These values are copied from actual constructor qualification, not recomputed by an approximate capacity formula. Entropy main q2/r2/3 uses BG2,Z128,k1274,n1912; q4/r2/3 uses BG2,Z256,k2549,n3824; q6/r5/6 uses BG1,Z224,k4780,n5736. Actual rate is k/n and includes the13+16bit source framing overhead. Sionna2.2.0 5G LDPC, RV0 shortening/filler removal, first2Z and tail puncturing, no repetition; flooding boxplus-phi, VN sum,20 iterations, no early stop, llr_max20, hard information output. Original raw19 whole uses only616 body symbols and340 idle; do not claim every raw waveform occupies956.
+
+Header is68 complex uses and total budget1024. Entropy body956, nominal constellation Es2, originalAWGN/numerical protocol. Original q/r restrictions remain; no LE2 r1/3 added to entropy-main candidates. Frozen targets and actual fallback differ; entropy partial checks actual terminated lengths along its paid prefix chain. Main19 partial targetm9+192 is616tokens, not fullm10. Catalogue/profile additions are pending a separate correction, not deployed by this audit.
+
+## Sources, preprocessing and statistical roles
+
+`cohort_source_ids.csv`, `cohort_roles.csv`, `cohort_intersections.csv` contain the exact original lists and direct intersections. Train20k comes from the registered ImageNet training parquet; cal1000/development100/common500/new100 are ImageNet validation images used in different internal roles. Official validation is not synonymous with a fresh blind internal test. The HiFi16 are a subset of development100; all other pairwise source-ID intersections among these seven roles are zero. Available recorded canonical/flip pixel hashes also show zero cross-role matches except that expected16. This does not exclude arbitrary crops, all historical exposure, perceptual duplicates or pretrained-model training overlap.
+
+Original ImageNet preprocessing converts to RGB, bicubic-antialiased resize of the shorter side to256 (each scaled dimension rounded), then center-crops256×256, under the original next_scale_prior/cache lineage; train-cache hashes record original and flip variants where applicable. No source pixels are regenerated in this batch. Kodak uses all24 numeric-order original lossless PNGs, center crop256 with integer floor offsets, no resizing; Kodak evidence here remains raw transport, not entropy transport or full-resolution transmission. The precise source/pixel identities and preprocessing are in the cohort evidence and registration, not inferred solely from filenames.
+
+Common500 has already been evaluated historically. Development100 and cal1000 have been used for development/selection. New100 was content-excluded against the recorded-study registry before its original confirmation, and is now also already evaluated. None is rebranded as a newly unseen test.
+
+## Metrics, timing and availability
+
+All common500 original and supplementary metrics/95% source intervals are reused unchanged; each source first averages its three noises. No marginal intervals are subtracted to fabricate a paired interval. Raw whole lacks the three supplementary metrics and remains explicitly unavailable; no extra4500 pairs were scored. Fixed16 uses nativefloat, frozen official DreamSim ensemble, original DISTS/MS-SSIM and newPSNR; precise settings/version/weight hashes are in metric_registration.json and fixed16/runtime_identity.json.
+
+The completed six-method shared-H800 timing table is included unchanged as reference implementation cost. Fixed method order, sharedGPU/resource admission revisions,576 reused calls and1152 continuation calls are disclosed in its original report;1728 totalcalls/864measurements, not864 independent sources. Do not infer interference-free exact speed ratios, combine differentGPUs or claim new timing for m10. No six-method retiming was run.
+
+Repository visibility and access were not changed. Code path and reproducibility metadata are provided within the existing repository; no unapproved public download availability is promised. Author names, affiliations, corresponding author, licensing declarations and venue-specific availability wording: **AUTHOR_TO_COMPLETE**.

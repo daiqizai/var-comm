@@ -1,0 +1,102 @@
+{
+  "plan_id": "NESTCOM_SUBMISSION_CLOSURE_20261015_V1",
+  "status": "PLAN_ONLY_NOT_EXECUTED",
+  "reviewed_repository": "daiqizai/var-comm",
+  "reviewed_commit": "bdb3e3c12d2ea2c18f4371e11cd912d5e8529100",
+  "default_tasks": [
+    "T0_inventory",
+    "T1A_m10_calibration_source_audit",
+    "T2_fixed16_raw_scoring_if_native_assets_exist",
+    "T3_existing_evidence_preparation"
+  ],
+  "limits_first_batch": {
+    "training_updates": 0,
+    "new_wireless_image_frames": 0,
+    "new_packet_trials": 0,
+    "new_tx_probability_traversals_max": 1000,
+    "independent_source_rx_roundtrips_max": 8,
+    "roundtrip_tx_included_in_1000": true,
+    "new_image_reconstructions": 0,
+    "new_diffusion_calls": 0,
+    "new_raw_fixed16_DISTS_DreamSim_MSSSIM_scalars_max": 48,
+    "new_fixed16_PSNR_scalars_max": 64,
+    "fixed16_new_scalars_total_max": 112,
+    "new_bootstrap_calls": 0
+  },
+  "m10": {
+    "source_endpoint": [
+      10,
+      0
+    ],
+    "token_count": 680,
+    "selection_population": "original_calibration1000",
+    "body_complex_uses": 956,
+    "header_complex_uses": 68,
+    "length_bits": 13,
+    "crc_bits": 16,
+    "max_arithmetic_capacity_bits": 4751,
+    "existing_q": [
+      2,
+      4,
+      6
+    ],
+    "existing_nominal_rates": [
+      "1/2",
+      "2/3",
+      "3/4",
+      "5/6"
+    ],
+    "all_old_candidates_retained": true,
+    "whole_and_partial_both_get_m10_if_corrected": true,
+    "zero_calibration_fits_not_universal_proof": true,
+    "any_fit_triggers_report_not_automatic_channel_sweep": true
+  },
+  "fixed16": {
+    "N": 1024,
+    "snr_db": 13,
+    "source_count": 16,
+    "methods": [
+      "RAW_PARTIAL",
+      "P100000",
+      "Swin200000",
+      "HiFiSwin200000"
+    ],
+    "raw_channel_seed": 6201,
+    "continuous_channel_seed": 2001,
+    "hifi_posterior_seed": 23,
+    "same_observation_pair_only": [
+      "Swin200000",
+      "HiFiSwin200000"
+    ],
+    "default_precision": "native_float32",
+    "missing_raw_native_action": "REPORT_GAP_NO_AUTOMATIC_REPLAY",
+    "metrics": [
+      "psnr_db",
+      "DISTS",
+      "DreamSim_official_ensemble",
+      "MS_SSIM"
+    ],
+    "statistics": "descriptive_all16_source_paired_differences_no_new_CI"
+  },
+  "conditional_tasks_not_authorized_by_default": [
+    "T1B_m10_candidate_recalibration_and_affected_link_evaluation",
+    "T1C_source_boundary_audit_on_frozen_common500_and_optional_new100",
+    "recover_at_most16_missing_original_raw_outputs",
+    "uniform_display_quantized_fixed16_rescoring",
+    "updated_entropy_endpoint_timing_if_final_implementation_changes"
+  ],
+  "excluded": [
+    "LE3_layered",
+    "LE4_layered",
+    "larger_SNR_mismatch",
+    "Rayleigh",
+    "power_allocation",
+    "new_model_training",
+    "P_or_Swin_extension",
+    "new_HiFi_recovery",
+    "new_13dB_entropy_calibration",
+    "unconditional_six_method_retiming",
+    "raw_whole_DreamSim_fullset_rescoring"
+  ],
+  "output_semantics": "No sandbox artifact is an executed experiment or repository change."
+}

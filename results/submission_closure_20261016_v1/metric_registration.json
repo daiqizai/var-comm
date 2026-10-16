@@ -1,0 +1,1163 @@
+{
+  "schema": "SUBMISSION_FIXED16_RAW_NATIVE_ADDITION_V1",
+  "gpu_index": 3,
+  "gpu_pci": "00000000:6F:00.0",
+  "gpu_uuid": "GPU-c3dc5251-e9ec-fd4f-6b04-2fc939016447",
+  "source_indices": [
+    0,
+    25,
+    50,
+    75,
+    4,
+    21,
+    24,
+    29,
+    33,
+    41,
+    52,
+    60,
+    64,
+    87,
+    92,
+    95
+  ],
+  "protocol": {
+    "dists": {
+      "direction": "lower",
+      "RGB": "float32 original256x256, [0,1], no resize/crop/quantization",
+      "normalization": "official internal ImageNet mean/std",
+      "batch_average": false
+    },
+    "dreamsim": {
+      "direction": "lower",
+      "branch": "ensemble",
+      "release": "v0.2.0-checkpoints",
+      "use_patch_model": false,
+      "normalize_embeds": true,
+      "preprocessing": "official square224 bicubic antialiased tensor geometry; original RGB floats retained, no PIL requantization or crop",
+      "normalization": "unchanged official per-backbone internal normalization"
+    },
+    "ms_ssim": {
+      "direction": "higher",
+      "RGB": "float32 original256x256, [0,1], no resize/crop/quantization",
+      "data_range": 1.0,
+      "size_average": false,
+      "win_size": 11,
+      "win_sigma": 1.5,
+      "weights": [
+        0.0448,
+        0.2856,
+        0.3001,
+        0.2363,
+        0.1333
+      ],
+      "K": [
+        0.01,
+        0.03
+      ]
+    }
+  },
+  "pairs": [
+    {
+      "method": "RAW_PARTIAL",
+      "source_index": 0,
+      "source_id": "n01440764/ILSVRC2012_val_00003014_n01440764",
+      "preprocessing_id": "ba4269f89fdfc1ec6596d3da2afb4e19a03b1eca4a1722e30eed3d2a2bd8f7ec",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0000.npz",
+        "sha256": "6687bc1d64aa43fc812fae028b46756e2c9b063cadab2198b2c6f5f22c71e474"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/submission_closure_20261016_v1/raw_native_fixed16/RAW_PARTIAL_0000.npz",
+        "bytes": 786714,
+        "sha256": "2c2e5295e0a14f7d3fbb3c6b0a3c337428a8d7703c5beccf1e4b871d23aa4368"
+      },
+      "reconstruction_sha256": "6c7cab5b7ddab835f879cbd4f4cb16e50e8b31842ddad07476529715d605fb10",
+      "noise_seed": 6201
+    },
+    {
+      "method": "P100000",
+      "source_index": 0,
+      "source_id": "n01440764/ILSVRC2012_val_00003014_n01440764",
+      "preprocessing_id": "ba4269f89fdfc1ec6596d3da2afb4e19a03b1eca4a1722e30eed3d2a2bd8f7ec",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0000.npz",
+        "sha256": "6687bc1d64aa43fc812fae028b46756e2c9b063cadab2198b2c6f5f22c71e474"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/P100000_0000.npz",
+        "sha256": "e23ef65c24aa08da5941ba9f062f82bb2ceac6052126446684d69e21ec12c0c5"
+      },
+      "reconstruction_sha256": "badcbd5f297a1fe0779211ee727bc3b8fee6077870fe3756bcd6c3bc316d46e9",
+      "noise_seed": 2001
+    },
+    {
+      "method": "Swin200000",
+      "source_index": 0,
+      "source_id": "n01440764/ILSVRC2012_val_00003014_n01440764",
+      "preprocessing_id": "ba4269f89fdfc1ec6596d3da2afb4e19a03b1eca4a1722e30eed3d2a2bd8f7ec",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0000.npz",
+        "sha256": "6687bc1d64aa43fc812fae028b46756e2c9b063cadab2198b2c6f5f22c71e474"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/Swin200000_0000.npz",
+        "sha256": "1faea88e1170c42f37362bff39635c1d1f4f46e03115623c48de531930afd9f2"
+      },
+      "reconstruction_sha256": "739ee5b7722f0c0e526449b4cc1d1c762529fb3fd6027a77229644198bb45f03",
+      "noise_seed": 2001
+    },
+    {
+      "method": "HiFiSwin200000",
+      "source_index": 0,
+      "source_id": "n01440764/ILSVRC2012_val_00003014_n01440764",
+      "preprocessing_id": "ba4269f89fdfc1ec6596d3da2afb4e19a03b1eca4a1722e30eed3d2a2bd8f7ec",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0000.npz",
+        "sha256": "6687bc1d64aa43fc812fae028b46756e2c9b063cadab2198b2c6f5f22c71e474"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/HiFiSwin200000_0000.npz",
+        "sha256": "6611a0737e6bc9d24a8e2d55c06c7747c6738f303d57d5a8f0ec75b98e48cc17"
+      },
+      "reconstruction_sha256": "368d6bfafa2d4999fa646ea0a25d879377a27d9788506fd90033082eebcc6993",
+      "noise_seed": 2001
+    },
+    {
+      "method": "RAW_PARTIAL",
+      "source_index": 25,
+      "source_id": "n02113799/ILSVRC2012_val_00007866_n02113799",
+      "preprocessing_id": "304f20c62753839162b2f26b666a6d1f5d9582476f0cb2cde601e47842f40b68",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0025.npz",
+        "sha256": "5822459d0a41f97b66227c69ca46145c6bc0697c209f6d1942252b941786ae73"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/submission_closure_20261016_v1/raw_native_fixed16/RAW_PARTIAL_0025.npz",
+        "bytes": 786714,
+        "sha256": "36555744a0c79377c1aa237ae6ffbefc7ab702e990cf7b0cb2204ab335e54cca"
+      },
+      "reconstruction_sha256": "c80bee2102b707452059b202eaddaa5a2a8cbf704c8d7769defd28eb9061272e",
+      "noise_seed": 6201
+    },
+    {
+      "method": "P100000",
+      "source_index": 25,
+      "source_id": "n02113799/ILSVRC2012_val_00007866_n02113799",
+      "preprocessing_id": "304f20c62753839162b2f26b666a6d1f5d9582476f0cb2cde601e47842f40b68",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0025.npz",
+        "sha256": "5822459d0a41f97b66227c69ca46145c6bc0697c209f6d1942252b941786ae73"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/P100000_0025.npz",
+        "sha256": "e49996dc4cc744ca0c4f92bc2cb1ce915b6f6df0c57b3090d796c05eb74bc4f3"
+      },
+      "reconstruction_sha256": "4e9d527c629fdaf823eaab6bf49525aaeea3dc759c82adb0431389edd095d0cf",
+      "noise_seed": 2001
+    },
+    {
+      "method": "Swin200000",
+      "source_index": 25,
+      "source_id": "n02113799/ILSVRC2012_val_00007866_n02113799",
+      "preprocessing_id": "304f20c62753839162b2f26b666a6d1f5d9582476f0cb2cde601e47842f40b68",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0025.npz",
+        "sha256": "5822459d0a41f97b66227c69ca46145c6bc0697c209f6d1942252b941786ae73"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/Swin200000_0025.npz",
+        "sha256": "787884b307b1a565b484793b4b610c0aad200c03b2d10629d92f1c44c4c71ea7"
+      },
+      "reconstruction_sha256": "9aa85911743afc2624931ae5aaf49c3488c4e92032dc55f76c645e7d565513dc",
+      "noise_seed": 2001
+    },
+    {
+      "method": "HiFiSwin200000",
+      "source_index": 25,
+      "source_id": "n02113799/ILSVRC2012_val_00007866_n02113799",
+      "preprocessing_id": "304f20c62753839162b2f26b666a6d1f5d9582476f0cb2cde601e47842f40b68",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0025.npz",
+        "sha256": "5822459d0a41f97b66227c69ca46145c6bc0697c209f6d1942252b941786ae73"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/HiFiSwin200000_0025.npz",
+        "sha256": "40b711f4f5fb9f60b6fd6090e59948b29dee22429ab1a4b352fcc5d8b8fb2d56"
+      },
+      "reconstruction_sha256": "72f36ce800bf3342a4e77ffbdb918e6a8424b8f740813fd743ef52a0f5aaa60a",
+      "noise_seed": 2001
+    },
+    {
+      "method": "RAW_PARTIAL",
+      "source_index": 50,
+      "source_id": "n03372029/ILSVRC2012_val_00034937_n03372029",
+      "preprocessing_id": "65b3cd96fc2b315ee48cdd65d9b09dd8138ccdc48fae27960eca02056c707408",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0050.npz",
+        "sha256": "c1f50a6bf04433c2f3cd372236c47d4e5be9c7d31968a15f0e8d19cc322300b8"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/submission_closure_20261016_v1/raw_native_fixed16/RAW_PARTIAL_0050.npz",
+        "bytes": 786714,
+        "sha256": "d19f81113b27e3a2c628d650dbdd9e937b06134c2943a406d44040856e8f22a6"
+      },
+      "reconstruction_sha256": "20535bf72a64cc9f58e16159d10e8e5c598c4a922afd95899de006ca514efbda",
+      "noise_seed": 6201
+    },
+    {
+      "method": "P100000",
+      "source_index": 50,
+      "source_id": "n03372029/ILSVRC2012_val_00034937_n03372029",
+      "preprocessing_id": "65b3cd96fc2b315ee48cdd65d9b09dd8138ccdc48fae27960eca02056c707408",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0050.npz",
+        "sha256": "c1f50a6bf04433c2f3cd372236c47d4e5be9c7d31968a15f0e8d19cc322300b8"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/P100000_0050.npz",
+        "sha256": "58fac953ad19a64700e5859ef347f8e7f98e1bdb8ee30f3d7adb6e17e6d6a2f4"
+      },
+      "reconstruction_sha256": "d1a3362913d8c83b220a7efeafe5f768af042833e523e9cc96a117a4f7f40b09",
+      "noise_seed": 2001
+    },
+    {
+      "method": "Swin200000",
+      "source_index": 50,
+      "source_id": "n03372029/ILSVRC2012_val_00034937_n03372029",
+      "preprocessing_id": "65b3cd96fc2b315ee48cdd65d9b09dd8138ccdc48fae27960eca02056c707408",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0050.npz",
+        "sha256": "c1f50a6bf04433c2f3cd372236c47d4e5be9c7d31968a15f0e8d19cc322300b8"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/Swin200000_0050.npz",
+        "sha256": "4b71886a4696f6a82af58f4d53cda56be978584ccca76bbc5d3545b7055b431b"
+      },
+      "reconstruction_sha256": "d3b2999a3a78a4bb1025382a3a16f3e8c2c31caa4ea01b6e4c4ac77f6c2bfb4c",
+      "noise_seed": 2001
+    },
+    {
+      "method": "HiFiSwin200000",
+      "source_index": 50,
+      "source_id": "n03372029/ILSVRC2012_val_00034937_n03372029",
+      "preprocessing_id": "65b3cd96fc2b315ee48cdd65d9b09dd8138ccdc48fae27960eca02056c707408",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0050.npz",
+        "sha256": "c1f50a6bf04433c2f3cd372236c47d4e5be9c7d31968a15f0e8d19cc322300b8"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/HiFiSwin200000_0050.npz",
+        "sha256": "2231f0125a66898b3e80508d03e3af7628d68fec67fbba0c6b38251964d6ca14"
+      },
+      "reconstruction_sha256": "73e70f9a31d0900a5bb519e0667a5a3b07d6524cc823d36ce00bba24f7fe8545",
+      "noise_seed": 2001
+    },
+    {
+      "method": "RAW_PARTIAL",
+      "source_index": 75,
+      "source_id": "n04204347/ILSVRC2012_val_00018921_n04204347",
+      "preprocessing_id": "bb0919028da5d8113228b4ea2031f03cae14b6805b1a3078dbd2d6f04c5b7ab8",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0075.npz",
+        "sha256": "ef060a3f36d550bdb43e3329763c3e096afc5ed9ba7330531cbd2374fd0acf25"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/submission_closure_20261016_v1/raw_native_fixed16/RAW_PARTIAL_0075.npz",
+        "bytes": 786714,
+        "sha256": "766ef7de3c55c579f8d2fe281c11955f8515e0691b5fcf2657f17fa62f3df392"
+      },
+      "reconstruction_sha256": "f50112977820be976b02ba59b68d6eac7f84b5a56369c137c714235528981926",
+      "noise_seed": 6201
+    },
+    {
+      "method": "P100000",
+      "source_index": 75,
+      "source_id": "n04204347/ILSVRC2012_val_00018921_n04204347",
+      "preprocessing_id": "bb0919028da5d8113228b4ea2031f03cae14b6805b1a3078dbd2d6f04c5b7ab8",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0075.npz",
+        "sha256": "ef060a3f36d550bdb43e3329763c3e096afc5ed9ba7330531cbd2374fd0acf25"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/figure_redraw_final_examples_v1/P100000_0075.npz",
+        "sha256": "3f3f3df2aa16c4d9dc6be1de3ef9e22033ce974d1c1d10f09e6c4928f43705dc"
+      },
+      "reconstruction_sha256": "0de28ff16ce6d590599b0fb59811df87daf716ed03f62a0e9fee7ac38e654671",
+      "noise_seed": 2001
+    },
+    {
+      "method": "Swin200000",
+      "source_index": 75,
+      "source_id": "n04204347/ILSVRC2012_val_00018921_n04204347",
+      "preprocessing_id": "bb0919028da5d8113228b4ea2031f03cae14b6805b1a3078dbd2d6f04c5b7ab8",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0075.npz",
+        "sha256": "ef060a3f36d550bdb43e3329763c3e096afc5ed9ba7330531cbd2374fd0acf25"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/figure_redraw_final_examples_v1/Swin200000_0075.npz",
+        "sha256": "90711123f5ff17a73bed83517e86fe30a37baaaed07be72307c66c3557a32e27"
+      },
+      "reconstruction_sha256": "a059052bd65763a024c61fec60304f1083ae3b0e89b0f22b73d7399f71478abb",
+      "noise_seed": 2001
+    },
+    {
+      "method": "HiFiSwin200000",
+      "source_index": 75,
+      "source_id": "n04204347/ILSVRC2012_val_00018921_n04204347",
+      "preprocessing_id": "bb0919028da5d8113228b4ea2031f03cae14b6805b1a3078dbd2d6f04c5b7ab8",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0075.npz",
+        "sha256": "ef060a3f36d550bdb43e3329763c3e096afc5ed9ba7330531cbd2374fd0acf25"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/HiFiSwin200000_0075.npz",
+        "sha256": "8a67210f70c33cf0fd7fa02ae2f2192248470ce9e3aa1cffba610e15d06d412a"
+      },
+      "reconstruction_sha256": "6696623db0589995f30b55c3feedbdbaf359fe633c723432183acca3f39f104e",
+      "noise_seed": 2001
+    },
+    {
+      "method": "RAW_PARTIAL",
+      "source_index": 4,
+      "source_id": "n01735189/ILSVRC2012_val_00006699_n01735189",
+      "preprocessing_id": "94658fdd83ae6734124089a0da860094f78c13469d89519dbe2f21027a4d01d0",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0004.npz",
+        "sha256": "d2c7d2468116ff623e3de05283c4d670a47fb3ef36aae4e249d61d631f085f15"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/submission_closure_20261016_v1/raw_native_fixed16/RAW_PARTIAL_0004.npz",
+        "bytes": 786714,
+        "sha256": "08388346e7a6b5f95dfb989cef54e36518463b9460f5adfee67dc45eaa989584"
+      },
+      "reconstruction_sha256": "e4f5c7c3808db491ab6b47fbf8d18f58790a235f20967603a7b929bde0095f5f",
+      "noise_seed": 6201
+    },
+    {
+      "method": "P100000",
+      "source_index": 4,
+      "source_id": "n01735189/ILSVRC2012_val_00006699_n01735189",
+      "preprocessing_id": "94658fdd83ae6734124089a0da860094f78c13469d89519dbe2f21027a4d01d0",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0004.npz",
+        "sha256": "d2c7d2468116ff623e3de05283c4d670a47fb3ef36aae4e249d61d631f085f15"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/P100000_0004.npz",
+        "sha256": "991b78c29dba0a33b8ca8abad013a88b25d9b84d79d5540f3b6ada6b8f8c6ae9"
+      },
+      "reconstruction_sha256": "890e77fe02b0ee2c13e214c23fe1a3b95344ed45562e923a8448b66e37d4b478",
+      "noise_seed": 2001
+    },
+    {
+      "method": "Swin200000",
+      "source_index": 4,
+      "source_id": "n01735189/ILSVRC2012_val_00006699_n01735189",
+      "preprocessing_id": "94658fdd83ae6734124089a0da860094f78c13469d89519dbe2f21027a4d01d0",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0004.npz",
+        "sha256": "d2c7d2468116ff623e3de05283c4d670a47fb3ef36aae4e249d61d631f085f15"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/Swin200000_0004.npz",
+        "sha256": "4a52f3ecf76b8d4fa0c8f98ad8f81a195b0a5bd25c7bef20af40547e82a704c1"
+      },
+      "reconstruction_sha256": "ab2e8e562267711ba2fdd5e1799218e21e32d3a543a0284737ad1584384f3d30",
+      "noise_seed": 2001
+    },
+    {
+      "method": "HiFiSwin200000",
+      "source_index": 4,
+      "source_id": "n01735189/ILSVRC2012_val_00006699_n01735189",
+      "preprocessing_id": "94658fdd83ae6734124089a0da860094f78c13469d89519dbe2f21027a4d01d0",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0004.npz",
+        "sha256": "d2c7d2468116ff623e3de05283c4d670a47fb3ef36aae4e249d61d631f085f15"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/HiFiSwin200000_0004.npz",
+        "sha256": "7c948ac87e71bac7a4e5069b6b9f04236d0be908477a7fe7e247cc476f399384"
+      },
+      "reconstruction_sha256": "6ef8b5cad8c90cb53d1240d4e920a25126ed9fe6b75e63057a29af80b8edd9db",
+      "noise_seed": 2001
+    },
+    {
+      "method": "RAW_PARTIAL",
+      "source_index": 21,
+      "source_id": "n02105641/ILSVRC2012_val_00018762_n02105641",
+      "preprocessing_id": "3c66584ece5c46a50e84a58166f6dc576f95302d99a27b9caf6db2771cf248a1",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0021.npz",
+        "sha256": "3a573698f16339641ff35db945c6db85e70b8dee048f105b788fa6bc14bfb5ec"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/submission_closure_20261016_v1/raw_native_fixed16/RAW_PARTIAL_0021.npz",
+        "bytes": 786714,
+        "sha256": "957b43a29018a3541c7af18b02878ccc9ed9907db264805dba3d903c47b0cf8f"
+      },
+      "reconstruction_sha256": "d9b58a2154b5c2c5d48474517cf504af0bc070d7c521c1f7e8241327a7ba9328",
+      "noise_seed": 6201
+    },
+    {
+      "method": "P100000",
+      "source_index": 21,
+      "source_id": "n02105641/ILSVRC2012_val_00018762_n02105641",
+      "preprocessing_id": "3c66584ece5c46a50e84a58166f6dc576f95302d99a27b9caf6db2771cf248a1",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0021.npz",
+        "sha256": "3a573698f16339641ff35db945c6db85e70b8dee048f105b788fa6bc14bfb5ec"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/figure_redraw_final_examples_v1/P100000_0021.npz",
+        "sha256": "dda048371b13fe15c918d7b33bdd442fb115d8a3818ac7f133b287cfae55feba"
+      },
+      "reconstruction_sha256": "dec2d9e7ceff25daa2c76d6aadd0a1aedfb88f7d6b6a95518442286f5a03eb05",
+      "noise_seed": 2001
+    },
+    {
+      "method": "Swin200000",
+      "source_index": 21,
+      "source_id": "n02105641/ILSVRC2012_val_00018762_n02105641",
+      "preprocessing_id": "3c66584ece5c46a50e84a58166f6dc576f95302d99a27b9caf6db2771cf248a1",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0021.npz",
+        "sha256": "3a573698f16339641ff35db945c6db85e70b8dee048f105b788fa6bc14bfb5ec"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/figure_redraw_final_examples_v1/Swin200000_0021.npz",
+        "sha256": "437d3b7f648485f22229c1dd7a7453404e85487fdf6b68a34b159fae3cb538f1"
+      },
+      "reconstruction_sha256": "1aa042f9123c7d82c212e1fe3099155bb40ac445f0199a49f80b84d66e32b303",
+      "noise_seed": 2001
+    },
+    {
+      "method": "HiFiSwin200000",
+      "source_index": 21,
+      "source_id": "n02105641/ILSVRC2012_val_00018762_n02105641",
+      "preprocessing_id": "3c66584ece5c46a50e84a58166f6dc576f95302d99a27b9caf6db2771cf248a1",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0021.npz",
+        "sha256": "3a573698f16339641ff35db945c6db85e70b8dee048f105b788fa6bc14bfb5ec"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/HiFiSwin200000_0021.npz",
+        "sha256": "8fb4e81c0b03959d42ee857520f4332a9a60f1aa14192b12535207f92da52a7b"
+      },
+      "reconstruction_sha256": "780c7ee78d94a8314d61d5a9bb07728353aac6b15a2657e47ffcd141024ade65",
+      "noise_seed": 2001
+    },
+    {
+      "method": "RAW_PARTIAL",
+      "source_index": 24,
+      "source_id": "n02110806/ILSVRC2012_val_00030364_n02110806",
+      "preprocessing_id": "7979fe01c4abe94a4d916a11520399c7e8ed8c805e7490fff5b6cf9579ce9dbe",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0024.npz",
+        "sha256": "c9279d5fe407bde424787d41469fd87b6e5cf26efaaf43e4f614c5f4207853d5"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/submission_closure_20261016_v1/raw_native_fixed16/RAW_PARTIAL_0024.npz",
+        "bytes": 786714,
+        "sha256": "e4b9acef68e573c335ec82f9eef34249e17c3777dfdaa5696f4e5f034d19a6de"
+      },
+      "reconstruction_sha256": "1e7cea4c9e792d86477931d9d0496cc86aadb642c9992131d7c21505e7bae95e",
+      "noise_seed": 6201
+    },
+    {
+      "method": "P100000",
+      "source_index": 24,
+      "source_id": "n02110806/ILSVRC2012_val_00030364_n02110806",
+      "preprocessing_id": "7979fe01c4abe94a4d916a11520399c7e8ed8c805e7490fff5b6cf9579ce9dbe",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0024.npz",
+        "sha256": "c9279d5fe407bde424787d41469fd87b6e5cf26efaaf43e4f614c5f4207853d5"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/P100000_0024.npz",
+        "sha256": "020ce8e84c06b48cc3f3551e35d8d2c48d0b83639a83f383cf72b824a6402c2a"
+      },
+      "reconstruction_sha256": "c3e5cf6e03b99c742028327cc18058df6e230a7e08d19cbdc3a45c6621cec970",
+      "noise_seed": 2001
+    },
+    {
+      "method": "Swin200000",
+      "source_index": 24,
+      "source_id": "n02110806/ILSVRC2012_val_00030364_n02110806",
+      "preprocessing_id": "7979fe01c4abe94a4d916a11520399c7e8ed8c805e7490fff5b6cf9579ce9dbe",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0024.npz",
+        "sha256": "c9279d5fe407bde424787d41469fd87b6e5cf26efaaf43e4f614c5f4207853d5"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/Swin200000_0024.npz",
+        "sha256": "0295ae2e9ee8b890e19282de1854b807b914c7c909b91830055262c580f10197"
+      },
+      "reconstruction_sha256": "94cfce116232b11a070a6f131b3f808cd3dd429b6a2db47fe2d0e4208c42c74d",
+      "noise_seed": 2001
+    },
+    {
+      "method": "HiFiSwin200000",
+      "source_index": 24,
+      "source_id": "n02110806/ILSVRC2012_val_00030364_n02110806",
+      "preprocessing_id": "7979fe01c4abe94a4d916a11520399c7e8ed8c805e7490fff5b6cf9579ce9dbe",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0024.npz",
+        "sha256": "c9279d5fe407bde424787d41469fd87b6e5cf26efaaf43e4f614c5f4207853d5"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/HiFiSwin200000_0024.npz",
+        "sha256": "f4c4f916077e553437d9660da197957d08f39886c5dc65d31a2fe5ec3623d8d8"
+      },
+      "reconstruction_sha256": "18c34b8fd45068f64fa736294c0e85000394218edcdb669e3ac83f79714db092",
+      "noise_seed": 2001
+    },
+    {
+      "method": "RAW_PARTIAL",
+      "source_index": 29,
+      "source_id": "n02233338/ILSVRC2012_val_00016160_n02233338",
+      "preprocessing_id": "d2d64df0e26c9602d937a190b46ccd9f9c7541916cdbba9441e0999a09343c62",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0029.npz",
+        "sha256": "51b2fa771d9fc9432a9316aceb662a6f996611ec4e6947994e3cf8441fd83034"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/submission_closure_20261016_v1/raw_native_fixed16/RAW_PARTIAL_0029.npz",
+        "bytes": 786714,
+        "sha256": "e085e57a86f8477701d95acbab6296f006d7f95a39bea12191cd7de24487e4b8"
+      },
+      "reconstruction_sha256": "ab21cc6e26fd19ad86e1f460f5f8a5c23e56b44db7d44fac01f4993df7dfd044",
+      "noise_seed": 6201
+    },
+    {
+      "method": "P100000",
+      "source_index": 29,
+      "source_id": "n02233338/ILSVRC2012_val_00016160_n02233338",
+      "preprocessing_id": "d2d64df0e26c9602d937a190b46ccd9f9c7541916cdbba9441e0999a09343c62",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0029.npz",
+        "sha256": "51b2fa771d9fc9432a9316aceb662a6f996611ec4e6947994e3cf8441fd83034"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/P100000_0029.npz",
+        "sha256": "af80eecea840bcb02e1f90d5c3198e4745dd5163f81898f4c46e0f0f1358b7c8"
+      },
+      "reconstruction_sha256": "b02a0358af8b80ed959bf4c739edc4a0fba9b782ee89134e4431513edbc995fc",
+      "noise_seed": 2001
+    },
+    {
+      "method": "Swin200000",
+      "source_index": 29,
+      "source_id": "n02233338/ILSVRC2012_val_00016160_n02233338",
+      "preprocessing_id": "d2d64df0e26c9602d937a190b46ccd9f9c7541916cdbba9441e0999a09343c62",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0029.npz",
+        "sha256": "51b2fa771d9fc9432a9316aceb662a6f996611ec4e6947994e3cf8441fd83034"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/Swin200000_0029.npz",
+        "sha256": "51bf8b9655cb60b23090e1e709d6a8e7b749e5cdc5300e9d83783e12696ed924"
+      },
+      "reconstruction_sha256": "b30443dce06a913304b810bbc3062b6f96573551b3404566a6bc0870bd6105d4",
+      "noise_seed": 2001
+    },
+    {
+      "method": "HiFiSwin200000",
+      "source_index": 29,
+      "source_id": "n02233338/ILSVRC2012_val_00016160_n02233338",
+      "preprocessing_id": "d2d64df0e26c9602d937a190b46ccd9f9c7541916cdbba9441e0999a09343c62",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0029.npz",
+        "sha256": "51b2fa771d9fc9432a9316aceb662a6f996611ec4e6947994e3cf8441fd83034"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/HiFiSwin200000_0029.npz",
+        "sha256": "34f72a011bb16095bd3d4863407bb0252e946a42f48e396ff4d3b61ef3c7b6c8"
+      },
+      "reconstruction_sha256": "5857b7e188dbaab270c23814eacfe158808e3b59f6df3781ec27f7983c27e412",
+      "noise_seed": 2001
+    },
+    {
+      "method": "RAW_PARTIAL",
+      "source_index": 33,
+      "source_id": "n02398521/ILSVRC2012_val_00018354_n02398521",
+      "preprocessing_id": "52f645427565641f0c2186bc45125f58be9c5ef2aada5442f0d1310afbbaa6e6",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0033.npz",
+        "sha256": "c48827e2c0f3813ab9300bd632407982d2547998d912aab06618ac95baf94f33"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/submission_closure_20261016_v1/raw_native_fixed16/RAW_PARTIAL_0033.npz",
+        "bytes": 786714,
+        "sha256": "18013b03a4b7fe2c62e10bc6256effebf849dd1d96da996b8d58081bc2149075"
+      },
+      "reconstruction_sha256": "c140ad87490621e16c3fb6627a1eed1fc2aa2c7e4adc9951df9c14d2ec62c67c",
+      "noise_seed": 6201
+    },
+    {
+      "method": "P100000",
+      "source_index": 33,
+      "source_id": "n02398521/ILSVRC2012_val_00018354_n02398521",
+      "preprocessing_id": "52f645427565641f0c2186bc45125f58be9c5ef2aada5442f0d1310afbbaa6e6",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0033.npz",
+        "sha256": "c48827e2c0f3813ab9300bd632407982d2547998d912aab06618ac95baf94f33"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/P100000_0033.npz",
+        "sha256": "bbbe4bb53f637b3ca943a65cd3d6c3ad66f1ec85b1a2ba9bd8ae3237fe5b400d"
+      },
+      "reconstruction_sha256": "d84826c50c2e57f9331a781546fc4b054559b70f013ae56eec25778d62b23cdc",
+      "noise_seed": 2001
+    },
+    {
+      "method": "Swin200000",
+      "source_index": 33,
+      "source_id": "n02398521/ILSVRC2012_val_00018354_n02398521",
+      "preprocessing_id": "52f645427565641f0c2186bc45125f58be9c5ef2aada5442f0d1310afbbaa6e6",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0033.npz",
+        "sha256": "c48827e2c0f3813ab9300bd632407982d2547998d912aab06618ac95baf94f33"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/Swin200000_0033.npz",
+        "sha256": "9ff444491cfef462e2c89d041ecfcee0b17080f0d8ae6e8dddcb8334861a4519"
+      },
+      "reconstruction_sha256": "9a72cbb1c4f9c8763141a597f7dee637a990ada5010dd82b227da34c835fee0e",
+      "noise_seed": 2001
+    },
+    {
+      "method": "HiFiSwin200000",
+      "source_index": 33,
+      "source_id": "n02398521/ILSVRC2012_val_00018354_n02398521",
+      "preprocessing_id": "52f645427565641f0c2186bc45125f58be9c5ef2aada5442f0d1310afbbaa6e6",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0033.npz",
+        "sha256": "c48827e2c0f3813ab9300bd632407982d2547998d912aab06618ac95baf94f33"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/HiFiSwin200000_0033.npz",
+        "sha256": "81f4351393620f6d9dcefb2ef17c68f1981b53c8af5a160757106dc63cb0d1be"
+      },
+      "reconstruction_sha256": "3c5f8b02657c992f15f0f060b164b0226a65cc1059cd3f16c9b1d3632f2ce0b2",
+      "noise_seed": 2001
+    },
+    {
+      "method": "RAW_PARTIAL",
+      "source_index": 41,
+      "source_id": "n02834397/ILSVRC2012_val_00010741_n02834397",
+      "preprocessing_id": "7e296a31245bc9af585ab76c42d861b0727530e951052bf54cc1a65562b49f69",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0041.npz",
+        "sha256": "9151d2f57288d93e7561bfc91ba9f1ce25d363331b0d22460be55c28b546cd5b"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/submission_closure_20261016_v1/raw_native_fixed16/RAW_PARTIAL_0041.npz",
+        "bytes": 786714,
+        "sha256": "5f04bb8eedde6c857b6fe251c0ba2a1ac680a571bfab5ed7816f12fb7fd1f711"
+      },
+      "reconstruction_sha256": "bc683221ce1bd4189b660c907234dcf3683e9df5204194cac035b588eb32f138",
+      "noise_seed": 6201
+    },
+    {
+      "method": "P100000",
+      "source_index": 41,
+      "source_id": "n02834397/ILSVRC2012_val_00010741_n02834397",
+      "preprocessing_id": "7e296a31245bc9af585ab76c42d861b0727530e951052bf54cc1a65562b49f69",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0041.npz",
+        "sha256": "9151d2f57288d93e7561bfc91ba9f1ce25d363331b0d22460be55c28b546cd5b"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/P100000_0041.npz",
+        "sha256": "ebb457b9a8b3f053aed924e577ef7907deb9f93f001373cda482a28369dc623d"
+      },
+      "reconstruction_sha256": "f646f3bc8ce06453323bb4517ba2711077ff9bb7a612e4427f818cb1235f0257",
+      "noise_seed": 2001
+    },
+    {
+      "method": "Swin200000",
+      "source_index": 41,
+      "source_id": "n02834397/ILSVRC2012_val_00010741_n02834397",
+      "preprocessing_id": "7e296a31245bc9af585ab76c42d861b0727530e951052bf54cc1a65562b49f69",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0041.npz",
+        "sha256": "9151d2f57288d93e7561bfc91ba9f1ce25d363331b0d22460be55c28b546cd5b"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/Swin200000_0041.npz",
+        "sha256": "e9d0f67c44ea0beea3eb0d9df40023d3c28cee4754357671f7c8ebfe04eba30e"
+      },
+      "reconstruction_sha256": "14a53053e7d36f29811ba5cf28e7d1102bae22c18dbf17d7da02335accb81c10",
+      "noise_seed": 2001
+    },
+    {
+      "method": "HiFiSwin200000",
+      "source_index": 41,
+      "source_id": "n02834397/ILSVRC2012_val_00010741_n02834397",
+      "preprocessing_id": "7e296a31245bc9af585ab76c42d861b0727530e951052bf54cc1a65562b49f69",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0041.npz",
+        "sha256": "9151d2f57288d93e7561bfc91ba9f1ce25d363331b0d22460be55c28b546cd5b"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/HiFiSwin200000_0041.npz",
+        "sha256": "0ceb51dbafaa8015d3d9f8856aa3ce522a4f242242163237288a95033a4875ee"
+      },
+      "reconstruction_sha256": "20045f0c259b2844ab39488e39503ccb15e6c54791e64167bd7448a5d6f393ad",
+      "noise_seed": 2001
+    },
+    {
+      "method": "RAW_PARTIAL",
+      "source_index": 52,
+      "source_id": "n03424325/ILSVRC2012_val_00006147_n03424325",
+      "preprocessing_id": "20025cb5e1981e398a9afa6ccd1d1d2b846a627f61e99a50c1eb2f7116615db9",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0052.npz",
+        "sha256": "45bfa8aab54c07543c1a8d6187dbe065627b2eb279e27a976589df9aefc35448"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/submission_closure_20261016_v1/raw_native_fixed16/RAW_PARTIAL_0052.npz",
+        "bytes": 786714,
+        "sha256": "fd6b37692feaf05293a4436012cb07eae0aca04b793156be00d10c9017d88004"
+      },
+      "reconstruction_sha256": "c574e44ae3e9e4462aa94832b51034a62416c67a03793daaac7e5b17877642c8",
+      "noise_seed": 6201
+    },
+    {
+      "method": "P100000",
+      "source_index": 52,
+      "source_id": "n03424325/ILSVRC2012_val_00006147_n03424325",
+      "preprocessing_id": "20025cb5e1981e398a9afa6ccd1d1d2b846a627f61e99a50c1eb2f7116615db9",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0052.npz",
+        "sha256": "45bfa8aab54c07543c1a8d6187dbe065627b2eb279e27a976589df9aefc35448"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/P100000_0052.npz",
+        "sha256": "9d7c1b429c01684a931a4b5c29c0b50f375c67a791febf8c65b260c1327d61d4"
+      },
+      "reconstruction_sha256": "8b2981907ee7e4503782c8e20a10f9314b5aedfcc7adfc67c25d36f0d256a188",
+      "noise_seed": 2001
+    },
+    {
+      "method": "Swin200000",
+      "source_index": 52,
+      "source_id": "n03424325/ILSVRC2012_val_00006147_n03424325",
+      "preprocessing_id": "20025cb5e1981e398a9afa6ccd1d1d2b846a627f61e99a50c1eb2f7116615db9",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0052.npz",
+        "sha256": "45bfa8aab54c07543c1a8d6187dbe065627b2eb279e27a976589df9aefc35448"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/Swin200000_0052.npz",
+        "sha256": "d8daaadeafb067dd0f9cf5c23361fa866e011c2f6e355bfddb45d5eac4777dec"
+      },
+      "reconstruction_sha256": "956923665c0b5cba55b4a76b7335769189b2190c303d1e0338c6040730798ac1",
+      "noise_seed": 2001
+    },
+    {
+      "method": "HiFiSwin200000",
+      "source_index": 52,
+      "source_id": "n03424325/ILSVRC2012_val_00006147_n03424325",
+      "preprocessing_id": "20025cb5e1981e398a9afa6ccd1d1d2b846a627f61e99a50c1eb2f7116615db9",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0052.npz",
+        "sha256": "45bfa8aab54c07543c1a8d6187dbe065627b2eb279e27a976589df9aefc35448"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/HiFiSwin200000_0052.npz",
+        "sha256": "91d9eaaf6cc37a1136fb55701a882910ccbca4a7a31b212f30cd56fc96e28b58"
+      },
+      "reconstruction_sha256": "232d0720eb48f31cd014037dd7d4957aa1591c91811e3731e611b9ce78cc8483",
+      "noise_seed": 2001
+    },
+    {
+      "method": "RAW_PARTIAL",
+      "source_index": 60,
+      "source_id": "n03759954/ILSVRC2012_val_00010804_n03759954",
+      "preprocessing_id": "7a1498cebe035004705d9ede2d2cfecfdc25e8e2db8841b990fec0d4b834b3d1",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0060.npz",
+        "sha256": "299207e47bc4287400547fa820e6ea0e72c969fe9b4f291d69d04f74b03388f8"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/submission_closure_20261016_v1/raw_native_fixed16/RAW_PARTIAL_0060.npz",
+        "bytes": 786714,
+        "sha256": "f15de2c5a7c93658e7adcb5cab4c682c0bc158c8c23be8e544bdeead5f81961f"
+      },
+      "reconstruction_sha256": "68d666378cb7b8e4205bc4cd7f1e3d56f536040fa72ffb7beb5ed67decbf03d9",
+      "noise_seed": 6201
+    },
+    {
+      "method": "P100000",
+      "source_index": 60,
+      "source_id": "n03759954/ILSVRC2012_val_00010804_n03759954",
+      "preprocessing_id": "7a1498cebe035004705d9ede2d2cfecfdc25e8e2db8841b990fec0d4b834b3d1",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0060.npz",
+        "sha256": "299207e47bc4287400547fa820e6ea0e72c969fe9b4f291d69d04f74b03388f8"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/P100000_0060.npz",
+        "sha256": "28814ac70024bc2c198dc1cb55d83572411774f585fae25c396d3326b4e1f6fb"
+      },
+      "reconstruction_sha256": "3c86b771a835c699892f3353552347daea56aedc499721bb441b634279b180ce",
+      "noise_seed": 2001
+    },
+    {
+      "method": "Swin200000",
+      "source_index": 60,
+      "source_id": "n03759954/ILSVRC2012_val_00010804_n03759954",
+      "preprocessing_id": "7a1498cebe035004705d9ede2d2cfecfdc25e8e2db8841b990fec0d4b834b3d1",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0060.npz",
+        "sha256": "299207e47bc4287400547fa820e6ea0e72c969fe9b4f291d69d04f74b03388f8"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/Swin200000_0060.npz",
+        "sha256": "c5a8f1cfa9b13e5e6dfefb02153bf7e0fbc2fdc7ca83f04cb88536e740238d5a"
+      },
+      "reconstruction_sha256": "1b4623e00a5c748e213ae546f4bf87284102c159e4137f3c343756191efc2127",
+      "noise_seed": 2001
+    },
+    {
+      "method": "HiFiSwin200000",
+      "source_index": 60,
+      "source_id": "n03759954/ILSVRC2012_val_00010804_n03759954",
+      "preprocessing_id": "7a1498cebe035004705d9ede2d2cfecfdc25e8e2db8841b990fec0d4b834b3d1",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0060.npz",
+        "sha256": "299207e47bc4287400547fa820e6ea0e72c969fe9b4f291d69d04f74b03388f8"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/HiFiSwin200000_0060.npz",
+        "sha256": "7304e9c9d57923e01eb7fb67513007e88e26e9843f302352ffb4281ec900f01b"
+      },
+      "reconstruction_sha256": "0d1eb0e1df7e03740e6dcaeca3e998b2a3502a1716c699d66a82729d4468fbc7",
+      "noise_seed": 2001
+    },
+    {
+      "method": "RAW_PARTIAL",
+      "source_index": 64,
+      "source_id": "n03866082/ILSVRC2012_val_00003554_n03866082",
+      "preprocessing_id": "60562c0929f93a4daaecb86a36c36db3a1ed774950e0bb4ab9d3b89153eae016",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0064.npz",
+        "sha256": "23756515399059dfd5c5bb237da954686441ebd5c198f2732fb8fe61ab129e1e"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/submission_closure_20261016_v1/raw_native_fixed16/RAW_PARTIAL_0064.npz",
+        "bytes": 786714,
+        "sha256": "c8f4291268879a4aa8d219fae318afd41b855d9e70ec491c67ead70eebe1d5a4"
+      },
+      "reconstruction_sha256": "127daf30b1a9528095034b455a9cce5c3bbad6a3979aa7f7276dc81c060fd730",
+      "noise_seed": 6201
+    },
+    {
+      "method": "P100000",
+      "source_index": 64,
+      "source_id": "n03866082/ILSVRC2012_val_00003554_n03866082",
+      "preprocessing_id": "60562c0929f93a4daaecb86a36c36db3a1ed774950e0bb4ab9d3b89153eae016",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0064.npz",
+        "sha256": "23756515399059dfd5c5bb237da954686441ebd5c198f2732fb8fe61ab129e1e"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/P100000_0064.npz",
+        "sha256": "0394b9c588019825f9c0ed1efc558c4fbc988012bf4bb196ca77ef8acc98ec3d"
+      },
+      "reconstruction_sha256": "8a067e4d2452f363ad39fee717b63781476dbc8e994c050b2e7c95c17d9ddd81",
+      "noise_seed": 2001
+    },
+    {
+      "method": "Swin200000",
+      "source_index": 64,
+      "source_id": "n03866082/ILSVRC2012_val_00003554_n03866082",
+      "preprocessing_id": "60562c0929f93a4daaecb86a36c36db3a1ed774950e0bb4ab9d3b89153eae016",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0064.npz",
+        "sha256": "23756515399059dfd5c5bb237da954686441ebd5c198f2732fb8fe61ab129e1e"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/Swin200000_0064.npz",
+        "sha256": "59740df101bad5b3450ab2a4e13a728bd14e79420eacfe8b13ffc3f11c64cf9d"
+      },
+      "reconstruction_sha256": "044eff1e454e6de52b7929f7f71f46d69cb57dcdfb0cfbe4b7dbce6aac10ec3d",
+      "noise_seed": 2001
+    },
+    {
+      "method": "HiFiSwin200000",
+      "source_index": 64,
+      "source_id": "n03866082/ILSVRC2012_val_00003554_n03866082",
+      "preprocessing_id": "60562c0929f93a4daaecb86a36c36db3a1ed774950e0bb4ab9d3b89153eae016",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0064.npz",
+        "sha256": "23756515399059dfd5c5bb237da954686441ebd5c198f2732fb8fe61ab129e1e"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/HiFiSwin200000_0064.npz",
+        "sha256": "08478f4bf1218bbf412e10cbf43642dbe9cdf6e30ef0baf73d426b822598c600"
+      },
+      "reconstruction_sha256": "b4e8aa1ce0d79f4b4221f26b28f5a8f4d3f3211018053dcd47be3fc1fc37d346",
+      "noise_seed": 2001
+    },
+    {
+      "method": "RAW_PARTIAL",
+      "source_index": 87,
+      "source_id": "n04540053/ILSVRC2012_val_00007665_n04540053",
+      "preprocessing_id": "25dbb8c23badf34480230cc90a350df359f1eab82bdf05a6dcda7da28dba4814",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0087.npz",
+        "sha256": "33e4367878ae047348708e6037bb93e819fd3d0f8cef493be712c571cfae41d5"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/submission_closure_20261016_v1/raw_native_fixed16/RAW_PARTIAL_0087.npz",
+        "bytes": 786714,
+        "sha256": "801e721e4b0dfc5b6feada9213d9fcba98a6a79b612d93115ffa9609e947656a"
+      },
+      "reconstruction_sha256": "1699cb2b1a85219c66dca8d9ebd0fe984d1f5b10ede42c87513e7d2a0e507570",
+      "noise_seed": 6201
+    },
+    {
+      "method": "P100000",
+      "source_index": 87,
+      "source_id": "n04540053/ILSVRC2012_val_00007665_n04540053",
+      "preprocessing_id": "25dbb8c23badf34480230cc90a350df359f1eab82bdf05a6dcda7da28dba4814",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0087.npz",
+        "sha256": "33e4367878ae047348708e6037bb93e819fd3d0f8cef493be712c571cfae41d5"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/P100000_0087.npz",
+        "sha256": "dc0f46159f1817c0e342aa2da0b06e7c5cab40ea9ff650ea421597c83f87183b"
+      },
+      "reconstruction_sha256": "76eb010a423dee4708c5d86e9766f5718d37a8475ff1c6cd629ae83262f9bd88",
+      "noise_seed": 2001
+    },
+    {
+      "method": "Swin200000",
+      "source_index": 87,
+      "source_id": "n04540053/ILSVRC2012_val_00007665_n04540053",
+      "preprocessing_id": "25dbb8c23badf34480230cc90a350df359f1eab82bdf05a6dcda7da28dba4814",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0087.npz",
+        "sha256": "33e4367878ae047348708e6037bb93e819fd3d0f8cef493be712c571cfae41d5"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/Swin200000_0087.npz",
+        "sha256": "40e990440518797a5c97132c1f3aa2ed1a9d28e566cf9e110ff61be1b7cbf5af"
+      },
+      "reconstruction_sha256": "25c40277b16be58a93fcaf84e03c1cd7a0386cf068d5d9f724c8c344e3491159",
+      "noise_seed": 2001
+    },
+    {
+      "method": "HiFiSwin200000",
+      "source_index": 87,
+      "source_id": "n04540053/ILSVRC2012_val_00007665_n04540053",
+      "preprocessing_id": "25dbb8c23badf34480230cc90a350df359f1eab82bdf05a6dcda7da28dba4814",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0087.npz",
+        "sha256": "33e4367878ae047348708e6037bb93e819fd3d0f8cef493be712c571cfae41d5"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/HiFiSwin200000_0087.npz",
+        "sha256": "69dd265cbdd26e44d5bea22d991718502a3220b72fcceb6147d37c7aa77ccdcf"
+      },
+      "reconstruction_sha256": "da49bba7b9b60ea085d8b97db0e9216b46a83766e5217a4be253534d72bbfdce",
+      "noise_seed": 2001
+    },
+    {
+      "method": "RAW_PARTIAL",
+      "source_index": 92,
+      "source_id": "n07714990/ILSVRC2012_val_00008416_n07714990",
+      "preprocessing_id": "fa679471f22e180ea849cf5603d78bf57767d47fa978e63d5b4fc7a16cf1c58e",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0092.npz",
+        "sha256": "7fc9a0f5c1bcb4b9a5adee0f74749ffe582357c2ee88e486123020731eff3b42"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/submission_closure_20261016_v1/raw_native_fixed16/RAW_PARTIAL_0092.npz",
+        "bytes": 786714,
+        "sha256": "09ee5f58201f99dfa94b1b264b6a0d3b4f0f30ec3b2a7ab2bfcddd5a58dff7fc"
+      },
+      "reconstruction_sha256": "282b7da78cff8f0229825f90270f46cec4ce775c6c88b290c5def446e20a16e8",
+      "noise_seed": 6201
+    },
+    {
+      "method": "P100000",
+      "source_index": 92,
+      "source_id": "n07714990/ILSVRC2012_val_00008416_n07714990",
+      "preprocessing_id": "fa679471f22e180ea849cf5603d78bf57767d47fa978e63d5b4fc7a16cf1c58e",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0092.npz",
+        "sha256": "7fc9a0f5c1bcb4b9a5adee0f74749ffe582357c2ee88e486123020731eff3b42"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/figure_redraw_final_examples_v1/P100000_0092.npz",
+        "sha256": "82531ce622d2e14c395b4b2d4ecebf16543624368784c7aff16c073e310e7c79"
+      },
+      "reconstruction_sha256": "8191e992a113ad3ff8927e1cd5c31ee06cfb874c68e158d586ad3273b6922443",
+      "noise_seed": 2001
+    },
+    {
+      "method": "Swin200000",
+      "source_index": 92,
+      "source_id": "n07714990/ILSVRC2012_val_00008416_n07714990",
+      "preprocessing_id": "fa679471f22e180ea849cf5603d78bf57767d47fa978e63d5b4fc7a16cf1c58e",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0092.npz",
+        "sha256": "7fc9a0f5c1bcb4b9a5adee0f74749ffe582357c2ee88e486123020731eff3b42"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/figure_redraw_final_examples_v1/Swin200000_0092.npz",
+        "sha256": "825b271bd9307e74db7dbd56ee8d6b3f337ff3bbc7367660ff7f805679549ee1"
+      },
+      "reconstruction_sha256": "eb67534a53f024d9e0967c22bbe417789f59a8ea52bddd47a194f0c13e50f108",
+      "noise_seed": 2001
+    },
+    {
+      "method": "HiFiSwin200000",
+      "source_index": 92,
+      "source_id": "n07714990/ILSVRC2012_val_00008416_n07714990",
+      "preprocessing_id": "fa679471f22e180ea849cf5603d78bf57767d47fa978e63d5b4fc7a16cf1c58e",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0092.npz",
+        "sha256": "7fc9a0f5c1bcb4b9a5adee0f74749ffe582357c2ee88e486123020731eff3b42"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/HiFiSwin200000_0092.npz",
+        "sha256": "b399fc2254ecdec4738d8c0ae8e6f60d4b7205f275efbbda7529cc0b19114c52"
+      },
+      "reconstruction_sha256": "4fa3b8b5d1a7f603f0ab376b76db0fc600d8e033acfe128b1a9410270d92dba5",
+      "noise_seed": 2001
+    },
+    {
+      "method": "RAW_PARTIAL",
+      "source_index": 95,
+      "source_id": "n07860988/ILSVRC2012_val_00010848_n07860988",
+      "preprocessing_id": "ab3fd1840a939a1fefbb0669c3678defc0c18d07886a9283fc4e357eeb609b40",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0095.npz",
+        "sha256": "4092d001e212e56d5c65593aaa4873094d7dc36357eef7c8bc0d29394f221e0a"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/submission_closure_20261016_v1/raw_native_fixed16/RAW_PARTIAL_0095.npz",
+        "bytes": 786714,
+        "sha256": "8c55f02fc475fa17f98a7c78e1340e4ee87707ee73c08d4cf1cec4346c7db68b"
+      },
+      "reconstruction_sha256": "40b626eff10649d1a4ce2913187a80042cd27b4cdce64bff75ec0e252e06c1fe",
+      "noise_seed": 6201
+    },
+    {
+      "method": "P100000",
+      "source_index": 95,
+      "source_id": "n07860988/ILSVRC2012_val_00010848_n07860988",
+      "preprocessing_id": "ab3fd1840a939a1fefbb0669c3678defc0c18d07886a9283fc4e357eeb609b40",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0095.npz",
+        "sha256": "4092d001e212e56d5c65593aaa4873094d7dc36357eef7c8bc0d29394f221e0a"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/figure_redraw_final_examples_v1/P100000_0095.npz",
+        "sha256": "0a128230203b95a0e9c597ff71f8a904cef26b85d7d50fb2ba42ae4591ee10fb"
+      },
+      "reconstruction_sha256": "85114245728885d9b263c7e4b3fd0699dfb0e3932100402daf7974600f77f9d6",
+      "noise_seed": 2001
+    },
+    {
+      "method": "Swin200000",
+      "source_index": 95,
+      "source_id": "n07860988/ILSVRC2012_val_00010848_n07860988",
+      "preprocessing_id": "ab3fd1840a939a1fefbb0669c3678defc0c18d07886a9283fc4e357eeb609b40",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0095.npz",
+        "sha256": "4092d001e212e56d5c65593aaa4873094d7dc36357eef7c8bc0d29394f221e0a"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/figure_redraw_final_examples_v1/Swin200000_0095.npz",
+        "sha256": "4a19f8b6759a843d0073d84a787933225ba82360759bf13ecf74f499ce753810"
+      },
+      "reconstruction_sha256": "70c76c29ef008dc3c42000fbc5defe2b3d79eb0f7a4834add7cc73b6af83b5e7",
+      "noise_seed": 2001
+    },
+    {
+      "method": "HiFiSwin200000",
+      "source_index": 95,
+      "source_id": "n07860988/ILSVRC2012_val_00010848_n07860988",
+      "preprocessing_id": "ab3fd1840a939a1fefbb0669c3678defc0c18d07886a9283fc4e357eeb609b40",
+      "reference": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/timing_fixed16_seed_v1/VAR_COMM/outputs/CONTENT-REAL-64QAM-20261006/H/development100_assets/sources/0095.npz",
+        "sha256": "4092d001e212e56d5c65593aaa4873094d7dc36357eef7c8bc0d29394f221e0a"
+      },
+      "archive": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/hifi_final_fixed16_v1/HiFiSwin200000_0095.npz",
+        "sha256": "b9e3d65764b073a96fca3031e02eaad9a812221f268ed77f29d42b8a2b7333bc"
+      },
+      "reconstruction_sha256": "b56d4e1816f6981e3860021d12e0178cb053d80ce62cb0aeff3cb83fd9f4f1e7",
+      "noise_seed": 2001
+    }
+  ],
+  "raw_manifest": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/submission_closure_20261016_v1/raw_native_fixed16/manifest.json",
+    "bytes": 45697,
+    "sha256": "4dbdd4864e71ad26134ef3ee15fd62f4bf40f1a96fc9c7b905a48bae6104771d"
+  },
+  "old_registration": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/quality_metrics_supplement_20261014_v1/hifi_fixed16/dependency_recovery_registration.json",
+    "bytes": 174988,
+    "sha256": "e00e7ff6ad70ecfc94b405ebf3a5881fadb6f8569a24bad6694fdcc9a079b670"
+  },
+  "old_scores": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/quality_metrics_supplement_20261014_v1/hifi_fixed16/frame_scores.csv",
+    "bytes": 28472,
+    "sha256": "b2ca447bf9069478fcbe4976cf4e3dcee401b286fa6470ada769e4500ad7e2eb"
+  },
+  "metric_assets": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/quality_metrics_supplement_20261014_v1/metric_assets_posix_manifest.json",
+    "sha256": "1dc00388cc91e86ffb3296e794ea23229d945a25e5a2a47619cf13c6b8c02362",
+    "bytes": 31475
+  },
+  "loader": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/unified-metrics-20261002/metric_models.py",
+    "sha256": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066",
+    "bytes": 30518
+  },
+  "dependency_overlay": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/quality_metrics_supplement_20261014_v1/dependency_overlay_v1/manifest.json",
+    "sha256": "c3372713ca0237ade062a3a286b9ce7a531858d607f247a97a3d793e8c9bee4d",
+    "bytes": 19881
+  },
+  "code": [
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/submission-closure-20261016/common.py",
+      "bytes": 3944,
+      "sha256": "6fcd68edfcd329cbdf71b8ad55674543426dd35232cf2dbfe2bb96397a29a277"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/submission-closure-20261016/control.py",
+      "bytes": 2252,
+      "sha256": "de331fd90f375330284e2f8a96eab3d9961990c8fe86390291cb97c5069956cb"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/submission-closure-20261016/fixed16_score.py",
+      "bytes": 6992,
+      "sha256": "466122d46a3e5e114ab5ad847d9aff24923551a61b073379f5c36ef76110b053"
+    }
+  ],
+  "caps": {
+    "model_load": 3,
+    "psnr": 64,
+    "dists": 16,
+    "dreamsim": 16,
+    "ms_ssim": 16,
+    "dreamsim_reference": 16
+  },
+  "new_scalars_max": 112,
+  "reuse_old_scalars": 144,
+  "new_channel": 0,
+  "new_images": 0,
+  "new_bootstrap": 0,
+  "automatic_followup": false
+}
