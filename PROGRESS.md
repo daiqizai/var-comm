@@ -1,3 +1,24 @@
+## 2026-10-16 T1-C corrected m10 test evaluation delivered; stop
+
+Frozen entropy whole and partial strategies completed19dB on common500 and
+independent new100, each with three original noise realizations. The600 actual
+m10 source traversals retain all24 old endpoints byte-exact. Fullm10 fits6/500
+and1/100 sources; the rest follow the frozen family-specific fallback chains.
+The3600 logical denominator uses2454 exact reused frames (including378
+cross-family equivalent events) and1125 new physical events, with
+2250 actual packets within2250. All new PHY/RX/metric/statistics stages actually
+exit0. Full-denominator source means and direct paired intervals use10000
+source resamples, seed2026100701, separately for500 and100 sources.
+
+Historical common500 whole-code streams from the older4090 environment differ
+from the current frozen H800 implementation. Old-to-new whole-code deltas
+therefore mix this version effect withm10; no solem10 attribution is claimed.
+Old results remain intact. common500 retains allseven metrics; new100 retains
+its originalfour. No4/10dB, other method, training, selection, LE3, HiFi or
+shared-timing rerun. Existing timing remains labeled as the old version.
+Scientific backups remain deferred. See
+results/t1c_m10_test_20261016_v1/delivery/REPORT_zh.md.
+
 ## 2026-10-16 T1-B symmetric m10 calibration delivered; stop before T1-C
 
 Both whole and partial families now include maximum target m10 with their
