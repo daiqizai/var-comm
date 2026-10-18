@@ -1,0 +1,122 @@
+{
+  "name": "NeST-Com_ARPC_external_baseline",
+  "date": "2026-10-19",
+  "status": "PLAN_ONLY_NOT_EXECUTED",
+  "project_snapshot": "3ac13a02feccbbe5f87ca2bc801c18ae07dd29a0",
+  "arpc_snapshot": "f7480889175271a58c7e5f8e48e0b58f247ccf63",
+  "baseline_label": "ARPC + LDPC–QAM (adapted)",
+  "default_first_batch": [
+    "A0_static_audit",
+    "A1_native_8_source_qualification"
+  ],
+  "automatic_successor": false,
+  "first_batch_limits": {
+    "sources": 8,
+    "prefix_roundtrips": 24,
+    "caption_calls": 8,
+    "source_probability_traversals": 8,
+    "reference_plus_receiver_image_generations": 48,
+    "wireless_frames": 0,
+    "training_updates": 0
+  },
+  "native_input": {
+    "preset": "0.06M",
+    "aspect_ratio": 1.0,
+    "pixels": [
+      256,
+      256
+    ],
+    "scale_sides": [
+      1,
+      2,
+      4,
+      6,
+      8,
+      12,
+      16
+    ],
+    "checkpoint_compatibility": "TO_BE_VERIFIED"
+  },
+  "future_channel": {
+    "N_complex": 1024,
+    "header_complex": 68,
+    "body_complex": 956,
+    "nominal_Es": 2,
+    "snr_db": [
+      4,
+      10,
+      19
+    ],
+    "length_bits": 13,
+    "crc_bits": 16,
+    "feedback": false,
+    "retransmissions": false,
+    "modulation_orders": [
+      4,
+      16,
+      64
+    ],
+    "nominal_rates": [
+      "1/2",
+      "2/3",
+      "3/4",
+      "5/6"
+    ]
+  },
+  "future_calibration": {
+    "pool": "original_cal1000",
+    "screen_sources": 100,
+    "full_sources": 1000,
+    "max_candidates_per_snr": 2,
+    "noise_realizations": 3,
+    "max_logical_frames": 18000,
+    "selection_metric": "DINOv2-L",
+    "authorized_by_this_document_to_auto_run": false
+  },
+  "future_evaluation": {
+    "population": "external_common100_v1",
+    "sampling_pool": "original_common500",
+    "sources": 100,
+    "source_selection": "sort by SHA256('ARPC_EXT_EVAL_V1|' + canonical_source_id), take first 100",
+    "noise_realizations": 3,
+    "logical_frames": 900,
+    "fresh_blind_test_claim": false,
+    "metrics": [
+      "PSNR",
+      "LPIPS-Alex",
+      "DISTS",
+      "DreamSim",
+      "DINOv2-L",
+      "ConvNeXt_source_prediction_agreement",
+      "MS-SSIM"
+    ],
+    "paired_bootstrap_replicates": 10000,
+    "paired_bootstrap_seed": 2026100701,
+    "authorized_by_this_document_to_auto_run": false
+  },
+  "mandatory_cost_components": [
+    "caption_payload",
+    "caption_length",
+    "visual_streams",
+    "mode_flags",
+    "necessary_segment_boundaries",
+    "other_per_image_metadata",
+    "termination_and_alignment",
+    "outer_length",
+    "CRC",
+    "paid_header",
+    "LDPC_and_modulation"
+  ],
+  "forbidden_automatic_expansions": [
+    "new_model_training",
+    "extra_external_baseline",
+    "HiFi_rerun",
+    "layered_protection",
+    "larger_SNR_mismatch",
+    "power_allocation",
+    "full_common500_ARPC",
+    "changing_primary_method_to_beat_ARPC"
+  ],
+  "source_of_success": "faithful independent decoding and fair accounting; not which method wins",
+  "notes": "A plan/scope record, not a runnable configuration. Source IDs, weight paths, qualified layouts and container grammar must be established by A0/A1."
+}

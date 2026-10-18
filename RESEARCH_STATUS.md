@@ -1,3 +1,23 @@
+## 2026-10-19 ARPC external comparison: A0 engineering preparation
+
+The user authorized the attached ARPC package through its gated final evaluation.
+Initial HEAD matched `3ac13a02`; no newer result was displaced. Original cal1000
+and common500 source IDs yielded fixed hash-selected cal100 and external_common100_v1
+lists before image/metric inspection. A1 uses the first eight calibration IDs.
+Twenty-five CPU container, boundary and real process-control tests passed. Official
+ARPC/T5/BLIP assets are downloading and an isolated leo-tactile environment is being
+prepared. This milestone has zero model inference, reconstruction, metrics or
+wireless frames. A1 real-weight qualification has not run and is not claimed.
+
+The prepared receiver accepts paid text, actual native source bits and public
+profiles; it does not receive TX CDFs, embeddings, pixels or untransmitted tokens.
+Source costs include text compression/length, native modes/boundaries, termination
+and alignment. A1 actual equality, visual sanity and resource estimates gate A2;
+frozen calibration gates the 100-source A3 comparison. Historical T1-C, old raw
+NO_GO, existing seven-metric results and completed H800 timing remain unchanged.
+See `experiments/arpc-external-baseline-20261019/README.md` and
+`results/arpc_external_baseline_20261019_v1/` for scope and recorded preparation.
+
 ## 2026-10-16 T1-C corrected m10 test evaluation delivered; stop
 
 Frozen entropy whole and partial strategies completed19dB on common500 and
