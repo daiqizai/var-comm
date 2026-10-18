@@ -1,0 +1,56 @@
+{
+  "process": {
+    "pid": 789179,
+    "start_ticks": 330718105,
+    "host": "aibox-rb80bf7d8e38-dc54b8fc7-zrgl7"
+  },
+  "parent_process": {
+    "pid": 789178,
+    "start_ticks": 330718099,
+    "host": "aibox-rb80bf7d8e38-dc54b8fc7-zrgl7"
+  },
+  "argv": [
+    "/usr/bin/python3",
+    "-B",
+    "-c",
+    "import sys,unittest,json\nblocked=[]\nclass Guard:\n def find_spec(self,fullname,path=None,target=None):\n  if fullname.split('.')[0] in ['torch','tensorflow','transformers','compression','infinity']:\n   blocked.append(fullname);raise AssertionError('Synthetic qualification forbids model imports')\nsys.meta_path.insert(0,Guard())\nsuite=unittest.defaultTestLoader.loadTestsFromName('test_clean')\nresult=unittest.TextTestRunner(verbosity=2).run(suite)\nprint(json.dumps({'status':'PASS' if result.wasSuccessful() and not blocked else 'FAIL','tests':result.testsRun,'blocked_model_imports':blocked,'scientific_calls':0}))\nraise SystemExit(0 if result.wasSuccessful() and not blocked else 1)\n"
+  ],
+  "started_unix": 1792355743.2958777,
+  "sources": [
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-external-baseline-20261019/a2_clean_v1/README.md",
+      "bytes": 2882,
+      "sha256": "060d6c84cb4e8ab1af39fab9ef74a0ef2b7b507a79e4ae1900c2eeee6120cdb4"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-external-baseline-20261019/a2_clean_v1/audit.py",
+      "bytes": 5818,
+      "sha256": "6f69969660514801da0911ebeffe4efad508a73caa61b8f6fffa3e7dd82a3ce4"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-external-baseline-20261019/a2_clean_v1/execute.py",
+      "bytes": 3605,
+      "sha256": "1303a483669c004b9316b8ae7288a4ee687b95cbb7a2dc82d056606708a284e4"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-external-baseline-20261019/a2_clean_v1/native.py",
+      "bytes": 2630,
+      "sha256": "ebabb5ff2b1fe88b8a0d4d85e48f9fdb82b442d2bef96c1d5dce6312c7d65b2d"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-external-baseline-20261019/a2_clean_v1/owner.py",
+      "bytes": 7988,
+      "sha256": "a20d23cfb597dbd8eb548ab0c0dc0cd539df31363d59c0b74ee024105e4bf510"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-external-baseline-20261019/a2_clean_v1/qualify.py",
+      "bytes": 2466,
+      "sha256": "3d30e1c686ebfd3cfc9ed981acb3ce881d6b2985614d7d79bf075990572b393e"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-external-baseline-20261019/a2_clean_v1/test_clean.py",
+      "bytes": 5589,
+      "sha256": "ba12db453ac35666987b960ac1ca25e67da5a54b883d8efbe0314849ec57114d"
+    }
+  ]
+}

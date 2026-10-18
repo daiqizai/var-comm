@@ -1,3 +1,15 @@
+## 2026-10-19 ARPC A1 and A2a completed; real link calibration next
+
+Official-weight A1 independent RX and visual/resource checks passed. The fixed
+cal100 now has700 clean prefix states (676 new,24 reused),100 total source traversals
+(92 new,8 reused), and800 three-metric pairs including100 failure-gray references.
+All84 complete strategies were screened by actual fallback DINO-L with matched
+historical PHY uncertainty; each4/10/19dB point nominates two candidates within
+the original cap. No ARPC wireless frame, A2b calibration, A3 evaluation or bootstrap
+is claimed in this milestone. See results/arpc_external_baseline_20261019_v1/A2A_REPORT.md.
+Unknown failures and original initialization attempts remain preserved. Backups
+remain deferred; old results and completed experiments are unchanged.
+
 ## 2026-10-19 ARPC external comparison: A0 engineering preparation
 
 The user authorized the attached ARPC package through its gated final evaluation.

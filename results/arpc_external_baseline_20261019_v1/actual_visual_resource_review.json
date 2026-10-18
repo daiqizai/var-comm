@@ -1,0 +1,102 @@
+{
+  "schema": "ARPC_A1_ROOT_VISUAL_RESOURCE_REVIEW_V1",
+  "status": "READY_FOR_CALIBRATION",
+  "reviewer": "root coordinator",
+  "actual_opened_contact_png": true,
+  "contact_png": {
+    "name": "a1_visual_contact.png",
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/arpc_external_20261019_v1/a1_cuda_recovery_v1/a1_visual_contact.png",
+    "sha256": "fd7fdad3068d7fb69a00b893c11f8ca601bd09a1ccfb61319ecce5531e9debf4",
+    "bytes": 1104075
+  },
+  "registration": {
+    "name": "registration.json",
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/arpc_external_baseline_20261019_v1/a1_cuda_recovery_v1/a1_registration.json",
+    "sha256": "3cda84a89fa42e65eeadf40218feba6b24d9a7390fc1547cdcd07266bcdc98ec",
+    "bytes": 39979
+  },
+  "closure": {
+    "name": "a1_closure.json",
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/arpc_external_baseline_20261019_v1/a1_closure.json",
+    "sha256": "d5883c1f291e9b4efc796a8d66e521df7c9761d9d5ab7e132dc11e7183fe112a",
+    "bytes": 657
+  },
+  "actual_waits": [
+    {
+      "name": "tx_actual_wait.json",
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/arpc_external_20261019_v1/a1_cuda_recovery_v1/tx.actual_wait.json",
+      "sha256": "1720e67e8f5836d04f95a0fb084b01cc171fa00d8a5db47c69d526884dcb6847",
+      "bytes": 261
+    },
+    {
+      "name": "rx_actual_wait.json",
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/arpc_external_20261019_v1/a1_cuda_recovery_v1/rx.actual_wait.json",
+      "sha256": "e1318dd5f06db36009d8855cb07b84f6f4f17689d7f0c40935100d4fccdbbd96",
+      "bytes": 261
+    },
+    {
+      "name": "audit_actual_wait.json",
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/arpc_external_20261019_v1/a1_cuda_recovery_v1/audit.actual_wait.json",
+      "sha256": "a8ffb946dbbb4f64047c52c6cdee5d0e36e014dc170b0f459cb96c788e1d3cfa",
+      "bytes": 262
+    },
+    {
+      "name": "dispatcher_actual_wait.json",
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/arpc_external_20261019_v1/a1_cuda_recovery_dispatch_v1/actual_wait.json",
+      "sha256": "2823f0522e8ba8c7f015651b054c6d8a00e07d5dff0b3ca3ead190a8ff7f5394",
+      "bytes": 261
+    }
+  ],
+  "all_recorded_child_owner_dispatcher_processes_gone": true,
+  "no_recovery_failure": true,
+  "observations": [
+    "All eight registered rows and native/independent RX e1/e4/e7 columns were opened and inspected.",
+    "Full e7 outputs preserve source scene structure, geometry and color; no constant image, invalid range, tiling, or obvious wrong-resolution loading pattern.",
+    "Native and independent RX counterparts visually agree, supported by all24 exact pixel/token/CDF/text comparisons.",
+    "Shallow outputs can substantially change objects, geometry, texture and color. This is retained as generative behavior, not corrected or taken as measured wireless quality."
+  ],
+  "serialization_review": {
+    "decision": "No container redesign or result-driven caption change",
+    "caption_payload_bits_range": [
+      160,
+      352
+    ],
+    "caption_payload_bits_mean": 261,
+    "mode_boundary_bits_mean_by_endpoint": [
+      4,
+      20,
+      69.125,
+      114.875,
+      277.75,
+      399.75,
+      565.125
+    ],
+    "payload_bits_mean_by_endpoint": [
+      287,
+      337,
+      632,
+      1229,
+      2274,
+      4639,
+      8823
+    ],
+    "accounting": "The required source-conditioned text dominates the very shallow endpoint. Its bytes are paid. Boundary tags are finite and reversibly parsed; optional adaptive tag coding was frozen before results. No claim that this is globally optimal serialization.",
+    "endpoint4_mean_original_visual_plus_help_bits": 896.25,
+    "endpoint4_mean_standalone_payload_bits": 1229,
+    "endpoint7_mean_original_visual_plus_help_bits": 8501.75,
+    "endpoint7_mean_standalone_payload_bits": 8823,
+    "outer_length_and_crc_additional_bits": 29
+  },
+  "resource_review": {
+    "peak_allocated_GiB": 19.588605403900146,
+    "peak_reserved_GiB": 23.537109375,
+    "tx_wall_seconds": 80.68632912635803,
+    "rx_wall_seconds": 53.89874458312988,
+    "audit_wall_seconds": 1.1219027042388916,
+    "purpose": "Resource planning on this actual leo device; not historical H800 timing comparison",
+    "seven_endpoint_screening_scientific_cap": 700,
+    "full_calibration_possible_source_endpoint_states": 7000
+  },
+  "successor_gate": "A2a may be prepared within original caps. Reliable MCS evidence, finite resource registration and candidate uncertainty gates still apply before A2b. No A3 before frozen policies.",
+  "prior_failure": "Original A1 initialization exit1 preserved. Zero original model/image calls. Separate mapped-device recovery performed all scientific calls once."
+}

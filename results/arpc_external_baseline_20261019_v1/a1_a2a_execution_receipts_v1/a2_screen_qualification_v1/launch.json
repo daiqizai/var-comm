@@ -1,0 +1,42 @@
+{
+  "process": {
+    "pid": 1576200,
+    "start_ticks": 204295867,
+    "host": "aibox-rfbd2ce574fd-5df9766c45-vz6d9"
+  },
+  "parent_process": {
+    "pid": 1576199,
+    "start_ticks": 204295861,
+    "host": "aibox-rfbd2ce574fd-5df9766c45-vz6d9"
+  },
+  "argv": [
+    "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_ldpc_py311/bin/python",
+    "-B",
+    "-c",
+    "import sys,unittest,json\nblocked=[]\nclass Guard:\n def find_spec(self,fullname,path=None,target=None):\n  if fullname.split('.')[0] in ['torch','tensorflow','transformers','compression','infinity']:\n   blocked.append(fullname);raise AssertionError('No scientific imports in screening qualification')\nsys.meta_path.insert(0,Guard())\nr=unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.loadTestsFromName('test_screen'))\nprint(json.dumps({'tests':r.testsRun,'passed':r.wasSuccessful(),'blocked':blocked,'scientific_calls':0}));raise SystemExit(0 if r.wasSuccessful() and not blocked else 1)\n"
+  ],
+  "sources": [
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-external-baseline-20261019/a2_screen_v1/README.md",
+      "bytes": 1491,
+      "sha256": "33ecf3fd7dad71813129f43c37b2bd2ac81381c874fa7ecd516e4e5b302fb8f2"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-external-baseline-20261019/a2_screen_v1/execute.py",
+      "bytes": 3705,
+      "sha256": "3cf481486df7298c6bb93bbbe1cba50b2a032ead7a2adf32de1f9582e1e80ff2"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-external-baseline-20261019/a2_screen_v1/screen.py",
+      "bytes": 7707,
+      "sha256": "bfabea42011af13dcad4fceae4ec51e81228fb647b3ee973fc74f3450098d7d7"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-external-baseline-20261019/a2_screen_v1/test_screen.py",
+      "bytes": 2216,
+      "sha256": "54a531e90f4c8af28526957fb736a7a06c6bd9f742d80a4574026407bdab0537"
+    }
+  ],
+  "inputs": [],
+  "started_unix": 1792356745.81165
+}

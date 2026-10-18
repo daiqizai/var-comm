@@ -1,0 +1,40 @@
+{
+  "process": {
+    "pid": 1575670,
+    "start_ticks": 204288186,
+    "host": "aibox-rfbd2ce574fd-5df9766c45-vz6d9"
+  },
+  "parent_process": {
+    "pid": 1575669,
+    "start_ticks": 204288180,
+    "host": "aibox-rfbd2ce574fd-5df9766c45-vz6d9"
+  },
+  "argv": [
+    "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_visual_py310/bin/python",
+    "-B",
+    "-c",
+    "import sys,unittest,json\nblocked=[]\nclass Guard:\n def find_spec(self,fullname,path=None,target=None):\n  if fullname.split('.')[0] in ['torch','tensorflow','transformers','compression','infinity']:\n   blocked.append(fullname);raise AssertionError('No model import in CLI tests')\nsys.meta_path.insert(0,Guard())\nr=unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.loadTestsFromName('test_cli_checked'))\nprint(json.dumps({'tests':r.testsRun,'passed':r.wasSuccessful(),'blocked':blocked,'science':0}));raise SystemExit(0 if r.wasSuccessful() and not blocked else 1)\n"
+  ],
+  "sources": [
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-external-baseline-20261019/a2_metrics_v1/execute_checked.py",
+      "bytes": 691,
+      "sha256": "be5bd740274b87f80521eb75c1f9652cd54f8765b0599a32f67799e6e50d4e05"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-external-baseline-20261019/a2_metrics_v1/test_cli_checked.py",
+      "bytes": 1429,
+      "sha256": "4f84a863e57e9851b6c01f90e73a23ca1bc9ed828178c9330e633611ed840ef0"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-external-baseline-20261019/a2_metrics_v1/execute.py",
+      "bytes": 3601,
+      "sha256": "93ccc3d836380c9d6385961522971ca3fa7cc110886169183ad545d47d424490"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-external-baseline-20261019/a2_metrics_v1/owner.py",
+      "bytes": 7052,
+      "sha256": "f00dc802ff3c7f18d5077495e1a9a280fbb0602d340efc70db041b3e62a012a0"
+    }
+  ]
+}
