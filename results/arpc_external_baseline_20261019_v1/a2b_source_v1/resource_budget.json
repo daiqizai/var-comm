@@ -1,0 +1,52 @@
+{
+  "schema": "ARPC_A2B_FINITE_RESOURCE_BUDGET_V1",
+  "calibration_sources": 1000,
+  "new_source_passes": 900,
+  "reused_source_passes": 100,
+  "SNRs": [
+    4,
+    10,
+    19
+  ],
+  "noise_seeds": [
+    4101,
+    4102,
+    4103
+  ],
+  "candidates_per_SNR": {
+    "4": [
+      "e7_q2_r2-3",
+      "e7_q2_r1-2"
+    ],
+    "10": [
+      "e7_q4_r2-3",
+      "e7_q4_r3-4"
+    ],
+    "19": [
+      "e7_q6_r5-6",
+      "e7_q4_r2-3"
+    ]
+  },
+  "logical_frame_cap": 18000,
+  "header_decoder_cap": 18000,
+  "body_decoder_cap": 18000,
+  "total_clean_state_planning_bound": 7000,
+  "existing_clean_states": 700,
+  "new_unique_receiver_state_cap": 6300,
+  "received_wrong_but_accepted_state": "Use actual data; counts against same6300 cap. Stop with resource re-estimate if cap insufficient.",
+  "total_scoring_pairs_bound": 8000,
+  "existing_cal100_clean_gray_pairs": 800,
+  "new_scoring_pair_cap": 7200,
+  "window_seconds": 14400,
+  "clock": "One absolute deadline recorded when firstA2b source owner starts; later stages inherit without resetting.",
+  "basis": "Measured A2a TX92=128.9032s, RX676=587.0199s; max900TX~1261s +6300RX~5471s; engineering24TX+RX30.73s includes two backend initializations; conservative CPU PHY allowance3600s and metric/closure3068s.",
+  "execution": "This owner only missing900TX and source audit. Actual PHY/RX/metrics need their own source-pinned subordinate registration inside this shared cap/window.",
+  "A3_allowed_before_frozen_calibration": false,
+  "new_training": 0,
+  "new_clean_reference_images": 0,
+  "scope": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/arpc_external_baseline_20261019_v1/execution_scope.json",
+    "bytes": 2784,
+    "sha256": "0d6af17ffd9fefd9ea26cbc8f771d7eb8970053358776c27aa4ce378555104ed"
+  }
+}

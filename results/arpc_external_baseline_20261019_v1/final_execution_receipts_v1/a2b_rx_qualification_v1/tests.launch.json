@@ -1,0 +1,20 @@
+{
+  "process": {
+    "pid": 852012,
+    "start_ticks": 331044942,
+    "host": "aibox-rb80bf7d8e38-dc54b8fc7-zrgl7"
+  },
+  "parent_process": {
+    "pid": 852011,
+    "start_ticks": 331044937,
+    "host": "aibox-rb80bf7d8e38-dc54b8fc7-zrgl7"
+  },
+  "argv": [
+    "/usr/bin/python3",
+    "-B",
+    "-c",
+    "import importlib.abc,sys,unittest,json\nblocked=[]\nclass Guard(importlib.abc.MetaPathFinder):\n def find_spec(self,fullname,path=None,target=None):\n  if fullname.split('.')[0] in {'torch','tensorflow','transformers','infinity'}:\n   blocked.append(fullname);raise RuntimeError(fullname)\nsys.meta_path.insert(0,Guard());r=unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.discover('.',pattern='test_rx.py'))\nprint(json.dumps({'tests':r.testsRun,'blocked':blocked,'science':0}));assert r.wasSuccessful() and r.testsRun==8 and not blocked\n"
+  ],
+  "started_unix": 1792359011.6586266,
+  "timeout_seconds": 120
+}

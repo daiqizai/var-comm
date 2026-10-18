@@ -1,0 +1,68 @@
+{
+  "status": "PASS_CONSTRUCTORS_ONLY",
+  "calls": [],
+  "blocked": [],
+  "CUDA_initialized": false,
+  "catalogue_sha256": "504f40b255e1dfb836a3811bdf53b0852f752c677d35b74b3f5dc87b86e1433e",
+  "backend_identity": {
+    "implementation": "Sionna_5G_LDPC_WCL_T1_ADAPTER_V1",
+    "original_backend_identity": {
+      "implementation": "Sionna_5G_LDPC",
+      "version": "2.2.0",
+      "encoder_source_sha256": "34d8db6660b2e84708a8fb534f63c194f6f2b964e3693fcffc9dcaf21532ccfd",
+      "decoder_source_sha256": "44d84b92b749e2970f94d92cd348a11648e2286b4d851faa0af8b21d08f0da23",
+      "decoder": {
+        "cn_update": "boxplus-phi",
+        "vn_update": "sum",
+        "cn_schedule": "flooding",
+        "num_iter": 20,
+        "llr_max": 20.0,
+        "hard_out": true,
+        "return_infobits": true,
+        "prune_pcm": true,
+        "harq_mode": false,
+        "precision": "single",
+        "early_stop": false
+      },
+      "bit_mapping": "component_Gray_00_-3_01_-1_10_3_11_1_over_sqrt5;QPSK_0_plus1_1_minus1",
+      "scrambling": "public_PCG64_SHA256_protocol_session_frame_group_counter_after_rate_matching_v1",
+      "power_protocol": "fixed_constellation_average_Es2",
+      "precision": "float32",
+      "rate_matching": "Sionna RV0; filler removal, first2Z and tail puncturing; supported n only",
+      "cuda": "12.8",
+      "torch": "2.11.0+cu128"
+    },
+    "decoder": {
+      "cn_update": "boxplus-phi",
+      "vn_update": "sum",
+      "cn_schedule": "flooding",
+      "num_iter": 20,
+      "llr_max": 20.0,
+      "hard_out": true,
+      "return_infobits": true,
+      "prune_pcm": true,
+      "harq_mode": false,
+      "precision": "single",
+      "early_stop": false
+    },
+    "bit_mapping": "original_MAIN_q2_q4_and_q6_Gray_I_then_Q;nominal_Es2;no_frame_normalization",
+    "scrambling": "WCL_T1_public_PCG64_SHA256_protocol_session_counter_after_RV0_v1",
+    "power_protocol": "fixed_constellation_average_Es2_no_per_frame_normalization",
+    "rate_matching": "Sionna RV0; filler removal, first2Z and tail puncturing; supported n only",
+    "precision": "float32",
+    "device": "cpu"
+  },
+  "profiles": 96,
+  "sources": [
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-external-baseline-20261019/phy_rx_environment_v2/adapter.py",
+      "bytes": 1297,
+      "sha256": "a81016bf0ba7f7756b8dad67778c4be5312e6cacce68792fa781e9ec63c3c8a6"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-external-baseline-20261019/phy_rx_environment_v2/worker.py",
+      "bytes": 3016,
+      "sha256": "08af30fbe58a97faa666fe3ea9adeada02d3f169bb42857ae4fcb1322e34f2aa"
+    }
+  ]
+}

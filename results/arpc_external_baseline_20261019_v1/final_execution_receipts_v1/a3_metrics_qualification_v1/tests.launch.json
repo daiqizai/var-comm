@@ -1,0 +1,20 @@
+{
+  "process": {
+    "pid": 1599566,
+    "start_ticks": 204654185,
+    "host": "aibox-rfbd2ce574fd-5df9766c45-vz6d9"
+  },
+  "parent_process": {
+    "pid": 1599565,
+    "start_ticks": 204654181,
+    "host": "aibox-rfbd2ce574fd-5df9766c45-vz6d9"
+  },
+  "argv": [
+    "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_visual_py310/bin/python",
+    "-B",
+    "-c",
+    "import importlib.abc,sys,unittest,json\nblocked=[]\nclass Guard(importlib.abc.MetaPathFinder):\n def find_spec(self,fullname,path=None,target=None):\n  if fullname.split('.')[0] in {'torch','tensorflow','transformers','infinity'}:\n   blocked.append(fullname);raise RuntimeError(fullname)\nsys.meta_path.insert(0,Guard());r=unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.discover('.',pattern='test_metrics.py'))\nprint(json.dumps({'tests':r.testsRun,'blocked':blocked,'science':0}));assert r.wasSuccessful() and r.testsRun==8 and not blocked\n"
+  ],
+  "started_unix": 1792360328.999496,
+  "timeout_seconds": 120
+}

@@ -1,3 +1,17 @@
+## 2026-10-19 ARPC fixed100 matched comparison completed
+
+Official adapted ARPC weights passed independent source decoding and the full
+finite cal1000 strategy calibration. Frozen policies then completed900 logical
+frames at4/10/19dB on external_common100_v1, followed by all seven metrics and
+one10000-replicate source-paired analysis. The same100 source IDs select existing
+final baseline scores; NeST-Com19dB uses T1-C m10. All failures remain in their
+denominators. Results in every direction are reported without test-set selection.
+See results/arpc_external_baseline_20261019_v1/final_report_v1/REPORT_zh.md and
+final_figures_v2/. This is not the fullcommon500 result or a new blind test.
+Original failed initialization and receiver-environment evidence is preserved.
+No training, old baseline scoring, old timing or reconstruction was repeated.
+Restoration backups remain deferred. Historical experiments/figures are unchanged.
+
 ## 2026-10-19 ARPC A1 and A2a completed; real link calibration next
 
 Official-weight A1 independent RX and visual/resource checks passed. The fixed

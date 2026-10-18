@@ -1,0 +1,20 @@
+{
+  "process": {
+    "pid": 1582113,
+    "start_ticks": 204388641,
+    "host": "aibox-rfbd2ce574fd-5df9766c45-vz6d9"
+  },
+  "parent_process": {
+    "pid": 1582049,
+    "start_ticks": 204388629,
+    "host": "aibox-rfbd2ce574fd-5df9766c45-vz6d9"
+  },
+  "argv": [
+    "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_ldpc_py311/bin/python",
+    "-B",
+    "-c",
+    "import importlib.abc,json,sys,unittest\nblocked=[]\nclass Guard(importlib.abc.MetaPathFinder):\n def find_spec(self,fullname,path=None,target=None):\n  if fullname.split('.')[0] in {'torch','tensorflow','sionna','transformers','infinity'}:\n   blocked.append(fullname);raise RuntimeError('Synthetic test imported model/PHY runtime '+fullname)\nsys.meta_path.insert(0,Guard())\nsuite=unittest.defaultTestLoader.discover('.',pattern='test_*.py')\nr=unittest.TextTestRunner(verbosity=2).run(suite)\nprint(json.dumps({'tests':r.testsRun,'blocked':blocked,'neural_calls':0,'packets':0}))\nassert r.testsRun==15 and r.wasSuccessful() and not blocked\n"
+  ],
+  "started_unix": 1792357673.5578182,
+  "timeout_seconds": 120
+}

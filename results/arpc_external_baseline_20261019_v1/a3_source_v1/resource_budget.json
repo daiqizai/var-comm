@@ -1,0 +1,37 @@
+{
+  "schema": "ARPC_A3_FINITE_BUDGET_V1",
+  "sources": 100,
+  "caption_tokenizer_TX_each": 100,
+  "new_reference_renders": 0,
+  "logical_frames": 900,
+  "header_decodes": 900,
+  "body_decodes": 900,
+  "new_unique_RX_state_cap": 700,
+  "unique_score_pair_cap": 800,
+  "source_metric_references_cap": 100,
+  "seven_metrics": true,
+  "noise_seeds": [
+    6201,
+    6202,
+    6203
+  ],
+  "SNRs": [
+    4,
+    10,
+    19
+  ],
+  "frozen_policies": {
+    "4": "e7_q2_r2-3",
+    "10": "e7_q4_r2-3",
+    "19": "e7_q6_r5-6"
+  },
+  "window_seconds": 7200,
+  "basis": "Closed A1/A2 measured native and PHY cost, at most100TX+700RX+800sevenmetric pairs; finite conservative7200s window, not timing comparison.",
+  "bootstrap_replicates": 10000,
+  "bootstrap_seed": 2026100701,
+  "bootstrap_draw_matrix_calls": 1,
+  "comparison": "Source-paired NeST-Com minus ARPC only; five same-source descriptive means, pointwise intervals.",
+  "training": 0,
+  "policy_or_checkpoint_selection": false,
+  "no_additional_calibration": true
+}
