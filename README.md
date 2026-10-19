@@ -1,3 +1,30 @@
+## 2026-10-19 N2048 adaptive cal100 delivery: candidate coverage pending
+
+The separate low-SNR adaptive package has completed B0/B1 and all cal100 clean
+source gaps. Both equal-protection fragments pay their68-symbol header and
+13-bit length,16-bit CRC and96-bit reassembly record within the2048-use budget.
+35,200 existing source objects were verified; no TX/tokenizer rerun.24 physical
+qualification objects used48 subframes and96 decoder calls without repetition.
+The original RX final exit1 remains preserved; a metadata-only closure audited
+already saved decodes after an optional Python bytecode cache read was denied.
+
+Cal100 now has3200 clean endpoints:1407 verified existing image/score states,
+1793 new NeST native recoveries and1793 new DINO values, reusing100 original
+source features. All384 complete policies use actual per-image length fallback.
+At10dB five NeST policies remain plausible under historical packet-proxy bounds:
+QPSK2/3,3/4,5/6 and16-QAM1/2,2/3. They cannot fit the two-policy condition cap.
+Per the package uncertainty rule B2/B3 have NOT run; no new test score, paired
+bootstrap or low-SNR wireless improvement is claimed. The other three conditions
+are covered within two proposals. Using one plausible ARPC policy perSNR would
+need nine calibration cells:27000logical/54000subframes/108000decoder attempts,
+still beyond the original global and per-condition scope. This is a costed
+option, not an authorized expansion. Old N1024/fixed-full N2048 remain unchanged.
+
+See results/arpc_n2048_adaptive_20261019_v1/README.md, B0_B1_delivery/REPORT_zh.md,
+all source-level diagnostic tables and the actually opened vector figures_v2
+(directory figures_calibration_v2). Scientific continuation waits on scope;
+no training, power extension, extra methods or heavy backup is launched.
+
 ## 2026-10-19 N2048 two-method full-representation validation completed
 
 The authorized fixed100 validation is complete under the shared two-subframe

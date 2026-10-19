@@ -1,0 +1,174 @@
+{
+  "status": "PENDING_UNCOVERED_CANDIDATE_UNCERTAINTY",
+  "decisions": {
+    "0_4": {
+      "status": "WITHIN_TWO_POLICY_CAP",
+      "selected_proposals": [
+        "nest_t24_q2_r2-3",
+        "nest_t24_q2_r1-2"
+      ],
+      "possible_best": [
+        "nest_t24_q2_r1-2",
+        "nest_t24_q2_r2-3"
+      ],
+      "uncovered": [],
+      "within_MCS_leaders": [
+        "nest_t24_q2_r1-2",
+        "nest_t24_q2_r2-3",
+        "nest_t24_q2_r3-4",
+        "nest_t24_q2_r5-6",
+        "nest_t24_q4_r1-2",
+        "nest_t24_q4_r2-3",
+        "nest_t24_q4_r3-4",
+        "nest_t24_q4_r5-6",
+        "nest_t24_q6_r1-2",
+        "nest_t24_q6_r2-3",
+        "nest_t24_q6_r3-4",
+        "nest_t24_q6_r5-6"
+      ],
+      "additional_candidate_policies": 0,
+      "additional_cal1000_logical_upper": 0,
+      "additional_subframes_upper": 0,
+      "additional_decoder_upper": 0
+    },
+    "0_10": {
+      "status": "PENDING_MORE_THAN_TWO_PLAUSIBLE_POLICIES",
+      "selected_proposals": [
+        "nest_t24_q4_r2-3",
+        "nest_t24_q4_r1-2"
+      ],
+      "possible_best": [
+        "nest_t24_q2_r2-3",
+        "nest_t24_q2_r3-4",
+        "nest_t24_q2_r5-6",
+        "nest_t24_q4_r1-2",
+        "nest_t24_q4_r2-3"
+      ],
+      "uncovered": [
+        "nest_t24_q2_r2-3",
+        "nest_t24_q2_r3-4",
+        "nest_t24_q2_r5-6"
+      ],
+      "within_MCS_leaders": [
+        "nest_t24_q2_r1-2",
+        "nest_t24_q2_r2-3",
+        "nest_t24_q2_r3-4",
+        "nest_t24_q2_r5-6",
+        "nest_t24_q4_r1-2",
+        "nest_t24_q4_r2-3",
+        "nest_t24_q4_r3-4",
+        "nest_t24_q4_r5-6",
+        "nest_t24_q6_r1-2",
+        "nest_t24_q6_r2-3",
+        "nest_t24_q6_r3-4",
+        "nest_t24_q6_r5-6"
+      ],
+      "additional_candidate_policies": 3,
+      "additional_cal1000_logical_upper": 9000,
+      "additional_subframes_upper": 18000,
+      "additional_decoder_upper": 36000
+    },
+    "1_4": {
+      "status": "WITHIN_TWO_POLICY_CAP",
+      "selected_proposals": [
+        "arpc_t7_q2_r2-3",
+        "arpc_t7_q2_r1-2"
+      ],
+      "possible_best": [
+        "arpc_t7_q2_r2-3"
+      ],
+      "uncovered": [],
+      "within_MCS_leaders": [
+        "arpc_t7_q2_r1-2",
+        "arpc_t7_q2_r2-3",
+        "arpc_t7_q2_r3-4",
+        "arpc_t7_q2_r5-6",
+        "arpc_t7_q4_r1-2",
+        "arpc_t7_q4_r2-3",
+        "arpc_t7_q4_r3-4",
+        "arpc_t7_q4_r5-6",
+        "arpc_t7_q6_r1-2",
+        "arpc_t7_q6_r2-3",
+        "arpc_t7_q6_r3-4",
+        "arpc_t7_q6_r5-6"
+      ],
+      "additional_candidate_policies": 0,
+      "additional_cal1000_logical_upper": 0,
+      "additional_subframes_upper": 0,
+      "additional_decoder_upper": 0
+    },
+    "1_10": {
+      "status": "WITHIN_TWO_POLICY_CAP",
+      "selected_proposals": [
+        "arpc_t7_q4_r2-3",
+        "arpc_t7_q2_r3-4"
+      ],
+      "possible_best": [
+        "arpc_t7_q4_r2-3"
+      ],
+      "uncovered": [],
+      "within_MCS_leaders": [
+        "arpc_t7_q2_r1-2",
+        "arpc_t7_q2_r2-3",
+        "arpc_t7_q2_r3-4",
+        "arpc_t7_q2_r5-6",
+        "arpc_t7_q4_r1-2",
+        "arpc_t7_q4_r2-3",
+        "arpc_t7_q4_r3-4",
+        "arpc_t7_q4_r5-6",
+        "arpc_t7_q6_r1-2",
+        "arpc_t7_q6_r2-3",
+        "arpc_t7_q6_r3-4",
+        "arpc_t7_q6_r5-6"
+      ],
+      "additional_candidate_policies": 0,
+      "additional_cal1000_logical_upper": 0,
+      "additional_subframes_upper": 0,
+      "additional_decoder_upper": 0
+    }
+  },
+  "B2_started": false,
+  "B3_started": false,
+  "clean_states": 3200,
+  "all_strategies": 384,
+  "nomination_metric": "DINOv2-L only, every source actual legal length fallback",
+  "within_MCS_rule": "Maximum mean actual clean DINO under common nonnegative single-MCS probability proxy. Higher target breaks exact ties; all candidates retained.",
+  "across_MCS_ties": "Higher proxy DINO; lower q, lower nominal rate, higher target.",
+  "proxy_limitation": "Squared historical single-packet joint header/body acceptance with Bonferroni bounds; conditional-independence/payload-transfer approximation, not measured new dual-fragment reliability. Source CRC/profile changed. B1 six noisy pairs qualify implementation only.",
+  "uncertainty_stop": "If any third plausible MCS leader is uncovered, do not launch B2 or silently discard it; report additional costs. No new budget implied.",
+  "inputs": [
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/arpc_external_baseline_20261019_v1/a2_metrics_v1/clean_quality.csv",
+      "bytes": 209420,
+      "sha256": "eb19b8f7bed361358799b7b0127cf624defba552c546cf42fbfbeb92a87d4e6f"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/arpc_external_baseline_20261019_v1/a2_reliability_v1/reliability_cells.csv",
+      "bytes": 3334,
+      "sha256": "ee1db65ec073c12c6e9f0d663eac5160dadc6f721e7069839d390a4af94b075e"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/arpc_n2048_adaptive_20261019_v1/cal100_scores_v1/worker/completion.json",
+      "bytes": 1094,
+      "sha256": "06e56ff35ef0b18af446cd004823b89176a1b7c555c8269b6bbea04a3294bf38"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/arpc_n2048_adaptive_20261019_v1/cal100_verified_cache_v1/completion.json",
+      "bytes": 1154885,
+      "sha256": "4e63dde8ee8b5ae414e5b5cf3e470e9c0d54d9ec614d07323a607059c2dc60ef"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/arpc_n2048_adaptive_20261019_v1/qualification/review.json",
+      "bytes": 1811,
+      "sha256": "d1ceebbdcf540e43154e35cc3728d8359af005bec59495580abec51c276a0cc0"
+    }
+  ],
+  "source": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-n2048-adaptive-20261019/prescreen.py",
+    "bytes": 6150,
+    "sha256": "cfce5379bc35e1a301b312cda6991ce4e992a17b2fff9f16be7e0e5fbcb66010"
+  },
+  "new_channel": 0,
+  "new_models": 0,
+  "new_bootstrap": 0
+}
