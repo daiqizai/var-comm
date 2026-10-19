@@ -1,0 +1,129 @@
+{
+  "version": "NeST-Com figure style v2",
+  "purpose": "Styling specification only; not an experimental result or executable plot",
+  "palette_basis": "figures4papers blue-green-red-neutral family; green_line is a darker local adaptation",
+  "palette": {
+    "proposed": "#3775BA",
+    "proposed_dark": "#0F4D92",
+    "latent_jscc": "#B64342",
+    "swin_jscc": "#5E966B",
+    "bpg_ldpc": "#767676",
+    "raw_variant": "#4D4D4D",
+    "green_fill": [
+      "#DDF3DE",
+      "#AADCA9",
+      "#8BCF8B"
+    ],
+    "red_fill": [
+      "#F6CFCB",
+      "#E9A6A1"
+    ],
+    "neutral_fill": "#CFCECE",
+    "text": "#272727",
+    "axis": "#4D4D4D",
+    "grid": "#E6E6E6",
+    "background": "#FFFFFF"
+  },
+  "font_fallback": [
+    "Arial",
+    "Helvetica",
+    "Liberation Sans",
+    "DejaVu Sans"
+  ],
+  "font_sizes_pt": {
+    "axis_label": 8.3,
+    "tick": 7.3,
+    "legend": 7.3,
+    "panel_label": 8.8
+  },
+  "line_widths_pt": {
+    "proposed": 1.8,
+    "baseline": 1.3,
+    "errorbar": 0.9,
+    "axis": 0.7,
+    "grid": 0.45
+  },
+  "methods": {
+    "NeST-Com (entropy-coded)": {
+      "color": "#3775BA",
+      "marker": "o",
+      "linestyle": "-",
+      "linewidth": 1.8
+    },
+    "Latent-space JSCC": {
+      "color": "#B64342",
+      "marker": "s",
+      "linestyle": "-",
+      "linewidth": 1.3
+    },
+    "SwinJSCC (adapted)": {
+      "color": "#5E966B",
+      "marker": "^",
+      "linestyle": "-.",
+      "linewidth": 1.3
+    },
+    "Adaptive BPG + LDPC": {
+      "color": "#767676",
+      "marker": "D",
+      "linestyle": ":",
+      "linewidth": 1.3
+    }
+  },
+  "paired_series": {
+    "Entropy-coded": {
+      "color": "#3775BA",
+      "marker": "o",
+      "facecolor": "#3775BA",
+      "offset": -0.12
+    },
+    "Raw": {
+      "color": "#4D4D4D",
+      "marker": "s",
+      "facecolor": "#4D4D4D",
+      "offset": 0.12
+    }
+  },
+  "figure2": {
+    "layout": "1x4",
+    "draft_width_mm": 180,
+    "draft_height_mm": 55,
+    "x_axis": "numeric",
+    "snr_db": [
+      4,
+      10,
+      19
+    ],
+    "metrics": [
+      "psnr_db",
+      "lpips_alex",
+      "dreamsim",
+      "convnext_top1_source_prediction"
+    ],
+    "width_source": "actual manuscript textwidth"
+  },
+  "figure3": {
+    "layout": "1x2",
+    "draft_width_mm": 88.5,
+    "draft_height_mm": 50,
+    "x_axis": "categorical",
+    "snr_db": [
+      4,
+      10,
+      19
+    ],
+    "metrics": [
+      "psnr_db",
+      "dreamsim_if_identity_compatible_else_lpips_alex"
+    ],
+    "difference_sign": {
+      "psnr_db": "partial-whole",
+      "dreamsim": "whole-partial",
+      "lpips_alex": "whole-partial"
+    },
+    "width_source": "actual manuscript columnwidth"
+  },
+  "scientific_changes_allowed": false,
+  "recompute_bootstrap_allowed": false,
+  "share_font_files": false,
+  "feedback_revision": "2026-10-16: main circles 4.5 pt; paired raw solid dark-gray square with white edge; compact titles; zero baseline"
+}

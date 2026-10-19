@@ -1,0 +1,86 @@
+{
+  "status": "COMPATIBLE_MATHEMATICAL_METRIC_AND_SOURCE_INPUTS",
+  "selected_fig3_metric": "dreamsim",
+  "raw_metric_identity": "25aca2656de9c9fdacf7774bc27ca284b51d33cb13c188c3360b8ae873fa491b",
+  "asset_checks": [
+    {
+      "component": "cache",
+      "field": "files",
+      "raw_supplement_t1c_equal": true
+    },
+    {
+      "component": "dino_implementation",
+      "field": "files",
+      "raw_supplement_t1c_equal": true
+    },
+    {
+      "component": "dino_implementation",
+      "field": "revision",
+      "raw_supplement_t1c_equal": true
+    },
+    {
+      "component": "dino_weights",
+      "field": "sha256",
+      "raw_supplement_t1c_equal": true
+    },
+    {
+      "component": "implementation",
+      "field": "files",
+      "raw_supplement_t1c_equal": true
+    },
+    {
+      "component": "implementation",
+      "field": "revision",
+      "raw_supplement_t1c_equal": true
+    }
+  ],
+  "raw_model": "DreamSim ensemble v0.2.0-checkpoints: dino_vitb16,clip_vitb16,open_clip_vitb16 + LoRA",
+  "raw_preprocessing": {
+    "antialias": true,
+    "crop": null,
+    "interpolation": "bicubic",
+    "normalization": "official per-backbone internal normalization and normalize_embeds=True",
+    "resize": [
+      224,
+      224
+    ]
+  },
+  "raw_input": "RGB BCHW float32 [0,1]; no additional 8-bit quantization",
+  "current_protocol": {
+    "direction": "lower",
+    "branch": "ensemble",
+    "release": "v0.2.0-checkpoints",
+    "use_patch_model": false,
+    "normalize_embeds": true,
+    "preprocessing": "official square224 bicubic antialiased tensor geometry; original RGB floats retained, no PIL requantization or crop",
+    "normalization": "unchanged official per-backbone internal normalization"
+  },
+  "source_proof": {
+    "status": "PASS",
+    "head": "24fa1ecf3a6a959e6023d47ff460df41a711d30f",
+    "input_files": 15,
+    "source_population_order_matches": 500,
+    "source_archive_SHA_matches": 500,
+    "preprocessing_id_matches": 500,
+    "source_manifest": {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/common500_original_sources/manifest.json",
+      "bytes": 590608,
+      "sha256": "b27128fb8eedee7f2cc74bed25c63e39e8add8c938c76d449f85c4b0d5a51e09"
+    },
+    "original_source_freeze": {
+      "path": "/home/liulu/projects/VAR_COMM/outputs/MAIN-RAW64-20261007/holdout_metadata/final_freeze_v1/FINAL_FREEZE.json",
+      "sha256": "3f2b43a8a771be7f0c04d60bae7862b1f052c8c35f0236865ef904e6e388194a"
+    },
+    "source_pixels_opened": 0
+  },
+  "t1c_original_registration": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/quality_metrics_supplement_20261014_v1/common500/registration.json",
+    "bytes": 339898,
+    "sha256": "191f10cce3ac20000583f70edfbe74e83ec0d22272e403ea0b683eed484cfb02"
+  },
+  "notes": [
+    "Raw and newer scoring use the same DreamSim implementation/weights/ensemble, FP32 and no added quantization. GPU hardware differs; this is mathematical/input identity, not bitwise runtime identity.",
+    "Common500 source archives and preprocessing IDs match across all500 sources; no images opened or rescored for this drawing task.",
+    "Raw WHOLE was absent from newer six-method supplement; its genuine historical paired rows are retained."
+  ]
+}

@@ -1,0 +1,14 @@
+\begin{tikzpicture}[font=\sffamily\scriptsize,box/.style={draw=black!65,fill=white,minimum height=13mm,align=center,inner sep=2pt},arr/.style={-{Latex[length=1.4mm]},thick}]
+\node[box,text width=15mm] (tok) at (0,0) {VAR\\tokenizer};
+\node[box,text width=30mm,right=4mm of tok] (src) {Conditional source coding\\terminated-length fallback};
+\node[box,text width=23mm,right=4mm of src] (frame) {Paid profile\\CRC / LDPC / QAM};
+\node[box,text width=11mm,right=4mm of frame] (ch) {AWGN};
+\node[box,text width=25mm,right=4mm of ch] (parse) {Actual decode\\source parser};
+\node[box,text width=23mm,right=4mm of parse] (gen) {Received tokens\\VAR completion};
+\node[box,text width=12mm,right=4mm of gen] (dc) {$D_c$\\image};
+\foreach \a/\b in {tok/src,src/frame,frame/ch,ch/parse,parse/gen,gen/dc}{\draw[arr] (\a.east)--(\b.west);}
+\node[above=3mm of src,font=\sffamily\small] {Transmitter};
+\node[above=3mm of gen,font=\sffamily\small] {Receiver};
+\node[below=3mm of parse,align=center,text width=48mm] (gray) {Header / CRC / syntax rejected $\rightarrow$ fixed gray};
+\draw[arr] (parse.south)--(gray.north);
+\end{tikzpicture}

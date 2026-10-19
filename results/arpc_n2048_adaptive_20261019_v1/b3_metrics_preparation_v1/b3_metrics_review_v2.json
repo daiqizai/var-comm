@@ -1,0 +1,185 @@
+{
+  "schema": "INDEPENDENT_B3_METRICS_STATIC_REVIEW_V2",
+  "reviewer": "entropy_manuscript agent",
+  "reviewed_utc": "2026-10-19T09:01:10.631963+00:00",
+  "status": "PASS_SOURCE_REVIEW_AND_TARGETED_ZERO_NEW_FIXTURE",
+  "previous_review": {
+    "path": ".research/manuscript_completion_20261019/manuscript/b3_metrics_review_v1.json",
+    "bytes": 7259,
+    "sha256": "fc4357ff33f9b09a7aef7e2991f4ce02f4da7f262bca8d8a1010cd7ab9b88c60"
+  },
+  "reviewed_sources": [
+    {
+      "path": "experiments/arpc-n2048-adaptive-20261019/b3_metrics_v1/adapter.py",
+      "bytes": 1745,
+      "sha256": "d41b73dcd84db3ed9fd86ed435f2eeb8d9c3391cd7f933201e44fc4ae8b8d01c"
+    },
+    {
+      "path": "experiments/arpc-n2048-adaptive-20261019/b3_metrics_v1/common.py",
+      "bytes": 1282,
+      "sha256": "6b87296f24ced237409cb00b679a091cef70bca69e42bb44cf8b8fb381faa35f"
+    },
+    {
+      "path": "experiments/arpc-n2048-adaptive-20261019/b3_metrics_v1/prepare.py",
+      "bytes": 8161,
+      "sha256": "4b0d82dc905999551954455dc85c60f2f868257dd411a9f140f930316a6268e7"
+    },
+    {
+      "path": "experiments/arpc-n2048-adaptive-20261019/b3_metrics_v1/README.md",
+      "bytes": 3771,
+      "sha256": "95cd2187b0955c226ee36a46d24271660044fad7e3cf3a0a8597aab42af6d056"
+    },
+    {
+      "path": "experiments/arpc-n2048-adaptive-20261019/b3_metrics_v1/statistical.py",
+      "bytes": 2731,
+      "sha256": "e64bff3ec2275deddbfc2fceac8036e00647c4bc9c1576d305c263a18eebd092"
+    },
+    {
+      "path": "experiments/arpc-n2048-adaptive-20261019/b3_metrics_v1/test_metrics.py",
+      "bytes": 8639,
+      "sha256": "da813b69452f74cfb6cc0c6308d7cfd1e7b25dc54623d390e9191bc1726bed2b"
+    },
+    {
+      "path": "experiments/arpc-n2048-adaptive-20261019/b3_metrics_v1/worker.py",
+      "bytes": 5911,
+      "sha256": "71257e1650454abca2f5134ff8467ed151cdead1f6f6a4b543ba7c3b15614cb9"
+    },
+    {
+      "path": "experiments/arpc-n2048-adaptive-20261019/shared.py",
+      "bytes": 4617,
+      "sha256": "beab2a0b405b2d04cd5a0dcf4019743204e5daef5965b63ddaac506ac615f67e"
+    },
+    {
+      "path": "experiments/arpc-n2048-validation-20261019/metrics.py",
+      "bytes": 16018,
+      "sha256": "dcb9c38d374238ba22125c7fb24a2f2268ddabde40827898777e217c302dde7b"
+    }
+  ],
+  "resolved_findings": [
+    {
+      "id": "B3-R01",
+      "resolution": "Direct ADAPT_E/shared.py descriptor added to B3 code; worker.check verifies it before score/statistics."
+    }
+  ],
+  "zero_new": {
+    "identity_files": "Original pinned A3 four/supplemental JSON bytes copied with exclusive creation, fsync, copied SHA equality; both included in score completion outputs.",
+    "pair_keys": "Exact prior reuse.old_pair_key retained; all 596 actual eligible old keys are distinct lowercase 64-hex strings.",
+    "fixture_test": {
+      "path": ".research/manuscript_completion_20261019/manuscript/b3_metrics_zero_new_targeted_test_v1.json",
+      "bytes": 1641,
+      "sha256": "fbec73845a7bc7366ff9b765ae4f8ac30b187be895b52d6e3faed105c21ec57e"
+    },
+    "fixture_coverage": [
+      "100 synthetic sources, 1200 gray logical frames, 100 reused pairs, no new scores or bootstrap.",
+      "Exact identity bytes/outputs verified; original pair keys retained; zero and negative metric values preserved.",
+      "Repeated zero-new write rejects with FileExistsError; no successful source is silently replayed.",
+      "Only reuse_only AST body executed in fixture namespace. Model imports forbidden and none newly present."
+    ]
+  },
+  "prior_metadata_checks": [
+    {
+      "root": "results/arpc_external_baseline_20261019_v1/a3_metrics_v1",
+      "sources": 100,
+      "pairs": 296,
+      "array_keys": {
+        "float_output": 296
+      },
+      "unresolved": 0,
+      "source_metadata": [
+        {
+          "path": "results/arpc_external_baseline_20261019_v1/a3_metrics_v1/score_completion.json",
+          "bytes": 1914,
+          "sha256": "93213c31abd2641b1b514ca5dd7b9253e9b05424ac6e9efbc2b001d7510be2d8"
+        },
+        {
+          "path": "results/arpc_external_baseline_20261019_v1/a3_metrics_v1/pair_plan.json",
+          "bytes": 661479,
+          "sha256": "af227888b29b72b0c0e61a1a116dc17cd485ac86ec26139057b5c9cf648a5758"
+        },
+        {
+          "path": "results/arpc_external_baseline_20261019_v1/a3_metrics_v1/actual_pair_scores.csv",
+          "bytes": 87904,
+          "sha256": "4b02ea28685e6da33dceccdbc436e4e0b3a4e1ef588874db944c26d014c38bc5"
+        },
+        {
+          "path": "results/arpc_external_baseline_20261019_v1/a3_metrics_v1/four_metric_identity.json",
+          "bytes": 53468,
+          "sha256": "99614479070a1cf941e2d8647164396269a04755926b08a9da55cf7f469ac7b9"
+        },
+        {
+          "path": "results/arpc_external_baseline_20261019_v1/a3_metrics_v1/supplemental_identity.json",
+          "bytes": 11078,
+          "sha256": "4f18647c966f43aa0a715616f059ef679673eba4c79d98275f355141e6e0749e"
+        }
+      ]
+    },
+    {
+      "root": "results/arpc_n2048_validation_20261019_v1/metrics_v1",
+      "sources": 100,
+      "pairs": 300,
+      "array_keys": {
+        "None": 100,
+        "image": 100,
+        "float_output": 100
+      },
+      "unresolved": 0,
+      "source_metadata": [
+        {
+          "path": "results/arpc_n2048_validation_20261019_v1/metrics_v1/score_completion.json",
+          "bytes": 3544,
+          "sha256": "a63b2a3adb2071ed436c5e795232d43e55a8696b855c835e2d6af21bdf77fcde"
+        },
+        {
+          "path": "results/arpc_n2048_validation_20261019_v1/metrics_v1/pair_plan.json",
+          "bytes": 927970,
+          "sha256": "281036c0c99aaf74de0959db517b652cbb75be4de5d87b1fdf0dd1ef35dbaea3"
+        },
+        {
+          "path": "results/arpc_n2048_validation_20261019_v1/metrics_v1/actual_pair_scores.csv",
+          "bytes": 90992,
+          "sha256": "616a959783aea1be392eff40dcf74a4ab17339235579c485bd0f010e07d7b17f"
+        },
+        {
+          "path": "results/arpc_n2048_validation_20261019_v1/metrics_v1/four_metric_identity.json",
+          "bytes": 53547,
+          "sha256": "a389bdc55bc0ccb88e04ba343369e8f99c2c1eb41e32e5503940083f2a6c6828"
+        },
+        {
+          "path": "results/arpc_n2048_validation_20261019_v1/metrics_v1/supplemental_identity.json",
+          "bytes": 11307,
+          "sha256": "f93a34e0884159c2ec700a48cbb10b419b708f3d7d3273488db2d99bbc67e9cf"
+        }
+      ]
+    }
+  ],
+  "common_four_metric_identity": "7322188033553c97939de99888098b29670b5b267b4f082d1bc94084c2893698",
+  "supplemental_identity_keys_compared": [
+    "protocol",
+    "model_metadata",
+    "versions",
+    "FP32",
+    "TF32"
+  ],
+  "actual_old_pair_overlap": 0,
+  "unknown_failure_review": [
+    "Score/statistics child exceptions become a nonzero actual_wait and owner failure.json with captured stdout/stderr. Ledger failed/reserved rows and bootstrap reservation/draw array are not deleted.",
+    "Existing stage or bootstrap directories reject blind re-entry. Failures before stage-directory creation remain an outer-dispatch responsibility and must not be presented as completed child waits."
+  ],
+  "statistical_review": "100 source IDs, 2 methods, 4/10 dB, exact 6201/6202/6203 triples; source means precede one 2026101902 x10000 index matrix; direct paired percentile95 and all gray/negative/cross-zero values retained.",
+  "unchanged_math_review": "Original metrics.py dcb9c38d... pinned; inverse AST verifies only 1800->1200 twice and 3500->14340 once. No metric or preprocessing function body change.",
+  "open_source_findings": [],
+  "qualifications_not_claimed": [
+    "Full original-Python/PFS engineering suite is for root to run once after freezing this revision.",
+    "New native B3 closure, real pair eligibility/array equality, score actual wait and bootstrap have not run in this review. No new scientific result exists here.",
+    "Final reporting must combine metric outputs with the pinned native/transport closure for correct-delivery, failure, endpoint, MCS and source-occupancy details."
+  ],
+  "production_prepare_calls": 0,
+  "real_score_calls": 0,
+  "real_statistics_calls": 0,
+  "model_calls": 0,
+  "channel_calls": 0,
+  "exactly_modified_files": [
+    "experiments/arpc-n2048-adaptive-20261019/b3_metrics_v1/worker.py",
+    "experiments/arpc-n2048-adaptive-20261019/b3_metrics_v1/test_metrics.py"
+  ]
+}

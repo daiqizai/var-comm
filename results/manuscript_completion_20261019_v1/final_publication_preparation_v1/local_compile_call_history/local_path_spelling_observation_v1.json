@@ -1,0 +1,26 @@
+{
+  "schema": "LOCAL_FINAL_COMPILE_PATH_SPELLING_OBSERVATION_V1",
+  "observed_unix": 1792415061.7907896,
+  "attempts": [
+    {
+      "role": "prepare",
+      "failure": "Expected final local author manifest",
+      "location": "prepare_local line 424",
+      "cause": "Forward-slash Windows argument did not equal str(Path) backslash spelling",
+      "remote_ssh_calls": 0,
+      "correction": "Exact str(Path) local spelling passed; one remote prepare succeeded",
+      "prepared_sha256": "c63117e69414dfb4b343024319d063c651bd57b2a7d6b403303d4131fe8c8919"
+    },
+    {
+      "role": "run",
+      "failure": "Wrong exact stage descriptor",
+      "location": "main line 474",
+      "cause": "POSIX remote path compared to WindowsPath str(expected); the original local argv uses same incorrect host-dependent spelling",
+      "remote_ssh_calls": 0,
+      "compiler_calls": 0
+    }
+  ],
+  "scientific_calls": 0,
+  "worker_source_modified": false,
+  "coordinator_source_modified": false
+}

@@ -1,0 +1,130 @@
+{
+  "schema": "INDEPENDENT_METADATA_COMPATIBILITY_REVIEW_V1",
+  "status": "PASS_FOR_ORIGINAL_ENVIRONMENT_QUALIFICATION_AND_ROOT_METADATA_PREPARATION",
+  "reviewer": "/root/entropy_manuscript",
+  "observed_unix": 1792405747.7061634,
+  "scope": "Independent read-only source and persisted metadata review. No tests, model/channel/metric call, production prepare, or runtime mutation executed by reviewer.",
+  "source_manifest": {
+    "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\.research\\manuscript_completion_20261019\\metadata_compatibility_source_manifest_final.json",
+    "bytes": 1308,
+    "sha256": "4cda3cf7b59e668b6d4184b8ddca611056cb6880aef5970461eecb253b772867"
+  },
+  "sources": [
+    {
+      "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\experiments\\arpc-n2048-adaptive-20261019\\b2b3_metadata_compatibility_v1\\lineage.py",
+      "bytes": 10218,
+      "sha256": "5714ed3b7c5e09b22cd2782d8821044a6ace250a19459249fa69917302cd47b7"
+    },
+    {
+      "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\experiments\\arpc-n2048-adaptive-20261019\\b2b3_metadata_compatibility_v1\\metadata.py",
+      "bytes": 9680,
+      "sha256": "757d2d2b1ab96b740c50eefcb733cad7f7ca868dbdbf75b10a2cbdae1c612529"
+    },
+    {
+      "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\experiments\\arpc-n2048-adaptive-20261019\\b2b3_metadata_compatibility_v1\\README.md",
+      "bytes": 9752,
+      "sha256": "cd61ae5ea86f2b309aa9f6154d923b7c4dd2aefe7ca9da407fb4eede17d29661"
+    },
+    {
+      "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\experiments\\arpc-n2048-adaptive-20261019\\b2b3_metadata_compatibility_v1\\runner.py",
+      "bytes": 11271,
+      "sha256": "baaa838c2fe5a634841b31619f434c3545d4ccf4098cfced442412afa72321e1"
+    },
+    {
+      "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\experiments\\arpc-n2048-adaptive-20261019\\b2b3_metadata_compatibility_v1\\test_metadata.py",
+      "bytes": 13077,
+      "sha256": "65175804a533e14d73740c2dc45e7dc7fc16626eee29a6f7a80dedca6c40474a"
+    }
+  ],
+  "diagnosis": {
+    "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\.research\\manuscript_completion_20261019\\original_entropy_cache_lineage_metadata.json",
+    "bytes": 393777,
+    "sha256": "fa1141138aa4e0b62f36c1013014bf4d541c0c10c2a3866e0bad1d8fd1970f78"
+  },
+  "failure_audit": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/arpc_n2048_adaptive_20261019_v1/b2b3_analysis_metadata_failure_v1/failure_audit.json",
+    "bytes": 6556,
+    "sha256": "d2b8a044152987359dca74e2489e52c62c332a38f0a761b91301dadfeb1575c8"
+  },
+  "failure_audit_actually_read_via_readonly_ssh": true,
+  "qualification_receipts": [
+    {
+      "receipt": {
+        "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\.research\\manuscript_completion_20261019\\metadata_compatibility_local_qualification_v1\\actual_wait.json",
+        "bytes": 846,
+        "sha256": "860db66d2ecd44a8f2779ee92e1d058709e32f89ea57eec953741fc66d00aef4"
+      },
+      "tests": 31,
+      "actual_child_pid": 40448,
+      "seconds": 0.4690000000409782,
+      "returncode": 0
+    },
+    {
+      "receipt": {
+        "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\.research\\manuscript_completion_20261019\\metadata_compatibility_host_boundary_qualification_v1\\actual_wait.json",
+        "bytes": 916,
+        "sha256": "ab96330eee8e4d19039deb9adbc9850fed91f92d2b4608422e0394e4aa60a992"
+      },
+      "tests": 1,
+      "actual_child_pid": 30416,
+      "seconds": 0.34399999998277053,
+      "returncode": 0
+    }
+  ],
+  "original31_rerun": false,
+  "original56_rerun": false,
+  "reviewer_tests_executed": 0,
+  "source_proof": {
+    "original_six_files_match_frozen_SHA": true,
+    "exact_replacements": 3,
+    "inverse_recovers_original_text": true,
+    "only_recompiled_functions": [
+      "verified_candidate",
+      "prepare"
+    ],
+    "unaffected_functions_AST_equal": [
+      "canonical_arpc_runtime",
+      "canonical_arpc_config",
+      "check_nest_identity",
+      "same_native_registration",
+      "strict_wait",
+      "native_lineage",
+      "require_member",
+      "validate_runtime_metadata",
+      "runtime_metadata",
+      "public_job",
+      "cache_candidates",
+      "configure",
+      "run",
+      "observe",
+      "audit_new_native",
+      "seal"
+    ],
+    "scientific_implementations_modified": false
+  },
+  "resolved_finding": {
+    "id": "M1",
+    "summary": "Hostless T1B/T1C history must only be checked on pinned original host.",
+    "resolution": "prepare now validates the exact pinned diagnosis and requires current nodename to equal diagnosis.observer_host before any lineage.build or historical PID checks, for both B2 and B3. A new targeted fixture checks main passes, leo rejects, and diagnosis mutation rejects."
+  },
+  "checked_contracts": [
+    "Three exact admitted schemas: 6540 original inline members,332 T1B ACTUAL_NEW,75 T1C ACTUAL_NEW; unknown member/schema/origin rejected.",
+    "T1B/T1C bindings include actual closed receiver maps, per-image source-decode/render evidence, header/profile/payload, actual terminated bit length, raw-bit SHA and packed-byte SHA, source endpoint and frozen model/runtime/numerical identity.",
+    "T1C array key and slot are validated on saved image-index metadata; no nonexistent image_key is required in per-image evidence.",
+    "The adapter does not fabricate missing inline identity or copy TX truth into RX data. Its explicit revision proof sits beside cache metadata. Original verified_candidate still verifies real source-wire bytes and actual image arrays/hashes.",
+    "T1B actual native identity is newly pinned against closed registration and runtime, with no false historical publication claim; T1C published identity copy is additionally checked.",
+    "B2 accepts exactly original two failed-preparation residue files by SHA with empty native output; original failure and lineage bytes remain. B3 requires fresh roots. O_EXCL claim and failure record prevent silent repeat.",
+    "Three literal in-memory replacements, exact inverse and AST equality; only verified_candidate and prepare are compiled. No global filesystem hook or scientific function replacement.",
+    "Wrapper command, authorization, five adapter sources, six original sources, exact registration, original failure audit, wait/launch and stdout/stderr are bound in separate revision receipts. Original native registration is not rewritten.",
+    "close requires strict wait0, false interruption flags, null metadata error, matching exact argv and PID/start/host, actual child/parent gone. guard on leo consumes pinned main-host closure and never interprets local absence of remote PID as gone.",
+    "Unknown current native/control/DINO failures reject; only exact historical B2 metadata failure SHA is retired by separate guard. Root must retain all original downstream stage gates."
+  ],
+  "limitations": [
+    "This is engineering eligibility only. No B2 native scientific result, DINO selection, B3 seven-metric result or final report is established by this review.",
+    "Root still owns original-environment qualification, exact static deployment, immutable authorization, one metadata prepare, real close wait and explicit downstream dispatch.",
+    "Downstream metadata guard must be recorded as additional evidence; it does not authorize automatic scientific retry or bypass budgets."
+  ],
+  "scientific_calls": 0,
+  "new_bootstrap_calls": 0,
+  "production_execution": false
+}

@@ -1,0 +1,16 @@
+{
+  "reason": "Historical static original_* path provenance is retained but runtime verifies relocated completion/table against identical historical SHA.",
+  "original_prepare_sha256": "b8b9f56c80e45f0faae6d509c3f4bfdf7e88e3abdb2cae0f64a4706b0c207c30",
+  "corrected_prepare_sha256": "b6dc16c2b544c31981de2477e3d196aae5a1d767ab529805ab3cd90631c39284",
+  "original_registration_entry_sha256": "33e416d1d7a3774a60fc31784790e2bfb336ffa82117c3d57af2089bbe0d80b3",
+  "corrected_registration_entry_sha256": "d16f141d490cd2d92e73fd9386f695afbf418c75d4a7bc4bcff88937d8f99cb8",
+  "original_failure_preserved": true,
+  "new_scientific_calls": 0,
+  "changes": [
+    {
+      "before": "  for d in old['static'].values():\n   if isinstance(d,dict) and 'path' in d:verify(d)",
+      "after": "  for key in ('completion','table'):\n   d=old['static'][key];assert d['sha256']==old['static']['original_'+key]['sha256'];verify(d)"
+    },
+    "preparation evidence path v1 to v2"
+  ]
+}

@@ -1,0 +1,21 @@
+\begin{table*}[t]
+\centering
+\caption{Frozen-policy adaptive test at $N=2048$ on external\_common100. Each mean first averages three noises per source. $\Delta$ is NeST minus ARPC; brackets are the saved direct source-paired 95\% intervals. Negative differences favor NeST for downward metrics. Agreement differences are percentage points. The fixed-full 19-dB reference is separate.}
+\label{tab:adaptive2048}
+\footnotesize\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lrrrrrr}
+\toprule
+ & \multicolumn{3}{c}{4 dB} & \multicolumn{3}{c}{10 dB} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}
+Metric & NeST & ARPC & $\Delta$ [95\% CI] & NeST & ARPC & $\Delta$ [95\% CI] \\
+\midrule
+PSNR (dB) $\uparrow$ & 19.256 & 15.477 & 3.779 [3.493, 4.082] & 21.803 & 17.925 & 3.877 [3.688, 4.079] \\
+LPIPS $\downarrow$ & 0.1879 & 0.4023 & -0.2144 [-0.2307, -0.1986] & 0.1212 & 0.2517 & -0.1306 [-0.1363, -0.1250] \\
+DISTS $\downarrow$ & 0.1585 & 0.2713 & -0.1128 [-0.1246, -0.1013] & 0.1254 & 0.1822 & -0.0568 [-0.0612, -0.0521] \\
+DreamSim $\downarrow$ & 0.1152 & 0.3810 & -0.2658 [-0.2933, -0.2386] & 0.0790 & 0.1965 & -0.1174 [-0.1309, -0.1049] \\
+DINO-L $\uparrow$ & 0.7014 & 0.2715 & 0.4298 [0.3885, 0.4718] & 0.8129 & 0.5245 & 0.2884 [0.2474, 0.3304] \\
+Agreement (\%) $\uparrow$ & 75.0 & 36.0 & 39.0 [28.0, 50.0] & 85.0 & 73.0 & 12.0 [2.0, 23.0] \\
+MS-SSIM $\uparrow$ & 0.6822 & 0.4169 & 0.2653 [0.2456, 0.2854] & 0.8071 & 0.6176 & 0.1895 [0.1789, 0.2001] \\
+\bottomrule
+\end{tabular}
+\end{table*}

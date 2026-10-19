@@ -1,0 +1,120 @@
+--- before/test_report.py
++++ after/test_report.py
+@@ -135,5 +135,117 @@
+         self.assertFalse(set(imports)&{'torch','transformers','timm','diffusers','scipy','numpy','shared','plan','native','statistical','worker'})
+ 
+ 
++class ReviewFixTests(unittest.TestCase):
++    """Run this class alone for R1/R2; do not repeat the original 14 fixtures."""
++    def setUp(self):
++        self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
++        self.root=Path(self.tmp.name).resolve()
++        for name,value in [('R',self.root),('BASE',self.root),('L',self.root/'runtime')]:
++            p=patch.object(r,name,value);p.start();self.addCleanup(p.stop)
++        p=patch.object(r.os,'uname',lambda:SimpleNamespace(nodename='report-host'),create=True)
++        p.start();self.addCleanup(p.stop)
++
++    def fixture(self):
++        root=self.root/'stage';root.mkdir()
++        child=dict(pid=1001,start_ticks=10001,host='execution-host',state='R')
++        parent=dict(pid=1000,start_ticks=10000,host='execution-host',state='S')
++        wait=dict(process=child,returncode=0,seconds=1,timed_out=False,terminated=False,killed=False,metadata_error=None)
++        launch=dict(process=child,parent_process=parent,started_unix=10,argv=['python','-B','worker.py'])
++        r.save(root/'actual_wait.json',wait);r.save(root/'launch.json',launch)
++        obs=dict(status='CLOSED_ON_EXECUTION_HOST',host='execution-host',child=child,parent=parent,
++            child_gone=True,parent_gone=True,observed_unix=12,not_before_unix=11,
++            actual_wait=r.pin(root/'actual_wait.json'),launch=r.pin(root/'launch.json'))
++        r.save(root/'closure_observation.json',obs)
++        return root,wait,launch,obs
++
++    def failure(self,path):
++        path.parent.mkdir(parents=True,exist_ok=True)
++        r.save(path,dict(error='synthetic metadata preparation failure',automatic_retry=False))
++        return r.pin(path)
++
++    def item(self,d):
++        return dict(scope='engineering_only',science_calls=0,description='Synthetic exact zero-science metadata diagnosis',
++                    evidence=[d],allowed_failure_files=[d])
++
++    def test_exact_cross_host_wait_and_launch_pass_without_local_proc(self):
++        root,wait,_,_=self.fixture()
++        with patch.object(r,'gone',side_effect=AssertionError('remote /proc must not be called')):
++            index=r.indexed_observations([r.pin(root/'closure_observation.json')])
++            self.assertEqual(r.wait_closed(root/'actual_wait.json',index),wait)
++
++    def test_cross_host_missing_observation_rejected(self):
++        root,_,_,_=self.fixture()
++        with self.assertRaisesRegex(ValueError,'lacks exact'):
++            r.wait_closed(root/'actual_wait.json',{})
++
++    def test_cross_host_different_wait_descriptor_rejected(self):
++        root,wait,_,obs=self.fixture()
++        r.save(root/'another_actual_wait.json',wait)
++        obs['actual_wait']=r.pin(root/'another_actual_wait.json')
++        r.save(root/'another_observation.json',obs)
++        index=r.indexed_observations([r.pin(root/'another_observation.json')])
++        with self.assertRaisesRegex(ValueError,'lacks exact'):
++            r.wait_closed(root/'actual_wait.json',index)
++
++    def test_cross_host_different_launch_descriptor_rejected(self):
++        root,_,launch,obs=self.fixture()
++        r.save(root/'another_launch.json',launch)
++        obs['launch']=r.pin(root/'another_launch.json')
++        r.save(root/'another_observation.json',obs)
++        index=r.indexed_observations([r.pin(root/'another_observation.json')])
++        with self.assertRaisesRegex(ValueError,'lacks exact'):
++            r.wait_closed(root/'actual_wait.json',index)
++
++    def test_cross_host_changed_wait_bytes_rejected(self):
++        root,wait,_,_=self.fixture()
++        index=r.indexed_observations([r.pin(root/'closure_observation.json')])
++        wait['seconds']=2
++        (root/'actual_wait.json').write_text(r.json.dumps(wait),encoding='utf8')
++        with self.assertRaisesRegex(ValueError,'lacks exact'):
++            r.wait_closed(root/'actual_wait.json',index)
++
++    def test_same_host_refresh_is_required_even_with_saved_proof(self):
++        root,_,_,_=self.fixture()
++        p=patch.object(r.os,'uname',lambda:SimpleNamespace(nodename='execution-host'),create=True)
++        with p,patch.object(r,'gone',return_value=False):
++            with self.assertRaisesRegex(ValueError,'live child'):
++                r.wait_closed(root/'actual_wait.json',{})
++            with self.assertRaisesRegex(ValueError,'process revived'):
++                r.indexed_observations([r.pin(root/'closure_observation.json')])
++
++    def test_exact_engineering_failure_is_retained(self):
++        p=r.L/'b2b3_analysis_v1/B2/failure.json';d=self.failure(p)
++        allow=r.engineering_failures([self.item(d)])
++        self.assertEqual(r.inspect_failures(r.current_failure_locations(),allow),[d])
++        self.assertTrue(p.exists())
++
++    def test_changed_engineering_failure_sha_rejected(self):
++        p=r.L/'b2b3_analysis_v1/B2/failure.json';d=self.failure(p)
++        allow=r.engineering_failures([self.item(d)])
++        p.write_text('{"changed":true}',encoding='utf8')
++        with self.assertRaisesRegex(ValueError,'SHA/bytes mismatch'):
++            r.inspect_failures(r.current_failure_locations(),allow)
++
++    def test_unknown_phase_root_failure_rejected(self):
++        self.failure(r.L/'b2b3_analysis_v1/B3/failure.json')
++        with self.assertRaisesRegex(ValueError,'unknown failure'):
++            r.inspect_failures(r.current_failure_locations(),{})
++
++    def test_unknown_dino_worker_failure_rejected(self):
++        self.failure(r.L/'b2b3_analysis_v1/B2/dino/worker/failure.json')
++        with self.assertRaisesRegex(ValueError,'unknown failure'):
++            r.inspect_failures(r.current_failure_locations(),{})
++
++    def test_worker_failure_cannot_be_allowlisted_as_engineering(self):
++        d=self.failure(r.L/'b2b3_analysis_v1/B2/dino/worker/failure.json')
++        with self.assertRaisesRegex(ValueError,'outside exact'):
++            r.engineering_failures([self.item(d)])
++
++    def test_agreement_display_units_only(self):
++        source=Path(r.__file__).read_text(encoding='utf8')
++        self.assertIn("paired_label='Agreement (pp)'",source)
++        self.assertIn('CSV values retain their original fractions',source)
++
++
+ if __name__=='__main__':
+     unittest.main()

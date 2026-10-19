@@ -1,0 +1,77 @@
+{
+  "schema": "INDEPENDENT_STATIC_REVIEW_V1",
+  "status": "CHANGES_REQUESTED_BEFORE_REPORT_DEPLOYMENT",
+  "reviewer": "/root/entropy_manuscript",
+  "observed_unix": 1792404872.5114796,
+  "scope": "Deterministic B2/B3 report only; production schemas compared read-only. No tests or scientific calls executed by reviewer.",
+  "sources": [
+    {
+      "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\experiments\\arpc-n2048-adaptive-20261019\\b2b3_report_v1\\report.py",
+      "bytes": 40448,
+      "sha256": "a7fd3d7b4bf3cc3eb312adcbea1f78f4fcd21ee58664cc63d3ae4348a96341f9"
+    },
+    {
+      "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\experiments\\arpc-n2048-adaptive-20261019\\b2b3_report_v1\\test_report.py",
+      "bytes": 7728,
+      "sha256": "5a01974c94bdd6a79d3f6d96cba37ffa60a8042e5dbb81b18e85c4d0f8d9995e"
+    },
+    {
+      "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\experiments\\arpc-n2048-adaptive-20261019\\b2b3_report_v1\\README.md",
+      "bytes": 9378,
+      "sha256": "55f32f4ba411e3630b3fa989a52462e17a1d5bf0e428527857c55f90c932fe15"
+    }
+  ],
+  "author_test_receipt": {
+    "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\.research\\manuscript_completion_20261019\\b2b3_report_preparation_v1\\actual_wait.json",
+    "bytes": 1413,
+    "sha256": "a0b489e94cf9f45bc4e6cdfee3ecf5702c113888e8606337558e446cd286c855"
+  },
+  "validated_author_tests": {
+    "returncode": 0,
+    "tests": 14,
+    "all_source_and_log_descriptors_match": true
+  },
+  "findings": [
+    {
+      "id": "R1",
+      "priority": "P2",
+      "file": "report.py",
+      "lines": [
+        132,
+        192
+      ],
+      "summary": "Cross-host observations are checked but cannot discharge exact non-native wait closure.",
+      "detail": "wait_closed unconditionally calls gone on the current host. additional_host_observations are independently loaded but not matched to outer, DINO or metric wait descriptors. A valid score/DINO execution on another authorized GPU host will fail despite a matching closed-host observation.",
+      "requested": "Use an exact descriptor-bound host observation only for the corresponding cross-host wait and launch, preserving child/parent/host/flags checks; require same-host live refresh. Do not interpret remote PID in local /proc."
+    },
+    {
+      "id": "R2",
+      "priority": "P2",
+      "file": "report.py",
+      "lines": [
+        204,
+        243
+      ],
+      "summary": "Unknown failures at current phase roots and DINO worker root are not explicitly rejected.",
+      "detail": "The report checks transport role failures, native controls and native rx failures, and waits. It does not inspect L/b2b3_analysis_v1/{B2,B3}/failure.json or L/b2b3_analysis_v1/B2/dino[/worker]/failure.json. A known zero-science preparation failure already exists and must be preserved; a generic omission also permits unrelated future failure metadata to go unnoticed.",
+      "requested": "Inspect exact current failure locations and allow only explicitly root-authorized, SHA/bytes-matched known engineering failures. Retain them in report provenance; unknown or altered failure files must stop. No blanket suppression or deletion."
+    }
+  ],
+  "checked_contracts": [
+    "B2 nine cells, cal1000 and three noises retained; four choices read without reselection.",
+    "B3 complete 1200 logical grid => 400 source/method/SNR groups => 2800 long metric means => 28 means and 14 paired intervals.",
+    "Saved seven metric numerical identities and completion descriptors are carried; report does not instantiate metrics/models.",
+    "Negative/zero/cross-zero paired values and original CI bounds preserved; no marginal CI subtraction or new resampling.",
+    "Fixed-full 4/10 and 19 references kept separate, actual saved reference schemas inspected.",
+    "Charged geometry includes two 68-symbol headers, two 956-symbol bodies, 2x13 length, 2x16 CRC, 2x96 reassembly; true sent and received endpoints distinct.",
+    "Correct delivery requires exact received source and no parse failure; accepted-wrong outputs remain incorrect.",
+    "Unknown future B2/B3 results are not created by this review. Actual pipeline remains gated."
+  ],
+  "scientific_calls": 0,
+  "tests_executed_by_reviewer": 0,
+  "production_invocation": false,
+  "additional_limits": [
+    "Final deployment must bind actual post-adapter metadata paths via exact root descriptors as needed.",
+    "Actual render/wait0/host closure and visual inspection are still required after genuine B3 completion."
+  ]
+}

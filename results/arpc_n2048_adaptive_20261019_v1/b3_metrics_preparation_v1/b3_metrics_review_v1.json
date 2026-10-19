@@ -1,0 +1,122 @@
+{
+  "schema": "INDEPENDENT_B3_METRICS_STATIC_REVIEW_V1",
+  "reviewer": "entropy_manuscript sub-agent; independent of root implementation",
+  "reviewed_utc": "2026-10-19T08:56:08.676871+00:00",
+  "status": "CHANGES_REQUESTED_ONE_BINDING_GAP",
+  "scope": "Read source and saved closed metadata only. No production module import or real prepare, metric score, source statistics, bootstrap, GPU, PHY or model call.",
+  "new_scientific_results": false,
+  "production_calls": {
+    "prepare": 0,
+    "score": 0,
+    "statistics": 0,
+    "bootstrap": 0,
+    "model": 0,
+    "channel": 0
+  },
+  "reviewed_sources": [
+    {
+      "path": "experiments/arpc-n2048-adaptive-20261019/b3_metrics_v1/adapter.py",
+      "bytes": 1745,
+      "sha256": "d41b73dcd84db3ed9fd86ed435f2eeb8d9c3391cd7f933201e44fc4ae8b8d01c"
+    },
+    {
+      "path": "experiments/arpc-n2048-adaptive-20261019/b3_metrics_v1/common.py",
+      "bytes": 1282,
+      "sha256": "6b87296f24ced237409cb00b679a091cef70bca69e42bb44cf8b8fb381faa35f"
+    },
+    {
+      "path": "experiments/arpc-n2048-adaptive-20261019/b3_metrics_v1/prepare.py",
+      "bytes": 8161,
+      "sha256": "4b0d82dc905999551954455dc85c60f2f868257dd411a9f140f930316a6268e7"
+    },
+    {
+      "path": "experiments/arpc-n2048-adaptive-20261019/b3_metrics_v1/statistical.py",
+      "bytes": 2731,
+      "sha256": "e64bff3ec2275deddbfc2fceac8036e00647c4bc9c1576d305c263a18eebd092"
+    },
+    {
+      "path": "experiments/arpc-n2048-adaptive-20261019/b3_metrics_v1/test_metrics.py",
+      "bytes": 4134,
+      "sha256": "d47db761a675a4d42b7f9afa65684edcfa86461b7ab4f387d4e4026718e30f19"
+    },
+    {
+      "path": "experiments/arpc-n2048-adaptive-20261019/b3_metrics_v1/worker.py",
+      "bytes": 5165,
+      "sha256": "3f9eaad809e76d461309337f73569d1b4015d2812728648c481782d20b9a7302"
+    },
+    {
+      "path": "experiments/arpc-n2048-validation-20261019/metrics.py",
+      "bytes": 16018,
+      "sha256": "dcb9c38d374238ba22125c7fb24a2f2268ddabde40827898777e217c302dde7b"
+    },
+    {
+      "path": "experiments/arpc-n2048-adaptive-20261019/shared.py",
+      "bytes": 4617,
+      "sha256": "beab2a0b405b2d04cd5a0dcf4019743204e5daef5965b63ddaac506ac615f67e"
+    },
+    {
+      "path": "experiments/arpc-n2048-validation-20261019/analysis_data.py",
+      "bytes": 2114,
+      "sha256": "9111aa28b1bc24b008b79727718d0a804b7fe7aeea1e5c8f3c550d29aeab69ca"
+    }
+  ],
+  "ast_check": {
+    "original_sha256": "dcb9c38d374238ba22125c7fb24a2f2268ddabde40827898777e217c302dde7b",
+    "selected_names": [
+      "csvwrite",
+      "load_image",
+      "ScoreLedger",
+      "score"
+    ],
+    "exact_changes": [
+      {
+        "line": 147,
+        "old": 1800,
+        "new": 1200
+      },
+      {
+        "line": 99,
+        "old": 3500,
+        "new": 14340
+      },
+      {
+        "line": 150,
+        "old": 1800,
+        "new": 1200
+      }
+    ],
+    "inverse_tree_equal": true,
+    "compiled_or_executed_metric_functions": false
+  },
+  "passes": [
+    "Original full-file SHA pins the four extracted definitions; all remaining metric/CDF/preprocessing mathematics is inherited. Exactly two score logical-denominator constants and one wall guard change; independent inverse AST comparison passes.",
+    "Prepare builds 100 distinct source groups and exactly 1200 unique method/source/SNR/noise tuples. Allowed Cartesian axes are 2 methods, 4/10 dB and 6201/6202/6203; every source has 12 logical frames.",
+    "Gray arrays retain float32 RGB 0.5 pixels and all logical frame entries. Pair deduplication is only within source and exact float-array hash, followed by np.array_equal. No filtering by receiver success or accepted-wrong status is applied.",
+    "Prior reuse compares the source archive descriptor and actual pixel bytes. Four-metric identity and supplemental protocol/model metadata/versions/FP32/TF32 identities are checked. Cached raw pair scores, never source averages, are reused.",
+    "The actual scoring path verifies unchanged CUDA mapping and frozen four/supplemental identities. Pair ledgers cap new scores only. The reused pairs do not cause image forwards.",
+    "Source means require each of the three distinct original noise seeds. Every metric is finite; negative values and zero values are retained without clipping.",
+    "The only production random draw site is statistics: np.random.default_rng(2026101902).integers(0,100,size=(10000,100),dtype=int64), after a write-exclusive bootstrap directory and reservation. One saved index array is reused across all metrics and conditions.",
+    "Paired intervals resample vectors of source-level NeST minus ARPC differences directly. Marginal intervals are not subtracted. Linear percentile 2.5/97.5 percentiles preserve crossing/touching zero; no winner-dependent repeat or candidate expansion exists.",
+    "Score and statistics owner outputs use exclusive directories and the existing shared lock/actual bounded wait helper. Statistics requires score actual exit0 and same-host child PID/start gone. Unknown failure is retained and not retried automatically."
+  ],
+  "findings": [
+    {
+      "id": "B3-R01",
+      "priority": "P1",
+      "file": "experiments/arpc-n2048-adaptive-20261019/b3_metrics_v1/prepare.py",
+      "line": 126,
+      "title": "Pin the directly executed adaptive shared.py dependency in the B3 metric registration",
+      "detail": "common.py imports verify/put/cache/Ledger/wait_child and paths from the parent shared.py, but the new registration code list contains only b3_metrics_v1 files and original metrics.py. check() verifies TREG JSON bytes without recursively verifying its code. A post-registration parent shared.py change would therefore not be rejected by current metric source checks.",
+      "requested_change": "Add pin(ADAPT_E/'shared.py') to code and qualify a changed-shared descriptor rejection; no metric mathematics change is needed."
+    }
+  ],
+  "nonblocking_notes": [
+    "The zero-new-pair branch is conservative and model-free, but does not emit current four_metric_identity.json or supplemental_identity.json. Existing inputs still pin both prior identities. If the B3 delivery is intended as a future prior_pairs cache, copy or explicitly emit those identities in this branch so it matches the cache schema.",
+    "B3 logical score rows preserve receiver_status and accepted_wrong_post_exit, while original native logical frames retain detailed transport rejection metadata. The final report must link those native/transport receipts for correct-delivery/failure/MCS/occupancy tables; the seven-metric summary alone does not supply those fields.",
+    "Strict source archive descriptor equality may conservatively reject an alias path rather than reuse equal pixels. That is safe; do not relax it to source_id-only reuse."
+  ],
+  "pending_qualification": [
+    "At review start test_metrics.py and README.md were not yet supplied; production prepare must wait for both, source pins, independent closure of B3 native pixels, and synthetic qualification.",
+    "No claim is made that the new score, actual statistical bootstrap or final comparison has run. This is source review only."
+  ]
+}

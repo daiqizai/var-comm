@@ -1,0 +1,76 @@
+--- before/README.md
++++ after/README.md
+@@ -70,7 +70,8 @@
+       "scope": "engineering_only",
+       "science_calls": 0,
+       "description": "Actual recorded engineering failure and bounded continuation, if any",
+-      "evidence": ["exact failure/diagnosis/continuation descriptors"]
++      "evidence": ["exact failure/diagnosis/continuation descriptors"],
++      "allowed_failure_files": ["optional exact zero-science metadata failure descriptors, also present in evidence"]
+     }
+   ]
+ }
+@@ -80,21 +81,32 @@
+ Every real descriptor is `{path, bytes, sha256}`. Input paths are fixed in the
+ report code; a descriptor cannot redirect it to an older scientific result.
+ The root can add further named outer waits and host observations. Each outer
+-wait requires a sibling launch and actual child/control-parent gone. Native
+-cross-host completion uses the frozen `CLOSED_ON_EXECUTION_HOST` observation,
+-which pins wait/launch/child/parent and asserts both gone on the execution host;
+-the report never tests a remote PID in the local host's `/proc`. Same-host native
+-observations are also freshly checked. Transport and metric inner waits are
+-independently checked even if the root supplies an outer wait.
++wait requires a sibling launch and actual child/control-parent gone. Any non-native
++wait executing on another host must have an `additional_host_observations` entry
++using the frozen `CLOSED_ON_EXECUTION_HOST` schema. The report indexes this proof
++by the exact actual-wait **and** launch path/bytes/SHA triples; a different path,
++changed bytes or unmatched identity cannot close the requested wait. The proof
++pins wait/launch/child/parent and asserts both gone on the execution host. Native
++completion uses its already-pinned observations. The report never tests a remote
++PID in the local host's `/proc`; same-host observations and waits always receive a
++fresh process check. Transport and metric inner waits are independently checked
++even if the root supplies an outer wait.
+ 
+ Native manifests and their member descriptors, code bindings, transport
+ registration, selected policies, all saved metric outputs, source identities,
+ and saved bootstrap SHA are verified. Closed arrays are not reconstructed or
+ rescored. The old fixed-reference final delivery, member receipts and original
+ host process closure are checked without relabelling historical failed receipts.
+-Unknown failures in current science controls or native outputs stop the report;
+-engineering-exception records do not suppress them. The final JSON retains exact
+-input descriptors so the report can be independently audited.
++All exact current transport/native phase, control, RX, DINO-root/worker and B3
++metric failure locations are checked. Only three metadata paths are eligible for
++`allowed_failure_files`: `L/b2b3_analysis_v1/B2/failure.json`, the corresponding
++B3 path, and `L/b2b3_analysis_v1/B2/dino/failure.json`, with L here the adaptive
++runtime root. Root must explicitly bind each path/bytes/SHA under a zero-science
++engineering exception and include the same descriptor in its evidence. A changed
++SHA, unknown phase-root failure, or any scientific worker/control failure stops the
++report. Root exception records cannot allowlist a worker/control failure. Allowed
++engineering failures are retained verbatim in input provenance and disclosed in
++`engineering_exceptions.json`; they are never relabelled as science success.
+ 
+ ## Data products
+ 
+@@ -142,7 +154,9 @@
+ 180×102 mm; calibration is 180×64 mm. White background, redundant line/marker
+ style, strong baseline contrast, 8.5 pt axis labels, 7.5 pt ticks, 4.5 pt markers.
+ The direct contrast is consistently NeST minus ARPC, so a negative value favors
+-NeST on a lower-is-better metric. It is not silently negated for display.
++NeST on a lower-is-better metric. It is not silently negated for display. Agreement
++means are percentages; agreement differences are percentage points (pp). The
++original CSV fraction values and confidence bounds are not modified.
+ 
+ Exports: true vector PDF, SVG with editable text, real 600 dpi PNG, and separately
+ rendered grayscale 300 dpi review PNG. No raster experiment curve in PDF, no font
+@@ -164,3 +178,10 @@
+ source actually read at
+ `W/.research/figures_redesign_v1/references/kd_SKILL.md` and
+ `kd_publication_guidelines.md`. These are design references, not data sources.
++
++The original 14 local metadata fixtures passed before independent review. Run
++only `python -B -m unittest test_report.ReviewFixTests -v` from this source directory
++for the R1/R2 continuation; this class covers exact cross-host closure, fresh
++same-host checks, precise engineering-failure preservation, altered/unknown
++failure rejection and agreement display units. It does not access production
++paths or render a scientific preview. Do not rerun the original 14 tests.

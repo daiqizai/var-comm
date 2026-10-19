@@ -1,0 +1,195 @@
+\begin{abstract}
+A frozen next-scale image model can complete a representation from a transmitted prefix, but whole-scale stopping points need not use a finite digital frame efficiently. NeST-Com admits raster-ordered endpoints inside a scale, conditionally entropy-codes the selected tokens, and falls back through a frozen chain until the actual terminated stream fits. A paid profile identifies the endpoint and channel layout; an isolated receiver entropy-decodes transmitted tokens before generating the unsent part. At 1024 complex channel uses, the corrected 19-dB comparison on 500 images improves PSNR by 0.319 dB over the same-prior entropy-coded whole-scale family, with a 95\% source-paired interval of [0.290, 0.349] dB. Low-SNR pixel fidelity and perceptual metrics still favor different baseline systems. A separate matched 100-source study adapts native ARPC to the same digital budget. At 2048 uses, finite calibration selects equally protected two-fragment policies for 4/10 dB. All 1200 test objects across the two methods are correctly received, and NeST-Com's paired PSNR gains are 3.779 and 3.877 dB; all seven metrics favor it at these two points. A distinct 19-dB test delivers both complete representations: ARPC then has lower DISTS, while DINO and prediction-agreement intervals cross zero. The results identify useful finite-budget operating points and their boundaries without attributing all system differences to endpoint granularity.
+\end{abstract}
+\begin{IEEEkeywords}
+Digital image transmission, conditional entropy coding, visual autoregressive model, finite frame budget, link adaptation.
+\end{IEEEkeywords}
+
+\section{Introduction}
+\IEEEPARstart{G}{enerative} image models enable a receiver to infer information omitted by a transmitter. Their usefulness over a digital link depends on the information that actually survives the source parser and channel decoder. A compact representation does not by itself specify a feasible frame: termination, syntax, profile signaling, error detection and channel protection must all fit the available channel uses.
+
+Next-scale visual autoregressive (VAR) models predict residual token maps from coarse to fine~\cite{tian2024var}. They naturally support reconstruction from complete coarse scales. However, the available channel-code capacities are not generally aligned with those scale boundaries. For example, seven and eight VAR scales contain 155 and 255 tokens. A frame able to carry more than the former but less than the latter cannot use the intermediate source capacity if only whole-scale endpoints are admitted. Conditional entropy coding changes the actual number of bits, but does not eliminate the discreteness of the allowed endpoints.
+
+We study the transmission interface under a \emph{hard per-image digital frame budget}. The main implementation of \nest{} conditionally entropy-codes a legal within-scale prefix. Its target endpoint and modulation/coding scheme (MCS) are selected offline from finite candidates. At transmission time, only the observed terminated source length controls fallback along a frozen chain. The paid profile specifies the actual endpoint and layout. At reception, the shared model reconstructs entropy probabilities from already decoded tokens, then completes only the unsent part. A raw-index variant avoids transmitter-side probability inference and is retained as an auxiliary implementation.
+
+The contribution is this finite-budget interface and its evaluated tradeoffs: legal within-scale endpoints, explicit terminated-length accounting, paid endpoint signaling and an isolated receiver. The tokenizer, generative prior, arithmetic coding principle and pretrained perceptual metrics are inherited components. Offline calibration is finite candidate selection, not a new search algorithm. Internal whole/partial comparisons test the value of the extra endpoint choices; an external ARPC comparison tests the complete adapted systems and cannot isolate endpoint granularity by itself.
+
+\section{Related Work and Scope}
+Deep JSCC learns continuous mappings from images to channel symbols and avoids a separate hard source parser~\cite{bourtsoulatze2019deep}. SwinJSCC uses Transformer representations and channel adaptation~\cite{yang2023swinjscc}. Such methods provide an important contrast to finite-block digital transmission: their graceful degradation can be favorable for low-SNR pixel fidelity, while their learned representations, losses and auxiliary signaling differ from the present scheme.
+
+Generative reception adds a prior to the information carried by the observation. DiffCom uses the channel observation in diffusion posterior sampling~\cite{wang2025diffcom}. Token communication offers another interface between learned representations and a digital link~\cite{qiao2025tokcom}. VAR supplies the frozen next-scale prediction mechanism used here~\cite{tian2024var}. ARPC combines progressive autoregressive coding with native source syntax and generation~\cite{arpc2026}; our external experiment preserves its native source representation and charges its caption and mode information before LDPC--QAM transmission. Ada-TokenCom integrates autoregressive token compression and generation with dynamic source/MCS control~\cite{adatokencom2026}. In contrast, our study fixes each frame's channel-use budget and evaluates a finite, frozen endpoint/MCS policy with actual source-length fallback.
+
+These relationships narrow the novelty claim. We do not introduce next-scale prediction, entropy coding, text-conditioned image generation or a generic principle of transmitting a prefix and generating its suffix. The question is whether a finer, fully charged source interface gives useful operating points between existing whole-scale boundaries, and where its advantage ends when a larger budget admits complete representations.
+
+\section{Fixed-Budget Entropy-Coded Transmission}
+\begin{figure*}[t]
+\centering
+\input{figures/system.tex}
+\caption{Main entropy-coded path. The actual terminated stream length selects a legal endpoint in a frozen fallback chain. The paid profile identifies that endpoint and the body layout. Entropy decoding recovers transmitted tokens; subsequent VAR completion generates unsent tokens. Invalid headers, CRCs or source syntax produce the fixed gray output. Raw serialization is an alternative interface, not a second simultaneous payload.}
+\label{fig:system}
+\end{figure*}
+
+\subsection{Representation and Legal Endpoints}
+A frozen tokenizer maps a $256\times256$ RGB image $\mathbf x$ to ten residual token maps $\mathbf r_1,\ldots,\mathbf r_{10}$. Their side lengths are $(1,2,3,4,5,6,8,10,13,16)$, and each token indexes a 4096-entry codebook. Let $L_s$ be the number of positions at scale $s$. All scales contain 680 tokens and accumulate into a $32\times16\times16$ residual latent decoded by $D_c$.
+
+An endpoint $e=(m,K)$ transmits
+\begin{equation}
+ \pi_e(\mathbf x)=[\operatorname{vec}(\mathbf r_1),\ldots,\operatorname{vec}(\mathbf r_m),\mathbf r_{m+1}[1{:}K]],
+\label{eq:endpoint}
+\end{equation}
+where positions follow the registered raster order. For $m<10$, $0\leq K<L_{m+1}$; a fully transmitted boundary scale is canonically $(m+1,0)$. Endpoint $(10,0)$ transmits the complete representation. The entropy-coded families use whole endpoints and, in the partial family, prescribed quarter-scale endpoints. The corrected candidate universe includes complete $m=10$ symmetrically in both families. The trained visual models and sampling rule are not changed when an endpoint is added.
+
+\subsection{Conditional Coding and Actual-Length Fallback}
+The null-class VAR produces integer cumulative distributions of total mass $2^{24}$ for a 32-bit arithmetic coder. Coarse scales are coded in order. The first $K$ positions of the boundary scale use their conditional distributions given the complete coarser maps. Let $b(\mathbf x,e)$ denote the \emph{actual terminated} stream length, including the coder's finish operation. A length estimate or an un-terminated entropy sum is not used for admission.
+
+A policy $a$ specifies an MCS, a target endpoint and an ordered fallback chain $\mathcal F_a$. Its LDPC information length is $k_a$. The selected endpoint is the first legal member of the frozen order satisfying
+\begin{equation}
+ b(\mathbf x,e)+13+16\leq k_a.
+\label{eq:fit}
+\end{equation}
+The 13-bit length and 16-bit body CRC are paid separately. Known padding fills the information block. No reconstruction is generated at the transmitter to choose among fallback endpoints, and no test metric enters this decision. If the chain has no fitting member, a null profile is transmitted and that source remains in the failure denominator. This source-side capacity fallback is distinct from the receiver's output after a channel failure.
+
+The 12-bit public profile ID is protected by CRC16, six convolutional tail bits and rate matching to 136 coded bits. It occupies 68 QPSK symbols. The recovered profile identifies the actual $(m,K)$, source syntax and body-code layout. The stream length field delimits the arithmetic payload; it does \emph{not} independently determine how many tokens or which endpoint were transmitted.
+
+\subsection{Channel and Resource Accounting}
+At the primary budget $N=1024$, the entropy body occupies 956 symbols. For $q=\log_2M\in\{2,4,6\}$,
+\begin{equation}
+ n_a=956q,\qquad 68+\frac{n_a}{q}=1024.
+\end{equation}
+The backend uses a supported 5G NR LDPC block with its actual lifting, information length and rate matching~\cite{3gpp38212}. Nominal rates label candidates; feasibility uses the actual integer $k_a,n_a$. For example, the corrected 19-dB layout has $k_a/n_a=4780/5736$, leaving 4751 source bits after the two fields in (\ref{eq:fit}).
+
+For every method, constellations have nominal average symbol energy $E_s=2$. With $\mathbf y=\mathbf s+\mathbf n$ and $\mathbf n\sim\mathcal{CN}(\mathbf0,N_0\mathbf I)$,
+\begin{equation}
+ N_0=2\,10^{-\mathrm{SNR}_{\mathrm{dB}}/10}.
+\end{equation}
+The digital QAM frame's realized energy depends on its symbol composition; it is recorded rather than normalized per frame. Comparisons use the declared nominal energy convention. There is no feedback, retransmission or power allocation. The normalized primary budget is $N/(3\cdot256^2)=1/192$ complex channel uses per source component.
+
+\subsection{Receiver Isolation and Completion}
+The receiver sees the actual received symbols, public profiles and shared frozen models. It first decodes the protected header, then the LDPC body. Header rejection, CRC failure, invalid length or padding, and arithmetic syntax/termination failure produce the fixed RGB-0.5 image. The entropy implementation never retains a damaged arithmetic stream or assumes that a correct coarse prefix survives its failed CRC.
+
+For an accepted source object, the receiver constructs the same integer CDFs from the already decoded coarse tokens. It receives no transmitter CDF, source pixel, hidden embedding, untransmitted token or oracle error correction. Once the transmitted tokens are recovered, complete maps condition the next-scale prior. At a partially transmitted map, the model predicts the map, the received positions overwrite their predictions, and the merged map advances the latent state:
+\begin{equation}
+ \widetilde r_{m+1,j}=\begin{cases}
+ \widehat r_{m+1,j},&j\leq K,\\
+ \arg\max_v p_{\mathrm{VAR}}(v\mid\widehat{\mathbf r}_{\leq m}),&j>K.
+ \end{cases}
+\end{equation}
+Finer unsent maps are generated from that state and $D_c$ reconstructs the image. Source/CDF equality is audited only after output is fixed; audit truth cannot change the receiver result. Independent-process round trips check this boundary with actual source streams.
+
+\subsection{Frozen Models, Calibration and Raw Variant}
+The tokenizer and VAR remain pretrained and frozen. Before link evaluation, $D_c$ was adapted on the same 20,000 training images using MSE$+0.1$LPIPS and a mixture of continuous, fully quantized and completed-prefix latents. Its checkpoint was selected on the 1000-source calibration set, then frozen and shared with latent-space JSCC. This earlier adaptation is disclosed; the present evaluation trains no model.
+
+For a finite candidate set $\mathcal A_\gamma$, each complete policy includes its target and fallback chain. Selection uses actual received-image DINOv2-L cosine similarity $Q$~\cite{oquab2024dinov2}:
+\begin{equation}
+ \widehat a_\gamma=\arg\max_{a\in\mathcal A_\gamma}
+ \frac{1}{|\mathcal C|}\sum_{i\in\mathcal C}\frac{1}{3}\sum_{\ell=1}^{3}Q(\mathbf x_i,\widehat{\mathbf x}_{i,a,\ell}).
+\label{eq:select}
+\end{equation}
+Failures remain included and the registered deterministic tie rule is retained. Clean-quality/link-probability screening only nominates candidates; it is not a measured wireless result. Test images cannot change policies, checkpoints or metric definitions.
+
+The auxiliary raw interface serializes each selected token in 12 bits and avoids transmitter VAR probability inference. Its historical registered receiver retains actual LDPC hard decisions after body-CRC rejection (KEEP), while header failure remains gray. Thus raw and entropy implementations differ in source coding \emph{and} framing/failure rules. Cross-interface comparisons are system comparisons, not a pure two-factor causal ablation. The entropy receiver never inherits raw KEEP.
+
+\section{Evaluation Protocol and Version Control}
+\subsection{Populations, Metrics and Baselines}
+The original split contains 20,000 training images, 1000 calibration sources, 100 development sources and 500 evaluation sources (common500). A separate independent new100 is reported separately. The external comparison uses the registered external\_common100\_v1 subset of common500; it is a matched subset, not a new blind population. Calibration-only cal100 clean diagnostics and the fixed16 development gallery have separate roles and denominators.
+
+The primary entropy evaluation uses 4, 10 and 19 dB, with three noise draws per source. Metrics are PSNR, LPIPS-Alex~\cite{zhang2018lpips}, DINOv2-L cosine similarity, ConvNeXt-Tiny top-1 prediction agreement~\cite{liu2022convnext}, DISTS~\cite{ding2021dists}, DreamSim~\cite{fu2023dreamsim} and MS-SSIM~\cite{wang2003msssim}. Agreement is the fraction whose reconstruction prediction matches the source-image prediction. Neither agreement nor feature cosine is a semantic-correctness percentage. Official metric implementations, weights, normalization and preprocessing are frozen; DreamSim uses its registered ensemble and 224-square bicubic antialiased preprocessing. All directions are reported, including conflicting metrics.
+
+\emph{Latent-space JSCC} communicates the continuous latent using convolutional communication layers and the same $D_c$. Its final 100k checkpoint was trained with MSE, LPIPS and a latent loss on the common training set. Its $2N$ real channel outputs form $N$ complex symbols with total energy $2N$. \emph{SwinJSCC (adapted)} uses the author's SA+RA architecture~\cite{yang2023swinjscc}, the same training set and the final 200k checkpoint. At $N=1024$, its six-channel representation occupies 768 symbols; the other 256 carry protected auxiliary mask/power information obtained at the receiver from the actual header. \emph{Adaptive BPG + LDPC}~\cite{bellard2014bpg} uses a frozen resolution/quantization procedure and a calibration-selected MCS, charging the complete source file and digital overhead. These are final checkpoints and registered adapters, not claims of equal architectures, losses or training convergence.
+
+\subsection{Statistics and Evidence Identity}
+We first average the three channel realizations within each source. Means and direct paired differences use the existing 10,000-replicate source bootstrap from each registered study. Whole/partial intervals are formed from source-paired differences, never by subtracting two marginal intervals. Intervals are pointwise and not multiplicity-adjusted; they do not cover training randomness or all model-design choices. A cross-zero interval does not establish equivalence. When historical methods use different channel seeds, matching is by source, not an assertion of identical channel observations.
+
+At 19 dB, both entropy-coded families use the T1-C m10 correction. All 600 source traversals preserve the earlier 24 endpoints byte-for-byte in the frozen implementation. Complete m10 fits only 6/500 common500 and 1/100 new100 sources at 4751 bits; the rest follow their frozen family-specific chains. The older common500 whole-scale streams were produced in a different implementation environment and are not silently inherited. T1-C verifies complete event identities and updates changed events; its old-to-new difference combines version and m10 effects and is not a pure m10 ablation. The 4/10-dB results retain their frozen policies, subject to the explicit consistency audit below.
+
+\input{sections/n1024_consistency.tex}
+
+\section{Results at the Primary Budget}
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{main_common500.pdf}
+\caption{Reconstruction performance on common500 at $N=1024$. Markers are source-averaged means; bars are existing pointwise 95\% source-level intervals after averaging three noise draws. The entropy-coded 19-dB result is T1-C m10-corrected; latent-space JSCC and adapted SwinJSCC use their final 100k and 200k checkpoints. Agreement is the fraction whose ConvNeXt top-1 prediction matches that of the source image.}
+\label{fig:main}
+\end{figure*}
+
+\subsection{Main Common500 Comparison}
+Figure~\ref{fig:main} shows the full primary population. \ec{} achieves PSNRs of 17.448, 20.014 and 22.164 dB at 4, 10 and 19 dB, respectively. Its DreamSim decreases from 0.1839 to 0.0785 and agreement rises from 65.8\% to 82.4\%. At 4 dB, latent-space JSCC has higher PSNR (19.658 dB) and lower LPIPS (0.2188 versus 0.2633), while NeST-Com has lower DreamSim (0.1839 versus 0.2317) and higher agreement (65.8\% versus 55.9\%). The low-SNR result therefore expresses a fidelity/perceptual tradeoff, not dominance on every metric.
+
+At 10 dB, LPIPS means are close (0.1715 versus 0.1733); the previously saved paired interval for their difference crosses zero. At 19 dB, NeST-Com's PSNR exceeds the latent-space baseline's 21.245 dB, while SwinJSCC and adaptive BPG retain higher PSNRs of 23.698 and 24.230 dB. NeST-Com has lower LPIPS and DreamSim than those two systems at all three displayed operating points. This is consistent with their different training losses and source priors; learned-feature preferences are not evidence that every generated detail is correct.
+
+\subsection{Same-Prior Whole/Partial Comparison}
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{paired_common500.pdf}
+\caption{Within-family effects on common500. $\Delta$PSNR is partial minus whole; $\Delta$DreamSim is whole minus partial, so positive values indicate improvement. Bars are saved direct source-paired 95\% intervals. Entropy-coded results use the completed same-version audit and repair, including the corrected 19-dB endpoints. Raw retains its historical receiver rule.}
+\label{fig:paired}
+\end{figure}
+The controlled internal comparison shares the prior and source-coding implementation while retaining the frozen family policies and expanding legal endpoints. After the version-consistency repair, the common500 PSNR gains at 4, 10 and 19 dB are 0.616 [0.564, 0.673], 0.701 [0.637, 0.766] and 0.319 [0.290, 0.349] dB. The corresponding DreamSim reductions are 0.02073, 0.02405 and 0.00304, with all three direct paired intervals excluding zero (Fig.~\ref{fig:paired}). These results connect the higher source utilization in Table~\ref{tab:utilization} to useful operating points of the frozen endpoint/MCS policies. They do not imply that every added endpoint helps every image or that the extra payload alone isolates every cause of the gain.
+
+At corrected 19 dB, partial coding also improves LPIPS by 0.00520, DISTS by 0.00316 and MS-SSIM by 0.01014. Prediction agreement improves by 5.4 [2.0, 8.8] and 6.4 [3.8, 9.2] percentage points at 4 and 10 dB, but changes by $-0.2$ [$-2.0$, 1.6] at 19 dB. The latter does not support an agreement gain. The independent new100 comparison yields a 0.330 [0.269, 0.394] dB PSNR gain and identical agreement; this set is not pooled with common500 and retains its original four metrics.
+
+\subsection{External Matched100 Comparison}
+\input{tables/arpc_n1024.tex}
+\arpc{} uses its official frozen adapted weights, paid compressed caption, native modes and boundaries, and independent receiver-side text encoding and source decoding. Caption length, source termination and alignment enter the charged source object. Both systems transmit under $68+956=1024$ symbols, the same nominal energy and their frozen finite-calibration policies. This aligns the link budget and source population, not the pretrained models' capacity, training corpus or compute.
+
+ARPC's selected MCSs are QPSK $2/3$, 16-QAM $2/3$ and 64-QAM $5/6$. At 4 dB its actual endpoints are e3/e4; at 10 dB all are e5; at 19 dB they are e5/e6. All 900 ARPC logical frames parse successfully, with no post-output audit mismatch. The matched-source NeST-Com--ARPC PSNR differences are 3.408 [3.108, 3.728], 3.485 [3.263, 3.714] and 3.923 [3.700, 4.161] dB. Table~\ref{tab:arpc1024} reports all seven metrics and their directions.
+
+These system-level differences include source representation, model, decoder, native syntax, endpoint availability and finite policy choices. They cannot all be attributed to within-scale truncation. In particular, native ARPC e7 requires a mean 8795 bits on these 100 sources, beyond the 4751-bit N1024 body capacity. The next section tests a larger budget that can carry both full representations.
+
+\section{Budget Boundary at 2048 Channel Uses}
+\subsection{Equal-Protection Two-Fragment Layout}
+Each object uses two existing 1024-use subframes with equal protection. Both fragments pay 68 header symbols and 956 body symbols, a 13-bit length, CRC16 and a 96-bit reassembly record containing an object-CRC32 copy. At 64-QAM $5/6$, the two $k=4780$ information blocks leave 9296 source bits after fields and whole-byte alignment. No header, second length, CRC or reassembly cost is free. NeST source termination and its final byte padding remain included.
+
+The two methods share the same 100 sources, SNRs and registered 2048-dimensional noise vectors, split into nonoverlapping contiguous fragment slices. Nominal total symbol energy is 4096. Both fragments and their reassembly checks must succeed; otherwise the entire output is gray. This experiment has no unequal protection, damaged-stream KEEP or truth-assisted repair.
+
+\subsection{Fixed Complete-Representation Reference}
+\input{tables/n2048_fixed.tex}
+The fixed reference sends complete NeST m10 and ARPC e7 using 64-QAM $5/6$ at all three SNRs. Both fit, but both deliver 0/300 objects at 4 dB and 0/300 at 10 dB. At 19 dB, both correctly deliver 300/300. Its low-SNR failure is a property of this fixed high-rate choice, not a claim that a larger budget inherently reduces reliability.
+
+With complete reception at 19 dB (Table~\ref{tab:fixed2048}), NeST-Com improves PSNR by 1.806 [1.742, 1.871] dB, LPIPS by 0.03658, DreamSim by 0.00857 and MS-SSIM by 0.03429. ARPC has better DISTS: NeST minus ARPC is 0.00542 [0.00240, 0.00859]. The DINO difference of 0.01776 has interval [$-0.00180$, 0.03858]; agreement differs by $-6$ points with interval [$-14$, 2]. These intervals cross zero and do not prove equivalence. Comparing this full-representation reference with N1024 demonstrates a budget-dependent system tradeoff without assigning all remaining differences to transmitted-token count.
+
+\subsection{Finite Low-SNR Adaptation}
+\input{sections/n2048_adaptive.tex}
+
+\subsection{Calibration Payload--Quality Diagnostics}
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{cal100_payload_clean.pdf}
+\caption{Cal100 clean source-coding diagnostic. Each marker is a native endpoint's saved mean charged source length and clean DINO-L over 100 sources. Straight segments join measured endpoint means. These are clean reconstructions, not wireless means; equal mean length does not imply equal per-image payload.}
+\label{fig:capacity}
+\end{figure}
+The completed cal100 cache contains 2500 NeST and 700 ARPC clean source/endpoint states. Figure~\ref{fig:capacity} isolates their clean payload--quality relationship. At the same 2288-bit net source capacity, actual per-image fallback gives clean mean DINO 0.7166 for NeST and 0.3028 for ARPC; at 4848 bits it gives 0.8176 and 0.5546. These capacity-matched clean diagnostics help explain which representations are available before channel failures. They are not formal wireless quality means.
+
+At the largest native endpoints, NeST m10 has mean charged length 6013 bits and clean DINO 0.8503; ARPC e7 has 8807 bits and 0.8607. Thus ARPC's clean top endpoint is not uniformly worse: it is slightly higher on this calibration metric at a larger source length. Mean-length points are not an exactly equal-rate per-image experiment and are not interpolated into unmeasured operating points.
+
+\section{Auxiliary Evidence, Cost and Limitations}
+\subsection{Actual Reconstructions and Raw Evidence}
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.9\textwidth]{fixed16_examples.pdf}
+\caption{Previously selected fixed16 development examples at $N=1024$, 13 dB. These display examples were selected after viewing; all 16 images and their original pixels remain available. Latent-space JSCC uses 100k, SwinJSCC and HiFi's operators use 200k. Swin/HiFi share the same actual waveform and decoded auxiliary data. The NeST column is the historical raw implementation. The panel is illustrative, not a new quantitative sample or entropy-coded evidence.}
+\label{fig:images}
+\end{figure*}
+Figure~\ref{fig:images} illustrates actual reconstruction behavior: transmitted coarse information constrains layout, while generated detail can remain incorrect. No sharpening, denoising or generative enlargement was applied. HiFi uses the original full 253-step posterior schedule and registered seed. On \emph{all} fixed16 images, its supplemental DISTS/DreamSim/MS-SSIM means are 0.24584/0.21807/0.82128; paired Swin's are 0.31659/0.35471/0.83837 and latent JSCC's are 0.19411/0.19116/0.75507. This descriptive development table does not become a common500 estimate or a confidence interval for a larger population.
+
+Historical raw mismatch experiments and Kodak evidence retain their original variant and scope. The raw SNR-overestimation diagnostic showed large degradation; it motivates caution about accurate operating-point knowledge but is not an entropy-coded robustness test. The earlier two-group raw experiment's NO\_GO conclusion remains unchanged. No result from those studies is relabeled to support the present entropy-coded main claim.
+
+\subsection{Versioned Shared-H800 Cost}
+\input{tables/timing.tex}
+Table~\ref{tab:timing} reuses completed shared-H800 measurements, with batch one, the fixed16 development sources and three fresh measured repetitions following three fresh warmups at each condition. All 1728 calls completed, including 864 measurements. TX includes fresh source encoding and actual fallback attempts; RX includes real receive processing and reconstruction. Software end-to-end latency excludes separately recorded channel-noise generation and pure provenance-audit overhead. All receiver outcomes remain in the measurements.
+
+The grid combines 576 unchanged successful calls from the stopped v5 attempt and 1152 from the v6 recovery. One failed initial entropy warmup is archived and contributes an extra known visual-encoder attempt, not a completed measurement. The shared device/software match, but resident workloads and admission conditions differ between segments; these are not uncontended latencies. The entropy rows predate the m10 revision and are not asserted to be revised m10 delays. ARPC's stage wall times on another machine include initialization and I/O and are not converted into cross-hardware speedup ratios. Raw avoids TX autoregressive inference, but its different source/failure interface and measured quality must accompany any complexity comparison.
+
+\subsection{Interpretation Limits}
+The channel is AWGN with the registered energy convention. There is no fading, feedback, retransmission or learned power control. Candidate sets and calibration budgets are finite; a selected policy is not globally optimal. Reuse requires actual source/event/pixel and scoring identity, not merely a matching endpoint. All failures are retained, and unknown execution failures are recorded independently of legitimate link rejection.
+
+The internal same-prior comparisons support the value of a finer legal transmission interface. The low-SNR N2048 test shows that a larger frame still needs an appropriate MCS and actual source fallback: the fixed high-rate reference fails where the finite adaptive policies succeed. Its uniformly favorable pointwise test intervals do not remove the fixed-full 19-dB metric conflicts. The external results compare complete adapted systems. Pretraining scale, native text conditioning, decoder adaptation, numerical environments and method-specific source procedures are not controlled into a common backbone. Different quality metrics answer different questions, and generated plausibility does not establish source fidelity. The matched100 subset, independent new100, common500 and fixed16 development results remain separate.
+
+\section{Conclusion}
+NeST-Com turns legal within-scale token endpoints into a fully charged digital interface. Actual terminated lengths drive a frozen fallback chain, a paid profile specifies the endpoint and layout, and an isolated receiver recovers transmitted tokens before generating unsent representation. The corrected N1024 same-prior comparison supports gains from finer endpoints while retaining low-SNR fidelity limitations. In the N2048 matched-source test, finite low-SNR adaptation restores reception and favors NeST-Com on all seven measured metrics at 4/10 dB. The separate complete-representation test at 19 dB retains ARPC's DISTS advantage and cross-zero DINO/agreement intervals. Budget, link policy and native representation jointly determine the observed system tradeoff; neither a universal metric advantage nor an endpoint-only explanation follows.
+
+\appendices
+\section{Reproducibility and Evidence Boundaries}
+The accompanying source manifest maps each table and figure to immutable result files and their SHA256 digests. Primary N1024 partial-family quality uses the frozen 4/10-dB results and corrected T1-C 19-dB results; its same-prior comparison uses the completed whole-family version repair. New100 is never merged into common500. The paid-stream utilization audit is separately traceable. The external100 N1024 comparison, fixed-full N2048 reference and low-SNR adaptive N2048 evaluation each preserve their original registrations, actual waits, full logical denominators and source-paired statistics. The adaptive test used 241 new and 159 reused distinct image-pair scores while retaining all 1200 logical frames; its single source-bootstrap bank is preserved. Full CSVs retain precision beyond the rounded values printed here. Historical metadata, host-location and test-fixture failures are retained with their actual nonzero exits; they are not recast as successful scientific calls, and closed model outputs were not rerun to resolve them.
+
+No training, baseline reconstruction, rescoring, bootstrap or timing is performed by the manuscript build. Figures reuse reviewed exports or deterministically draw saved means; table generation reads saved summaries. Author names, affiliations, funding, corresponding author and target-journal page constraints require author input and are listed in the delivery note; no identities are fabricated in this review copy.

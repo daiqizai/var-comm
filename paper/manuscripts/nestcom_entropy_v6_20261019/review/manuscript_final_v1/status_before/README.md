@@ -1,0 +1,36 @@
+# NeST-Com entropy-first manuscript v6
+
+Title: **NeST-Com: Fixed-Budget Next-Scale Token Communication**.
+
+This is a complete scientific review manuscript assembled from the preserved v5 prose, formal result deliveries and the current 2026-10-19 user scope. It keeps the old v5 directory unchanged. It is not a journal submission.
+
+`main.tex` is the main document. `manuscript.tex` contains the complete scientific narrative; `references.tex` contains the bibliography. `sections/n1024_consistency.tex` now contains the completed same-version repair. `sections/n2048_adaptive.tex` contains the completed nine-cell calibration and frozen-policy 4/10-dB test, with all seven saved metrics and direct source-paired intervals.
+
+Build with an existing TeX installation supporting IEEEtran, TikZ and the listed packages:
+
+```text
+pdflatex -interaction=nonstopmode -halt-on-error main.tex
+pdflatex -interaction=nonstopmode -halt-on-error main.tex
+```
+
+`prepare_assets.py` is the preserved initial assembly script: it copies existing reviewed figures and saved CSVs, checks copy equality and the formal repair manifest, and formats four LaTeX tables. It predates the later B2/B3 input-manifest additions and is not part of the final TeX build; do not rerun it over the final delivery manifest. The delivered TeX and evidence files are already assembled. The separate `format_adaptive_tables.py` reproducibly formats the saved final adaptive table. It assembles the paired plotting CSV from saved entropy contrasts and unchanged raw rows, using only sign inversion for DreamSim. It has no model, channel, inference, scoring, bootstrap or timing calls. Do not run any underlying experiment merely to build the manuscript. `input_manifest.json` records exact input/copy SHA256 identities. `evidence/` retains unrounded values and original intervals.
+
+The original repository filter forbids a directory named `data`. Current light evidence therefore resides in `evidence/`; `evidence_relocation.json` records every exact unchanged byte/SHA mapping. Closed v1–v4 build and figure execution manifests preserve their original historical paths. Resolve only their project-local `data/` prefix through that map; external scientific paths and their identities remain untouched. No scientific output or existing PDF changed during this relocation.
+
+The main common500 curve uses frozen partial-family 4/10-dB results and corrected T1-C 19-dB entropy results, with final P100k/Swin200k baselines. The paired figure now uses the closed same-version entropy repair at all three SNRs and unchanged raw contrasts. The full 9000-frame delivery includes 6579 reused and 2421 repaired physical events, 807 distinct new receiver outputs, seven metrics and original saved bootstrap indices with zero new draws. All seven effects are retained, including the 19-dB agreement interval crossing zero. Mathematical DreamSim compatibility is documented without claiming bitwise cross-device identity. The external ARPC table is matched100, never the full common500. The N2048 fixed-full 19-dB table is distinct from low-SNR adaptive evaluation. Existing H800 timing is explicitly the older pre-m10 version under shared resident workloads.
+
+`plot_paired.py` retains the author-approved 88.56787 × 50 mm two-panel design, colors, 4.5-point symbols and original axis limits. It draws only the saved repaired entropy contrasts and the unchanged historical raw rows. PDF/SVG/600-dpi PNG and separate panels are supplied. The earlier copied pair figure remains as `figures/historical_paired_common500.pdf` for provenance; it is not included in the current manuscript.
+
+`plot_calibration.py` draws the saved 32 cal100 endpoint means at the actual IEEEtran column width (88.56787 mm). `figures/cal100_payload_clean_manifest.json` pins its input and PDF/SVG/600-dpi PNG exports. The column figure replaces the older two-panel proxy diagnostic in the manuscript; the historical copied diagnostic remains available as provenance. It draws no new quality metric or interval. The read skill paths and actual color, gray and physical-size inspections are recorded in `review/cal100_plot_v1/visual_review.json`.
+
+The qualitative figure uses saved final-checkpoint fixed16 images and preserves the raw NeST label. Its selected examples are post-viewing display choices, not a representative statistical sample. The full original 16-image gallery remains at `paper/figures/hifi_final_fixed16_20261012/all16_final_link.pdf`; no pixels are enhanced or regenerated.
+
+Author names/order, affiliations, corresponding-author contact, funding and target-journal page requirements are not supplied and are not fabricated. The scientific prose and figures can be reviewed without them.
+
+References retain the previously source-checked v5 entries, with primary-source verification of recent related-work positioning and the three supplemental metric entries in `reference_verification.json`.
+
+The current PDF is build v4, with the completed N1024 same-version result integrated. Three actual `pdflatex` passes returned zero; the third settled changed labels after the first two, whose PDF/log remain preserved. All eight final v4 pages were opened, and the final log has no overfull boxes, undefined references or changed-label warning. Its exact PDF identity and review are in `review/manuscript_build_v4/visual_review.json`. The repaired pair figure also has its own color, grayscale, physical-size and separate-panel review. Its first SCP fetch failed after successful rendering; the original output was fetched and SHA-verified without rerendering. Earlier v1–v3 builds and the initial built-in compiler timeout remain historical evidence. Build v4 remains an intermediate PDF. The source now includes actual final B3 scientific results; the final report review, final compile and all-page PDF inspection must still close before a final delivery is declared.
+
+B2 calibration is now integrated into the source: all nine specified cells over cal1000 and three noise draws are complete, with four frozen policies in `tables/n2048_adaptive_policies.tex`. Exact original selection bytes and all nine unrounded means are under `evidence/n2048_adaptive/`. The section explicitly labels these values as calibration. The B3 test is now scientifically complete: 1200 logical objects, all four 300-object cells correctly received, 241 newly scored distinct pairs plus 159 exact reuses, and one saved 10000-replicate bootstrap bank (seed 2026101902). `format_adaptive_tables.py` formats the original saved summary and paired CSVs without scoring or resampling. Their original bytes and the statistics completion SHA are verified under `evidence/n2048_adaptive/`. The full source narrative, abstract, conclusion and claim map now incorporate these results. Final report/PDF review is a separate remaining delivery step; build v4 is preserved as the previously reviewed intermediate PDF.
+
+The low-SNR adaptive table includes all fourteen direct paired intervals. All favor NeST in the appropriate metric direction at 4/10 dB, while the separate fixed-full 19-dB DISTS disadvantage and cross-zero DINO/agreement intervals are retained. The unchanged N1024 low-SNR fidelity tradeoff against latent-space JSCC and the 19-dB internal agreement non-gain also remain. No manuscript operation runs the underlying experiments.

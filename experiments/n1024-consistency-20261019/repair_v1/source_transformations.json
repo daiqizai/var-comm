@@ -1,0 +1,182 @@
+[
+  {
+    "original": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\experiments\\t1c-m10-test-20261016\\tc_receiver.py",
+    "original_sha256": "d306f2d8bc9d8e4bce5fcbc195c0d4bc5d5e3adef135658f0c4696ec954f7943",
+    "output": "nc_receiver.py",
+    "output_sha256": "db995a1cb2c8966fc5d7217420572f21cc1b7a147af200a7291cbe107d8a68d6",
+    "replacements": [
+      {
+        "before": "from tc_common import *",
+        "after": "from nc_common import *"
+      },
+      {
+        "before": "from tc_protocol import closed_wait",
+        "after": "from nc_protocol import closed_wait"
+      },
+      {
+        "before": "r=registration('link',expected)",
+        "after": "r=registration('receiver',expected)"
+      },
+      {
+        "before": "COMPLETE_T1C_RX",
+        "after": "COMPLETE_N1024_REPAIR_RX"
+      }
+    ]
+  },
+  {
+    "original": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\experiments\\t1c-m10-test-20261016\\tc_phy.py",
+    "original_sha256": "0805b1a6ed7f27ba7a580fb06e142fe4bc60a2526e5e14c8db9d8d64ed20d885",
+    "output": "nc_phy.py",
+    "output_sha256": "c53cbc129c2d5e3b4b33608074316affa17116f72c625b91a8407ca87e432d6f",
+    "replacements": [
+      {
+        "before": "Only changed 19 dB test transmissions; unchanged events get byte-level waveform proof.",
+        "after": "Only the 2421 registered WHOLE 4/10 dB version-repair events; exact prior RX outputs are reused."
+      },
+      {
+        "before": "from tc_common import *",
+        "after": "from nc_common import *"
+      },
+      {
+        "before": "from tc_protocol import validate_grid",
+        "after": "from nc_protocol import validate_repair_grid as validate_grid, receiver_reuse"
+      },
+      {
+        "before": "rows=checkread(r['frames']);cache={}",
+        "after": "rows=checkread(r['frames']);old_rx=checkread(r['receiver_cache']);cache={}"
+      },
+      {
+        "before": "noise=standard*10**(-19/20)",
+        "after": "noise=standard*10**(-row['snr_db']/20)"
+      },
+      {
+        "before": "if row['reuse']:",
+        "after": "if row['reuse']: # Unreachable: validate_repair_grid rejects all reused events."
+      },
+      {
+        "before": "rt.receive(observed,19,row['public_frame_counter'],rt.profiles,ledger,f'T1C/{num:04d}',phase='T1C_19dB_test_only')",
+        "after": "rt.receive(observed,row['snr_db'],row['public_frame_counter'],rt.profiles,ledger,f'N1024_REPAIR/{num:04d}',phase='N1024_WHOLE_4_10_VERSION_REPAIR')"
+      },
+      {
+        "before": "T1C_ACTUAL_CHANGED_EVENT_V1",
+        "after": "N1024_REPAIR_ACTUAL_EVENT_V1"
+      },
+      {
+        "before": "sk=source_key(rx);projection.setdefault(sk,dict(source_input_key=sk,actual_RX=rx))",
+        "after": "sk=source_key(rx)\n     prior=receiver_reuse(old_rx,sk,rx,source_key)\n     if prior is None:projection.setdefault(sk,dict(source_input_key=sk,actual_RX=rx))"
+      },
+      {
+        "before": "cache[key]=dict(physical_frame=pd,source_input_key=source_key(rx),origin=origin)",
+        "after": "cache[key]=dict(physical_frame=pd,source_input_key=source_key(rx),origin=origin,cached_reconstruction=receiver_reuse(old_rx,source_key(rx),rx,source_key))"
+      },
+      {
+        "before": "len(logical)==3600",
+        "after": "len(logical)==2421"
+      },
+      {
+        "before": "logical_frames=3600",
+        "after": "logical_frames=2421"
+      },
+      {
+        "before": "COMPLETE_T1C_PHY",
+        "after": "COMPLETE_N1024_REPAIR_PHY"
+      }
+    ]
+  },
+  {
+    "original": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\experiments\\t1c-m10-test-20261016\\tc_metrics.py",
+    "original_sha256": "766b81b1c44393c55e83d79da1c29f9fbc57b39d4de13a94e907c2a983df70d6",
+    "output": "nc_metrics.py",
+    "output_sha256": "74ea44b17ceb5dab88e5453bb5ee19c78eb7aa8aa1d0814b71b271085a552592",
+    "replacements": [
+      {
+        "before": "from tc_common import *",
+        "after": "from nc_common import *"
+      },
+      {
+        "before": "from tc_protocol import closed_wait",
+        "after": "from nc_protocol import closed_wait"
+      },
+      {
+        "before": "reference_preparations=600",
+        "after": "reference_preparations=500"
+      },
+      {
+        "before": "dinov2_vitl14_reference=600",
+        "after": "dinov2_vitl14_reference=500"
+      },
+      {
+        "before": "convnext_reference=600",
+        "after": "convnext_reference=500"
+      },
+      {
+        "before": "for key in ambiguous:oldpairs.pop(key,None)",
+        "after": "for prior in checkread(r['reused_frames']):\n   key=canonical([prior['source_index'],prior['reconstruction']['image_sha256']]);v=prior['metrics']\n   if key in oldpairs and oldpairs[key]['metrics']!=v:ambiguous.add(key)\n   else:oldpairs[key]=dict(metrics=v,evidence=prior['physical_frame'])\n  for key in ambiguous:oldpairs.pop(key,None)"
+      },
+      {
+        "before": "rec=ref['image'] if e['reuse'] else images[item['source_input_key']]",
+        "after": "rec=ref['image'] if e['reuse'] else (item['cached_reconstruction'] or images[item['source_input_key']])"
+      },
+      {
+        "before": "ep=checkread(rec['evidence']);pkt=checkread(item['physical_frame'])",
+        "after": "ep=checkread(rec['evidence']) if 'path' in rec['evidence'] else dict(evidence=rec['evidence']);pkt=checkread(item['physical_frame'])"
+      },
+      {
+        "before": "with np.load(sources[j]['archive']['path'],allow_pickle=False) as z:truth=z['tokens'][:OFFSETS[p['m']]+p['K']]",
+        "after": "checked(sources[j]['archive'])\n     with np.load(sources[j]['archive']['path'],allow_pickle=False) as z:truth=z['tokens'][:OFFSETS[p['m']]+p['K']]"
+      },
+      {
+        "before": "T1C_population='common500_and_new100_separate'",
+        "after": "N1024_repair_population='common500_only'"
+      },
+      {
+        "before": "population='T1C_common500_and_new100_separate'",
+        "after": "population='N1024_repair_common500_only'"
+      },
+      {
+        "before": "snr_db=19,noise_seed=",
+        "after": "snr_db=e['snr_db'],noise_seed="
+      },
+      {
+        "before": "len(rows)==3600",
+        "after": "len(rows)==2421"
+      },
+      {
+        "before": "logical_frames=3600",
+        "after": "logical_frames=2421"
+      },
+      {
+        "before": "COMPLETE_T1C_FIXED_OUTPUT_METRICS",
+        "after": "COMPLETE_N1024_REPAIR_FIXED_OUTPUT_METRICS"
+      }
+    ]
+  },
+  {
+    "original": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\experiments\\t1c-m10-test-20261016\\tc_control.py",
+    "original_sha256": "da612ded20a4edacba526539f895dd67267d5d6dab9f64599a6c3208eb33c29a",
+    "output": "nc_control.py",
+    "output_sha256": "429a0b47af974cb4c81b639e91e5cc5ba5431b163e2253f0c05fb1f60e6616fa",
+    "replacements": [
+      {
+        "before": "from tc_common import *",
+        "after": "from nc_common import *"
+      },
+      {
+        "before": "('source','phy','receiver','metrics','delivery','tests')",
+        "after": "('phy','receiver','metrics','delivery')"
+      },
+      {
+        "before": "r=registration('source' if role=='source' else 'link',expected) if role!='tests' else dict(gpu_index=None,max_seconds=120)",
+        "after": "r=registration('link',expected)"
+      },
+      {
+        "before": "str(E/('tc_'+role+'.py'))",
+        "after": "str(E/('nc_'+role+'.py'))"
+      },
+      {
+        "before": "[T/'execution.lock',B/'t1b_m10_calibration_20261016_v1/execution.lock']",
+        "after": "[T/'execution.lock',B/'t1b_m10_calibration_20261016_v1/execution.lock']"
+      }
+    ]
+  }
+]

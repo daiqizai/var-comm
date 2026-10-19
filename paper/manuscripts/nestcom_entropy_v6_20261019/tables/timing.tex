@@ -1,0 +1,18 @@
+\begin{table}[t]
+\centering
+\caption{Existing shared-H800 mean latency (ms), $N=1024$, 19 dB, fixed16, batch one. Entropy rows are the old, pre-m10 version. Three fresh measured repetitions per source give 48 measurements per row; 4/10-dB rows and all components remain in the accompanying CSV.}
+\label{tab:timing}
+\footnotesize\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrrr}
+\toprule
+Method & TX & RX & E2E \\
+\midrule
+Whole-scale (raw) & 136.3 & 571.6 & 708.0 \\
+NeST-Com (raw) & 105.8 & 349.5 & 455.3 \\
+Whole-scale (entropy) & 243.0 & 468.7 & 711.8 \\
+NeST-Com (entropy) & 938.3 & 504.0 & 1442.3 \\
+Latent-space JSCC & 15.6 & 22.6 & 38.3 \\
+SwinJSCC (adapted) & 28.1 & 21.9 & 50.1 \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -1,3 +1,32 @@
+## 2026-10-19 本轮实际进展：一致性修复、九单元校准与冻结测试完成
+
+科学调用到原定范围末端停止；后续仅确定性报告、论文与正常发布。所有登记、调用、失败与复用计数按实际记录，不能将工程资格或可见目录当科学完成。
+
+### 已完成的证据与结论
+
+- N1024 common500 同版本审计及最小修复已闭合：9000 逻辑帧，6579 精确复用、2421 新物理事件、4842 译码，807 独特新接收输出及七指标；复用原 bootstrap 索引，新增 draw 为 0。原部分尺度 4/10 dB 和 T1-C m10 的 19 dB 结果保留，未重新选策略。4/10/19 dB 同先验 PSNR 增益为 0.61603/0.70116/0.31942 dB；19 dB agreement 为 −0.2 pp，直接配对 95% CI [−2.0,+1.6] pp，不声称全部指标获胜。
+- N2048 B2 校准按前瞻九单元修订实际完成 cal1000 × 3 噪声 × 9 单元，共 27000 对象、54000 子帧、108000 头部/正文译码。NeST 的候选数是 4 dB 两个、10 dB 五个，ARPC 各一个，并非对称搜索宇宙；最终两方法均冻结为 4 dB QPSK 2/3、10 dB 16-QAM 2/3。选择依据为源内三噪声平均 DINO，未把校准均值当测试性能，未新增候选或校准 bootstrap。
+- N2048 B3 冻结测试实际闭合：同 external_common100、4/10 dB、两方法、三噪声，1200 对象、2400 子帧、4800 译码。四个方法/SNR 单元均实际正确接收 300/300，null/reject/wrong 为 0。400 独特图像对中 241 新恢复/评分（NeST199、ARPC42）、159 身份完整核验后复用；1200 逻辑分母完整保留。只生成一次 10000 次来源级直接配对 bootstrap，seed=2026101902，bank SHA `2214f74adcc0e159679790b5ece0960e47aec5d933c1fec3d0969686be7846fe`。
+- B3 的 NeST−ARPC PSNR 为 4 dB +3.778629 [3.493258,4.081621] dB、10 dB +3.877430 [3.687650,4.078679] dB；DreamSim 差为 −0.265833 / −0.117403；agreement 为 +39 [28,50] / +12 [2,23] pp。全部 14 个点态直接配对区间在对应指标方向有利于 NeST，未进行多重比较调整，不能解释为所有工作点上的保证或仅由终点粒度造成的因果效果。
+- 固定完整 N2048 参考仍单列：64-QAM 5/6 在 4/10 dB 全拒收，在 19 dB 两方法均 300/300 正确。19 dB ARPC 的 DISTS 更好，DINO/agreement 区间跨零。自适应改善同时改变 MCS 和实际源码回退，不是纯信道码隔离消融。原共享 H800 pre-m10 计时保持旧版本说明，无跨硬件 ARPC 倍速；原 raw 两组 NO_GO 不改。
+
+### 权威轻量结果
+
+- `results/n1024_consistency_20261019_v1/repair_v1/delivery/`：完整七指标、源内均值、直接配对区间与闭合 manifest，SHA `8d6a29a210c300082f2ad14bc99b7334d2138d0b1f17d7f92195d21b31f4e235`。
+- `results/arpc_n2048_adaptive_20261019_v1/b2b3_analysis_v1/B2/selection.json`：四冻结策略，SHA `7c3641837182d0ee7d1fd46e3372b84a8e5d751186ce7b3fb8f59a76cc561d1e`。
+- `results/arpc_n2048_adaptive_20261019_v1/b3_metrics_v1/summary.csv`（28行）、`paired_differences.csv`（14行）和 `source_noise_means.csv`（2800行）：全部七指标原精度结果。科学 completion SHA `1e9a004069717e005e64257d0ef7a9896db9aed328b5652b2dc5866f7475aa90`，实际统计退出 0，PID/start 同代已退出。
+- `paper/manuscripts/nestcom_entropy_v6_20261019/`：完整熵编码主稿源码，摘要、方法、结果、限制、结论、中文修改说明及主张证据表已接入真实 B3。raw 是辅助接口，actual length 不单独决定终点，RX 无 TX 真值，熵码失败输出灰图。
+
+### 工程失败与交付边界
+
+原测试 fixture 的 zipfile/cp437 与 dir_fd 惰性访问失败、历史 cache 元数据 schema 缺口、MAIN 读取 leo 主机局部 binary/runtime 导致的封存失败、报告输入根遗漏 5 个已登记共享 RT 源码路径的元数据失败均保留原实际非零退出和日志。资格分别按已通过 19+37、15+11 唯一测试清单闭合，未伪称单次全集通过；成功模型调用未为这些工程事项重跑。原六分析源、原七传输源及统计数学保持冻结，修正仅走明确有据的元数据兼容与正确执行主机。
+
+当前科学结果、最终报告审图、最终全文编译与逐页审查均已实际闭合。最终9页PDF两次真实pdflatex退出0，全部页面分别由主稿任务和根任务实际打开，图1–5、表I–VI、正文和参考文献完整。PDF SHA256为 `9d3908d8cbaad7f8526fa3a1d517645c67c848af09d8cef6352fdc8dfa860f8d`，完整交付入口为 `paper/manuscripts/nestcom_entropy_v6_20261019/final_delivery_manifest.json`。报告原导出及版式修正原件均保留，修正只处理标题边界，不改变数据或区间。正常main发布由后续实际发布收据证明，此处不预填未发生的commit或push。作者姓名、单位、基金和目标期刊篇幅仍需作者输入，不伪造，不阻塞科学内容审阅。备份依用户指示延后；不恢复旧实验或拓展新候选。
+
+---
+
+以下保留此前历史原文；如状态冲突，以上最新实际记录为准。
+
 ## 2026-10-19 N2048 adaptive cal100 delivery: candidate coverage pending
 
 The separate low-SNR adaptive package has completed B0/B1 and all cal100 clean
