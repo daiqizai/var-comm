@@ -1,3 +1,42 @@
+## 2026-10-20 ARPC N1024 common500 extension delivered
+
+The fixed ARPC external100 test is extended to the original common500, retaining
+original source indices and frozen 4/10/19 dB policies. All4500 logical events
+are represented (1500/SNR):900 verified existing plus3600 additional events.
+New400 captions/tokenizations/probability traversals produced2800 endpoint streams;
+no TX clean rendering, recalibration, training or other baseline inference.
+New link work used1200 encoded waveforms and3600 header+3600 body decodes.
+Actual RX produced1184 new images; seven-metric scoring
+covered1184 unique new pairs with all failures retained.
+All105 five-method mean/CI cells and21 direct source-paired NeST-minus-ARPC
+intervals use the existing10000x500 index bank, with zero new random draws.
+The original four-method main means are unchanged within1e-10; NeST19dB uses
+the current T1-C m10-corrected PARTIAL version. Historical noise realizations
+differ across baselines: pairing is by source, not common noise across all five.
+
+The original PHY RX exited1 after saving all3600 outputs because its final
+denied-open assertion failed. Exact denied paths were lost from its memory-only
+list. The original enforcing hook and failure remain unchanged; a separately
+recorded saved-output audit completed without replaying a decode/model call.
+This attempt-telemetry limitation is disclosed, never labeled originalexit0.
+Native RX and scoring have actual exit0. The original native RX post-exit audit
+exited1 on100 denied opens of its registered public wrapper source; all exact
+paths persisted, with no private path. A separate unchanged-pixel audit closed
+that explicit metadata lineage without any model replay. Original failures and
+the corrected cross-host qualification check are retained. The admitted
+PRO6000 host/runtime and resource selection, including Python build difference,
+are recorded; no cross-hardware timing claim is made.
+
+See results/arpc_common500_extension_20261019_v1/final_report_v1/REPORT_zh.md,
+delivery_v1/ for all seven metrics and original100-to500 comparisons, and
+figures_v1/ for the actually reviewed five-method2x2 vector Fig.2, plotCSV,
+English caption and outline changes. The full manuscript is not rewritten.
+N2048 remains the completed100-source scope; prior ablations/timing are retained.
+Backups remain deferred. The normal commit/push is evidenced by publication_v1;
+this note does not pre-fill an unobserved remote SHA.
+
+---
+
 ## 2026-10-19 本轮实际进展：一致性修复、九单元校准与冻结测试完成
 
 科学调用到原定范围末端停止；后续仅确定性报告、论文与正常发布。所有登记、调用、失败与复用计数按实际记录，不能将工程资格或可见目录当科学完成。

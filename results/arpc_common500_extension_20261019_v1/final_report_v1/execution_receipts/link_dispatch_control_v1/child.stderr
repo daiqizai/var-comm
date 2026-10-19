@@ -1,0 +1,12 @@
+Traceback (most recent call last):
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-common500-extension-20261019/link_control.py", line 31, in <module>
+    prepare()if a.role=='prepare'else run(a.expected_registration)
+                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-common500-extension-20261019/link_control.py", line 28, in run
+    run_stages('link',expected,jobs,env,r['stage_seconds'])
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-common500-extension-20261019/stage_support.py", line 34, in run_stages
+    owner.run_stage(name,argv,dict(env,CUDA_VISIBLE_DEVICES='') if name=='audit'else env,min(seconds[name],remain))
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-external-baseline-20261019/a1_owner.py", line 92, in run_stage
+    assert type(rc) is int and rc==0 and not timed and gone(ident),f'{name} failed'
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: rx failed

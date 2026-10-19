@@ -1,0 +1,12 @@
+Traceback (most recent call last):
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-common500-extension-20261019/rx_control.py", line 49, in <module>
+    p=argparse.ArgumentParser();p.add_argument('role',choices=['prepare','run']);p.add_argument('--expected-registration');a=p.parse_args();prepare()if a.role=='prepare'else run(a.expected_registration)
+                                                                                                                                                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-common500-extension-20261019/rx_control.py", line 47, in run
+    run_stages('rx',expected,jobs,env,reg['stage_seconds'],gpu=cfg['resource']['gpu'])
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-common500-extension-20261019/stage_support.py", line 34, in run_stages
+    owner.run_stage(name,argv,dict(env,CUDA_VISIBLE_DEVICES='') if name=='audit'else env,min(seconds[name],remain))
+  File "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-external-baseline-20261019/a1_owner.py", line 92, in run_stage
+    assert type(rc) is int and rc==0 and not timed and gone(ident),f'{name} failed'
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: audit failed
