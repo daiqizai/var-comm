@@ -1,0 +1,129 @@
+{
+  "schema": "ARPC_N2048_PLANNING_ONLY_V1",
+  "basis_HEAD": "fbc17ae300e46bfdab56c22f989752545a5c9b3c",
+  "execution_authorized": false,
+  "new_scientific_calls_this_delivery": 0,
+  "unchanged_N1024": true,
+  "primary_question": "Complete-representation quality and delivery under equal total channel resources; not best per-method MCS performance.",
+  "source_cohorts": {
+    "calibration": "existing ARPC cal100 for both methods, same source archive SHA",
+    "validation": "existing external_common100_v1 for both methods; already-used subset, not a new blind test"
+  },
+  "methods": {
+    "NeST-Com": "entropy-coded m10 K=0, all 680 tokens",
+    "ARPC": "native256 e7, all 7 scales, paid caption and native finished source object"
+  },
+  "channel": {
+    "N_total": 2048,
+    "subframes": 2,
+    "N_per_subframe": 1024,
+    "header_symbols_per_subframe": 68,
+    "body_symbols_per_subframe": 956,
+    "nominal_Es": 2,
+    "nominal_total_energy": 4096,
+    "frame_normalization": false,
+    "power_allocation": false,
+    "feedback": false,
+    "fading": false
+  },
+  "proposed_primary_MCS": {
+    "q": 6,
+    "rate": "5/6",
+    "k": 4780,
+    "n": 5736,
+    "same_both_methods": true,
+    "same_both_fragments": true,
+    "selection": "Only shared existing MCS fitting all 100 full calibration objects in both methods; no test quality used."
+  },
+  "reassembly_fields": [
+    {
+      "field": "version",
+      "bits": 4
+    },
+    {
+      "field": "codec",
+      "bits": 2
+    },
+    {
+      "field": "endpoint",
+      "bits": 4
+    },
+    {
+      "field": "fragment_index",
+      "bits": 1
+    },
+    {
+      "field": "fragment_count_minus_one",
+      "bits": 1
+    },
+    {
+      "field": "pair_id",
+      "bits": 32
+    },
+    {
+      "field": "original_bit_length",
+      "bits": 14
+    },
+    {
+      "field": "reserved_zero",
+      "bits": 6
+    },
+    {
+      "field": "whole_object_crc32",
+      "bits": 32
+    }
+  ],
+  "overhead": {
+    "two_length_fields_bits": 26,
+    "two_outer_crc_bits": 32,
+    "two_reassembly_records_bits": 192,
+    "total_information_overhead_bits": 250,
+    "source_padding_bits": "0..7 per whole NeST object; ARPC already byte aligned",
+    "additional_arithmetic_finish_bits": 0,
+    "source_finish_already_in_measured_payload": true,
+    "max_complete_object_bits": 9296
+  },
+  "receive_rule": "Both paid headers, fragment CRC16s, consistent paid reassembly fields, object CRC32 and canonical source parser must pass; otherwise fixed gray for the entire pair. Never use TX truth to decide success.",
+  "future_validation": {
+    "sources": 100,
+    "methods": 2,
+    "snr_db": [
+      4,
+      10,
+      19
+    ],
+    "noise_seeds": [
+      6201,
+      6202,
+      6203
+    ],
+    "logical_method_frames": 1800,
+    "physical_N1024_subframes": 3600,
+    "maximum_header_and_body_decode_attempts": 7200,
+    "old_physical_frames_reused": 0
+  },
+  "future_qualification_cap": {
+    "paired_test_cases": 24,
+    "physical_subframes": 48,
+    "maximum_header_and_body_decode_attempts": 96,
+    "independent_full_source_RX_calls": 12
+  },
+  "future_total_cap": {
+    "logical_pairs": 1824,
+    "physical_subframes": 3648,
+    "header_and_body_decode_attempts": 7296,
+    "source_RX_and_render_upper_bound": 1812
+  },
+  "expected_clean_input_reuse": {
+    "validation_existing_complete_streams": 200,
+    "new_TX_probability_passes": 0,
+    "validation_known_correct_full_images_available": 1,
+    "validation_full_image_gaps_in_audited_registries": 199,
+    "condition": "Reuse only after received-object equality and matching model/numerical/runtime identity; these are cache candidates, not granted future successes."
+  },
+  "scoring_plan": "Reuse final seven-metric versions by exact pixel pair and identity only. Future worst-case budget: <=1800 new validation image pairs + <=100 gray pairs = <=13300 scalar scores; new paired bootstrap only once if future execution is authorized. No metric/scientific execution now.",
+  "no_calibration_channel_sweep": true,
+  "no_extra_methods": true,
+  "no_training": true,
+  "no_automatic_next_stage": true
+}

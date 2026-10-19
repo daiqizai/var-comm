@@ -1,3 +1,17 @@
+## 2026-10-19 ARPC N2048 feasibility plan delivered (not executed)
+
+Preserved the completed N1024 comparison at fbc17ae. Joined the existing cal100
+700 endpoint payload/quality records and exported reviewed vector curves. A
+proposed 2 x (68-header + 956-body) layout pays both length/CRC fields and two
+96-bit reassembly records: 9296 source bits at common 64-QAM 5/6. Both full
+NeST-Com m10 and ARPC e7 fit 100/100 calibration sources. Historical low-SNR
+reliability is a warning, not new two-fragment evidence. Existing complete
+source objects are checked; new TX passes can be zero. Proposed fixed100
+validation is 3600 subframes, <=3648 including qualification. No new channel,
+model, metric, bootstrap or training calls occurred. N2048 execution requires
+a later instruction; automation remains paused and backups deferred.
+See results/arpc_n2048_feasibility_20261019_v1/PLAN_zh.md and proposed_scope.json.
+
 ## 2026-10-19 ARPC fixed100 matched comparison completed
 
 Official adapted ARPC weights passed independent source decoding and the full
