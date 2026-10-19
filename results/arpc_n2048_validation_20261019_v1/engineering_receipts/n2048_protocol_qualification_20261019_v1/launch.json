@@ -1,0 +1,23 @@
+{
+  "process": {
+    "pid": 1866322,
+    "start_ticks": 206533720,
+    "state": "R",
+    "host": "aibox-rfbd2ce574fd-5df9766c45-vz6d9"
+  },
+  "parent_process": {
+    "pid": 1866317,
+    "start_ticks": 206533713,
+    "state": "R",
+    "host": "aibox-rfbd2ce574fd-5df9766c45-vz6d9"
+  },
+  "argv": [
+    "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_ldpc_py311/bin/python",
+    "-B",
+    "-c",
+    "import sys,unittest,importlib.abc,json\nsys.path.insert(0,sys.argv[1]);blocked=[]\nclass G(importlib.abc.MetaPathFinder):\n def find_spec(self,fullname,path=None,target=None):\n  if fullname.split('.')[0] in ('torch','tensorflow','transformers','infinity'):\n   blocked.append(fullname);raise RuntimeError(fullname)\nsys.meta_path.insert(0,G());r=unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.discover(sys.argv[1],pattern='test_protocol.py'));assert r.wasSuccessful() and r.testsRun==20 and not blocked\nimport pair_protocol as p,pair_link\nfor n in [0,1,96,4751]:\n bits=[(i*7)%2 for i in range(n)];assert pair_link.ep.append_crc(bits).tolist()==bits+p.integer_bits(p.crc16(bits),16)\na=pair_link.noise('fixed',6201);b=pair_link.noise('fixed',6201);assert (a==b).all() and not (a[:1024]==a[1024:]).all()\nprint(json.dumps(dict(tests=r.testsRun,blocked=blocked,crc_parity_cases=4,noise_shape=list(a.shape),real_packets=0,models=0)))\n",
+    "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-n2048-validation-20261019"
+  ],
+  "started_unix": 1792379124.3440824,
+  "timeout_seconds": 120
+}

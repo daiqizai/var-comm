@@ -1,0 +1,22 @@
+{
+  "process": {
+    "pid": 1985536,
+    "start_ticks": 206685425,
+    "state": "R",
+    "host": "aibox-rfbd2ce574fd-5df9766c45-vz6d9"
+  },
+  "parent_process": {
+    "pid": 1985535,
+    "start_ticks": 206685419,
+    "state": "R",
+    "host": "aibox-rfbd2ce574fd-5df9766c45-vz6d9"
+  },
+  "argv": [
+    "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_ldpc_py311/bin/python",
+    "-B",
+    "-c",
+    "import sys,importlib.abc,unittest,json,ast,hashlib\nblocked=[]\nclass Guard(importlib.abc.MetaPathFinder):\n def find_spec(self,fullname,path=None,target=None):\n  if fullname.split('.')[0]in ['torch','tensorflow','transformers','infinity']:\n   blocked.append(fullname);raise RuntimeError(fullname)\nsys.meta_path.insert(0,Guard());sys.path.insert(0,'/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-n2048-validation-20261019')\nimport metrics\nr=unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.loadTestsFromName('test_analysis'));assert r.wasSuccessful() and r.testsRun==6 and not blocked\nfrom pathlib import Path\nold=Path('/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-external-baseline-20261019/a3_metrics_v1/score.py').read_bytes();assert hashlib.sha256(old).hexdigest()=='9d77ba270abcc3a033abef043ac3175d8affd694884e429d77da64fb15535a3c'\na=ast.parse(old);b=ast.parse(Path(metrics.__file__).read_bytes())\ndef selected(t):\n return sorted(ast.dump(n,include_attributes=False)for n in ast.walk(t)if isinstance(n,ast.Call)and isinstance(n.func,ast.Subscript)and isinstance(n.func.value,ast.Name)and n.func.value.id=='models'and isinstance(n.func.slice,ast.Constant)and n.func.slice.value in ['dists','ms_ssim'])\nassert selected(a)==selected(b) and len(selected(a))==2\nprint(json.dumps(dict(tests=6,official_supplement_calls_AST_equal=True,blocked=blocked,model_calls=0,scientific_pair_calls=0,bootstrap_production_calls=0)))\n"
+  ],
+  "started_unix": 1792380641.3997147,
+  "timeout_seconds": 120
+}

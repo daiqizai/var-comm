@@ -1,0 +1,23 @@
+{
+  "process": {
+    "pid": 1891762,
+    "start_ticks": 206564668,
+    "state": "R",
+    "host": "aibox-rfbd2ce574fd-5df9766c45-vz6d9"
+  },
+  "parent_process": {
+    "pid": 1891756,
+    "start_ticks": 206564659,
+    "state": "R",
+    "host": "aibox-rfbd2ce574fd-5df9766c45-vz6d9"
+  },
+  "argv": [
+    "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_ldpc_py311/bin/python",
+    "-B",
+    "-c",
+    "import sys,importlib.abc,json,ast\nsys.path.insert(0,sys.argv[1]);blocked=[]\nclass Guard(importlib.abc.MetaPathFinder):\n def find_spec(self,fullname,path=None,target=None):\n  if fullname.split('.')[0] in ('torch','tensorflow','transformers','infinity'):\n   blocked.append(fullname);raise RuntimeError(fullname)\nsys.meta_path.insert(0,Guard());import receiver\nw=receiver.environment();assert hasattr(w,'unpack') and hasattr(w,'SourceParseError')\nfrom pathlib import Path\ntext=Path(receiver.__file__).read_text();tree=ast.parse(text)\nassert 'human_approved_four_repeated_decoder_calls' in text and 'qualification_decoder_cap' in text\nassert 'environment()' in text and not blocked\nprint(json.dumps(dict(status='PASS_IMPORT_ONLY',actual_wire=w.__file__,blocked=blocked,real_packets=0,models=0,run_function_called=False)))\n",
+    "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-n2048-validation-20261019/rx_import_revision_v1"
+  ],
+  "started_unix": 1792379433.8266292,
+  "timeout_seconds": 120
+}

@@ -1,0 +1,23 @@
+{
+  "process": {
+    "pid": 1935749,
+    "start_ticks": 206600244,
+    "state": "R",
+    "host": "aibox-rfbd2ce574fd-5df9766c45-vz6d9"
+  },
+  "parent_process": {
+    "pid": 1935748,
+    "start_ticks": 206600237,
+    "state": "R",
+    "host": "aibox-rfbd2ce574fd-5df9766c45-vz6d9"
+  },
+  "argv": [
+    "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_ldpc_py311/bin/python",
+    "-B",
+    "-c",
+    "import sys,ast,importlib.abc,json\nsys.path.insert(0,sys.argv[1]);blocked=[]\nclass Guard(importlib.abc.MetaPathFinder):\n def find_spec(self,fullname,path=None,target=None):\n  if fullname.split('.')[0] in ('torch','tensorflow','transformers','infinity'):\n   blocked.append(fullname);raise RuntimeError(fullname)\nsys.meta_path.insert(0,Guard());import formal_receiver as f\ntext=f.adapt((f.E/'phy_worker.py').read_bytes());ast.parse(text);old=ast.parse((f.E/'phy_worker.py').read_bytes());new=ast.parse(text)\nfor name in ['tx','audit']:\n a=next(n for n in old.body if isinstance(n,ast.FunctionDef)and n.name==name);b=next(n for n in new.body if isinstance(n,ast.FunctionDef)and n.name==name);assert ast.dump(a)==ast.dump(b)\nfor tree in [old,new]:\n calls=[ast.dump(x) for x in ast.walk(tree) if isinstance(x,ast.Call)and isinstance(x.func,ast.Attribute)and x.func.attr in ['receive','transmit','reassemble']]\n if tree is old:before=calls\n else:assert before==calls\nfrom shared import OLD_E\nsys.path.insert(0,str(OLD_E));sys.path.insert(0,str(OLD_E/'upstream'));import wire\nassert not blocked;print(json.dumps(dict(status='PASS_ENTRY_ONLY',original_physical_calls_AST_equal=True,TX_and_audit_AST_equal=True,wire_import=wire.__file__,blocked=blocked,science=0)))\n",
+    "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-n2048-validation-20261019"
+  ],
+  "started_unix": 1792379789.5841098,
+  "timeout_seconds": 120
+}

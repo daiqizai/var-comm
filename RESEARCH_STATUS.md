@@ -1,3 +1,26 @@
+## 2026-10-19 N2048 two-method full-representation validation completed
+
+The authorized fixed100 validation is complete under the shared two-subframe
+2048-use budget, paying both headers, lengths, CRCs and96-bit reassembly records.
+Complete NeST-Com m10 and ARPC e7 objects both fit; fixed64-QAM rate5/6 delivers
+0/300 objects per method at4/10dB and300/300 at19dB, with no wrongly accepted
+objects. Rejected objects remain gray in all denominators. This fixed full-source
+layout is capacity-feasible but does not solve low-SNR reliability.
+
+At19dB direct paired intervals favor NeST-Com for PSNR, LPIPS, DreamSim and
+MS-SSIM, and ARPC for DISTS; DINO-L and source-prediction agreement intervals
+cross zero. All seven metrics and pointwise intervals are reported. The single
+10000-replicate bootstrap samples sources after averaging three noise draws.
+Qualification and formal work used3648 transmitted subframes and7300 decoder
+attempts, including exactly four explicitly authorized repeated decodes after
+the preserved import failure.200 formal native reconstructions and300 distinct
+seven-metric pairs completed. No training, tokenizer or TX probability rerun.
+
+Original N1024 results and all failure lineage remain intact. Reviewed final
+PDF/editableSVG/600dpiPNG are figures_v2; the first title-clipped export is retained.
+See results/arpc_n2048_validation_20261019_v1/README.md and delivery/REPORT_zh.md.
+No additional scientific stage is launched; restoration backups remain deferred.
+
 ## 2026-10-19 ARPC N2048 feasibility plan delivered (not executed)
 
 Preserved the completed N1024 comparison at fbc17ae. Joined the existing cal100
