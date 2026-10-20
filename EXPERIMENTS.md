@@ -1,3 +1,17 @@
+## 2026-10-20 Frozen-data WCL figure/table redraw
+
+`paper/wcl_figures_tables_20261020_v1/` contains reviewed Fig.2 (five-method
+common500, 178 x 106 mm), Fig.3 (paired PSNR gain and source-capacity utilization,
+178 x 62 mm), and Table I (N2048 matched100 adaptive 4/10 dB and full 19 dB).
+All values and intervals are read from the five explicitly specified CSVs at
+commit a5fc2de0c0039689f2999ad0ed6a1c12c1487d06. No new experiment, reconstruction,
+neural score or bootstrap was run. Fig.1 and historical artifacts are unchanged.
+Vector PDF/editable SVG, 600 dpi PNG, English captions, byte-pinned input copies,
+reproducible rendering code and actual visual/export checks are included.
+The positive 19 dB NeST-minus-ARPC DISTS difference is retained and favors ARPC.
+
+---
+
 ## 2026-10-20 ARPC N1024 common500 extension delivered
 
 The fixed ARPC external100 test is extended to the original common500, retaining
