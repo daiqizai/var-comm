@@ -1,3 +1,37 @@
+## 2026-10-20 CLIP-I supplement for the current five-method common500
+
+`results/clip_i_common500_20261020_v1/delivery/` closes all 22,500 logical
+source/reconstruction pairs: five methods, 500 original sources, 4/10/19 dB,
+and each method's three original noise realizations. Native file/pixel hashes
+were verified with no missing array. NeST-Com 19 dB uses T1-C's corrected m10
+outputs; P100k, Swin200k, adaptive BPG and all 4,500 ARPC outcomes retain their
+final versions and original denominators.
+
+CLIP-I is raw CLIP image-image cosine similarity (OpenAI ViT-L/14, 224 input,
+frozen floating tensor preprocessing, FP32). No softmax or percentage conversion
+is used. One model load and 13,980 image embeddings
+produced 13,480 distinct pair scores, with
+9,020 exact logical-pair reuses. No training,
+channel, reconstruction, caption or other neural-metric inference was added.
+Original CLIP weights/source were recovered from existing static archives with
+their frozen hashes; the inference environment was not upgraded.
+
+Source means average the three original noises; the existing seed 2026100701,
+10,000 x 500 bootstrap bank supplies 15 pointwise mean intervals and 30 direct
+source-paired contrasts, including all 12 NeST-minus-baseline contrasts.
+NeST-Com means: 4 dB: 0.8206, 10 dB: 0.8731, 19 dB: 0.9005. Results of every method are reported without
+policy/checkpoint reselection. Pairing is by source; historical cross-method
+noise namespaces differ. Original seven-metric summary and paired values are
+copied unchanged into the eight-metric tables.
+
+`results/clip_i_common500_20261020_v1/figures_v2/` contains the separate reviewed
+CLIP-I PDF, editable SVG and PNG, caption, style and visual audit. Existing main
+figures and the open Table I are unchanged. Development examples are excluded;
+N2048 is not part of this first-stage supplement. New features/ledgers and
+native arrays remain outside Git.
+
+---
+
 ## 2026-10-20 Four selected development examples at current N1024 / 10 dB
 
 `paper/figures/selected_examples_10db_20261020_v1/` contains four unchanged

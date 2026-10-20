@@ -1,0 +1,77 @@
+{
+  "model_id": "OpenAI CLIP ViT-L/14 (224px), image-image cosine",
+  "assets": {
+    "implementation": {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/clip_i_frozen_v1/sources/clip",
+      "revision": "d05afc436d78f1c48dc0dbf8e5980a9d471f35f6",
+      "files": {
+        "clip/__init__.py": "d7930eb290ebed432116795c91473200d098451a94c0aedd4ae0f934f97955e8",
+        "clip/clip.py": "9540f200fbf8145479fa655382a56dab048d238cc698b9cbd8df3b6d86d3f1b6",
+        "clip/model.py": "9902cbe5ee90a1da2aa3e6f043e8a23dc1f8831193b963785c9af03d5c7bef2c",
+        "clip/simple_tokenizer.py": "d1b09f10ed3d1e2c343619cb98cbfacb92363dd8607526a43aa7fe2d60d15bad",
+        "hubconf.py": "0641946610c17a743ebcc3f6e85cffff1400337bb9a99766740c40b01d9a3e14",
+        "setup.py": "6a913890284a988293f7b0b3ca017de29c65ce2bdce9fdd09cb481fc6bd5a636",
+        "tests/test_consistency.py": "342f84e4814143e1117dbc14baa6cf2a2ec01f61542e3952edc91e68f5eed206"
+      }
+    },
+    "weights": {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/clip_i_frozen_v1/weights/ViT-L-14.pt",
+      "sha256": "b8cca3fd41ae0c99ba7e8951adf17d267cdb84cd88be6f7c2e0eca1737a03836"
+    }
+  },
+  "loader": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/unified-metrics-20261002/metric_models.py",
+    "bytes": 30518,
+    "sha256": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066"
+  },
+  "preprocessing": {
+    "name": "CLIP-I",
+    "column": "clip_image_cosine",
+    "definition": "CLIP image-image cosine similarity",
+    "model": "OpenAI ViT-L/14",
+    "input": 224,
+    "resize": "tensor bicubic antialias=True",
+    "center_crop": 224,
+    "RGB": "native float32 [0,1]",
+    "normalization_mean": [
+      0.48145466,
+      0.4578275,
+      0.40821073
+    ],
+    "normalization_std": [
+      0.26862954,
+      0.26130258,
+      0.27577711
+    ],
+    "softmax": false,
+    "percentage": false,
+    "caption": false
+  },
+  "versions": {
+    "python": "3.10.12",
+    "torch": "2.11.0+cu128",
+    "torchvision": "0.26.0+cu128",
+    "numpy": "2.2.6",
+    "Pillow": "12.2.0",
+    "scipy": "1.15.3",
+    "peft": "0.21.0",
+    "timm": "1.0.27",
+    "open-clip-torch": "3.3.0",
+    "transformers": "5.12.1",
+    "huggingface-hub": "1.21.0",
+    "accelerate": "1.14.0",
+    "safetensors": "0.8.0",
+    "dreamsim": null,
+    "pytorch-msssim": "1.0.0"
+  },
+  "device": "NVIDIA RPBZZZ6",
+  "cuda_version": "12.8",
+  "fp32": true,
+  "tf32": false,
+  "amp": false,
+  "batch_size": 1,
+  "deterministic": true,
+  "threads": 6,
+  "interop_threads": 2,
+  "cuda_bus": "0000:62:00.0"
+}
