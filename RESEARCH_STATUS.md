@@ -1,3 +1,28 @@
+## 2026-10-20 WCL figures and tables finalized from frozen results
+
+`paper/wcl_figures_tables_20261020_v2/` provides Fig.2 (PSNR, LPIPS,
+DreamSim, CLIP-I; five-method N1024 common500), Fig.3 (the previously selected
+Pastries95 and Shopping-cart75 development reconstructions at10dB), the unchanged
+N2048 paired Table I, and the existing TX/RX/Total software-processing-latency
+table. English captions, results paragraph points, exact input hashes and
+reproducible drawing code are included. All60 means/CIs,12 image bindings and
+six N2048 metric cells were checked; actual PDF, print-size and grayscale
+inspection passed. Prior figure versions and full eight-metric results remain.
+
+The scientific baseline is a08e2517389f4df00ea4162c98417df3f52560a8, with no
+intervening result change at inspection. This is a presentation-only revision:
+no new training, channel, reconstruction, metric, bootstrap or timing calls.
+The outline explicitly retains NeST's PSNR limitations, its worse4dB LPIPS
+than Latent JSCC, LPIPS/DreamSim disagreement, and ARPC's better N2048/19dB
+DISTS. Historical H800 timings are separate from the current PRO6000 table.
+
+Fig.1 artwork is unchanged. The exact confirmed author-held
+`system_diagram_v3_entropy.pptx` was not found in the checkout or local
+workspace/Downloads inventory; its location is the remaining assembly item.
+No older system diagram was substituted and no full manuscript was rewritten.
+
+---
+
 ## 2026-10-20 CLIP-I supplement for the current five-method common500
 
 `results/clip_i_common500_20261020_v1/delivery/` closes all 22,500 logical

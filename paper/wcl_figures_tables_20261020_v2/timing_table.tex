@@ -1,0 +1,39 @@
+% Requires booktabs. All values read from the frozen five-method timing summary.
+\begin{table}[t]
+\centering
+\caption{Software processing latency (ms/image).}
+\label{tab:software-latency}
+\begingroup
+\fontsize{8.5}{10}\selectfont
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}lr rrr@{}}
+\toprule
+Method & SNR (dB) & TX & RX & Total \\
+\midrule
+NeST-Com & 4 & 185.50 & 358.71 & 544.21 \\
+NeST-Com & 10 & 220.89 & 398.82 & 619.71 \\
+NeST-Com & 19 & 302.35 & 472.27 & 774.62 \\
+\addlinespace[2pt]
+Latent JSCC & 4 & 16.15 & 24.50 & 40.65 \\
+Latent JSCC & 10 & 17.97 & 24.51 & 42.48 \\
+Latent JSCC & 19 & 16.99 & 24.43 & 41.42 \\
+\addlinespace[2pt]
+SwinJSCC & 4 & 24.02 & 18.59 & 42.61 \\
+SwinJSCC & 10 & 24.81 & 19.89 & 44.69 \\
+SwinJSCC & 19 & 24.90 & 18.43 & 43.32 \\
+\addlinespace[2pt]
+BPG + LDPC & 4 & 2285.93 & 18.50 & 2304.43 \\
+BPG + LDPC & 10 & 2269.87 & 23.15 & 2293.01 \\
+BPG + LDPC & 19 & 2269.24 & 27.26 & 2296.50 \\
+\addlinespace[2pt]
+ARPC + LDPC & 4 & 716.44 & 719.05 & 1435.49 \\
+ARPC + LDPC & 10 & 719.12 & 801.18 & 1520.30 \\
+ARPC + LDPC & 19 & 718.19 & 868.69 & 1586.89 \\
+\bottomrule
+\end{tabular}
+\endgroup
+\par\smallskip
+\begin{minipage}{\columnwidth}\fontsize{8}{9.5}\selectfont
+Means over 16 fixed development images, batch size 1, with three warmups and three measured calls per source and SNR. Total is TX+RX software processing time; air-interface transmission time is excluded. All methods use the same host, CPU affinity and GPU; original method-specific software stacks are retained. Shared-load and timing-boundary details are given in the experimental settings.
+\end{minipage}
+\end{table}
