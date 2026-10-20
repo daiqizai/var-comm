@@ -1,0 +1,25 @@
+% Requires booktabs. Values and intervals read from frozen CSV.
+\begin{table}[t]
+\centering
+\caption{Software processing latency at 10 dB (ms/image).}
+\label{tab:latency}
+\begingroup
+\fontsize{8}{9.5}\selectfont
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}l r r r@{}}
+\toprule
+Method & TX & RX & Total \\
+\midrule
+NeST-Com & 220.89 & 398.82 & 619.71 \\
+Latent JSCC & 17.97 & 24.51 & 42.48 \\
+SwinJSCC & 24.81 & 19.89 & 44.69 \\
+BPG + LDPC & 2269.87 & 23.15 & 2293.01 \\
+ARPC + LDPC & 719.12 & 801.18 & 1520.30 \\
+\bottomrule
+\end{tabular}
+\endgroup
+\par\smallskip
+\begin{minipage}{\linewidth}\fontsize{7.5}{9}\selectfont
+Shared NVIDIA RTX PRO 6000 Blackwell, GPU 1, six CPU cores, batch size 1; 16 fixed development sources, three warmups and three measured repetitions per setting (48 measurements). Total is TX+RX software processing time, excluding air-interface time and model loading. Original method-specific precision is retained; TF32 is off.
+\end{minipage}
+\end{table}

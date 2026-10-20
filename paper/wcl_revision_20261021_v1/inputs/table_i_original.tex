@@ -1,0 +1,24 @@
+% Requires booktabs. Data frozen at a5fc2de0c0039689f2999ad0ed6a1c12c1487d06.
+\begin{table}[t]
+\centering
+\caption{Source-paired NeST--ARPC differences at $N=2048$.}
+\label{tab:n2048-paired}
+\begingroup
+\fontsize{8.5}{10}\selectfont
+\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+Condition & \shortstack{$\Delta$PSNR (dB)\\[1pt][95\% CI]} & \shortstack{$\Delta$DISTS\\[1pt][95\% CI]} \\
+\midrule
+4 dB adaptive & \shortstack{$3.779$\\[1pt]$[3.493, 4.082]$} & \shortstack{$-0.1128$\\[1pt]$[-0.1246, -0.1013]$} \\[3pt]
+10 dB adaptive & \shortstack{$3.877$\\[1pt]$[3.688, 4.079]$} & \shortstack{$-0.0568$\\[1pt]$[-0.0612, -0.0521]$} \\[3pt]
+\shortstack[l]{19 dB\\full representations} & \shortstack{$1.806$\\[1pt]$[1.742, 1.871]$} & \shortstack{$0.0054$\\[1pt]$[0.0024, 0.0086]$} \\[3pt]
+\bottomrule
+\end{tabular}
+\par\vspace{3pt}
+\begin{minipage}{\columnwidth}
+$\Delta = \mathrm{NeST}-\mathrm{ARPC}$. Matched100; three noise realizations per source; 300/300 correctly delivered frames per method and condition. Intervals are direct source-paired 95\% CIs. Positive $\Delta$PSNR favors NeST; positive $\Delta$DISTS favors ARPC. Adaptive 4/10 dB and full-representation 19 dB use different frozen configurations.
+\end{minipage}
+\endgroup
+\end{table}

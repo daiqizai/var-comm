@@ -1,3 +1,41 @@
+## 2026-10-21 WCL revision and completed ARPC decoder sensitivity
+
+`paper/wcl_revision_20261021_v1/` provides the Chinese paragraph-task outline,
+a six-page Word outline with actual figures/tables, a compiled LaTeX skeleton,
+three final figures, Tables I-III, captions, exact inputs and visual checks.
+The title is NeST-Com: Fixed-Budget Next-Scale Token Communication. The original
+author-supplied system_diagram_v3_entropy.pptx was located in Downloads and
+reflowed as editable native PowerPoint objects at 7.16-inch width. Its 10 dB
+77.70/95.21 percent entropy-bitstream utilization uses Table I's definition.
+Fig.2 is 1x4; Fig.3 retains Pastries95/Shopping-cart75 full views with identical
+within-row ROIs. Table I is N1024 WHOLE/PARTIAL utilization and paired
+PSNR/DreamSim; Table II is N2048 paired PSNR/DreamSim; Table III is existing
+10 dB software processing latency. The old files and full eight metrics remain.
+
+The main evidence still uses a5f8ceb0233b0e1f599ee8bb902c1a094d47119d. The only
+new science is the expressly authorized matched100 ARPC decoder sensitivity:
+`results/arpc_decode_sensitivity_20261021_v1/delivery/`. Original sampling
+tau0.5 is reused. Explicit argmax and predeclared tau0.25 change only untransmitted
+generation, with all received prefixes and protocol fixed. 592 new unique
+renders cover 1800 logical setting-frames; 900 original logical results are
+reused. Four metrics and direct source-paired intervals are complete, using
+the original 10000x100 bank without new index draws. Actual RX/score/statistics
+waits are zero; all science processes are closed. A preparation syntax error
+before registration/model calls is retained; no successful science was replayed.
+The old CLIP reuse matches source and reconstruction pixels for all900 frames.
+
+At19dB both alternatives improve PSNR, LPIPS, DreamSim and CLIP-I. At4dB both
+worsen LPIPS/DreamSim; at10dB low temperature improves PSNR/LPIPS while all
+greedy intervals cross zero. All settings are reported and none replaces the
+common500 main curve. The outline retains NeST's PSNR limitations, worse4dB
+LPIPS than Latent JSCC, metric disagreements, and ARPC's better N2048/19dB
+DISTS (+0.0054 NeST-minus-ARPC, CI +0.0024 to +0.0086).
+
+No new training, source encoding, caption, channel event/decoder or timing was
+run. N2048 CLIP and complete manuscript prose remain outside this execution.
+
+---
+
 ## 2026-10-20 WCL figures and tables finalized from frozen results
 
 `paper/wcl_figures_tables_20261020_v2/` provides Fig.2 (PSNR, LPIPS,

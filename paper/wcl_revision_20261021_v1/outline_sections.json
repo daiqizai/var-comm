@@ -1,0 +1,144 @@
+[
+  [
+    "I. Introduction",
+    [
+      [
+        "段落 1：问题与评价目标",
+        "建立逐图固定复符号预算 N、给定信道条件下的图像通信问题。说明像素保真、感知相似性、语义表征一致性和处理时间是需要同时考察的取舍，不把四个相关指标称为四个独立证据。"
+      ],
+      [
+        "段落 2：相关工作与有限技术缺口",
+        "介绍连续潜空间 JSCC、SwinJSCC 及数字源信道分离。加入 Ada-TokenCom：它已将自回归 token、算术编码与头部 token 传输／尾部生成结合，并进行源率与 MCS 适配。TONIC 可简述为任务导向的 token 保护与接收补全工作。技术缺口限定为 next-scale 多尺度表示的端点粒度与逐图硬预算匹配，不把“发送一部分、生成其余”本身宣称为首创。"
+      ],
+      [
+        "段落 3：本工作的连贯设计及证据",
+        "将尺度内前缀、实际终止熵码长适配、前缀约束重建作为一套完整方法。WHOLE/PARTIAL 对照验证内部机制；五方法 common500 展示系统表现；N2048 和 ARPC 解码敏感性说明方法边界。避免预设全面优越。"
+      ]
+    ]
+  ],
+  [
+    "II.A. System Model and Multiscale Representation",
+    [
+      [
+        "段落任务",
+        "定义 x、冻结 tokenizer、多尺度离散 token、共享 VAR 先验与 Dc。N1024 为 68 头部 + 956 正文复符号，AWGN，标称 Es = 2。源图 256×256。载荷包含实际终止、长度、CRC 与对齐；不能把源位数与符号数混为一谈。引用 Fig.1(a)。"
+      ],
+      [
+        "表示与接收可用信息",
+        "区分完整尺度 1…m 与下一尺度按固定 raster 顺序的 K 个 token。RX 仅有实际收到的付费 profile、合法码流及共享模型；原图、未传 token 和 TX CDF 不可作为接收端输入。"
+      ]
+    ]
+  ],
+  [
+    "II.B. Budget-Adaptive Within-Scale Prefix Transmission",
+    [
+      [
+        "段落 1：端点与冻结策略",
+        "按实际候选表说明 WHOLE 和 PARTIAL 的合法端点及 SNR 对应冻结策略；不要把图中 m=7、K=75 的解释性示例写成所有图统一配置。calibration 选择与测试人口分离，19 dB 使用已完成 T1-C 的 m10 修正。"
+      ],
+      [
+        "段落 2：实际码长适配",
+        "将终止算术码长 Lterm 纳入核心约束 Lterm + 13 + 16 ≤ k；头部和正文总符号数固定。按照现有合法端点顺序实际回退，装不下或拒收仍保留分母。不能用估计熵或整段码长差替代实际已终止的流。"
+      ],
+      [
+        "机制解释",
+        "容量利用率定义为 Lterm/(k−13−16)，不是 token 数比例，也不是每符号频谱效率。10 dB 的 WHOLE 77.70%、PARTIAL 95.21% 与 Fig.1 和 Table I 同源同定义。"
+      ]
+    ]
+  ],
+  [
+    "II.C. Prefix-Constrained Reconstruction",
+    [
+      [
+        "段落 1：恢复和生成的顺序",
+        "先用共享先验和已解码上下文恢复实际传输 token；在边界尺度预测所有位置，再覆盖真实收到的位置，合并后推进状态并生成更细尺度，最后码本查找、聚合和冻结 Dc 解码。引用 Fig.1(b)。"
+      ],
+      [
+        "段落 2：约束与失败",
+        "仅收到的 token 可以覆盖预测。保持现有采样方式、生成种子与接收拒收规则；源解码失败输出真实规定结果。明确熵解码恢复已传信息与生成未传表示的区别。不得将干净前缀图当作无线性能证据。"
+      ]
+    ]
+  ],
+  [
+    "III.A. Experimental Setup",
+    [
+      [
+        "段落 1：主比较与版本",
+        "Fig.2 使用 N1024、4/10/19 dB、原 common500。五方法为 entropy-coded NeST-Com、Latent JSCC 最终100k、SwinJSCC adapted 最终200k、现有 adaptive BPG + LDPC、adapted ARPC + LDPC。NeST 19 dB 用当前 T1-C PARTIAL；不混入旧 raw 或旧检查点。"
+      ],
+      [
+        "段落 2：评价与统计",
+        "PSNR、LPIPS-Alex、DreamSim、CLIP-I；CLIP-I 是 OpenAI CLIP ViT-L/14 的图像—图像余弦，224 输入、冻结浮点预处理、FP32，不做 softmax 或百分比变换。三次原噪声先按每源平均，500 源等权；点位 CI 沿用既有 source-bootstrap。差异读直接来源配对 CI；历史方法噪声命名空间不同。"
+      ],
+      [
+        "段落 3：人口边界",
+        "common500 主图、matched100 的 N2048／敏感性、fixed development 示例与计时分别报告。灰图、回退和失败输出按原协议保留。DISTS、DINO-L、agreement、MS-SSIM 完整结果仍归档；不借删指标制造一致优势。"
+      ]
+    ]
+  ],
+  [
+    "III.B. Comparison With Existing Methods",
+    [
+      [
+        "段落 1：主性能",
+        "引用 Fig.2，分别描述像素、感知距离与语义表征一致性。保留 NeST 并非所有工作点 PSNR 最高、4 dB LPIPS 不如 Latent JSCC、LPIPS 与 DreamSim 排序存在差异。不能用曲线 CI 重叠判显著性，也不能把 CLIP 差异归因于未经消融的 caption 条件。"
+      ],
+      [
+        "段落 2：可视化",
+        "引用 Fig.3 的 Pastries95 与 Shopping cart75，描述实际可见的糕点轮廓、表面纹理、购物车网格与把手等；使用统一 ROI 比较局部细节，同时保留完整视野。明确两个案例是既有选定 development 示例，不外推总体优劣。"
+      ],
+      [
+        "段落 3：ARPC 解码敏感性（本轮已完成）",
+        "matched100、N1024、同一900个接收事件。原采样 τ=.5 复用；显式 argmax 与预定低温 τ=.25 只改变未传尺度生成。19 dB 两种设置四项均改善，贪心 ΔPSNR=+0.150 [0.087,0.207] dB、ΔDreamSim=−0.0143 [−0.0206,−0.0084]；4 dB 两者 LPIPS 和 DreamSim 均变差。10 dB 低温的 PSNR/LPIPS 改善，但贪心四项 CI 跨零。全设置都报告，不用子集替换 common500 主曲线。"
+      ]
+    ]
+  ],
+  [
+    "III.C. Effect of Within-Scale Endpoints",
+    [
+      [
+        "段落 1：装载效率",
+        "引用 Table I，三个 SNR 的 PARTIAL 利用率均提高；10 dB 从77.70%提高到95.21%。利用率只报告真实均值，不把样本分位数当均值置信区间。"
+      ],
+      [
+        "段落 2：同先验机制检验",
+        "Δ=PARTIAL−WHOLE。三点 ΔPSNR 约+0.616、+0.701、+0.319 dB，ΔDreamSim 为−0.0207、−0.0240、−0.0030；直接配对区间分别全正／全负。说明合法尺度内端点改善预算匹配，不额外宣称唯一因果机制或新训练收益。"
+      ]
+    ]
+  ],
+  [
+    "III.D. Performance With a Larger Symbol Budget",
+    [
+      [
+        "段落 1：有限预算扩展",
+        "引用 Table II。matched100、N2048；4/10 dB 为冻结 adaptive，19 dB 为 full representations。每源三噪声，每方法每条件300/300正确送达。表内报告 ΔPSNR 和 ΔDreamSim，均为 NeST−ARPC，不把三行画成同一配置曲线。"
+      ],
+      [
+        "段落 2：必须同时保留的边界",
+        "19 dB 的 NeST PSNR 更高、DreamSim 更低，但 DISTS 差为+0.0054，95% CI [+0.0024,+0.0086]，ARPC 的 DISTS 更好。保留这一指标取舍，不将 N1024 CLIP 填入 N2048 表。N2048 CLIP 本轮未启动。"
+      ]
+    ]
+  ],
+  [
+    "III.E. Computational Cost",
+    [
+      [
+        "段落 1：测量口径",
+        "引用 Table III，仅取现有10 dB、16 development、batch1、每源3次预热+3次测量。相同 RTX PRO 6000 Blackwell GPU1 和6个CPU核心；保持原方法环境／精度和共享负载记录，不能声称独占或所有框架完全一致。"
+      ],
+      [
+        "段落 2：质量与处理时间",
+        "TX/RX/Total 为 software processing latency，单位 ms/image；Total=TX+RX。NeST 均值约220.89/398.82/619.71，连续基线约42–45 ms总计；ARPC约1520.30、BPG约2293.01 ms总计。说明生成式恢复与源码处理的实际成本，不称空口时延或端到端网络时延，不与历史 H800 六方法计时合并。"
+      ]
+    ]
+  ],
+  [
+    "IV. Conclusion",
+    [
+      [
+        "段落任务",
+        "回扣完整 next-scale token 通信方法：尺度内端点、真实终止码长和前缀约束重建共同适应固定符号预算。总结已观察到的质量与处理成本取舍，并明确低 SNR 感知差异、生成解码敏感性和大预算完整表示边界。不给出全面优于所有方法或所有指标的结论。"
+      ]
+    ]
+  ]
+]
