@@ -1,0 +1,18 @@
+{
+  "process": {
+    "pid": 2418451,
+    "start_ticks": 585665152,
+    "state": "R"
+  },
+  "parent_process": {
+    "pid": 2418440,
+    "start_ticks": 585664878,
+    "state": "R"
+  },
+  "argv": [
+    "/usr/bin/python3",
+    "-B",
+    "-c",
+    "import ctypes,torch,json\nassert not torch.cuda.is_initialized()\ntorch.cuda.set_device(0)\nlib=ctypes.CDLL('libcuda.so.1');dev=ctypes.c_int();assert lib.cuDeviceGet(ctypes.byref(dev),0)==0\nbuf=ctypes.create_string_buffer(32);assert lib.cuDeviceGetPCIBusId(buf,32,dev)==0\nassert buf.value.decode().lower()=='0000:62:00.0',buf.value\np=torch.cuda.get_device_properties(0)\nprint(json.dumps(dict(status='PASS',PCI=buf.value.decode(),name=p.name,CUDA_UUID=str(p.uuid),torch=torch.__version__,models=0,tensors=0,forwards=0)))\n"
+  ]
+}

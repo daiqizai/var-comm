@@ -1,0 +1,18 @@
+{
+  "argv": [
+    "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_visual_py310/bin/python",
+    "-B",
+    "-c",
+    "import sys,os,pathlib,json\nsys.path.insert(0,'/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/five-method-timing-20261020/library_recovery_v1')\nimport adapter as a\nr=a.binding(a.OLD_REG)\nw=a.adapted_worker()\nroutes=a.read(a.checked(r['model_routes']))\ndenied=[]\ncheckpoints={str(pathlib.Path(x['path']).resolve()) for x in r['original_bindings'] if x['path'].endswith(('.pt','.pth','.ckpt','.safetensors','.bin','.npz'))}\ndef guard(event,args):\n    if event=='open' and isinstance(args[0],(str,bytes,os.PathLike)):\n        path=str(pathlib.Path(os.fsdecode(args[0])).resolve())\n        if path in checkpoints:\n            denied.append(path);raise RuntimeError('Qualification forbids assets: '+path)\nsys.addaudithook(guard)\nblocked=w.firewall(r,'NEST',pathlib.Path('/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/five_method_timing_20261020_v1/library_recovery_qualification_v1/imports'))\na.native.paths()\nsys.path.insert(0,routes['author_root'])\nfrom models import build_vae_var\nimport tb_native,ep_source_codec,t6_source_codec\nimport torch\nassert not torch.cuda.is_initialized()\nassert not blocked and not denied\nprint(json.dumps(dict(status='PASS_IMPORTS_ONLY',model_constructions=0,weights=0,source_reads=0,packets=0,blocked=blocked,asset_attempts=denied)))\n"
+  ],
+  "process": {
+    "pid": 2428853,
+    "start_ticks": 585753725,
+    "state": "R"
+  },
+  "parent_process": {
+    "pid": 2428851,
+    "start_ticks": 585753638,
+    "state": "R"
+  }
+}

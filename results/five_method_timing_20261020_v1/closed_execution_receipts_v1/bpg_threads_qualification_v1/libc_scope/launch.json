@@ -1,0 +1,17 @@
+{
+  "argv": [
+    "python3",
+    "-c",
+    "import os,json\nassert os.cpu_count()==6 and len(os.sched_getaffinity(0))==6\nassert os.sysconf('SC_PAGESIZE')==4096\nprint(json.dumps(dict(cpu_count=os.cpu_count(),affinity=sorted(os.sched_getaffinity(0)),page_size=os.sysconf('SC_PAGESIZE'))))\n"
+  ],
+  "process": {
+    "pid": 2445477,
+    "start_ticks": 585846766,
+    "state": "R"
+  },
+  "parent_process": {
+    "pid": 2445471,
+    "start_ticks": 585846754,
+    "state": "R"
+  }
+}

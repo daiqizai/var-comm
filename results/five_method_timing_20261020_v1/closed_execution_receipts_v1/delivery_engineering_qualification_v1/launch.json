@@ -1,0 +1,18 @@
+{
+  "process": {
+    "pid": 2486195,
+    "start_ticks": 585889610,
+    "state": "R"
+  },
+  "parent_process": {
+    "pid": 2486185,
+    "start_ticks": 585889606,
+    "state": "R"
+  },
+  "argv": [
+    "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_ldpc_py311/bin/python",
+    "-B",
+    "-c",
+    "import sys,pathlib,ast,importlib.util\nsys.path.insert(0,'/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/five-method-timing-20261020/recovery_delivery_v1')\nspec=importlib.util.spec_from_file_location('_delivery_candidate',pathlib.Path('/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/five-method-timing-20261020/recovery_delivery_v1')/'summarize.py')\nm=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)\ndef stop():raise RuntimeError('synthetic closure stop')\nm.recovery_closure=stop\nm.original.binding=lambda expected:{}\ntry:m.main()\nexcept RuntimeError as exc:assert str(exc)=='synthetic closure stop'\nelse:raise AssertionError('Closure guard did not stop')\nassert not (m.a.O/'delivery').exists()\nassert m.wait_path('NEST','tx')==m.a.T/'control/NEST_tx/actual_wait.json'\nassert m.wait_path('P100000','rx')==m.a.previous.CONTROL/'control/P100000_rx/actual_wait.json'\nassert m.wait_path('BPG','tx')==m.a.CONTROL/'control/BPG_tx/actual_wait.json'\nast.parse((pathlib.Path('/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/five-method-timing-20261020/recovery_delivery_v1')/'review.py').read_text())\nprint('PASS: inverse-AST summary transformation, three evidence routes, fail-closed before output; zero scientific calls.')\n"
+  ]
+}

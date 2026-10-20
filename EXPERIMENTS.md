@@ -1,3 +1,26 @@
+## 2026-10-20 Current five-method N1024 software timing
+
+`results/five_method_timing_20261020_v1/delivery/` contains the current m10
+NeST-Com, Latent JSCC100k, SwinJSCC200k, adaptive BPG+LDPC and ARPC+LDPC
+TX/RX/software-total latency on the same PRO6000/CPU allocation. The original
+fixed16 development sources, batch1, SNR4/10/19, three fresh warmups and three
+formal calls per source/setting yield1440 completed calls and720 measurements.
+All receiver outcomes remain in the denominator. Means, medians, p95 and
+unrounded per-call ms/image, resource/software versions and receipt audit are
+included. There are no new quality metrics, bootstrap, training or N2048 calls.
+
+Two engineering failures are retained: a receiver library import before any
+case/model construction, and one incomplete BPG encoder attempt that stalled
+when legacy x265 created pools for180hostCPUs. The explicit continuations
+reuse successful stages. BPG's unchanged binary now detects its actual6CPU
+affinity through a child-only resource adapter; original presets/math/search
+remain fixed. Original software stacks and this resource difference are
+disclosed. These timings are separate from the historical H800 six-method set.
+Source/registration/recovery entries are `experiments/five-method-timing-20261020/`.
+The existing paper figures and open quality Table I are unchanged.
+
+---
+
 ## 2026-10-20 Frozen-data WCL figure/table redraw
 
 `paper/wcl_figures_tables_20261020_v1/` contains reviewed Fig.2 (five-method
