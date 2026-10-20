@@ -1,3 +1,30 @@
+## 2026-10-20 Four selected development examples at current N1024 / 10 dB
+
+`paper/figures/selected_examples_10db_20261020_v1/` contains four unchanged
+original crops, twenty lossless RGB8 reconstructions, and the reviewed 4 x 6
+candidate sheet. Fixed order: dog21, broccoli92, pastries95, shopping-cart75.
+The current entropy-coded NeST-Com, Latent JSCC100k, SwinJSCC200k, adaptive
+BPG+LDPC and ARPC+LDPC all reuse the first formal timing receive realization.
+Twenty missing RX pixel arrays were recovered, and every float32 output exactly
+matches its original timing hash. No source encoding, new noise/channel event,
+training, calibration, timing grid or bootstrap was run. Swin's four saved
+waveforms pass through its original paid-header receiver as part of RX recovery.
+
+Twenty single-image PSNR/LPIPS pairs were saved using the original definitions
+and weights. The scoring worker exited1 at its final hook-count assertion:
+LPIPS directly calls its backbone forward and bypasses those hooks. This
+post-output telemetry failure is retained; the separate CPU-only closure audit
+validates all twenty saved pairs without recomputation. It is not relabeled as
+original exit0. Metrics describe native float outputs; PNGs are uniform RGB8
+display copies without crop, sharpening or generated enhancement.
+
+These are previously selected development examples, not random common500
+samples. Method-specific noise namespaces are disclosed. Existing Fig.1,
+quality curves, timing results and the open Table I are unchanged.
+Details: `results/selected_examples_10db_20261020_v1/delivery/`.
+
+---
+
 ## 2026-10-20 Current five-method N1024 software timing
 
 `results/five_method_timing_20261020_v1/delivery/` contains the current m10
