@@ -182,7 +182,7 @@ def figure3(out):
     columns=[('original','Original'),('P100000','Latent JSCC'),('Swin200000','SwinJSCC'),
       ('BPG','BPG + LDPC'),('ARPC','ARPC + LDPC'),('NEST','NeST-Com')]
     subjects=[(3,95,'n07860988/ILSVRC2012_val_00010848_n07860988','Pastries'),
-              (4,75,'n04204347/ILSVRC2012_val_00018921_n04204347','Shopping cart')]
+              (1,21,'n02105641/ILSVRC2012_val_00018762_n02105641','White long-haired dog')]
     mm=S['figure3_mm'];fig=plt.figure(figsize=np.array(mm)/25.4)
     left=1.5;gap=1.3;side=(mm[0]-2*left-5*gap)/6
     placed=[];native_hashes=[]
@@ -227,11 +227,11 @@ def figure3(out):
         assert im.size == (256,256)
         actual.append(hashlib.sha256(np.asarray(im).tobytes()).hexdigest())
     assert sorted(actual)==sorted(native_hashes)
-    AUDIT['figure3']=dict(source_indices=[95,75],full_views=12,ROI_views=0,native_pixels_verified=True,
+    AUDIT['figure3']=dict(source_indices=[95,21],full_views=12,ROI_views=0,native_pixels_verified=True,
       full_field_of_view=True,whole_image_scores=True,new_inference=0,
       displayed_metrics=['lpips_alex','dreamsim'],lower_is_better=[True,True],
       exact_metric_rows_verified=10,lpips_reused_verbatim=True,
-      dreamsim_source='results/figure3_dreamsim_20261021_v1/delivery/figure3_metrics.csv')
+      dreamsim_source='results/figure3_dog_20261021_v1/delivery/figure3_metrics.csv')
 
 def cell(v,nd):
     return r'\shortstack{$'+format(Decimal(v['mean']),f'.{nd}f')+r'$\\[1pt]$['+format(Decimal(v['ci_low']),f'.{nd}f')+', '+format(Decimal(v['ci_high']),f'.{nd}f')+r']$}'

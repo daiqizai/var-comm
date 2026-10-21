@@ -1,3 +1,29 @@
+## 2026-10-21 Fig.3 selected example: white long-haired dog
+
+At the user's request, the second Fig.3 row replaces Shopping-cart75 with
+the originally selected white long-haired dog21 at N1024, 10 dB,
+timing_case s10_i0021_r3. Pastries95 remains the first row. The figure keeps
+two rows of full views and the five-method order; labels are LPIPS-Alex /
+DreamSim, both lower-is-better, to three decimals.
+
+The six dog images and all existing LPIPS values are reused with exact
+file/array identity checks. Only five missing dog DreamSim distances were
+computed, using the pinned main-evaluation ensemble, FP32 and 224-pixel
+bicubic-antialias float preprocessing. Actual work: one model load, one
+source embedding, five reconstruction embeddings and five distances;
+all12 ledger entries COMPLETE, real child/outer waits0, all processes gone.
+The five Pastries scores are reused exactly. Full-precision ten-row table:
+`results/figure3_dog_20261021_v1/delivery/figure3_metrics.csv`.
+
+PDF, editable SVG, PNG, Word, current LaTeX and captions are synchronized
+in `paper/wcl_revision_20261021_v1/`. Actual print-size figure and six Word
+pages were opened; the existing LaTeX document compiled successfully.
+Fig.1/2, Tables I-III, sensitivity and main quantitative results are unchanged.
+No channel, reconstruction, training, bootstrap, timing or new LPIPS calls.
+The prior shopping-cart candidate and all preceding scores remain archived.
+
+---
+
 ## 2026-10-21 Fig.3 LPIPS-Alex / DreamSim labels
 
 The confirmed N1024, 10-dB Pastries95 and Shopping-cart75 Fig.3 keeps the same

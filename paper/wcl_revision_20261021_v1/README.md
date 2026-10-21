@@ -1,3 +1,17 @@
+## Fig.3 selected sample update — 2026-10-21
+
+The second row now uses the original white long-haired dog21 at N1024,
+10 dB, timing_case s10_i0021_r3. Pastries95 remains first. Both rows retain
+complete views, original fixed outputs and LPIPS-Alex values. Five dog
+DreamSim distances were scored with the same frozen protocol; all five
+Pastries distances are reused. Labels remain LPIPS-Alex / DreamSim, both
+lower-is-better, three decimals. Current full-precision source:
+`results/figure3_dog_20261021_v1/delivery/figure3_metrics.csv`.
+The shopping-cart results remain preserved as historical candidate material.
+Word, LaTeX, captions and the current outline refer to the same two rows.
+
+The following metric-supplement record describes the preceding sample set.
+
 ## Fig.3 metric-label update — 2026-10-21
 
 Fig.3 retains the fixed 10-dB two-row full-view pixels and r3 reception records.
@@ -19,7 +33,7 @@ Frozen quantitative evidence and completed ARPC sensitivity are unchanged.
   prediction/overwrite/continuation. Utilization remains in Table I only.
 - Fig.2 remains the frozen 1×4 five-method main comparison; all 60 means/CIs
   are unchanged.
-- Fig.3 is 2×6 full-view 10-dB Pastries95 / Shopping cart75, 7.16×3.00 inches.
+- Fig.3 is 2×6 full-view 10-dB Pastries95 / White long-haired dog21, 7.16×3.00 inches.
   No ROI boxes or crop rows. Original image bytes and whole-image scores remain.
 - Word, LaTeX and captions now reference the same Fig.1 and Fig.3 exports.
 - Table I–III and completed ARPC sensitivity remain unchanged.

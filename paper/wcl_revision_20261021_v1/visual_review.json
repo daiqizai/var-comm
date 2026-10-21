@@ -1,11 +1,11 @@
 {
   "status": "PASS",
   "reviewer": "Codex root; actual opened exports",
-  "revision_parent": "2b331a4d57a780fb1b42fd128ebaf43e4f1dd310",
+  "revision_parent": "9254254b5f2dfdf35ef9f4470167379ecf97bdbf",
   "actual_opened": [
     "Updated figure3_preview.png",
     "Updated figure3_print_size.png at 7.16-inch width",
-    "Native Word PDF pages1–6; updated Fig.3 and caption on page4"
+    "Native Word PDF from byte-identical QA copy, all six pages; dog figure/caption on page4"
   ],
   "final_size_inches": {
     "figure1": [
@@ -45,7 +45,7 @@
   "figure3": {
     "source_indices": [
       95,
-      75
+      21
     ],
     "snr_db": 10,
     "originals": 2,
@@ -66,7 +66,9 @@
     "LPIPS_exact_reuse": true,
     "DreamSim_native_float_scored": true,
     "method_header_pt": 8.2,
-    "metric_label_pt": 8.1
+    "metric_label_pt": 8.1,
+    "new_DreamSim_pairs": 5,
+    "reused_Pastries_pairs": 5
   },
   "tables": {
     "unchanged_byte_for_byte": true,
@@ -76,17 +78,18 @@
     "pages": 6,
     "all_pages_opened": true,
     "renderer": "Microsoft Word native PDF export + bundled Poppler",
-    "final_docx_sha256": "46513f5c55fb96a8b3f9908148b9cda63f0b69b52fcf4cd7021dce8752579d48",
+    "final_docx_sha256": "3caa4aa1b20db34b40a815a656905c7584f240b322bb92123f51beaa09cdb824",
     "no_clipping": true,
-    "render_fallback_reason": "Packaged renderer: LibreOffice soffice.exe missing; native Word PDF export used successfully; all6pages opened"
+    "render_fallback_reason": "Packaged renderer unavailable (missing soffice.exe); native Word exported a byte-identical private QA copy. Saved document title and all six pages verified.",
+    "qa_pdf_sha256": "370194d1899d9c02564c4969065eae432bf6266dddb4a3dbdd6722e1818487b5"
   },
   "latex": {
     "built_in_compile": "success",
     "main": "latex/main.tex",
-    "compiled_source_sha256": "0952b9e90bdd9196539faa194778f7da87aa61db2956eac2bedc18448e6a9db9",
+    "compiled_source_sha256": "128eb279555cca3d58880218f82507d94368b6c5020c1ac4fcbe86328146c28f",
     "same_figure1_as_word": true,
     "figure1_pdf_sha256": "93bc1738c6cf1304a3eefafaa199fc269ec985ffc64d07febb63b5b27085b31d",
-    "figure3_pdf_sha256": "db91a138938a1c2ae30be2ee4aa6dafda58e859acb247a86864723c7473b2869"
+    "figure3_pdf_sha256": "c578a52d2e9056d165531d54f717a65cddce0674a89aa297c1020eff6ed57944"
   },
   "skills": [
     "C:/Users/11946/.codex/skills/scientific-figure-making/SKILL.md",
@@ -95,5 +98,5 @@
     "C:/Users/11946/.codex/plugins/cache/openai-primary-runtime/presentations/26.1017.11052/skills/presentations/SKILL.md",
     "C:/Users/11946/.codex/plugins/cache/openai-primary-runtime/documents/26.1017.11052/skills/documents/SKILL.md"
   ],
-  "scientific_scope": "Ten fixed 10-dB development reconstruction pairs: DreamSim only; original LPIPS values, pixels and noise reused. Other figures, all tables and completed sensitivity unchanged."
+  "scientific_scope": "Replace Shopping-cart75 with fixed dog21 at 10 dB/r3. Five dog DreamSim distances newly scored; five Pastries distances reused. All ten LPIPS values and all image pixels reused. No channel, reconstruction, bootstrap, training or timing."
 }
