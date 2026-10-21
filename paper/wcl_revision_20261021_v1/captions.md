@@ -10,7 +10,7 @@ Five-method comparison on common500 over AWGN at N = 1024 complex symbols per im
 
 ## Fig. 3
 
-Previously selected development examples at N = 1024 and 10 dB: Pastries (source index 95) and Shopping cart (75). Each row preserves the full field of view and shows Original, Latent JSCC, SwinJSCC, BPG + LDPC, ARPC + LDPC, and entropy-coded NeST-Com. Values below reconstructions are whole-image PSNR (dB) / LPIPS-Alex for the displayed single realization, read from the saved native-float scores. These are selected qualitative examples, not random common500 samples.
+Previously selected development examples at N = 1024 and 10 dB: Pastries (source index 95) and Shopping cart (75). Each row preserves the full field of view and shows Original, Latent JSCC, SwinJSCC, BPG + LDPC, ARPC + LDPC, and entropy-coded NeST-Com. Values below reconstructions are whole-image LPIPS-Alex / DreamSim for the displayed single realization; both are lower-is-better. LPIPS-Alex is reused from the saved scores. DreamSim uses the frozen ensemble and FP32 224×224 bicubic-antialias floating-point preprocessing on the same native reconstruction arrays. These are selected qualitative examples, not random common500 samples.
 
 ## Table I
 

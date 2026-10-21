@@ -176,6 +176,8 @@ def figure2(out):
 
 def figure3(out):
     rows=read('display_manifest.csv')
+    metric_rows=read('figure3_metrics.csv')
+    assert len(metric_rows)==10
     original_manifest=json.loads((HERE/'inputs/examples_manifest.json').read_bytes())
     columns=[('original','Original'),('P100000','Latent JSCC'),('Swin200000','SwinJSCC'),
       ('BPG','BPG + LDPC'),('ARPC','ARPC + LDPC'),('NEST','NeST-Com')]
@@ -206,7 +208,14 @@ def figure3(out):
                 v=one(rows,source_index=idx,method=method)
                 assert v['source_id']==sid and v['N']=='1024' and v['snr_db']=='10' and v['image_png_sha256']==sh
                 entry.update({k:v[k] for k in ['version','N','snr_db','noise_seed','noise_namespace','receive_status','actual_profile','float_image_path','float_image_file_sha256','psnr_db','lpips_alex']})
-                lab=f"{float(v['psnr_db']):.2f} / {float(v['lpips_alex']):.3f}"
+                m=one(metric_rows,source_index=idx,method=method,timing_case=f's10_i{idx:04d}_r3')
+                for k in ['source_id','snr_db','float_image_path','float_image_file_sha256',
+                          'timing_float_array_sha256','image_png_sha256','lpips_alex']:
+                    assert m[k]==v[k],(idx,method,k)
+                entry.update(dreamsim=m['dreamsim'],timing_case=m['timing_case'],
+                    timing_float_array_sha256=m['timing_float_array_sha256'],
+                    metric_registration_sha256=m['metric_registration_sha256'])
+                lab=f"{float(v['lpips_alex']):.3f} / {float(m['dreamsim']):.3f}"
             fig.text(x+side/2/mm[0],(fullbottom-1.25)/mm[1],lab,ha='center',va='top',fontsize=8.1)
             entry['display_label']=lab;placed.append(entry)
     write_csv(out/'figure3_mapping.csv',placed,list(dict.fromkeys(k for v in placed for k in v)))
@@ -219,7 +228,10 @@ def figure3(out):
         actual.append(hashlib.sha256(np.asarray(im).tobytes()).hexdigest())
     assert sorted(actual)==sorted(native_hashes)
     AUDIT['figure3']=dict(source_indices=[95,75],full_views=12,ROI_views=0,native_pixels_verified=True,
-      full_field_of_view=True,whole_image_scores=True,new_inference=0)
+      full_field_of_view=True,whole_image_scores=True,new_inference=0,
+      displayed_metrics=['lpips_alex','dreamsim'],lower_is_better=[True,True],
+      exact_metric_rows_verified=10,lpips_reused_verbatim=True,
+      dreamsim_source='results/figure3_dreamsim_20261021_v1/delivery/figure3_metrics.csv')
 
 def cell(v,nd):
     return r'\shortstack{$'+format(Decimal(v['mean']),f'.{nd}f')+r'$\\[1pt]$['+format(Decimal(v['ci_low']),f'.{nd}f')+', '+format(Decimal(v['ci_high']),f'.{nd}f')+r']$}'

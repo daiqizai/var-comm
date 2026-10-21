@@ -1,3 +1,14 @@
+## Fig.3 metric-label update — 2026-10-21
+
+Fig.3 retains the fixed 10-dB two-row full-view pixels and r3 reception records.
+Labels now show LPIPS-Alex / DreamSim (both lower-is-better), three decimals.
+The ten new DreamSim distances are scored from hash-verified native float arrays
+with the main evaluation’s frozen ensemble, FP32 and 224-pixel bicubic-antialias
+preprocessing. Existing LPIPS values are copied verbatim. Full precision and
+file/array identities: `figure3_metrics.csv`; authoritative scored delivery:
+`results/figure3_dreamsim_20261021_v1/delivery/`. No reconstruction, channel,
+other metric or bootstrap was repeated. Fig.1, Fig.2 and Tables I–III are unchanged.
+
 # WCL revision outline and figures
 
 Updated from confirmed parent `46ce02f136362709dfe033f2e09bfad0fb72cc7d`.

@@ -1,3 +1,25 @@
+## 2026-10-21 Fig.3 LPIPS-Alex / DreamSim labels
+
+The confirmed N1024, 10-dB Pastries95 and Shopping-cart75 Fig.3 keeps the same
+r3 reception records, full-view pixels and two-row/six-column method order.
+Labels now show LPIPS-Alex / DreamSim, both lower-is-better, to three decimals.
+Ten existing native-float reconstructions were scored only for DreamSim using
+the main evaluation's pinned ensemble, FP32 and 224-pixel bicubic-antialias
+float preprocessing. Archive and dtype/shape-aware array hashes match; the
+existing LPIPS strings are reused exactly. Two source embeddings are cached.
+All ten distances are saved at full precision with input identities at
+`results/figure3_dreamsim_20261021_v1/delivery/figure3_metrics.csv`.
+
+Actual work: one model load, two source embeddings, ten reconstruction
+embeddings and ten distances; all23 ledger entries COMPLETE, child/outer
+actual waits0, all processes gone. No new reconstruction, channel, old metric,
+bootstrap, training or timing. Updated editable SVG, PDF,600-dpi PNG and
+source are in `paper/wcl_revision_20261021_v1/`; Word and existing LaTeX Fig.3
+and captions are synchronized. Print-size and all six Word pages were opened;
+LaTeX compiled. Fig.1/2, Tables I-III and sensitivity results are unchanged.
+
+---
+
 ## 2026-10-21 Compact WCL figures and closed 13-dB candidates
 
 The revision at `paper/wcl_revision_20261021_v1/` now uses the same simplified

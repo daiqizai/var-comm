@@ -1,13 +1,11 @@
 {
   "status": "PASS",
   "reviewer": "Codex root; actual opened exports",
-  "revision_parent": "46ce02f136362709dfe033f2e09bfad0fb72cc7d",
+  "revision_parent": "2b331a4d57a780fb1b42fd128ebaf43e4f1dd310",
   "actual_opened": [
-    "figure1.png final native-PowerPoint PDF render",
-    "figure1_print_size_grayscale.png at 7.16-inch design width",
-    "figure3_preview.png",
-    "figure3_print_size.png at 7.16-inch design width",
-    "Word native PDF pages 1–6; revised final page6 reopened"
+    "Updated figure3_preview.png",
+    "Updated figure3_print_size.png at 7.16-inch width",
+    "Native Word PDF pages1–6; updated Fig.3 and caption on page4"
   ],
   "final_size_inches": {
     "figure1": [
@@ -34,13 +32,15 @@
     "utilization_in_table_only": true,
     "two_panels": true,
     "no_text_overflow": true,
-    "grayscale_grid_distinguished_by_fill_and_hatching": true
+    "grayscale_grid_distinguished_by_fill_and_hatching": true,
+    "unchanged_this_revision": true
   },
   "figure2": {
     "unchanged_from_parent": true,
     "unchanged_asset_manifest": "unchanged_quantitative_assets.json",
     "prior_visual_review_in_git_parent": true,
-    "exact_mean_ci_triples": 60
+    "exact_mean_ci_triples": 60,
+    "unchanged_this_revision": true
   },
   "figure3": {
     "source_indices": [
@@ -55,7 +55,18 @@
     "whole_image_scores": true,
     "unchanged_saved_pixels": true,
     "no_clipping": true,
-    "all_methods_and_scores_visible": true
+    "all_methods_and_scores_visible": true,
+    "metrics": [
+      "lpips_alex",
+      "dreamsim"
+    ],
+    "lower_is_better": true,
+    "display_decimals": 3,
+    "matched_rows": 10,
+    "LPIPS_exact_reuse": true,
+    "DreamSim_native_float_scored": true,
+    "method_header_pt": 8.2,
+    "metric_label_pt": 8.1
   },
   "tables": {
     "unchanged_byte_for_byte": true,
@@ -65,16 +76,17 @@
     "pages": 6,
     "all_pages_opened": true,
     "renderer": "Microsoft Word native PDF export + bundled Poppler",
-    "final_docx_sha256": "3e1d06f60e7f2d7751b88ed87805077069788d2bfbcf46d346286391c9c67e56",
-    "no_clipping": true
+    "final_docx_sha256": "46513f5c55fb96a8b3f9908148b9cda63f0b69b52fcf4cd7021dce8752579d48",
+    "no_clipping": true,
+    "render_fallback_reason": "Packaged renderer: LibreOffice soffice.exe missing; native Word PDF export used successfully; all6pages opened"
   },
   "latex": {
     "built_in_compile": "success",
     "main": "latex/main.tex",
-    "compiled_source_sha256": "9713de0059fe8f83771a011763c5dab01a833405729834c19f9f30b685785bc4",
+    "compiled_source_sha256": "0952b9e90bdd9196539faa194778f7da87aa61db2956eac2bedc18448e6a9db9",
     "same_figure1_as_word": true,
     "figure1_pdf_sha256": "93bc1738c6cf1304a3eefafaa199fc269ec985ffc64d07febb63b5b27085b31d",
-    "figure3_pdf_sha256": "a726d29a0771746c98dadabf2e7e0aa05329d9742e01de0f0fe57954e4199f95"
+    "figure3_pdf_sha256": "db91a138938a1c2ae30be2ee4aa6dafda58e859acb247a86864723c7473b2869"
   },
   "skills": [
     "C:/Users/11946/.codex/skills/scientific-figure-making/SKILL.md",
@@ -83,5 +95,5 @@
     "C:/Users/11946/.codex/plugins/cache/openai-primary-runtime/presentations/26.1017.11052/skills/presentations/SKILL.md",
     "C:/Users/11946/.codex/plugins/cache/openai-primary-runtime/documents/26.1017.11052/skills/documents/SKILL.md"
   ],
-  "scientific_scope": "Main performance curves, tables and completed sensitivity unchanged. Separate four-source 13 dB check is fully disclosed in results/selected_examples_13db_20261021_v1/delivery/REPORT.md."
+  "scientific_scope": "Ten fixed 10-dB development reconstruction pairs: DreamSim only; original LPIPS values, pixels and noise reused. Other figures, all tables and completed sensitivity unchanged."
 }
