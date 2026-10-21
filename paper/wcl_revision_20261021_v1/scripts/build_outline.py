@@ -92,7 +92,7 @@ fig(2,'Fig.2. common500、N1024、4/10/19 dB 的五方法主结果。每源先�
 section('III.B. Comparison With Existing Methods',[0])
 d.add_page_break()
 d.add_heading('III.B. Qualitative comparison and decoder sensitivity',1)
-fig(3,'Fig.3. 既有 development 展示：Pastries95 与 White long-haired dog21，N1024、10 dB。两行均保留完整视野，无局部放大；标注为整幅 LPIPS-Alex / DreamSim，均越低越好，使用实际该次重建的原生浮点分数；LPIPS沿用原值，DreamSim按主评测冻结ensemble、FP32与224像素浮点预处理补分。')
+fig(3,'Fig. 3. Qualitative reconstructions at N=1024 complex symbols per image and an SNR of 10 dB: (a) pastries and (b) a dog. Values below each reconstruction denote LPIPS↓ / DreamSim↓ for the displayed realization.')
 section('III.B. Comparison With Existing Methods',[1,2],False)
 d.add_page_break()
 section('III.C. Effect of Within-Scale Endpoints')

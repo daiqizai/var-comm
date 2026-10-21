@@ -1,3 +1,21 @@
+## 2026-10-21 Fig.3 editorial finalization
+
+The confirmed N1024,10-dB two-row/six-column Fig.3 now labels the original
+column `(a) Pastries` and `(b) Dog`. The concise caption explicitly defines
+the displayed order as LPIPS-down / DreamSim-down. Preprocessing details
+remain in Experimental Setup and full-precision source records. A brief
+qualitative paragraph describes the visible differences in these selected
+development cases without treating them as population statistics.
+
+All twelve embedded images and ten score pairs are identical to parent
+56efef3e. Word, LaTeX and English captions are synchronized; print-size
+exports and all six Word pages were opened, and LaTeX compiled successfully.
+No new inference, reconstruction, channel, bootstrap, training or timing.
+Fig.1/2 and Tables I-III remain unchanged. Current editable files are in
+`paper/wcl_revision_20261021_v1/`.
+
+---
+
 ## 2026-10-21 Fig.3 selected example: white long-haired dog
 
 At the user's request, the second Fig.3 row replaces Shopping-cart75 with

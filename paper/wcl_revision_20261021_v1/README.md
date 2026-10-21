@@ -1,3 +1,12 @@
+## Fig.3 final labels and caption — 2026-10-21
+
+Original-column row labels are now `(a) Pastries` and `(b) Dog`. The short
+caption states `LPIPS↓ / DreamSim↓`; the image pixels, ten full-precision
+score rows, two-row layout and 10-dB fixed reception records are unchanged.
+Preprocessing details are in Experimental Setup and source manifests. A short
+paragraph describes visible differences in these selected development cases.
+This is an editorial update with zero new scientific calls.
+
 ## Fig.3 selected sample update — 2026-10-21
 
 The second row now uses the original white long-haired dog21 at N1024,

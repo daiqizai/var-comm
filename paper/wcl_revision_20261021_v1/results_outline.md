@@ -4,7 +4,7 @@
 
 **段落 1：主比较与版本。** Fig.2 使用 N1024、4/10/19 dB、原 common500。五方法为 entropy-coded NeST-Com、Latent JSCC 最终100k、SwinJSCC adapted 最终200k、现有 adaptive BPG + LDPC、adapted ARPC + LDPC。NeST 19 dB 用当前 T1-C PARTIAL；不混入旧 raw 或旧检查点。
 
-**段落 2：评价与统计。** PSNR、LPIPS-Alex、DreamSim、CLIP-I；CLIP-I 是 OpenAI CLIP ViT-L/14 的图像—图像余弦，224 输入、冻结浮点预处理、FP32，不做 softmax 或百分比变换。三次原噪声先按每源平均，500 源等权；点位 CI 沿用既有 source-bootstrap。差异读直接来源配对 CI；历史方法噪声命名空间不同。
+**段落 2：评价与统计。** PSNR、LPIPS-Alex、DreamSim、CLIP-I；CLIP-I 是 OpenAI CLIP ViT-L/14 的图像—图像余弦，224 输入、冻结浮点预处理、FP32，不做 softmax 或百分比变换。三次原噪声先按每源平均，500 源等权；点位 CI 沿用既有 source-bootstrap。差异读直接来源配对 CI；历史方法噪声命名空间不同。 DreamSim 使用冻结的 ensemble，在 FP32 下对原生浮点图像作 224×224 bicubic-antialias 预处理；LPIPS 使用 AlexNet。
 
 **段落 3：人口边界。** common500 主图、matched100 的 N2048／敏感性、fixed development 示例与计时分别报告。灰图、回退和失败输出按原协议保留。DISTS、DINO-L、agreement、MS-SSIM 完整结果仍归档；不借删指标制造一致优势。
 
@@ -12,7 +12,7 @@
 
 **段落 1：主性能。** 引用 Fig.2，分别描述像素、感知距离与语义表征一致性。保留 NeST 并非所有工作点 PSNR 最高、4 dB LPIPS 不如 Latent JSCC、LPIPS 与 DreamSim 排序存在差异。不能用曲线 CI 重叠判显著性，也不能把 CLIP 差异归因于未经消融的 caption 条件。
 
-**段落 2：可视化。** 引用 Fig.3 的 Pastries95 与 White long-haired dog21，描述实际可见的糕点轮廓、表面纹理、白色长毛狗的轮廓与毛发等；保留两行完整视野，比较整体布局、轮廓和细节；不增加局部放大行。明确两个案例是既有选定 development 示例，不外推总体优劣。
+**段落 2：可视化。** Fig.3(a) 中，NeST-Com 和 Latent JSCC 保留了糕点的排列与弧形轮廓，NeST-Com 的糕点褶皱更清楚。Fig.3(b) 中，两者都保留了狗坐立的轮廓，NeST-Com 的面部与毛发细节更清晰。SwinJSCC 的细节较平滑，BPG + LDPC 出现块状伪影；ARPC + LDPC 呈现较细的纹理，但物体形状或外观存在可见变化。这两个选定的 development 案例用于展示重建差异，不代表总体性能结论。
 
 **段落 3：ARPC 解码敏感性（本轮已完成）。** matched100、N1024、同一900个接收事件。原采样 τ=.5 复用；显式 argmax 与预定低温 τ=.25 只改变未传尺度生成。19 dB 两种设置四项均改善，贪心 ΔPSNR=+0.150 [0.087,0.207] dB、ΔDreamSim=−0.0143 [−0.0206,−0.0084]；4 dB 两者 LPIPS 和 DreamSim 均变差。10 dB 低温的 PSNR/LPIPS 改善，但贪心四项 CI 跨零。全设置都报告，不用子集替换 common500 主曲线。
 

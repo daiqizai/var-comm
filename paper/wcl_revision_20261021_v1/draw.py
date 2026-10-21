@@ -203,7 +203,7 @@ def figure3(out):
             entry=dict(row=row+1,column=c+1,subject=subject,source_index=idx,source_id=sid,
                 method=method,display_name=label,image_path=str(p.relative_to(HERE)).replace('\\','/'),
                 image_png_sha256=sh,full_view=True)
-            lab='Original'
+            lab=['(a) Pastries','(b) Dog'][row]
             if method!='original':
                 v=one(rows,source_index=idx,method=method)
                 assert v['source_id']==sid and v['N']=='1024' and v['snr_db']=='10' and v['image_png_sha256']==sh
@@ -227,7 +227,7 @@ def figure3(out):
         assert im.size == (256,256)
         actual.append(hashlib.sha256(np.asarray(im).tobytes()).hexdigest())
     assert sorted(actual)==sorted(native_hashes)
-    AUDIT['figure3']=dict(source_indices=[95,21],full_views=12,ROI_views=0,native_pixels_verified=True,
+    AUDIT['figure3']=dict(source_indices=[95,21],row_labels=['(a) Pastries','(b) Dog'],full_views=12,ROI_views=0,native_pixels_verified=True,
       full_field_of_view=True,whole_image_scores=True,new_inference=0,
       displayed_metrics=['lpips_alex','dreamsim'],lower_is_better=[True,True],
       exact_metric_rows_verified=10,lpips_reused_verbatim=True,

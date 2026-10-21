@@ -68,7 +68,7 @@
       ],
       [
         "段落 2：评价与统计",
-        "PSNR、LPIPS-Alex、DreamSim、CLIP-I；CLIP-I 是 OpenAI CLIP ViT-L/14 的图像—图像余弦，224 输入、冻结浮点预处理、FP32，不做 softmax 或百分比变换。三次原噪声先按每源平均，500 源等权；点位 CI 沿用既有 source-bootstrap。差异读直接来源配对 CI；历史方法噪声命名空间不同。"
+        "PSNR、LPIPS-Alex、DreamSim、CLIP-I；CLIP-I 是 OpenAI CLIP ViT-L/14 的图像—图像余弦，224 输入、冻结浮点预处理、FP32，不做 softmax 或百分比变换。三次原噪声先按每源平均，500 源等权；点位 CI 沿用既有 source-bootstrap。差异读直接来源配对 CI；历史方法噪声命名空间不同。 DreamSim 使用冻结的 ensemble，在 FP32 下对原生浮点图像作 224×224 bicubic-antialias 预处理；LPIPS 使用 AlexNet。"
       ],
       [
         "段落 3：人口边界",
@@ -85,7 +85,7 @@
       ],
       [
         "段落 2：可视化",
-        "引用 Fig.3 的 Pastries95 与 White long-haired dog21，描述实际可见的糕点轮廓、表面纹理、白色长毛狗的轮廓与毛发等；保留两行完整视野，比较整体布局、轮廓和细节；不增加局部放大行。明确两个案例是既有选定 development 示例，不外推总体优劣。"
+        "Fig.3(a) 中，NeST-Com 和 Latent JSCC 保留了糕点的排列与弧形轮廓，NeST-Com 的糕点褶皱更清楚。Fig.3(b) 中，两者都保留了狗坐立的轮廓，NeST-Com 的面部与毛发细节更清晰。SwinJSCC 的细节较平滑，BPG + LDPC 出现块状伪影；ARPC + LDPC 呈现较细的纹理，但物体形状或外观存在可见变化。这两个选定的 development 案例用于展示重建差异，不代表总体性能结论。"
       ],
       [
         "段落 3：ARPC 解码敏感性（本轮已完成）",
