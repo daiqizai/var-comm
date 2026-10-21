@@ -22,3 +22,12 @@ Run `python draw.py` in this directory using the original NumPy/Matplotlib/Pillo
 Fig.1 and Fig.2 PDFs contain vector artwork/text. Fig.3 necessarily embeds the original raster photographs together with vector annotations. The editable SVG retains the source image pixels and text. See `visual_review.json` for final-size inspections and the deliberate 7 pt minimum for diagram auxiliary text.
 
 N2048 CLIP and complete manuscript prose remain outside this execution. No main quality grid, training, timing, source encoding or channel experiment was rerun.
+
+## Fig.1 in the open LaTeX outline (2026-10-21)
+
+At the user's request, `latex/main.tex` now uses the original supplied
+`system_diagram_v3_entropy.pdf` at 7.16-inch width, preserving its complete
+layout and vector content. The previously reflowed `figure1.*` and the Word
+outline remain archived as delivered; this change targets the open LaTeX
+document only. The original editable source is retained in
+`inputs/system_diagram_v3_entropy.pptx`.
