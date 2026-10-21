@@ -1,3 +1,44 @@
+## 2026-10-21 Compact WCL figures and closed 13-dB candidates
+
+The revision at `paper/wcl_revision_20261021_v1/` now uses the same simplified
+Fig.1 in Word and LaTeX. It retains the original schematic photos/token grids,
+compresses channel/codec implementation labels and separates system flow from
+boundary-scale predict/overwrite/continue. The 77.70/95.21 percent utilization
+evidence remains only in Table I. Editable PPTX and vector modules/text are
+7.16 x 3.1683 inches, with auxiliary type >=7.26 pt. Fig.3 is the confirmed
+10-dB Pastries95/Shopping-cart75 two-row, six-column full-view comparison,
+7.16 x 3.00 inches, without ROI boxes or crop rows. Image bytes and native-float
+PSNR/LPIPS labels match. All six Word pages were opened; LaTeX compiled.
+Fig.2, Tables I-III and the completed ARPC sensitivity results are unchanged.
+
+The authorized four-source current-method 13-dB check is complete at
+`results/selected_examples_13db_20261021_v1/delivery/` and
+`paper/figures/selected_examples_13db_20261021_v1/`. Source order is 21/92/95/75.
+Before execution, digital methods were assigned the largest registered SNR
+not exceeding 13 dB (the frozen 10-dB endpoint/MCS), retaining actual-length
+fallback. This is a declared conservative mapping, not a newly calibrated
+13-dB optimum. Continuous methods use their existing 13-dB conditioning.
+
+Actual work: 20 logical events, 12 reused digital TX payloads, 12 header and
+12 body decodes, and 8 continuous TX/RX calls. All 12 complete digital received
+information identities match 10 dB; their reconstruction pixels and single
+realization scores are reused. The other 8 native-float reconstructions and
+PSNR/LPIPS pairs are new. All20 are accepted; 24 lossless full-view PNGs and a
+four-row candidate gallery are delivered. Method-specific original noise IDs
+and counters remain; identical cross-method noise is not claimed.
+
+Two initialization failures (PHY interpreter missing Sionna; metric import
+search path) are retained before any corresponding science/model/pair call.
+Pinned additive continuations reuse completed stages; successful scientific
+calls repeated=0. Historical outer failure waits remain failures. No new
+caption/tokenizer/source-probability traversal, training, calibration,
+bootstrap, timing or common500 expansion was run. NeST/ARPC/BPG pixels remain
+identical; Latent JSCC/SwinJSCC improve modestly on these four selected cases.
+The paper keeps the confirmed 10-dB figure; 13-dB candidates remain separate.
+Backups remain deferred as requested.
+
+---
+
 ## 2026-10-21 WCL revision and completed ARPC decoder sensitivity
 
 `paper/wcl_revision_20261021_v1/` provides the Chinese paragraph-task outline,

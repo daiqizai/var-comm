@@ -1,20 +1,24 @@
 # Deterministic authoring
 
-`../draw.py` recreates Figures 2/3 and all three tables from the pinned inputs.
-`build_outline.py` recreates Word from the saved outline sections and figure PNGs.
-The authoring runtime is the Codex bundled Python with python-docx.
+`../draw.py` recreates Figures 2/3 and Tables I–III from pinned inputs.
+Its Figure 3 uses 12 full views, with no ROI boxes or cropped rows.
+`build_outline.py` assembles Word from saved outline sections, tables and PNGs;
+the current editable Word file was updated in place to preserve existing work.
+`write_materials.py` refreshes the Markdown outline from `outline_sections.json`.
+Captions and the existing LaTeX source are edited directly, not overwritten by
+an obsolete whole-document generator.
 
-For the editable system diagram, set NEST_FIGURE_WORK_DIR to a writable scratch
-directory outside this deliverable, run figure1.mjs with the bundled artifact-tool
-Node runtime, then normalize_diagram.py. The native PowerPoint objects, text and
-connectors remain editable. Copy the reviewed normalized PPTX to figure1.pptx and
-export as PDF using native PowerPoint (SaveAs format 32). Render that PDF at
-600 dpi with Poppler. This path was used after the bundled artifact PDF exporter
-failed on a missing standard-font alias; no runtime package was modified.
+For the diagram, set NEST_FIGURE_WORK_DIR to a separate scratch directory and
+run figure1.mjs with the installed artifact-tool Node runtime, then
+normalize_diagram.py. It imports inputs/system_diagram_v3_entropy.pptx and
+reuses the original diagram_thumbnail.png. Native grids, modules and text stay
+editable. Validate the resulting PPTX package/layout before copying it to
+figure1.pptx. Export PDF with native PowerPoint SaveAs format 32, then render
+600-dpi PNG with Poppler. This exact route produced the delivered figure.
+Final dimensions are 7.16 × 3.1683 inches; auxiliary type is at least 7.26 pt.
+The two original bird thumbnails are raster; modules, grids, arrows and text
+are vectors. No bitmap-only PDF is represented as a vector diagram.
 
-The input PPTX is preserved under inputs/. Output dimensions are 7.16 by 3.915 in.
-Run the presentation package/layout validators before delivering a changed PPTX.
-The final font/geometry check is summarized in visual_review.json; the native
-validator receipt remains in the task's private review directory.
-
-These scripts do not launch or rerun any scientific experiment.
+The scientific results and figure assets are pinned in input_manifest.json,
+data_validation.json and delivery_manifest.json. These authoring scripts do
+not launch science or resample statistical intervals.

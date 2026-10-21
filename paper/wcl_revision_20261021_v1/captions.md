@@ -2,7 +2,7 @@
 
 ## Fig. 1
 
-NeST-Com under a fixed complex-symbol budget. The transmitter selects a within-scale endpoint using the actual terminated arithmetic-code length, including the paid length and CRC fields. The receiver entropy-decodes transmitted tokens, predicts the boundary scale, overwrites received positions, and generates finer scales before frozen-codebook aggregation and image decoding. The 10 dB bars report common500 mean entropy-bitstream capacity utilization, defined as terminated stream bits divided by usable source capacity after the 13-bit length and 16-bit CRC fields; this is the definition used in Table I. The lower example illustrates m = 7 and K = 75, rather than a universal operating endpoint.
+NeST-Com under a fixed complex-symbol budget. (a) A budget/SNR policy specifies the target endpoint and MCS; actual terminated entropy-code length determines per-image fallback. The protected header and payload pass through LDPC–QAM transmission and AWGN before actual channel and entropy decoding. (b) The receiver predicts the boundary scale, overwrites received positions, and generates finer scales from the merged state before latent reconstruction and image decoding. The 75-received/25-predicted grid illustrates one within-scale endpoint; the bird thumbnails are schematic. Quantitative entropy-bitstream capacity utilization is reported in Table I.
 
 ## Fig. 2
 
@@ -10,7 +10,7 @@ Five-method comparison on common500 over AWGN at N = 1024 complex symbols per im
 
 ## Fig. 3
 
-Previously selected development examples at N = 1024 and 10 dB: Pastries (source index 95) and Shopping cart (75). Columns show the original image and the five frozen methods. Within each row, the outlined region uses identical pixel coordinates and a common 2.667× relative enlargement in every column; the full field of view remains visible. Values below reconstructions are whole-image PSNR (dB) / LPIPS-Alex for the displayed single realization, computed from the saved native float outputs. These selected examples are qualitative illustrations and are not random common500 samples.
+Previously selected development examples at N = 1024 and 10 dB: Pastries (source index 95) and Shopping cart (75). Each row preserves the full field of view and shows Original, Latent JSCC, SwinJSCC, BPG + LDPC, ARPC + LDPC, and entropy-coded NeST-Com. Values below reconstructions are whole-image PSNR (dB) / LPIPS-Alex for the displayed single realization, read from the saved native-float scores. These are selected qualitative examples, not random common500 samples.
 
 ## Table I
 

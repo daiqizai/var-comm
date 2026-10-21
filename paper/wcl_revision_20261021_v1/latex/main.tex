@@ -15,7 +15,7 @@
 \date{21 October 2026}
 \begin{document}
 \maketitle
-\textbf{Version boundary.} Frozen main evidence is based on commit \texttt{a5f8ceb0233b0e1f599ee8bb902c1a094d47119d}. The new ARPC decoding-sensitivity study is a separate matched100 analysis. It does not replace the common500 curves. This one-column file is an editable outline skeleton; the figures are exported at their final 7.16-inch print width.
+\textbf{Version boundary.} Frozen main evidence is based on commit \texttt{a5f8ceb0233b0e1f599ee8bb902c1a094d47119d}. The completed ARPC decoding-sensitivity study is a separate matched100 analysis. It does not replace the common500 curves. This one-column file is an editable outline skeleton; the figures are exported at their final 7.16-inch print width.
 \section{Introduction}
 \begin{itemize}
 \item Establish per-image fixed complex-symbol-budget communication and the tradeoffs among pixel fidelity, perceptual similarity, semantic feature consistency, and processing cost.
@@ -28,7 +28,7 @@
 \item Define the frozen tokenizer, multiscale discrete tokens, shared VAR prior and image decoder $D_c$. At $N=1024$, account for 68 header and 956 body complex symbols over AWGN with nominal $E_s=2$.
 \item Distinguish complete scales $1,\ldots,m$ from the first $K$ raster-order positions in the next scale. Receiver inputs are actual paid information and shared models, with no source truth or unsent tokens.
 \end{itemize}
-\begin{figure}[H]\centering\includegraphics[width=\linewidth]{images/system_diagram_v3_entropy.pdf}\caption{Fixed-budget NeST-Com. Actual terminated arithmetic-code length controls per-image endpoint fallback. At the receiver, transmitted tokens are entropy-decoded; the boundary scale is predicted and received positions are overwritten before finer-scale generation. The utilization bars use the same definition as Table~\ref{tab:within-scale}. The $m=7,K=75$ example illustrates the mechanism rather than a universal endpoint.}\label{fig:system}\end{figure}
+\begin{figure}[H]\centering\includegraphics[width=\linewidth]{images/figure1.pdf}\caption{Fixed-budget NeST-Com. Actual terminated arithmetic-code length controls per-image endpoint fallback. At the receiver, transmitted tokens are entropy-decoded; the boundary scale is predicted and received positions are overwritten before finer-scale generation. Entropy-bitstream capacity utilization is reported in Table~\ref{tab:within-scale}; the bird thumbnails are schematic. The $m=7,K=75$ example illustrates the mechanism rather than a universal endpoint.}\label{fig:system}\end{figure}
 \subsection{Budget-Adaptive Within-Scale Prefix Transmission}
 \begin{itemize}
 \item Describe the implemented endpoint set, frozen SNR-specific target/MCS policies and actual fallback order. Do not infer a new policy from test performance. Retain the T1-C m10 correction at 19 dB.
@@ -52,11 +52,11 @@
 \item Discuss pixel fidelity, perceptual distances and semantic feature consistency separately. NeST is not best in PSNR at every operating point, and its 4 dB LPIPS is worse than Latent JSCC. LPIPS and DreamSim can disagree. Do not infer significance from marginal CI overlap or attribute CLIP differences to caption conditioning without an ablation.
 \item Use the two fixed development cases in Fig.~\ref{fig:examples} to describe visible contours, textures and cart geometry. Do not generalize selected examples to population statistics.
 \end{itemize}
-\begin{figure}[H]\centering\includegraphics[width=\linewidth]{images/figure3.pdf}\caption{Previously selected Pastries95 and Shopping cart75 development examples at $N=1024$, 10 dB. Full views are retained. The same ROI coordinates and relative enlargement are used across each row. Numbers are whole-image PSNR (dB) / LPIPS-Alex for the displayed single reconstruction, scored from native float arrays.}\label{fig:examples}\end{figure}
+\begin{figure}[H]\centering\includegraphics[width=\linewidth]{images/figure3.pdf}\caption{Previously selected Pastries95 and Shopping cart75 development examples at $N=1024$, 10 dB. Full views are retained. Numbers are whole-image PSNR (dB) / LPIPS-Alex for the displayed single reconstruction, scored from native float arrays.}\label{fig:examples}\end{figure}
 \textbf{ARPC decoding sensitivity (completed).} Reuse the same 900 matched100 received events; compare original sampling $\tau=0.5$, explicit argmax, and predeclared $\tau=0.25$ only for untransmitted scales. The two new settings required 592 unique reconstructions, zero new channel events or source encodes, and reused the existing 10,000-resample bank. At 19 dB both alternatives improve all four metrics with favorable paired intervals excluding zero; greedy gives $\Delta$PSNR $=+0.150\,[0.087,0.207]$ dB and $\Delta$DreamSim $=-0.0143\,[-0.0206,-0.0084]$. At 4 dB both worsen LPIPS and DreamSim. At 10 dB only low-temperature PSNR/LPIPS intervals exclude zero favorably; all greedy intervals cross zero. Report all settings and retain original common500 curves. Full results are in \texttt{sensitivity/REPORT.md}.
 \subsection{Effect of Within-Scale Endpoints}
 \begin{itemize}
-\item Use Table~\ref{tab:within-scale} to connect finer legal endpoint granularity to measured loading and quality. At 10 dB utilization increases from 77.70\% to 95.21\% with the same definition as Fig.~\ref{fig:system}.
+\item Use Table~\ref{tab:within-scale} to connect finer legal endpoint granularity to measured loading and quality. At 10 dB utilization increases from 77.70\% to 95.21\% using terminated entropy bits divided by usable source capacity.
 \item Define $\Delta=\mathrm{PARTIAL}-\mathrm{WHOLE}$. Report all three PSNR gains and DreamSim reductions with direct paired intervals. Do not treat source-utilization percentiles as confidence intervals on a mean.
 \end{itemize}
 \input{tables/table_i.tex}

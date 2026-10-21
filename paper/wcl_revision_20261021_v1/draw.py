@@ -117,7 +117,7 @@ def export(fig, out, stem, mm):
     text(p,'\n'.join(line.rstrip(' \t') for line in p.read_text().splitlines())+'\n')
     root=ET.parse(p).getroot()
     raster_count=len(root.findall('.//{http://www.w3.org/2000/svg}image'))
-    assert raster_count == (24 if stem == 'figure3' else 0), raster_count
+    assert raster_count == (12 if stem == 'figure3' else 0), raster_count
     assert len(root.findall('.//{http://www.w3.org/2000/svg}text')) > 10
     im=Image.open(out/(stem+'.png')).convert('RGB')
 
@@ -175,20 +175,19 @@ def figure2(out):
     export(fig,out,'figure2',mm)
 
 def figure3(out):
-    from matplotlib.patches import Rectangle
     rows=read('display_manifest.csv')
     original_manifest=json.loads((HERE/'inputs/examples_manifest.json').read_bytes())
     columns=[('original','Original'),('P100000','Latent JSCC'),('Swin200000','SwinJSCC'),
       ('BPG','BPG + LDPC'),('ARPC','ARPC + LDPC'),('NEST','NeST-Com')]
-    subjects=[(3,95,'n07860988/ILSVRC2012_val_00010848_n07860988','Pastries',(100,146,196,226)),
-              (4,75,'n04204347/ILSVRC2012_val_00018921_n04204347','Shopping cart',(60,144,156,224))]
+    subjects=[(3,95,'n07860988/ILSVRC2012_val_00010848_n07860988','Pastries'),
+              (4,75,'n04204347/ILSVRC2012_val_00018921_n04204347','Shopping cart')]
     mm=S['figure3_mm'];fig=plt.figure(figsize=np.array(mm)/25.4)
-    left=1.5;gap=1.3;side=(mm[0]-2*left-5*gap)/6;crop_h=side*80/96
+    left=1.5;gap=1.3;side=(mm[0]-2*left-5*gap)/6
     placed=[];native_hashes=[]
     for c,(_,label) in enumerate(columns):
         fig.text((left+c*(side+gap)+side/2)/mm[0],.98,label,ha='center',va='top',fontsize=8.2)
-    for row,(ordinal,idx,sid,subject,roi) in enumerate(subjects):
-        fullbottom=[94,34][row];cropbottom=fullbottom-crop_h-1.4
+    for row,(ordinal,idx,sid,subject) in enumerate(subjects):
+        fullbottom=[40.0,5.0][row]
         for c,(method,label) in enumerate(columns):
             p=HERE/'inputs/images'/f'{ordinal:02d}_{method}.png';im=Image.open(p).convert('RGB')
             assert im.size==(256,256)
@@ -198,22 +197,17 @@ def figure3(out):
             x=(left+c*(side+gap))/mm[0]
             ax=fig.add_axes([x,fullbottom/mm[1],side/mm[0],side/mm[1]])
             ax.imshow(np.asarray(im),interpolation='none');ax.axis('off')
-            ax.add_patch(Rectangle((roi[0]-.5,roi[1]-.5),roi[2]-roi[0],roi[3]-roi[1],
-              fill=False,edgecolor='#F4D35E',linewidth=.9))
-            crop=np.asarray(im)[roi[1]:roi[3],roi[0]:roi[2]]
-            ac=fig.add_axes([x,cropbottom/mm[1],side/mm[0],crop_h/mm[1]])
-            ac.imshow(crop,interpolation='none');ac.axis('off')
-            native_hashes.extend([hashlib.sha256(np.asarray(im).tobytes()).hexdigest(),hashlib.sha256(crop.tobytes()).hexdigest()])
+            native_hashes.append(hashlib.sha256(np.asarray(im).tobytes()).hexdigest())
             entry=dict(row=row+1,column=c+1,subject=subject,source_index=idx,source_id=sid,
                 method=method,display_name=label,image_path=str(p.relative_to(HERE)).replace('\\','/'),
-                image_png_sha256=sh,ROI_xyxy=json.dumps(roi),ROI_native_size='96x80',relative_zoom=256/96)
+                image_png_sha256=sh,full_view=True)
             lab='Original'
             if method!='original':
                 v=one(rows,source_index=idx,method=method)
                 assert v['source_id']==sid and v['N']=='1024' and v['snr_db']=='10' and v['image_png_sha256']==sh
                 entry.update({k:v[k] for k in ['version','N','snr_db','noise_seed','noise_namespace','receive_status','actual_profile','float_image_path','float_image_file_sha256','psnr_db','lpips_alex']})
                 lab=f"{float(v['psnr_db']):.2f} / {float(v['lpips_alex']):.3f}"
-            fig.text(x+side/2/mm[0],(cropbottom-1.25)/mm[1],lab,ha='center',va='top',fontsize=8.1)
+            fig.text(x+side/2/mm[0],(fullbottom-1.25)/mm[1],lab,ha='center',va='top',fontsize=8.1)
             entry['display_label']=lab;placed.append(entry)
     write_csv(out/'figure3_mapping.csv',placed,list(dict.fromkeys(k for v in placed for k in v)))
     export(fig,out,'figure3',mm)
@@ -221,11 +215,11 @@ def figure3(out):
     root=ET.parse(out/'figure3.svg').getroot();actual=[]
     for v in root.findall('.//{http://www.w3.org/2000/svg}image'):
         im=Image.open(io.BytesIO(base64.b64decode(v.attrib['{http://www.w3.org/1999/xlink}href'].split(',',1)[1]))).convert('RGB')
-        assert im.size in [(256,256),(96,80)]
+        assert im.size == (256,256)
         actual.append(hashlib.sha256(np.asarray(im).tobytes()).hexdigest())
     assert sorted(actual)==sorted(native_hashes)
-    AUDIT['figure3']=dict(source_indices=[95,75],full_views=12,ROI_views=12,native_pixels_verified=True,
-      ROI_coordinates=[list(s[-1]) for s in subjects],same_ROI_and_zoom_all_methods=True,whole_image_scores=True,new_inference=0)
+    AUDIT['figure3']=dict(source_indices=[95,75],full_views=12,ROI_views=0,native_pixels_verified=True,
+      full_field_of_view=True,whole_image_scores=True,new_inference=0)
 
 def cell(v,nd):
     return r'\shortstack{$'+format(Decimal(v['mean']),f'.{nd}f')+r'$\\[1pt]$['+format(Decimal(v['ci_low']),f'.{nd}f')+', '+format(Decimal(v['ci_high']),f'.{nd}f')+r']$}'
@@ -280,5 +274,5 @@ def main():
     a.output.mkdir(parents=True,exist_ok=True)
     verify_inputs();rc();figure2(a.output);figure3(a.output);tables(a.output)
     text(a.output/'data_validation.json',json.dumps(AUDIT,indent=2)+'\n')
-    print('PASS: 60 means/CIs, 12 images plus identical ROIs, 3 frozen tables')
+    print('PASS: 60 means/CIs, 12 full-view images, no ROI, 3 frozen tables')
 if __name__=='__main__':main()
