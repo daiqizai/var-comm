@@ -1,3 +1,32 @@
+## 2026-10-22 Progressive RD follow-up fully delivered
+
+All eight original expansion shards finished2371 sources each with actual
+wait exit0, no timeout, and gone processes. The original owner is gone.
+The one CPU closure audited all committed wire/RX/latent hashes and complete
+ledgers. No successful scientific call was replayed or budget extended.
+
+The merged cache covers19,968 train sources and100 calibration sources at
+all8 endpoints (160,544 rows). The32 stage0 sources retain their2 benchmark
+endpoints separately (64 rows); do not claim a full20k x8 grid. Exact scalar
+CSVs, actual throughput/I-O, storage and PFS recovery bindings are delivered
+under results/progressive_rd_20261022_v1/{cache_expansion_delivery_v1,final_delivery_v1}.
+
+Three matched5000-update decoder pilots and their single calibration100
+source-paired analysis were already published. Short-prefix PSNR gains
+coexist with worse full-endpoint PSNR/LPIPS; conditioning gains are small.
+Keep the full-precision curves and all contrasts in decoder_delivery_v1.
+This single-seed calibration is not heldout or wireless evidence and does
+not replace the frozen WCL model. No encoder, codebook, VAR, PHY or extra
+hyperparameter run was started. All GPU workers exited within the original
+deadline. Arrays/checkpoints remain on shared PFS; local backups are deferred.
+
+Checkpoints retain optimizer/RNG/data order, but no resumed update or
+cross-device resume test has been run; recovery_manifest.json records this
+limit. The one-shot training entry is not a validated resume command.
+The bounded round is complete. Further experiments require a new plan.
+
+---
+
 ## 2026-10-22 Matched decoder pilot completed
 
 All three registered arms completed 5,000 updates x batch4 and their final
