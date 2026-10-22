@@ -1,0 +1,186 @@
+NeST-Com 后续研究与临时八卡资源使用方案
+日期：2026-10-22
+状态：研究设计与任务说明，未连接服务器、未启动训练。所有训练规模、时间盒和超参数均为建议，不是已完成结果。
+
+一、推荐主线
+
+面向有限数字帧的渐进 token 率失真学习与信道自适应。
+
+当前论文已经解决已有 next-scale 表示如何在固定复符号预算中选择更细端点。后续可以分两层推进：
+1. 训练表示／重建器，使收到有限前缀时的实际质量更好，并控制实际熵码长度；
+2. 利用逐图重建收益与信道失败概率，选择端点、MCS 或基础／增强层保护。
+
+本次临时八卡的共同基础任务是生成逐图多端点的真实率失真数据。这些数据同时服务内容自适应、多前缀 decoder 和后续信道分层。
+
+推荐先做“小范围可解释对照 + 可复用数据”，再扩展数据量或解冻范围。八卡足以支持有意义的 VQ-VAE/tokenizer 微调与中型自编码器自训，完成强新 tokenizer 和匹配 prior 的时长必须由实测决定。
+
+二、项目起点与关键区别
+
+当前配置：256×256 RGB；连续 latent 32×16×16；10尺度共680 token；4096-entry codebook；冻结VAR-d16；主预算N1024，补充N2048；端点e=(m,K)，包含整尺度及合法quarter-scale端点。
+
+当前Dc已适配过20k训练图，输入为50%连续latent、25%完整量化latent、25%连续与历史固定m8前缀补全latent的插值。后续可检验覆盖实际多个whole/partial端点的训练分布，以及显式告知decoder哪些内容来自接收、哪些来自预测的作用。
+
+“训练过decoder”与“从零重训整个VQ-VAE”不同；“减少token数”与“减少实际算术编码比特数”也不同。
+
+现有数字接收成功后token是精确离散值；协议拒收输出固定灰图。直接给latent加高斯噪声或随机抹掉若干token，不能自动代表当前帧的接收状态。信道损伤训练应使用实际可恢复的状态；若要利用部分正确包，须先设计相应分包、CRC和CDF依赖规则。
+
+三、三个研究方向及优先级
+
+A. 率失真驱动的表示／重建训练（主线，重点投入GPU）
+
+A1 多前缀decoder：冻结E、码本、尺度变换与VAR；用真实predict-overwrite-advance流程得到完成latent z_e；训练D(z_e)。
+起始损失可沿用MSE+0.1 LPIPS-Alex，保持与当前配方的可比性。这是起始设定，不是已知最优权重。
+
+A2 端点条件decoder：训练D(z_e,e)，e或对应received mask由已恢复profile确定，无需额外传送源图信息。条件可用小型embedding+FiLM，不以网络更大作为主要机制。
+必要对照：当前Dc；等新增训练量的旧配方Dc；多前缀无条件Dc；相同多前缀数据下的条件Dc。首先运行主要无条件／条件对照；旧配方对照可按剩余窗口排队补齐。
+
+A3 保持码本的tokenizer微调：从现有权重开始，仅解冻encoder末端与decoder；固定codebook、尺度结构和VAR。两组匹配实验：同样的多前缀失真目标，分别不加与加入可微码率惩罚。
+建议概念损失：E_e[D(x,xhat_e)] + beta*Rhat + gamma*D(x,xhat_full)。D先采用MSE+alpha*LPIPS。先控制变量，不同时加入多种语义损失、GAN和多个适配器。
+Rhat训练时可用冻结prior概率和soft codebook assignment构造；hard integer token索引上的-log p[index]不能直接把码率梯度传给encoder。需要明确soft assignment／STE等梯度估计，并测真实硬编码后的b(x,e)。
+上下文可先stop-gradient以减少实现复杂度，但这只是有偏代理；结论以真实码长和端到端结果为准。
+保留码本可保持ID含义，但encoder改变后token分布仍会漂移，需检查prior NLL与缺失补全质量。
+encoder或prior更新后，旧完成latent与码长缓存不能作为新模型的当前输出；旧缓存可作教师目标，实际输出需重新计算。
+
+A4 真正新tokenizer：更新码本、量化器或1D结构后，需要训练／适配匹配的prior。若只改同尺度token分布，可探索VAR adapter/LoRA；全新1D结构通常需要相应的1D prior与位置结构。先固定tokenizer重新生成token数据，再适配prior，最后重新标定端点与MCS。
+编码双方使用同一CDF时，分布改变不必然导致算术解码失效；真正的问题是旧prior的概率拟合与补全质量可能退化。
+
+B. 内容与信道共同决定端点／MCS（小模型可在以后单卡完成）
+
+对每张图x、合法端点e、MCS a，定义成功接收失真D_ok(x,e)、拒收灰图失真D_gray(x)，以及由实际PHY估计的失败概率p_fail(a,gamma)。
+用于设计策略的两类事件近似：
+  expected_D(x,e,a | estimated_SNR)
+    = E_true_SNR[(1-p_fail)*D_ok + p_fail*D_gray]。
+实际最终评测仍运行完整接收端，涵盖所有可观测校验与接受结果。
+硬约束：实际终止源流长度 + body字段开销 <= 对应MCS的信息位容量；profile、pilot及分包头如有增加，都计入同一总符号预算。
+
+八卡负责生成昂贵的D_ok标签、真实码长和完成latent；后续小型质量预测器从发送端可用特征（图像latent、token统计、残差能量、预算、估计SNR）预测收益，在有限候选集中枚举选择。单次有限动作问题优先监督学习和枚举，不要求强化学习。
+
+对照：当前SNR查表+实际长度回退；固定BLER/吞吐量AMC；使用平均质量曲线的选择器；图像相关选择器；逐图重建所有候选后选择的昂贵oracle（单列其代价）。
+先在开发图上量oracle与现有策略的差距。若目标区间可改善空间很小，则减少该分支投入，转向表示训练或分层接收。
+信道场景可按AWGN理想SNR、SNR估计偏差/噪声、block Rayleigh、训练外误差强度逐步推进。区分CSI假设；若采用导频估计，导频开销必须纳入预算。
+
+C. 基础／增强分包与重建收益导向的保护（通信主线备选）
+
+采用一轮发送的两层方案：强保护基础前缀；独立CRC与算术终止的增强片段。
+可观察结果为：基础失败→灰图；基础成功增强失败→基础重建；两层成功→增强重建。
+按这三类概率最小化期望重建失真，并优化基础端点、两层符号分配和MCS。
+
+next-scale的关键约束：细尺度算术CDF依赖完整粗尺度。基础包丢失时，增强包CRC通过也不意味着其token可正确源解码。第一版仅使用可恢复的连续前缀；独立CRC并不会消除CDF上下文依赖。
+对照：单包；两包等保护；固定粗层强保护；依据逐图边际重建收益的保护。
+训练decoder的输入状态要与这些接收事件一致。若以后引入ACK/HARQ，反馈与重传另计；本次可保持单次硬预算设定。
+
+四、率失真的评价口径
+
+源编码层：实际终止源比特数/像素，与PSNR、LPIPS等形成曲线。
+通信层：每图总复符号N和相同名义符号能量，报告各SNR下的实际重建质量、失败率与处理成本。
+同token数不等于同源比特；同源比特不等于同受保护符号预算。
+先确定一种训练/选择目标，例如MSE+alpha LPIPS；DINO/DreamSim/CLIP-I作为未参与该目标的辅助评价时分别报告。混合失真目标属于工程选择，不宣称得到严格信息论率失真函数。
+不追求所有指标同时无代价变好；看实际码率—失真曲线是否改善或出现明确有用的Pareto点。
+
+五、八卡调度
+
+资源时长未知。以下均为调度建议和时间盒，能完成的样本量由benchmark决定。
+
+阶段0：环境与吞吐
+1. 读取实际nvidia-smi、空闲显存、CPU、磁盘、GPU拓扑；只使用可分配卡，不结束别人的进程。
+2. 复用当前可运行环境与权重。确认已有20k缓存，避免重复编码。
+3. 用32–128图、2–4端点测端到端吞吐；用50–100更新测decoder训练；如使用DDP，测1/2/4卡的总样本吞吐。
+4. 按可用时间减去初始化、检查点保存与交付余量，决定本轮样本与更新数。保存时间按真实I/O决定。
+
+阶段1：优先八卡独立分片生成数据
+先生成1000–2000图×8代表端点的种子库；完成的小分片即可给训练消费。随后扩到20k图；有充足窗口且数据可用时再扩到50k–100k，不预先承诺整库完成。
+主配置8端点示例：
+  (7,0), (7,25), (8,0), (8,84), (8,126), (9,0), (9,128), (10,0)
+其中L8=100、L9=169、L10=256；所有K必须由现有合法quarter端点定义验证，不能硬编码后忽略实现目录。
+若要覆盖更小预算，先增加合法更粗端点并验证对应PHY容量，不能假定上述端点已覆盖所有N。
+每卡按source ID处理不同shard；模型副本独立，不需要推理DDP梯度同步。
+
+阶段2：训练入口就绪且两卡DDP有效时，可用四组双卡
+GPU0–1：多前缀无条件decoder。
+GPU2–3：相同数据、初始化与新增更新量的端点条件decoder。
+GPU4–5：固定码本与VAR的encoder末端+decoder，beta=0控制。
+GPU6–7：相同encoder/decoder训练，beta>0码率目标。
+每组定期暂停训练做小验证；本轮不要求同时把全部方向跑完。encoder微调入口若尚未准备好，相应卡继续生成可复用缓存、扩数据或补decoder旧配方控制。
+若同步效率不佳，改为独立单卡配置或少量随机种子，保持每个对照的训练样本数／更新量可核对。
+
+按时长调整：
+2–6小时：优先缓存与真实RD表；种子库完成后，6卡继续缓存，2卡分别试训主decoder与控制。复杂tokenizer训练只有入口已就绪时才启动。
+半天–24小时：完成一个多前缀decoder主对照，推进encoder率失真pilot，扩展缓存；四组双卡是可选配置。
+2–3天以上：完成匹配对照与少量rate权重比较；有积极证据后扩大数据、解冻范围或适配prior。新码本+新prior的完整从零训练仍不承诺在此窗口结束。
+
+LDPC仿真单独安排有并发上限的CPU队列，按MCS/块长/SNR建立可靠性表；不要对所有图×端点×噪声重复跑大模型。先粗扫waterfall，再在过渡区加密。保存试验帧数和失败数，不能从少量无失败样本宣称极低错误率。
+
+六、数据与存储
+
+每条样本至少包含：source_id、split、预处理版本、checkpoint标识、endpoint、真实terminated bits、补全latent、MSE/PSNR、LPIPS、选定辅助指标和状态。
+原始RGB可复用已有文件；token用uint16；训练用完成latent可用FP16，并明确精度。真实熵编码所用概率/CDF精度保持收发一致。
+
+十进制近似容量，未计索引和封装：
+20k×680 uint16 token：27.2MB。
+20k×一份32×16×16 FP16 latent：327.7MB。
+20k×8端点完成latent：2.62GB。
+100k×8端点完成latent：13.11GB。
+20k×全部680×4096 FP16 logits：111.4GB，不默认保存。
+
+为decoder缓存完整latent；为policy保存标量码长、评分和轻量特征。除少量可视化外，不必保存每张图每个端点的全分辨率重建图片。
+
+七、检查点与后续单卡续训
+
+保存模型state_dict、优化器、scheduler、AMP scaler、global step、已处理样本数、RNG、数据顺序、训练配置与校准结果。
+按时间周期保存，例如10–20分钟一次；频率依据检查点大小和I/O调整。
+模型与缓存放在资源收回后仍能访问的位置。迁回4090可减microbatch并用梯度累积；world size改变时只承诺可继续训练，不承诺逐位复现原多卡过程。
+
+八、判断是否继续投入的证据
+
+1. 多前缀decoder是否优于同样训练量的控制，且优势覆盖计划使用的端点范围。
+2. endpoint条件是否在同数据、同更新量、相近容量下有独立收益。
+3. encoder率目标是否降低真实码长或改善实际R-D曲线，而非仅降低软代理loss。
+4. 新token分布下，冻结prior的NLL和缺失补全是否恶化；需要时再考虑prior适配。
+5. 图像相关oracle是否有足够实际收益，值得训练快速预测器。
+6. 分层接收是否在计入额外头字段与码块效率后优于单包，而非只在抽象随机丢token模型里好看。
+
+不事先设通用“必须提高0.5dB”的门槛。结合曲线改善幅度、置信区间、复杂度和同领域工作规模判断。
+
+九、可直接交给Codex的任务要求
+
+请在NeST-Com现有代码上创建独立的后续研究目录，先完成资源与吞吐报告，再按上述阶段推进。本轮新结果使用独立模型名与输出目录，保留当前WCL稿件和冻结实验的可复现性。
+
+先读当前项目说明、已有训练与缓存实现。复用现有tokenizer、VAR、entropy codec和receiver，不另写一套近似接收器冒充真实输出。
+优先任务：资源清点；已存在缓存清点；小样本benchmark；八卡分片多端点真实码长/完成latent/质量数据；主decoder与匹配控制。
+缓存生成采用当前接收端实际的predict-overwrite-advance，收发端不借用未来token或源图标签作免费条件。
+在encoder微调分支中，明确可微码率代理如何给encoder梯度；记录真实硬token码长；更新模型后重建对应缓存。
+周期性输出已完成样本量、每卡有效吞吐、CPU/I/O瓶颈、剩余时间估计和可恢复checkpoint。运行时长未知时，先报告benchmark，不自动开启无法在给定窗口保存退出的长训练。
+当前文件是任务设计，不表示服务器任务已经启动。
+
+十、文献与硬件依据（2026-10-22核验）
+
+1. NVIDIA RTX PRO6000 Blackwell Server Edition：96GB/卡；实际可用显存与拓扑需现场检查。
+https://www.nvidia.com/en-us/data-center/rtx-pro-6000-blackwell-server-edition/
+
+2. VAR，NeurIPS2024；官方d16为310M参数，标准训练脚本为200epochs。用于说明模型规模，不据此推算本机小时数。
+https://github.com/FoundationVision/VAR
+
+3. TiTok，NeurIPS2024，An Image is Worth 32 Tokens for Reconstruction and Generation。原文附录报告TiTok-B-64 tokenizer为32×A100-40GB训练41小时；这是论文配置参照，不能机械折算成PRO6000训练时长。
+https://papers.neurips.cc/paper_files/paper/2024/file/e91bf7dfba0477554994c6d64833e9d8-Paper-Conference.pdf
+https://github.com/bytedance/1d-tokenizer
+
+4. FlexTok，ICML2025：1–256变长前缀、nested dropout、rectified-flow decoder。说明多前缀训练已有成熟先例，本文拟研究的是实际数字帧与接收状态下的效果。
+https://proceedings.mlr.press/v267/bachmann25a.html
+https://github.com/apple-aiml-research/ml-flextok
+
+5. When Worse is Better: Navigating the Compression Generation Trade-off In Visual Tokenization，NeurIPS2025。官方摘要讨论tokenizer重建、压缩与后续prior可建模性的关系；本次不引用未核全文中的训练细节。
+https://proceedings.nips.cc/paper_files/paper/2025/hash/b6425ecad28e4960cb4a622beb338ffe-Abstract-Conference.html
+
+6. Ada-TokenCom，2026 arXiv预印本，当前主源未标已录用。全文III.C使用type-I ARQ及长期平均符号预算；与本项目拟保留的每图单次硬预算不同。联合prefix/MCS选择本身已有先例。
+https://arxiv.org/html/2608.28086v1
+
+7. NTSCC++，作者项目页标IEEE J-STSP；已有可变码率与信道自适应。不能把“加SNR条件”本身当新贡献。
+https://semcomm.github.io/ntscc_plus/
+
+8. ResiComp，作者原页注明Accepted by IEEE TCSVT，2025：联合熵模型与masked latent丢包恢复，说明随机缺失训练已有直接邻近工作。
+https://arxiv.org/abs/2502.10812
+
+9. PyTorch DDP：复制模型并同步梯度，不自动将8张卡显存合成一个共享内存池。
+https://docs.pytorch.org/docs/2.14/generated/torch.nn.parallel.DistributedDataParallel.html
+
+所有推荐均为研究判断，不是论文录用或质量提升的保证。完成本轮后应根据真实R-D曲线与匹配对照选择一条主线继续。

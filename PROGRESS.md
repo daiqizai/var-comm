@@ -1,3 +1,39 @@
+## 2026-10-22 Independent progressive token RD follow-up
+
+The user authorized an independent follow-up and confirmed at least six hours
+of temporary eight-GPU access. The frozen WCL paper/results are preserved.
+The shared PRO host has eight available96GiB-class devices (driver label
+NVIDIA RPBZZZ6), PCIe topology without NVLink. All421 restored cache files
+passed actual SHA checks;20k training/1k calibration identities remain fixed.
+
+Stage0 is actually closed:32 train sources x2 real entropy/RX endpoints and
+50 bounded decoder updates, trueexit0/full checkpoint. Measured steady
+training throughput is21.19samples/s; checkpoint save1.08s. This is throughput,
+not a quality-improvement claim. Seedv2 is also closed:1,000newtrain+100calibration
+sources x8 legal endpoints,1,100TX traversals and8,800 independent source
+decodes/original predict-overwrite-advance completions. All8 shards trueexit0,
+gone processes, SHA-verified FP32 latents/wires/RX tokens and quality rows.
+An initial generic-module import failure occurred before model-loading bodies;
+all8 failed reservations are retained, with zero science and no successful replay.
+
+Three matched decoder pilots are actually running:multi-prefix unconditional,
+endpoint-conditioned and equal-update old-recipe control. Same current Dc
+initialization,1k sources,5k updates x4, identical576-parameter affine capacity,
+MSE+0.1LPIPS; only a final calibration100 x8 comparison is planned. Historical
+class-conditioned Fb_TX is used only by the old-recipe control training.
+Another18,968 disjoint training sources x8 are expanding into persistent PFS
+cache. Five GPUs start directly;three wait for their own training to close.
+The original absolute deadline is shared, never reset. These active jobs are
+not reported as complete. No encoder/codebook/VAR update, PHY or heldout runs.
+
+See experiments/progressive-rd-20261022/STUDY_STATUS.md and
+results/progressive_rd_20261022_v1/{stage0_delivery,seed_delivery_v1}/.
+The13.7MB expansion registration is stored as2.1MB deduplicated metadata plus
+an exact-byte restore utility, preserving Git's10MB limit and original SHA.
+Arrays, logs and resume checkpoints stay on PFS. Local backups remain deferred.
+
+---
+
 ## 2026-10-21 Fig.3 editorial finalization
 
 The confirmed N1024,10-dB two-row/six-column Fig.3 now labels the original
