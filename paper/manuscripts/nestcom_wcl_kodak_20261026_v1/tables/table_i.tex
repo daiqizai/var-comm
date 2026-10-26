@@ -1,0 +1,31 @@
+\begin{table}[t]
+\centering
+\caption{Within-scale endpoint gains}
+\label{tab:endpoints}
+\begingroup
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}rccc@{}}
+\toprule
+SNR & $\eta$ (\%), W/P & $\Delta$PSNR (dB) & $\Delta$DreamSim \\
+\midrule
+\multicolumn{4}{c}{common500 (500 images)} \\
+\midrule
+4 dB & 73.81/93.08 & \CI{+0.616}{0.564}{0.673} & \CI{-0.0207}{-0.0233}{-0.0183} \\[3pt]
+10 dB & 77.70/95.21 & \CI{+0.701}{0.637}{0.766} & \CI{-0.0240}{-0.0270}{-0.0212} \\[3pt]
+19 dB & 85.24/94.73 & \CI{+0.319}{0.290}{0.349} & \CI{-0.0030}{-0.0037}{-0.0024} \\
+\midrule
+\multicolumn{4}{c}{Kodak (24 images)} \\
+\midrule
+4 dB & 75.69/93.43 & \CI{+0.396}{0.236}{0.543} & \CI{-0.0276}{-0.0400}{-0.0159} \\[3pt]
+10 dB & 78.11/94.99 & \CI{+0.674}{0.408}{0.958} & \CI{-0.0164}{-0.0262}{-0.0072} \\[3pt]
+19 dB & 85.69/93.71 & \CI{+0.228}{0.140}{0.324} & \CI{-0.0013}{-0.0029}{0.0003} \\
+\bottomrule
+\end{tabular}
+\endgroup
+\par\smallskip
+\begin{minipage}{\columnwidth}\footnotesize
+W/P: WHOLE/PARTIAL. $\eta$ uses the terminated entropy length and source capacity in~\eqref{eq:budget}. Differences are PARTIAL minus WHOLE; brackets give source-paired 95\% CIs.
+\end{minipage}
+\end{table}

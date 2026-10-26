@@ -1,0 +1,21 @@
+{
+  "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/kodak-current-20261026/nest_v1/kn_source.py\", line 14, in main\n    routes=cr(r['model_routes']);n,_=ledger.call('model_load','once',lambda:load(routes,ledger,boundary,out,r['gpu']['pci_bus_id']));codec=source_codec(n)\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/kodak-current-20261026/nest_v1/kn_common.py\", line 85, in call\n    try:value=fn()\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/kodak-current-20261026/nest_v1/kn_source.py\", line 14, in <lambda>\n    routes=cr(r['model_routes']);n,_=ledger.call('model_load','once',lambda:load(routes,ledger,boundary,out,r['gpu']['pci_bus_id']));codec=source_codec(n)\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/kodak-current-20261026/nest_v1/kn_native.py\", line 7, in load\n    return ns['build'](routes,ledger,boundary,out,pci)\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/tb_native.py\", line 14, in build\n    torch.use_deterministic_algorithms(True);torch.set_float32_matmul_precision('highest');torch.cuda.set_device(0)\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/external/home/liulu/.local/lib/python3.10/site-packages/torch/cuda/__init__.py\", line 638, in set_device\n    torch._C._cuda_setDevice(device)\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/external/home/liulu/.local/lib/python3.10/site-packages/torch/cuda/__init__.py\", line 478, in _lazy_init\n    torch._C._cuda_init()\nRuntimeError: No CUDA GPUs are available\n",
+  "ledger": {
+    "caps": {
+      "model_load": 1,
+      "tokenizer": 24,
+      "source_tx": 24,
+      "prior_scale": 240,
+      "decoder_forward": 0
+    },
+    "counts": [
+      {
+        "kind": "model_load",
+        "status": "FAILED",
+        "count": 1
+      }
+    ],
+    "unresolved": 1
+  },
+  "automatic_retry": false
+}

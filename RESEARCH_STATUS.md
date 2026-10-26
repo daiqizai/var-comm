@@ -1,3 +1,35 @@
+## 2026-10-26 Current-model Kodak evaluation and WCL revision
+
+All24 fixed original RGB256 center crops are evaluated at N1024, Es2,
+AWGN4/10/19dB with3 noise realizations. Six configurations retain1296
+logical method frames:648 new NeST PARTIAL/WHOLE and ARPC frames,648
+exactly reused P100k/Swin200k/adaptiveBPG frames. The frozen main Stage-A
+update38000 decoder is used; progressive-RD models remain separate.
+
+New science:597 actual physical events,1194 header/body decodes,199 unique
+native RX reconstructions. Four metrics cover5184 logical scores. The one
+original10000x24 bank produced72mean CIs and60direct source-paired CIs.
+All18method/SNR denominators are72/72 received; engineering failures and
+additive CUDA/resource/metadata routes remain preserved. In particular,
+ARPC's100 blocked native.py read attempts were reviewed as exact denied
+reads before data return; do not claim an attempt-free original gate.
+
+Kodak NeST has lowest DreamSim and highest CLIP-I means among five methods
+at all3SNRs, while Swin/BPG retain higher PSNR and Latent lower4dB LPIPS.
+At10dB, PARTIAL-WHOLE PSNR +0.673559dB and utilization78.1052%->94.9917%.
+All3PSNR internal paired CIs are positive;19dB DreamSim CI crosses zero.
+Full results: results/kodak_current_20261026_v1/delivery/REPORT_zh.md.
+
+Anonymous WCL manuscript: paper/manuscripts/nestcom_wcl_kodak_20261026_v1/.
+C1-C9 and actual Kodak prose are integrated; Table I has separate datasets.
+Fig.1-3 remain unchanged. Normal IEEEtran double-column PDF is5pages;
+single-column double-spaced PDF and editable Word are14pages each, all
+pages actually inspected. Source ZIP is local-only under repository policy;
+unpacked LaTeX/figures are tracked. Large data,weights,ledgers stay on PFS;
+backups remain deferred. Publication receipts follow required checks.
+
+---
+
 ## 2026-10-23 Progressive RD decoder scale-up delivered
 
 All six registered decoder runs (three arms x two seeds) completed10,000

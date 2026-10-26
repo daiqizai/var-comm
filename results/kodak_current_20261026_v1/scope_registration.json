@@ -1,0 +1,125 @@
+{
+  "schema": "KODAK_CURRENT_SCOPE_V1",
+  "status": "REGISTERED_NOT_SCIENTIFICALLY_COMPLETE",
+  "base_commit": "79ac43c647209a757ee0c97c83911f3da51f258b",
+  "user_request": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/kodak-current-20261026/user_package/request.txt",
+    "sha256": "7cb920e7c0e7ad42008632b38fb5e31464956db152747da11f0ee7f79413eb2c",
+    "bytes": 23987
+  },
+  "population": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/kodak_current_20261026_v1/population.json",
+    "sha256": "a1d255e7491a8ae7303ccdf481a4abf48ff2133e9b03c56da8b756af657a941f",
+    "bytes": 23630
+  },
+  "snr_db": [
+    4,
+    10,
+    19
+  ],
+  "noise_labels": [
+    2001,
+    2002,
+    2003
+  ],
+  "complex_symbols": 1024,
+  "nominal_symbol_energy": 2,
+  "methods": [
+    "NEST_PARTIAL",
+    "NEST_WHOLE",
+    "ARPC_ADAPTED",
+    "P100000",
+    "Swin200000",
+    "BPG_ADAPTIVE"
+  ],
+  "method_frames_each": 216,
+  "total_method_frames": 1296,
+  "new_primary_method_frames": 648,
+  "conditional_reuse_method_frames": 648,
+  "missing_baseline_authorization": "Only missing or configuration-mismatched original output paths; preserve exact original method and event identity. No training.",
+  "method_frame_vs_forward": "Deduplicate only full received-input, endpoint, source/model/generation/precision identities; all logical denominators remain.",
+  "noise_pairing": "WHOLE/PARTIAL share standard complex Gaussian noise at identical source/SNR/label; their waveforms and receive observations remain separate. Others retain native constructions; source-level inference.",
+  "metrics": [
+    "psnr_db",
+    "lpips_alex",
+    "dreamsim",
+    "clip_image_cosine"
+  ],
+  "metrics_policy": "Current common500 exact loader/weight/FP32/preprocess bindings required in metric registration; native floats only except native BPG uint8.",
+  "statistics": {
+    "unit": "source image",
+    "noise_average_before_source_statistics": true,
+    "source_count": 24,
+    "replicates": 10000,
+    "seed": 2026100901,
+    "existing_bank_raw_int64_sha256": "552e5b5aebdfa237ac3a72f9c1329dbdcff67335f4f0ee1fa9d1dc0275ed42d8",
+    "source_order": "original source_index0..23",
+    "conditions": 72,
+    "long_source_rows": 1728,
+    "paired_conditions": 60,
+    "pairs": [
+      [
+        "NEST_PARTIAL",
+        "NEST_WHOLE"
+      ],
+      [
+        "NEST_PARTIAL",
+        "P100000"
+      ],
+      [
+        "NEST_PARTIAL",
+        "Swin200000"
+      ],
+      [
+        "NEST_PARTIAL",
+        "BPG_ADAPTIVE"
+      ],
+      [
+        "NEST_PARTIAL",
+        "ARPC_ADAPTED"
+      ]
+    ]
+  },
+  "expected_lane_roots": [
+    "nest_v1",
+    "arpc_v1",
+    "baselines_metrics_v1"
+  ],
+  "execution_policy": "Lane registrations must bind concrete source, model, code, environment and output identities. No old launcher or successful-call replay. Preserve engineering failures; never count them as protocol gray outputs.",
+  "frozen_reference_inputs": [
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/n1024-consistency-20261019/audit_v2.py",
+      "sha256": "7880c430e05091aec478761678108b018d0aa545e16f983e1f5a1fd40c726d91",
+      "bytes": 19672
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/entropy_main_common500_20261013/registration_v4.json",
+      "sha256": "2551cd1492e4f8354e8ee882a189b9fd498786f46868ab1b20a5638bf5791956",
+      "bytes": 529987
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/t1b_m10_calibration_20261016_v1/delivery/frozen_policies.json",
+      "sha256": "81dfc416ccd82bad538885e8f71f394a6f7f94bb21e403b510721d78582b3e02",
+      "bytes": 55839
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/arpc_external_baseline_20261019_v1/a2b_metrics_v1/frozen_policies.json",
+      "sha256": "d5ffb2399948c0fd571cb5caf9569143537a7adfe00e330e7fda548c21d4e969",
+      "bytes": 1710
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/generalization_kodak_final_20261013/registration.json",
+      "sha256": "4a17fcc8b671185cd2eac869e5c5b41731c59a2dd649de8074675b1d492fa75f",
+      "bytes": 62809
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/generalization_kodak_20261009/analysis_v1/completion.json",
+      "sha256": "888da01342720567ff3b738fd879eb4286fbe799ef5b570d3ee9cb5921d6ebc3",
+      "bytes": 4134
+    }
+  ],
+  "no_training": true,
+  "no_policy_selection": true,
+  "no_progressive_rd_decoder": true,
+  "manuscript_result_integration": "Only after all actual evaluations and source-paired statistics are closed; report all predeclared SNRs and metrics."
+}

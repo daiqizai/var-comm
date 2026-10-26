@@ -1,0 +1,62 @@
+{
+  "status": "COMPLETE",
+  "logical_frames": 1296,
+  "new_logical_frames": 648,
+  "reused_logical_frames": 648,
+  "new_physical_events": 597,
+  "new_packet_decodes": 1194,
+  "new_unique_native_reconstructions": 199,
+  "reused_baseline_native_archives": 504,
+  "nest": {
+    "logical": 432,
+    "physical_events": 381,
+    "phy_logical_reuse": 51,
+    "source_probability_traversals": 24,
+    "terminated_streams": 600,
+    "reused_token_arrays": 24,
+    "new_tokenizer": 0,
+    "unique_rx": 127,
+    "logical_rx_reuse": 305
+  },
+  "arpc": {
+    "logical": 216,
+    "physical_events": 216,
+    "captions": 24,
+    "tokenizer": 24,
+    "source_probability_traversals": 24,
+    "terminated_streams": 168,
+    "unique_rx": 72,
+    "logical_rx_reuse": 144
+  },
+  "metrics": {
+    "logical_scalar_values": 5184,
+    "reused_psnr_logical": 648,
+    "reused_lpips_logical": 648,
+    "new_psnr_unique_pairs": 199,
+    "new_lpips_unique_pairs": 199,
+    "new_dreamsim_unique_pairs": 703,
+    "new_clip_unique_pairs": 703,
+    "dreamsim_image_embeddings": 727,
+    "clip_image_embeddings": 727,
+    "embedding_note": "One image embedding may include several ensemble backbone forwards; these counts are image-level embeddings."
+  },
+  "statistics": {
+    "mean_conditions": 72,
+    "source_mean_rows": 1728,
+    "paired_conditions": 60,
+    "bank_reused": true,
+    "new_random_indices": 0,
+    "actual_execution_count": 1,
+    "bootstrap_replicates": 10000,
+    "bootstrap_sources": 24,
+    "seed": 2026100901
+  },
+  "denominator_note": "Unique physical events and neural reconstructions are distinct from logical method frames. All 18 method/SNR cells retain 72 logical frames.",
+  "preserved_engineering_failures": [
+    "NeST first CUDA UUID initialization before successful forward; original reservation FAILED retained",
+    "ARPC utilization refusal before Popen; exact additive shared-inference admission",
+    "ARPC PHY final metadata assertion after completed decodes; zero-decode CPU finalization",
+    "ARPC 100 blocked read attempts to its exact native.py; PermissionError before returning file data; attempt-free gate did not pass",
+    "ARPC first CPU closure rejected cross-host /proc lookup; host-specific evidence used thereafter"
+  ]
+}

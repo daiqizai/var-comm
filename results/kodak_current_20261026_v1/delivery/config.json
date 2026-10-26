@@ -1,0 +1,186 @@
+{
+  "schema": "KODAK_CURRENT_FINAL_CONFIG_V1",
+  "status": "COMPLETE",
+  "base_commit": "79ac43c647209a757ee0c97c83911f3da51f258b",
+  "bindings": [
+    {
+      "path": "results/kodak_current_20261026_v1/scope_registration.json",
+      "bytes": 4758,
+      "sha256": "3b5fe30a7d56acc4564beaa6dfaa75745d691def12df5ce63629875989d93b20"
+    },
+    {
+      "path": "results/kodak_current_20261026_v1/population.json",
+      "bytes": 23630,
+      "sha256": "a1d255e7491a8ae7303ccdf481a4abf48ff2133e9b03c56da8b756af657a941f"
+    },
+    {
+      "path": "results/kodak_current_20261026_v1/nest_v1/registration.json",
+      "bytes": 116317,
+      "sha256": "8c66f5261d2b37d1d14b5273923d37ceebdd6e93d801e1da93b3c7c802e805b2"
+    },
+    {
+      "path": "results/kodak_current_20261026_v1/arpc_v1/registration.json",
+      "bytes": 50752,
+      "sha256": "f1395a42fa54de88ef8bba2fe9f66e8623fe18054583e5f002251dee46d957bc"
+    },
+    {
+      "path": "results/kodak_current_20261026_v1/baselines_metrics_v1/metric_registration.json",
+      "bytes": 26628,
+      "sha256": "e63057b195b9e0e787c0e39149c4e576a94c360460f8ac3a0aed245aa68179c0"
+    },
+    {
+      "path": "results/kodak_current_20261026_v1/statistics_v1/registration.json",
+      "bytes": 4299,
+      "sha256": "2bb6080b1af5da713f0a04187ff3988dda834a900cf188a00711ff64641c85c8"
+    },
+    {
+      "path": "results/kodak_current_20261026_v1/statistics_v1/bootstrap_bank.json",
+      "bytes": 1956,
+      "sha256": "8ee38aa5e418bd74344a92fa4b944b95c528abffbd49c73c618caf000f33f0e9"
+    }
+  ],
+  "population": {
+    "count": 24,
+    "ids": "kodak/kodim01..kodim24",
+    "source_index": "0..23",
+    "processing": "original RGB 256x256 center crop; no resize before crop"
+  },
+  "channel": {
+    "N": 1024,
+    "Es": 2,
+    "SNR": [
+      4,
+      10,
+      19
+    ],
+    "noise_labels": [
+      2001,
+      2002,
+      2003
+    ],
+    "noise": "WHOLE/PARTIAL share standard complex Gaussian noise at identical source/SNR/label; their waveforms and receive observations remain separate. Others retain native constructions; source-level inference.",
+    "signaling": "Each method retains its registered paid signaling; the NeST 68+956 split is not imposed on all baselines"
+  },
+  "nest": {
+    "decoder": "main Stage-A update38000, not progressive-RD",
+    "tokenizer_VAR": "frozen original main-model hashes in nest registration",
+    "generation": "null class, deterministic argmax; received boundary tokens overwrite prediction",
+    "targets": [
+      {
+        "snr_db": 4,
+        "WHOLE": [
+          7,
+          0
+        ],
+        "PARTIAL": [
+          7,
+          25
+        ],
+        "qam": 4,
+        "rate": "2/3",
+        "source_capacity_bits": 1245
+      },
+      {
+        "snr_db": 10,
+        "WHOLE": [
+          9,
+          0
+        ],
+        "PARTIAL": [
+          8,
+          126
+        ],
+        "qam": 16,
+        "rate": "2/3",
+        "source_capacity_bits": 2520
+      },
+      {
+        "snr_db": 19,
+        "WHOLE": [
+          10,
+          0
+        ],
+        "PARTIAL": [
+          10,
+          0
+        ],
+        "qam": 64,
+        "rate": "5/6",
+        "source_capacity_bits": 4751
+      }
+    ],
+    "fallback": "actual terminated length and frozen family-specific ordered fallback",
+    "receiver": "current entropy-coded rejection rules; no old raw KEEP"
+  },
+  "arpc": {
+    "temperature": 0.5,
+    "generation_seed": 0,
+    "cfg": 3,
+    "target_profiles": [
+      "e7_q2_r2-3",
+      "e7_q4_r2-3",
+      "e7_q6_r5-6"
+    ],
+    "paid_caption": true,
+    "actual_length_fallback": true,
+    "weights": "authors native adapted weights, exact full hashes in ARPC registration"
+  },
+  "baseline_checkpoint_sha256": {
+    "P100000": "059888fec9fb1d3548e2b3c34d681030d3df2882163c26d5b59c69c96dcdc4d6",
+    "Swin200000": "572d7acaceed2712d885ebd351f65ef6042f7716082d81f63bf45fbf8aadbd45"
+  },
+  "BPG_profiles": [
+    3002,
+    3007,
+    3013
+  ],
+  "metrics": {
+    "names": [
+      "psnr_db",
+      "lpips_alex",
+      "dreamsim",
+      "clip_image_cosine"
+    ],
+    "preprocessing": "Exact common500 frozen loaders, weight hashes and floating preprocess bindings in metric_registration.json",
+    "precision": "FP32, TF32 off",
+    "CLIP_I": "OpenAI ViT-L/14 image-image cosine, no softmax or percent scaling"
+  },
+  "statistics": {
+    "unit": "source image",
+    "noise_average_before_source_statistics": true,
+    "source_count": 24,
+    "replicates": 10000,
+    "seed": 2026100901,
+    "existing_bank_raw_int64_sha256": "552e5b5aebdfa237ac3a72f9c1329dbdcff67335f4f0ee1fa9d1dc0275ed42d8",
+    "source_order": "original source_index0..23",
+    "conditions": 72,
+    "long_source_rows": 1728,
+    "paired_conditions": 60,
+    "pairs": [
+      [
+        "NEST_PARTIAL",
+        "NEST_WHOLE"
+      ],
+      [
+        "NEST_PARTIAL",
+        "P100000"
+      ],
+      [
+        "NEST_PARTIAL",
+        "Swin200000"
+      ],
+      [
+        "NEST_PARTIAL",
+        "BPG_ADAPTIVE"
+      ],
+      [
+        "NEST_PARTIAL",
+        "ARPC_ADAPTED"
+      ]
+    ]
+  },
+  "no_training": true,
+  "no_policy_reselection": true,
+  "large_assets": "PFS runtime roots and exact per-frame paths in frame_metrics.csv and lane frame manifests",
+  "receiver_boundary_note": "ARPC blocked attempts were retained and reviewed as exact native.py exceptions; no file bytes were returned. This is not an attempt-free receiver run."
+}

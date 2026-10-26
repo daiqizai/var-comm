@@ -1,0 +1,26 @@
+% Values read from closed CSVs; display rounding only. Requires booktabs.
+\begin{tabular}{llcccc}
+\toprule
+SNR & Method & PSNR (dB) $\uparrow$ & LPIPS-Alex $\downarrow$ & DreamSim $\downarrow$ & CLIP-I $\uparrow$ \\
+\midrule
+4 dB & NeST-Com & \shortstack{18.618\\[17.580, 19.689]} & \shortstack{0.2714\\[0.2459, 0.2967]} & \shortstack{0.1766\\[0.1519, 0.2022]} & \shortstack{0.8384\\[0.8132, 0.8633]} \\
+4 dB & Latent JSCC & \shortstack{20.346\\[19.356, 21.394]} & \shortstack{0.2273\\[0.2090, 0.2455]} & \shortstack{0.2395\\[0.2110, 0.2690]} & \shortstack{0.7701\\[0.7422, 0.7956]} \\
+4 dB & SwinJSCC & \shortstack{22.392\\[21.233, 23.601]} & \shortstack{0.5737\\[0.5182, 0.6281]} & \shortstack{0.4292\\[0.3922, 0.4641]} & \shortstack{0.6771\\[0.6475, 0.7069]} \\
+4 dB & BPG + LDPC & \shortstack{21.724\\[20.554, 22.950]} & \shortstack{0.7442\\[0.6828, 0.8041]} & \shortstack{0.5742\\[0.5359, 0.6121]} & \shortstack{0.6147\\[0.5885, 0.6399]} \\
+4 dB & ARPC + LDPC & \shortstack{15.600\\[14.547, 16.712]} & \shortstack{0.5252\\[0.4916, 0.5603]} & \shortstack{0.4977\\[0.4580, 0.5356]} & \shortstack{0.6939\\[0.6647, 0.7245]} \\
+\midrule
+10 dB & NeST-Com & \shortstack{21.009\\[19.799, 22.265]} & \shortstack{0.1762\\[0.1544, 0.1984]} & \shortstack{0.1102\\[0.0924, 0.1295]} & \shortstack{0.8692\\[0.8463, 0.8910]} \\
+10 dB & Latent JSCC & \shortstack{21.371\\[20.310, 22.480]} & \shortstack{0.1816\\[0.1644, 0.1988]} & \shortstack{0.1732\\[0.1512, 0.1958]} & \shortstack{0.8082\\[0.7786, 0.8349]} \\
+10 dB & SwinJSCC & \shortstack{23.571\\[22.309, 24.870]} & \shortstack{0.5022\\[0.4482, 0.5563]} & \shortstack{0.3363\\[0.3026, 0.3683]} & \shortstack{0.7259\\[0.6931, 0.7585]} \\
+10 dB & BPG + LDPC & \shortstack{23.329\\[22.024, 24.689]} & \shortstack{0.5979\\[0.5334, 0.6636]} & \shortstack{0.4278\\[0.3840, 0.4706]} & \shortstack{0.6370\\[0.6114, 0.6632]} \\
+10 dB & ARPC + LDPC & \shortstack{17.566\\[16.473, 18.730]} & \shortstack{0.3496\\[0.3253, 0.3741]} & \shortstack{0.3174\\[0.2883, 0.3497]} & \shortstack{0.7408\\[0.7085, 0.7735]} \\
+\midrule
+19 dB & NeST-Com & \shortstack{22.875\\[21.596, 24.192]} & \shortstack{0.1230\\[0.1068, 0.1395]} & \shortstack{0.0795\\[0.0672, 0.0929]} & \shortstack{0.8955\\[0.8735, 0.9161]} \\
+19 dB & Latent JSCC & \shortstack{21.785\\[20.688, 22.919]} & \shortstack{0.1682\\[0.1513, 0.1851]} & \shortstack{0.1555\\[0.1356, 0.1763]} & \shortstack{0.8163\\[0.7863, 0.8437]} \\
+19 dB & SwinJSCC & \shortstack{24.144\\[22.815, 25.517]} & \shortstack{0.4722\\[0.4198, 0.5259]} & \shortstack{0.2948\\[0.2626, 0.3261]} & \shortstack{0.7471\\[0.7133, 0.7804]} \\
+19 dB & BPG + LDPC & \shortstack{24.990\\[23.563, 26.459]} & \shortstack{0.4704\\[0.4119, 0.5300]} & \shortstack{0.3212\\[0.2764, 0.3654]} & \shortstack{0.6681\\[0.6443, 0.6916]} \\
+19 dB & ARPC + LDPC & \shortstack{19.280\\[18.086, 20.522]} & \shortstack{0.2513\\[0.2284, 0.2745]} & \shortstack{0.1881\\[0.1684, 0.2094]} & \shortstack{0.8143\\[0.7902, 0.8396]} \\
+\bottomrule
+\end{tabular}
+% All 24 fixed Kodak center crops; three channel realizations per source.
+% Brackets: pointwise 95% source-bootstrap CIs using the original 10000x24 bank.

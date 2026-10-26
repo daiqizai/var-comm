@@ -1,0 +1,55 @@
+{
+  "schema": "KODAK_ARPC_SHARED_INFERENCE_ADMISSION_V1",
+  "scope": "Only this Kodak24 source and receiver execution; no scientific protocol or numerical change",
+  "basis": "User B7 explicitly assigns inference to available shared CPU/GPU resources; inherited util25 was a scheduling guard, not a frozen measurement condition",
+  "prior_registration": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/kodak_current_20261026_v1/arpc_v1/registration.json",
+    "sha256": "f1395a42fa54de88ef8bba2fe9f66e8623fe18054583e5f002251dee46d957bc",
+    "bytes": 50752
+  },
+  "scope_registration": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/kodak_current_20261026_v1/scope_registration.json",
+    "sha256": "3b5fe30a7d56acc4564beaa6dfaa75745d691def12df5ce63629875989d93b20",
+    "bytes": 4758
+  },
+  "preserved_pre_native_failure": [
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/kodak_current_20261026_v1/arpc_v1/source_control/worker.actual_wait.json",
+      "sha256": "b0b44c77af9180f5fa76e6cbd5c21b4cae68e4a8ffa21726d7189530d994c4a1",
+      "bytes": 263
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/kodak_current_20261026_v1/arpc_v1/source_control/failure.json",
+      "sha256": "984feaa0abd59113faf43201eff8871f4d09b067d6e80a54e9b381de5f8f1c8b",
+      "bytes": 692
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/kodak_current_20261026_v1/arpc_v1/source/worker.launch.json",
+      "sha256": "8e1890531d3a32af6175283bb56c781f3dab60d683979f43db5471d9ba6914ed",
+      "bytes": 620
+    }
+  ],
+  "verified_native_started": false,
+  "verified_native_tx_directory_exists": false,
+  "successful_science_repeated": 0,
+  "admission_change": {
+    "startup_utilization_percent": {
+      "old": 25,
+      "new": 80
+    },
+    "startup_free_mib": 65536,
+    "runtime_free_mib": 8192,
+    "allocator_cap_gib": 70
+  },
+  "unchanged": [
+    "GPU assignment",
+    "FP32 and numerical flags",
+    "native Python and model/source hashes",
+    "tau0.5 and generation seed",
+    "caption/container/CRC/budget",
+    "population and noise",
+    "actual received inputs"
+  ],
+  "continuation_requirement": "Bind preserved failure and require zero original native launch/tx state before the one first source launch. Use additive source adapter, never hot-edit original six files or registration. RX uses the same explicitly recorded shared-inference admission.",
+  "reviewer": "Codex root technical coordinator; actual original source, tests and failure evidence read"
+}

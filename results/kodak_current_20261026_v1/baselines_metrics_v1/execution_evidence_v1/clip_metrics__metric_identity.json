@@ -1,0 +1,70 @@
+{
+  "AMP": false,
+  "FP32": true,
+  "TF32": false,
+  "assets": {
+    "implementation": {
+      "files": {
+        "clip/__init__.py": "d7930eb290ebed432116795c91473200d098451a94c0aedd4ae0f934f97955e8",
+        "clip/clip.py": "9540f200fbf8145479fa655382a56dab048d238cc698b9cbd8df3b6d86d3f1b6",
+        "clip/model.py": "9902cbe5ee90a1da2aa3e6f043e8a23dc1f8831193b963785c9af03d5c7bef2c",
+        "clip/simple_tokenizer.py": "d1b09f10ed3d1e2c343619cb98cbfacb92363dd8607526a43aa7fe2d60d15bad",
+        "hubconf.py": "0641946610c17a743ebcc3f6e85cffff1400337bb9a99766740c40b01d9a3e14",
+        "setup.py": "6a913890284a988293f7b0b3ca017de29c65ce2bdce9fdd09cb481fc6bd5a636",
+        "tests/test_consistency.py": "342f84e4814143e1117dbc14baa6cf2a2ec01f61542e3952edc91e68f5eed206"
+      },
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/clip_i_frozen_v1/sources/clip",
+      "revision": "d05afc436d78f1c48dc0dbf8e5980a9d471f35f6"
+    },
+    "weights": {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/clip_i_frozen_v1/weights/ViT-L-14.pt",
+      "sha256": "b8cca3fd41ae0c99ba7e8951adf17d267cdb84cd88be6f7c2e0eca1737a03836"
+    }
+  },
+  "batch_size": 1,
+  "bus": "0000:63:00.0",
+  "cuda": "13.0",
+  "device": "NVIDIA RPBZZZ6",
+  "interop": 2,
+  "loader": {
+    "bytes": 30518,
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/unified-metrics-20261002/metric_models.py",
+    "sha256": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066"
+  },
+  "preprocessing": {
+    "RGB": "native float32 [0,1]",
+    "caption": false,
+    "center_crop": 224,
+    "column": "clip_image_cosine",
+    "definition": "CLIP image-image cosine similarity",
+    "input": 224,
+    "model": "OpenAI ViT-L/14",
+    "name": "CLIP-I",
+    "normalization_mean": [
+      0.48145466,
+      0.4578275,
+      0.40821073
+    ],
+    "normalization_std": [
+      0.26862954,
+      0.26130258,
+      0.27577711
+    ],
+    "percentage": false,
+    "resize": "tensor bicubic antialias=True",
+    "softmax": false
+  },
+  "registration_sha256": "e63057b195b9e0e787c0e39149c4e576a94c360460f8ac3a0aed245aa68179c0",
+  "resources": {
+    "cuda_uuid": "6007e8bd-a688-1038-2643-21472a083d58",
+    "gpu_index": 2,
+    "hostname": "aibox-r59688baa77c-57c794f5c6-44lm7",
+    "pci_bus_id": "0000:63:00.0",
+    "python": "/usr/bin/python",
+    "torch": "2.10.0+cu130",
+    "uuid": "GPU-922807e5-02b4-9634-5684-0523008bec0f"
+  },
+  "role": "clip_metrics",
+  "threads": 6,
+  "torch": "2.10.0+cu130"
+}

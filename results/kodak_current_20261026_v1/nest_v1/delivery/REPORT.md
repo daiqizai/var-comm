@@ -1,0 +1,11 @@
+# Current Kodak NeST/WHOLE native reconstructions
+
+Closed 24 fixed Kodak sources x 3 SNR x 3 noise realizations x two families = 432 logical frames, 216 per family, 72 per family/SNR. Source population and original crops are unchanged. All original 24 token arrays were restored and reused after exact pixel/file/array identity checks. No new tokenizer calls were needed.
+
+Only current entropy-coded WHOLE/PARTIAL were executed. Each source used one original native TX probability traversal and generated 25 independently terminated endpoint streams, including m10. Frozen actual-length fallback and all original paid fields are retained. Both families use the same underlying standardized Gaussian noise per source and noise identifier 2001/2002/2003. Waveforms and actual received observations remain method-specific.
+
+Source, PHY and RX are distinct processes. RX sees only actual received projection plus shared model/profile assets and enforces the original input firewall. Output pixels are fixed before a separate CPU truth audit. No TX tokens, CDF or source pixels were used to repair receiver input. This lane did not compute quality metrics; the common Kodak metrics lane consumes frame_manifest.csv.
+
+One initial model-load reservation FAILED at CUDA device selection before any weights or forward calls: NVML and CUDA Driver UUIDs differ on this host. The exact PCI identity established numeric CUDA ordinal 0; the failure and its original logs remain immutable. A new execution-only route completed the source. A further pre-launch downstream role-name correction (main versus run) preserved that completed source. All scientific modules and original registration are unchanged; no successful scientific calls were repeated. All successful stages have real child and supervisor wait0, gone PID/start identities, and no unresolved ledger entries.
+
+The file actual_compute_and_reuse.json distinguishes logical frames, physical events, actual packet decodes and unique receiver outputs. Large native NPZ files remain on PFS. Frame statuses and any actual rejects retain their logical denominators. This is Kodak external-domain evidence using the fixed historical 24 crops, not a new sample from common500.

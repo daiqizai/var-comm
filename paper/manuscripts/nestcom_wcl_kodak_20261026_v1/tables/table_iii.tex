@@ -1,0 +1,25 @@
+\begin{table}[t]
+\centering
+\caption{Mean software processing latency at $N=1024$, 10~dB (ms/image)}
+\label{tab:latency}
+\begingroup
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+Method & TX & RX & Total \\
+\midrule
+NeST-Com & 220.89 & 398.82 & 619.71 \\[3pt]
+Latent JSCC & 17.97 & 24.51 & 42.48 \\[3pt]
+SwinJSCC & 24.81 & 19.89 & 44.69 \\[3pt]
+BPG + LDPC & 2269.87 & 23.15 & 2293.01 \\[3pt]
+ARPC + LDPC & 719.12 & 801.18 & 1520.30 \\
+\bottomrule
+\end{tabular}
+\endgroup
+\par\smallskip
+\begin{minipage}{\columnwidth}\footnotesize
+RTX PRO 6000 Blackwell, six CPU cores, batch size one. Total is TX + RX; model initialization, channel-noise generation, and radio transmission time are excluded. Means over 16 images with three timed repetitions per image after warm-up.
+\end{minipage}
+\end{table}
