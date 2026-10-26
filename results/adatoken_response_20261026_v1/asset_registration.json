@@ -1,0 +1,52 @@
+{
+  "schema": "LLAMAGEN_OFFICIAL_ASSET_ACQUISITION_V1",
+  "scope": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/adatoken_response_20261026_v1/scope_registration.json",
+    "bytes": 1827,
+    "sha256": "b41ed4361aab6606ce6263071865cf466bc5e09cfeb7b34efabd3e56da031a68"
+  },
+  "weights": [
+    {
+      "name": "c2i_L_256.pt",
+      "url": "https://huggingface.co/FoundationVision/LlamaGen/resolve/81e41139272c038412e4fe8f1c52a51ebbf95b8b/c2i_L_256.pt",
+      "bytes": 1371712314,
+      "sha256": "15fe788b9c0e8dfe36f3e3fd701b44d0c934e4fd94a0ab599b69669aa8f44a55"
+    },
+    {
+      "name": "vq_ds16_c2i.pt",
+      "url": "https://huggingface.co/FoundationVision/LlamaGen/resolve/81e41139272c038412e4fe8f1c52a51ebbf95b8b/vq_ds16_c2i.pt",
+      "bytes": 287920306,
+      "sha256": "109aa8afb2cf3761eec23cdc8644154cb498f5ab7eef2a35264d25e5e0499f7d"
+    }
+  ],
+  "code": [
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/common.py",
+      "bytes": 4249,
+      "sha256": "bcd0c519b02d720a8f2c99b1fb02a8b00e75f75271c24acc78475295a2c6ba28"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/control.py",
+      "bytes": 2238,
+      "sha256": "d218bedfcdc95275e1cb42280dcb543ce5b4c0926aa2d11f99212ed63f0b57b0"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/acquire_assets.py",
+      "bytes": 1763,
+      "sha256": "0d515ec575faeaeff3d7c72c6764a417f77448933c6bb16497a4cb20c0826b64"
+    }
+  ],
+  "stages": {
+    "c_assets": {
+      "argv": [
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_ldpc_py311/bin/python",
+        "-B",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/acquire_assets.py"
+      ],
+      "environment": {
+        "CUDA_VISIBLE_DEVICES": ""
+      },
+      "max_seconds": 7200
+    }
+  }
+}

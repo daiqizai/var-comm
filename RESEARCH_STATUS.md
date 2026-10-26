@@ -1,3 +1,37 @@
+## 2026-10-26 Controlled endpoints completed; predicted-class Ada adaptation in calibration
+
+A and C now have equal first priority. A fixes models, MCS and maximum endpoint
+across WHOLE/HALF/QUARTER/EIGHTH on the existing100-source subset. All3600
+logical results are closed:2214 physical events,4428 packet decodes,738 unique
+receiver outputs. Four metrics give48 mean intervals and72 direct source-paired
+intervals using the existing bank. At10dB quarter-minus-whole PSNR is+0.660149dB;
+eighth-minus-quarter is+0.122946dB, but DreamSim and CLIP-I intervals for that
+increment cross zero. The frozen main configuration is unchanged.
+
+B is also closed: direct correction and subsequent propagation are reported
+separately; at19dB the propagation increment is exactly zero at the final
+scale. Original numerical/import failures and explicit amendments are retained.
+Reports: results/adatoken_response_20261026_v1/{a_delivery,b_delivery}/'/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM'RT.md.
+Reviewed vector/PNG curves: results/adatoken_response_20261026_v1/figures_a_v2/.
+
+C is Ada-TokenCom (predicted-class, fixed-frame adaptation): official LlamaGen-L
+and VQ16, fixed sender classifier, paid10-bit predicted class, actual terminated
+prefix fitting, N1024=68+956 and Es2. Null-class qualification remains separately
+named Ada-inspired. Independent conditional source decoding and24 real-frame
+tests closed;22 were accepted and2 retained gray output. All qualification
+pages were actually inspected. The remaining992 calibration source encodes
+are registered and running after8 exact prior conditional encodes were reused.
+Calibration strategy selection and formal common500/Kodak results are pending;
+no Ada main-curve or comparative superiority result is claimed yet.
+
+Read experiments/adatoken-response-20261026/C_PREDICTED_CLASS_PLAN.md for finite
+caps and MANUSCRIPT_REVISION_NOTES.md for attribution and result-placement tasks.
+No training or old-study restart. Arrays/weights/ledgers stay on PFS; backups
+remain deferred. This publication is a completed A/B and qualified C-entry
+milestone, not final delivery of the complete external comparison.
+
+---
+
 ## 2026-10-26 Current-model Kodak evaluation and WCL revision
 
 All24 fixed original RGB256 center crops are evaluated at N1024, Es2,

@@ -1,0 +1,43 @@
+{
+  "parent_sha256": "4d17a01b60b5dc5e9e73ccd948429120632e8ad34de9c34149af3642300fc529",
+  "new_sha256": "7660d015e9163b0586e14181ba5b4eb3169859375bb7ddb1e7968afc38b01755",
+  "changes": [
+    [
+      "\"\"\"Score closed actual-prefix ablations using unchanged frozen metric functions.\"\"\"",
+      "\"\"\"Score closed A grid outputs; original metric functions, exact B pair/feature reuse.\"\"\""
+    ],
+    [
+      "len(keys)==1800 and len(set(keys))==1800",
+      "len(keys)==3600 and len(set(keys))==3600"
+    ],
+    [
+      "{'A0','B0','C0'}",
+      "{'WHOLE','HALF','QUARTER','EIGHTH'}"
+    ],
+    [
+      "triple=role=='b_three_metrics';features={};pairs={};rows=[]",
+      "triple=role=='a_three_metrics';features={};pairs={};rows=[];feature_cache=cr(r['feature_cache'][role])"
+    ],
+    [
+      "   if h not in features:\n    xt=torch.from_numpy(a[None]).cuda()",
+      "   if h in feature_cache:\n    with checked(feature_cache[h]).open('rb')as f:return torch.from_numpy(np.load(f,allow_pickle=False)).cuda()\n   if h not in features:\n    xt=torch.from_numpy(a[None]).cuda()"
+    ],
+    [
+      "'IDENTICAL_K0_OR_GRAY_EXISTING_OUTPUT'",
+      "'EXACT_FROZEN_SOURCE_PIXEL_PAIR_REUSE'"
+    ],
+    [
+      "assert len(rows)==1800 and all(st=='COMPLETE'",
+      "assert len(rows)==3600 and all(st=='COMPLETE'"
+    ],
+    [
+      "rows=1800,scores=",
+      "rows=3600,scores="
+    ],
+    [
+      "reference_cache_reuse=0 if triple else len(refs)",
+      "reference_cache_reuse=0 if triple else len(refs),closed_B_feature_cache=r['feature_cache'][role]"
+    ]
+  ],
+  "numerical_functions": "Original frozen PSNR, LPIPS, DreamSim and CLIP loaders/preprocessing/cosine functions unchanged. Only grid identity, stage role and exact closed cache lookup adapted."
+}

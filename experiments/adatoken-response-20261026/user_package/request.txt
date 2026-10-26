@@ -1,0 +1,212 @@
+NeST-Com：仅针对新版第一条意见的复核与修改安排
+日期：2026-10-26（北京时间）
+审阅材料：review_NeST-Com(1).md，第3节主要问题1
+当前稿件：daiqizai/var-comm @ 0490c28262d76bfa0d36dbef5bf3247c569851a9
+本文件只讨论与Ada-TokenCom的关系、原创边界和最相关的补充证据。
+本次是分析与安排，未修改论文、未新增实验、未推送仓库。
+
+一、判断
+
+新版第一点比旧版更有实质内容，应认真处理。但“为什么不同”和“什么是本文原创”必须分开：
+- 单尺度空间token与多尺度残差token确实不同，不能靠重排同一套token互相转换。
+- 这些表示和概率分解差异主要属于VAR既有技术，不自动算NeST原创。
+- Ada-TokenCom已经具备前缀传输、算术编码、尾部生成和资源自适应；这些组件本身不能再作为独有贡献。
+- NeST可主张的增量是给定冻结next-scale表示后的尺度内端点、真实终止码长装入固定数字帧，以及对部分前缀的可执行接收规则。
+- 同模型质量收益支持这一增量有效，但有效性与新颖性充分程度不是一回事，不能只靠换几句介绍消除问题。
+
+二、新意见中哪些准确，哪些要改
+
+1. Ada允许其他预定义token顺序：准确。
+原文§II.A Eq.(2)后有此说明，且是训练与推理采用相应顺序；不是说同一份冻结LlamaGen权重任意重排输入仍保持原模型语义。
+原文引言所提scale-aware工作包括VAR，结论也把coarse-to-fine表示列为后续方向。
+因此不宜回应“别人只会光栅，我们首次想到逐尺度”。
+
+2. Ada理论允许任意token前缀：准确；实际实验逐token选端点：不准确。
+其无线实验候选是32、64、…、256。
+不同tokenizer的一个token不携带同样多的bit或信息，不能单看token步长给双方粒度排高低。
+本文的“细粒度”必须明确相对于同一next-scale表示的WHOLE端点集合。
+
+3. “光栅前缀传完上方全部细节，下面整块只能生成”：过度简化。
+可以说直接约束的latent位置集中在网格的前若干行。
+但VQGAN的encoder/decoder有卷积和注意力，token有感受野与空间耦合，量化本身有损；它们不是互不相交的像素切片。
+不能事先断言其低预算重建一定失败或一定“下半图不对”。
+
+4. “逐尺度只丢高频、截断只导致分辨率下降”：不准确。
+VAR使用学习得到的latent残差，不是严格的低通/高通频带分解。
+较粗尺度给出全图范围的粗尺度上下文；缺少较细尺度仍可能影响形状、颜色和语义。
+NeST输出始终是256×256，不能把质量损失直接称为输出分辨率下降。
+边界尺度仍采用raster，所以它是完整粗尺度之上的部分空间残差细化，并非完全消除空间不均匀。
+
+5. “边界K个token只能通过更细尺度起作用”：错误。
+它们有两个作用：
+A. 直接将当前尺度的残差项 C_b(q_b_pred) 改为 C_b(q_b_merged)；
+B. 若b<S，合并后的完整map再影响后续尺度预测。
+当前原生预测不会用收到的K个token重新计算同尺度其余位置；这不妨碍A直接改善最终latent。
+图像decoder是非线性的，不应把最终PSNR收益当成两个可直接相加的分量。
+
+现有19dB证据尤其清楚：
+PARTIAL在common500有274张(9,64)、78张(9,128)、16张(9,192)，共368/500=73.6%在最后m10尺度内结束。
+其余126张(9,0)和6张(10,0)与WHOLE端点相同。
+最后尺度之后没有更细尺度。因此该点约0.32dB的总体收益不能归因于后续尺度传播。
+来源：
+https://github.com/daiqizai/var-comm/blob/0490c28262d76bfa0d36dbef5bf3247c569851a9/results/n1024_consistency_20261019_v1/endpoint_distribution.csv
+
+6. 把predict–overwrite–advance单独列成全新生成机制：不建议。
+VAR原文§6已有在mask外固定真值token、在mask内生成的做法。
+官方demo_zero_shot_edit.ipynb更明确实现：
+预测 -> replace_embedding覆盖已知token -> get_next_autoregressive_input更新状态并推进。
+该notebook最后修改commit为8d0f5fc80cf03491a7156a84043c4f6cac560339，2024-12-22。
+因此它可作为NeST接收过程的准确描述，不能仅靠命名就成为独立原创机制。
+代码来源：
+https://github.com/FoundationVision/VAR/blob/8d0f5fc80cf03491a7156a84043c4f6cac560339/demo_zero_shot_edit.ipynb
+
+三、贡献如何重新定位
+
+建议论文围绕这一句：
+在冻结next-scale残差表示下，让已编码前缀能够在尺度内部结束，并按真实终止码长满足每图固定数字帧预算，从而利用整尺度截断留下的容量。
+
+贡献归属：
+- 前缀熵编码与接收端生成：已有token通信工作。
+- 多尺度残差token、由粗到细预测、完整粗尺度提供全图上下文：VAR。
+- 已知token覆盖预测后继续生成：VAR已有条件生成操作。
+- 尺度内端点与实际帧开销联合装入、明确的接收前缀使用、同模型效果评估：本稿可聚焦的具体设计与证据。
+
+“固定每图预算”与“长期平均预算”是明确的问题设置差别。
+但预算约束不同本身不是新算法证明；需要说明端点集合、实际码长和接收状态如何协同，并给受控结果。
+
+需要避免的表述：
+- first token-prefix communication framework；
+- first coarse-to-fine generative token transmission（未完成全面优先权检索）；
+- finer token granularity than Ada-TokenCom；
+- missing scales contain only high-frequency details；
+- boundary tokens improve reconstruction only through finer-scale prediction；
+- predict–overwrite–advance is a new generative mechanism；
+- 对LlamaGen或ARPC的全部系统差距都由尺度内端点造成。
+
+可保留的表述：
+- within-scale endpoints relative to whole-scale truncation；
+- actual terminated-length fitting under a hard per-image symbol budget；
+- shared-prior, shared-decoder comparisons；
+- direct residual correction and, when applicable, propagation to subsequent scales。
+
+四、最直接回应第一点的三个实验
+
+A. 端点粒度实验：直接支持本稿增量
+
+固定同一tokenizer、VAR、D_c、MCS、边界raster顺序、合法尺度范围和共同最大端点。
+比较WHOLE、1/2、1/4、1/8的嵌套端点集合。
+用相同从长到短的装入规则，逐图检查实际终止码长；不拿token数估计bit。
+先以10dB为展示点，其他SNR完整保存。
+报告η、PSNR、DreamSim、实际保留token数和编码尝试次数，完整输出保留四主指标。
+这是固定PHY的粒度机制诊断，不必改模型训练。
+
+当前主Table I两族各自校准了不同目标/回退链，因此仍应表述为“端点粒度与标定后实际长度装入的共同收益”，不能直接当严格只改网格的实验。
+
+B. 直接修正/传播的接收端消融：解释作用，不制造原创标签
+
+沿用同一批真实接收前缀，TX和PHY保持不变：
+A0 忽略边界已收到token：不修正最终latent，也不更新后续上下文。
+B0 仅直接修正：边界token写入最终latent，但后续预测沿未覆盖的边界状态推进。
+C0 当前方法：边界直接修正，同时合并map进入后续预测。
+B0−A0考察直接作用，C0−B0考察传播作用。
+这里差值表示两次实际重建的指标比较，不是对非线性decoder的理论可加性证明。
+K=0样本保留在总体均值；positive-K子集可另报机制诊断。
+先10dB；末尺度时B0与C0应一致，可用19dB现有末尺度前缀核对。
+不必重复PHY，只重算所需RX。
+如果C0没有优于B0，照实报告并降低传播作用的表述。
+
+C. 最近邻LlamaGen固定帧基线：建议补，明确其回答的是系统比较
+
+推荐名称：
+LlamaGen + LDPC
+正文解释为基于Ada-TokenCom前缀传输思路的fixed-frame adaptation。
+若没有复现原方法的长期Lyapunov策略，不称原版Ada-TokenCom完整复现。
+
+推荐使用公开冻结模型：
+- vq_ds16_c2i.pt；
+- c2i_L_256.pt（LlamaGen-L）；
+-256×256输入，16×16网格。
+官方LabelEmbedder有index1000的null embedding；可以用null-class与NeST对齐，不需重训。
+不能用class0或随机标签代替无条件条件。
+如果加原文类条件版本，标签获取方法和所有传输开销都必须明确；不能免费给测试真值标签。
+
+帧与策略：
+- N=1024，总预算相同；
+- 采用同一实际数字PHY、SNR、功率约定和正式失败灰图规则；
+- prefix长度、MCS、长度字段和CRC计入预算；
+- 按真实终止算术码长装入，不按n×平均熵估计；
+- 保留完整词表概率做熵编码；生成的top-k/top-p不能让源token概率变零；
+- 源模型与解码器用其原生权重；不通过外部测试质量调整baseline；
+- 主校准使用同一校准集与同一选择准则，冻结后正式评价；
+- 实际候选端点应事先声明，不能故意只留过粗候选让它浪费预算。
+可以记录原论文32步端点和逐token装入的区别，主要fixed-frame适配应避免人为降低其装入能力。
+
+先做：
+1. 开发/校准小样本上的完整token重建，确认tokenizer/decoder正常；
+2. 无噪声算术编解码逐token一致性；
+3. prefix强制解码后tail生成；
+4. 真实长度和header预算检查；
+5. 在原校准集确定策略；
+6. 冻结后评价common500及Kodak。
+同一图三次信道噪声与生成随机种子分开登记。
+不要依据测试排名选择是否保留该基线。
+
+主要实现风险是16k词表整数CDF、Tx/Rx浮点/推理路径一致性，以及前缀强制处理；官方图片生成入口并不是现成通信复现。
+算力不是首要障碍，不需要为这条基线重新训练VQ-VAE。
+
+结果解释：
+这个对比同时更换了tokenizer、先验、decoder和表示。
+即使NeST更好，也只能说明相同帧约束下这套系统表现更好，不能单独证明“多尺度顺序因果上优于光栅”。
+单模型A/B控制才直接识别本文新增机制。
+可以加双方全token无信道重建作为来源表示的参考点，但这仍不等于严格隔离表示顺序。
+不预先假定N1024下LlamaGen只能传上方很小区域；实际能送多少token取决于SNR对应的源bit容量和实际熵码长。
+
+五、建议替换到引言的英文段落
+
+Existing token communication systems combine autoregressive prefix coding with receiver-side generation. Ada-TokenCom further adapts prefix length and MCS under a long-term symbol budget. For a frozen next-scale residual representation, complete-scale endpoints yield coarse changes in source length. NeST-Com introduces within-scale endpoints and fits the terminated entropy-coded prefix, together with signaling and protection overhead, to a fixed per-image symbol budget. Decoded boundary tokens refine the reconstruction latent directly and, when finer scales remain, update their prediction context.
+
+在Ada-TokenCom句后引其原文；next-scale residual representation后引用VAR。
+这段不声称Ada只支持raster，也不把VAR的表示优点作为本文独立创新。
+如要描述表示动机，可以另加一句：
+Complete coarse-scale maps provide image-wide source context before additional residual tokens are transmitted.
+不要写only high-frequency details are missing。
+
+六、对第一点的回应草稿
+
+We agree that token-prefix transmission, entropy coding, and autoregressive completion are shared with prior token-communication methods. The contribution of NeST-Com should therefore be stated at the level of within-scale endpoint selection and actual-length fitting for a frozen next-scale representation under a hard digital-frame budget. Boundary tokens directly correct the reconstruction latent and, when later scales remain, also affect their prediction context. We will clarify the relationship to Ada-TokenCom and attribute the multiscale representation and token-clamping operations to VAR.
+
+这是尚未落实修改前的口径，不能提前改成“We have added experiments”。
+完成A/B/C后再分别填实际结果，不能预先写优于或“证明多尺度更好”。
+
+七、我建议的当前顺序
+
+1. 先修正第一点的四个过强说法：像素区域完整、高频限定、边界token只有传播、clamping独立原创。
+2. 引言明确Ada与VAR分别提供了什么，以及NeST具体研究什么。
+3. 同模型粒度实验和直接/传播接收消融优先；两者不需要重训。
+4. 同步打通LlamaGen固定帧baseline，作为最近外部token通信参照。
+5. 根据实际结果调整贡献强度和比较范围。
+6. 暂不把任务扩成tokenizer重训或“证明任何多尺度都优于任何光栅”的大研究。
+
+八、主要来源
+
+上传审稿意见：review_NeST-Com(1).md，主要问题1。
+
+Ada-TokenCom：
+https://arxiv.org/html/2608.28086v1
+重点：II.A顺序与概率分解；III.C平均符号预算；IV.A模型；IV.D候选前缀；结论后续coarse-to-fine方向。
+
+VAR：
+https://arxiv.org/html/2404.02905v2
+重点：3.2多尺度残差与下一尺度预测；Algorithm1/2；§6已知token约束的生成。
+https://github.com/FoundationVision/VAR/blob/8d0f5fc80cf03491a7156a84043c4f6cac560339/demo_zero_shot_edit.ipynb
+
+LlamaGen：
+https://github.com/FoundationVision/LlamaGen
+https://github.com/FoundationVision/LlamaGen/blob/main/autoregressive/models/gpt.py
+https://github.com/FoundationVision/LlamaGen/blob/main/tokenizer/tokenizer_image/vq_model.py
+
+本项目：
+https://github.com/daiqizai/var-comm/blob/0490c28262d76bfa0d36dbef5bf3247c569851a9/paper/manuscripts/nestcom_wcl_kodak_20261026_v1/sections/method.tex
+https://github.com/daiqizai/var-comm/blob/0490c28262d76bfa0d36dbef5bf3247c569851a9/paper/manuscripts/nestcom_wcl_kodak_20261026_v1/tables/table_i.tex
+https://github.com/daiqizai/var-comm/blob/0490c28262d76bfa0d36dbef5bf3247c569851a9/results/n1024_consistency_20261019_v1/endpoint_distribution.csv
+
