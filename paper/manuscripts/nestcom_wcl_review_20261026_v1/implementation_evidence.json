@@ -1,0 +1,120 @@
+{
+  "base_commit": "ff1273b2e71e0db73a8a306ef871f9c501f89ad9",
+  "evidence": [
+    {
+      "path": "experiments/baseline-strength-20261011/baseline_runtime.py",
+      "bytes": 8936,
+      "sha256": "e44617b7f35c824fbac3a16b0abd7287807e1ad3223478ed49e7e872d7915f54"
+    },
+    {
+      "path": "experiments/baseline-strength-20261011/README.md",
+      "bytes": 2039,
+      "sha256": "328936baac211e7f0850c8dbfce53d3b2de8f514e50697d8943ed47c938019d5"
+    },
+    {
+      "path": "experiments/baseline-strength-20261011/run_continue.py",
+      "bytes": 19262,
+      "sha256": "38bbb26c15c99fa54cd10b0b4dd9029255daa5217fe383e687c80cdbd3a5ebcf"
+    },
+    {
+      "path": "experiments/baseline-strength-20261011/training_rules.py",
+      "bytes": 1378,
+      "sha256": "2d99de4f0fb5b64c90f49766c19762b1bf26d17fb142b085e0dc99d42c62427d"
+    },
+    {
+      "path": "experiments/entropy-partial-mismatch-20261010/scripts/ep_phy.py",
+      "bytes": 23161,
+      "sha256": "12cad3e495fc91d8f6819b895674df08e312da3833291019b8966a2211ec8c75"
+    },
+    {
+      "path": "experiments/entropy-partial-mismatch-20261010/scripts/h800_ep48_link_core_v1.py",
+      "bytes": 13310,
+      "sha256": "4ee75147eec3e1008045bc7cfd30eb0cb0ff96d0468097384251a48870deabb4"
+    },
+    {
+      "path": "experiments/entropy-partial-mismatch-20261010/scripts/leo_whole_math_v1.py",
+      "bytes": 15525,
+      "sha256": "db4349f936b2cd0c267932cc286e2661e1f7d56dd10d1c4e4a5d7d90ec279252"
+    },
+    {
+      "path": "experiments/external-comparison-20261004/swin_model.py",
+      "bytes": 6430,
+      "sha256": "144c6164160eac328c5612cdd0d3697e7b8492989c97c937935a0c5960975ee2"
+    },
+    {
+      "path": "experiments/prior-aware-grouped-mcs-v1/uep_phy.py",
+      "bytes": 6045,
+      "sha256": "1f1fad07942e30cbc844e0cc3c2d7da7c747b568639d27115dc33eaec49cc65b"
+    },
+    {
+      "path": "experiments/var-latent-enhancement-20260917/configs/experiment.json",
+      "bytes": 5336,
+      "sha256": "6921186881ad124549df04bf0be9f0ee660063d00f0107c67ca4f966240d2412"
+    },
+    {
+      "path": "experiments/var-latent-enhancement-20260917/docs/stage_A_execution.md",
+      "bytes": 2601,
+      "sha256": "d9ba6caa36848b65128363352f367258a0dc7196def305331eb7a242c51dec17"
+    },
+    {
+      "path": "experiments/var-latent-enhancement-20260917/src/latent_enhancement/cache.py",
+      "bytes": 11261,
+      "sha256": "9711f43050687a39f04bd3a73aef6d05de03d588ab114c7381ed9e8ddb7d3fbd"
+    },
+    {
+      "path": "experiments/var-latent-enhancement-20260917/src/latent_enhancement/training.py",
+      "bytes": 6167,
+      "sha256": "fc3e59b48f7c5dda01d29f7a7f6ab7fddd0b339b4168a93a86badcec9b9012fb"
+    },
+    {
+      "path": "experiments/var-short-prefix-hybrid-20260923/src/short_prefix/train.py",
+      "bytes": 13897,
+      "sha256": "5a2d88d15ca6566839a3ba4d7dc52ff8839be937756c90020f1e94297eb9e17e"
+    },
+    {
+      "path": "results/t1b_m10_calibration_20261016_v1/delivery/frozen_policies.json",
+      "bytes": 55839,
+      "sha256": "81dfc416ccd82bad538885e8f71f394a6f7f94bb21e403b510721d78582b3e02"
+    }
+  ],
+  "whole_partial_policies": {
+    "4": {
+      "WHOLE": "m7_q2_r2-3",
+      "PARTIAL": "m7_K25_q2_r2-3"
+    },
+    "10": {
+      "WHOLE": "m9_q4_r2-3",
+      "PARTIAL": "m8_K126_q4_r2-3"
+    },
+    "19": {
+      "WHOLE": "m10_whole_q6_r5-6",
+      "PARTIAL": "m10_partial_q6_r5-6"
+    }
+  },
+  "decoder": {
+    "stage": "legacy Stage A",
+    "selected_update": 38000,
+    "checkpoint_file_sha256": "e3d757a5a16206f5f9be345d0e6330b0f1fd6c78bf167670e70378b429d931c4",
+    "training_sources": 20000,
+    "batch16_branches": {
+      "continuous": 8,
+      "fully_quantized": 4,
+      "prefix_completion_interpolation": 4
+    },
+    "interpolation": "Fb_TX + alpha * (F - Fb_TX), alpha ~ Uniform[0,1]",
+    "loss": "MSE + 0.1 LPIPS",
+    "later_progressive_rd_models_used": false
+  },
+  "latent_jscc": {
+    "checkpoint_updates": 100000,
+    "loss": "MSE + 0.1 LPIPS + 0.01 normalized latent MSE"
+  },
+  "receiver_rejection": [
+    "header CRC",
+    "profile catalogue membership",
+    "body CRC",
+    "legal declared length",
+    "known zero padding",
+    "invalid arithmetic source parsing"
+  ]
+}
