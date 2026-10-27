@@ -1,0 +1,81 @@
+{
+  "schema": "p1_bootstrap_metadata_clarification_v1",
+  "basis_commit": "35736084cbec945cd70f3f55770cf40140185f4f",
+  "purpose": "Companion clarification; original bound registration and statistical output bytes are preserved.",
+  "bound_files": [
+    {
+      "path": "results/wcl_revision_20261027_v1/p1_registration.json",
+      "bytes": 14073,
+      "sha256": "aa4a02575d5aa12110ab7c264303cdc8f3456971a1522538462abfd0dd1e4d90"
+    },
+    {
+      "path": "results/wcl_revision_20261027_v1/p1_delivery/statistics_identity.json",
+      "bytes": 11631,
+      "sha256": "94565d3d6bf39f67a924f94f152d2e2ce7e30cf23379d38bd956aa9c1f3b5593"
+    },
+    {
+      "path": "results/wcl_revision_20261027_v1/p1_delivery/paired_differences.csv",
+      "bytes": 1117,
+      "sha256": "1fc7884941d1a6760de7d04dba287e90e75bda520630dbac52a4d12a7e4b7bba"
+    },
+    {
+      "path": "results/wcl_revision_20261027_v1/p1_delivery/source_means.csv",
+      "bytes": 85315,
+      "sha256": "a5f711f369c38efe47ca25f8f01139f938dee4c46bff998ccb0692b03b3531e3"
+    },
+    {
+      "path": "results/wcl_revision_20261027_v1/p1_delivery/noise_identity.csv",
+      "bytes": 36572,
+      "sha256": "6e4e49bcf62bacbab56543185e7f3c1b7b38d7b683f8cdf632b4c14d345bd417"
+    }
+  ],
+  "reused": {
+    "indices": {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/arpc_external_20261019_v1/a3_metrics_v1/bootstrap/source_indices.npy",
+      "bytes": 8000128,
+      "sha256": "5e11cd2ee931a2de9f22f8e42034a71ef610eb83a48bac9e53224e666f5a447d"
+    },
+    "shape": [
+      10000,
+      100
+    ],
+    "seed": 2026100701,
+    "source_order": "Exact inherited 100-source order; p1_delivery/statistics_identity.json source_order"
+  },
+  "historical_fields": {
+    "bootstrap.paired_delta": "EC_VAR_PARTIAL source mean minus ARPC source mean before resampling; never subtract marginal intervals",
+    "bootstrap.noise": "ARPC and NeST6201/2/3; other historical baselines2001/2/3. Source pairing, not identical-noise coupling.",
+    "bootstrap.NeST19": "T1-C m10 revised PARTIAL new_mean",
+    "bootstrap.draw_matrix_calls": 1,
+    "bootstrap.old_method_scores_recomputed": false
+  },
+  "current_semantics": {
+    "comparison": "PARTIAL_minus_WHOLE",
+    "delta": "For each true SNR and metric: PARTIAL source mean minus WHOLE source mean, formed before applying the shared resampling index bank.",
+    "TX_policy_SNR_dB": 10,
+    "true_SNR_dB": [
+      8,
+      10,
+      12
+    ],
+    "source_count": 100,
+    "noise_realizations_per_source": 3,
+    "noise": "The same actual AWGN vector is shared by WHOLE and PARTIAL for each source/repeat and scaled to each true SNR. This is not just a claim about equal integer seeds.",
+    "noise_record": {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/wcl_revision_20261027_v1/preparation/standard_noise.npy",
+      "bytes": 4915328,
+      "sha256": "d066e7c7fa81750a6b45f40393a64bead56d3ee23d2f005b0709d872034227c1"
+    },
+    "noise_array_sha256": "b1b1f2202939cf4f99ee4f950d7667f5074b39f0e976603e47dca3ba6ce1255d",
+    "noise_shape": [
+      300,
+      1024,
+      2
+    ],
+    "gray_failures_included": true,
+    "new_bootstrap_index_draws": 0,
+    "new_statistics_in_this_clarification": 0,
+    "metrics": "PSNR, LPIPS-Alex, DreamSim and CLIP image-image cosine; original scalar compute/reuse counts remain in p1_delivery/actual_compute_and_reuse.json"
+  },
+  "limits": "Only the index bank and its matching source order were reused for this P1 comparison. Old ARPC pairing/noise prose and NeST19 notes describe the originating task, not P1. draw_matrix_calls=1 describes the original bank creation; P1 new_random_draws=0. No registration, index, score, interval or scientific result is changed."
+}

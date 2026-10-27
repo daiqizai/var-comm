@@ -45,3 +45,12 @@ No rebuilding command samples a model, simulates a channel, computes a metric, o
 The new 1800-outcome TX-policy mismatch diagnostic is complete. It shares actual AWGN vectors across families, keeps true RX variance, includes all failures, and preserves the original post-loop engineering assertion failure plus independent metadata closure. No completed science was rerun. See the full diagnostic report for 24 means, 12 paired intervals and compute/reuse counts.
 
 P2 (Ada timing/decoding sensitivity, alternative calibration objectives) was not started. No new main-grid experiment, calibration or training was run. Ada has no same-protocol latency number. The old automation remains paused.
+
+## 2026-10-27 editorial corrections after 35736084
+
+- II.B: replaced the ambiguous no-feasible-endpoint sentence with an explicit conditional; separated the one-realization 100-image pilot from the three-realization 1000-image final evaluation. Final full-scale candidates and fixed tie order are described without development-history language.
+- III.A/B: directly report observed reception counts; keep A0/B0/C0 definitions and results while removing registration and defensive phrasing.
+- III.D/IV: report only the observed 8/10/12 dB mismatch outcomes; remove the unmeasured sharp-transition claim and the mismatch sentence from the conclusion.
+- Added `results/wcl_revision_20261027_v1/p1_bootstrap_clarification_v1.md` and its JSON companion. Original registration/statistics bytes and hashes, figures, tables and all scientific results are preserved. No scientific or bootstrap computation is performed by this edit.
+
+`editorial_revision.json` records the subsequent text-only correction and immutable scientific-file check. `revision_inputs.json` continues to describe the preceding P0/P1 release; the result-directory README gained only the companion metadata-note link. Final review evidence is `visual_review.json` and `validation/*editorial*`; older compilation/review receipts remain historical.

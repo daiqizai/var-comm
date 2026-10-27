@@ -6,3 +6,5 @@
 - Exact original failure, independent closure and actual waits: `execution_evidence/`.
 
 P0 and P1 are complete; P2 was not started. Main common500/Kodak and prior A/B/C results are unchanged. No scientific stage should be repeated. Parent public commit: `1f2a86a41b65fe90c0bf245076212b0a27852deb`.
+
+Bootstrap metadata note: [p1_bootstrap_clarification_v1.md](p1_bootstrap_clarification_v1.md) distinguishes historical ARPC descriptions from the actual PARTIAL-minus-WHOLE/shared-noise P1 comparison. Original registrations, hashes and results are unchanged.

@@ -17,3 +17,14 @@
 | Word/LaTeX | 同一文字源同步，匿名、10pt双栏五页及12pt双行距单栏 | 编译收据及visual_review.json |
 
 上述 p0/p1_delivery 均位于 results/wcl_revision_20261027_v1。新版仅补P1：1200新物理帧、2400包译码，600旧10dB帧逐项等价复用；零新源模型/VAR恢复，461个缺失指标标量。原link末尾CUDA状态断言导致exit1，已保留并以独立只读元数据核验闭合，不伪称原exit0。P2未启动。
+
+## 35736084 之后的文字修订
+
+| 位置 | 改动 | 核对依据 |
+|---|---|---|
+| II.B | 无端点可装入改为明确条件句；100图初筛一次、1000图最终复评三次分别说明 | 原冻结流程与 p0/README.md |
+| II.B、III.A/B | 清理版本修订、缓存复用、登记等开发记录措辞；保留最终候选、固定并列顺序及 A0/B0/C0 定义 | 原配置和结果不变 |
+| III.D、IV | 仅报告8/10/12 dB观测；删除 sharp boundary 与结论中的失配句 | p1_delivery/paired_differences.csv、rejections.csv |
+| 结果元数据说明 | 新增 bootstrap 澄清文件，明确 PARTIAL−WHOLE、共享实际噪声；原登记及统计元数据原字节/哈希保留 | p1_bootstrap_clarification_v1.md/json |
+
+本轮仅修改文字和伴随说明，同步排版；无新实验、评分或统计。图1–3、两表及全部数值原字节保留。
