@@ -1,0 +1,402 @@
+{
+  "schema": "WCL_TX_POLICY_SNR_MISMATCH_V1",
+  "basis_HEAD": "1f2a86a41b65fe90c0bf245076212b0a27852deb",
+  "logical": 1800,
+  "source_count": 100,
+  "TX_policy_SNR": 10,
+  "true_SNRs": [
+    8,
+    10,
+    12
+  ],
+  "noise_seeds": [
+    6201,
+    6202,
+    6203
+  ],
+  "RX_LLR": "true noise variance",
+  "N": 1024,
+  "Es": 2,
+  "header_symbols": 68,
+  "body_symbols": 956,
+  "models_changed": false,
+  "policy_changed": false,
+  "training": false,
+  "source_probability_calls": 0,
+  "tokenizer_calls": 0,
+  "targets": {
+    "WHOLE": [
+      9,
+      0
+    ],
+    "PARTIAL": [
+      8,
+      126
+    ]
+  },
+  "fallback": {
+    "WHOLE": [
+      [
+        9,
+        0
+      ],
+      [
+        8,
+        0
+      ],
+      [
+        7,
+        0
+      ],
+      [
+        6,
+        0
+      ],
+      [
+        5,
+        0
+      ],
+      [
+        4,
+        0
+      ]
+    ],
+    "PARTIAL": [
+      [
+        8,
+        126
+      ],
+      [
+        8,
+        84
+      ],
+      [
+        8,
+        42
+      ],
+      [
+        8,
+        0
+      ],
+      [
+        7,
+        75
+      ],
+      [
+        7,
+        50
+      ],
+      [
+        7,
+        25
+      ],
+      [
+        7,
+        0
+      ],
+      [
+        6,
+        48
+      ],
+      [
+        6,
+        32
+      ],
+      [
+        6,
+        16
+      ],
+      [
+        6,
+        0
+      ],
+      [
+        5,
+        27
+      ],
+      [
+        5,
+        18
+      ],
+      [
+        5,
+        9
+      ],
+      [
+        5,
+        0
+      ],
+      [
+        4,
+        18
+      ],
+      [
+        4,
+        12
+      ],
+      [
+        4,
+        6
+      ],
+      [
+        4,
+        0
+      ]
+    ]
+  },
+  "source_list": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/arpc_external_baseline_20261019_v1/sources.json",
+    "bytes": 130081,
+    "sha256": "4a6ca6950158529bedff8524345b69cde88248499920e7b06a70c4db85e87f5d"
+  },
+  "sources": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/wcl_revision_20261027_v1/preparation/sources.json",
+    "bytes": 86975,
+    "sha256": "4fe6d9c449f4f27935a64f7e947e5f2e254dd211d616ecb6c158eb80b5ce47e1"
+  },
+  "jobs": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/wcl_revision_20261027_v1/preparation/jobs.json",
+    "bytes": 13086111,
+    "sha256": "cffbf0fa490a673d843dcea8d60da832b67a2866934ae373c98ef7dd91fb6b59"
+  },
+  "noise": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/wcl_revision_20261027_v1/preparation/standard_noise.npy",
+    "bytes": 4915328,
+    "sha256": "d066e7c7fa81750a6b45f40393a64bead56d3ee23d2f005b0709d872034227c1"
+  },
+  "noise_array_sha256": "b1b1f2202939cf4f99ee4f950d7667f5074b39f0e976603e47dca3ba6ce1255d",
+  "noise_shape": [
+    300,
+    1024,
+    2
+  ],
+  "noise_semantics": "one actual float64 standard (real,imag) vector per source/repeat, shared across families and scaled by 10**(-true_snr/20); independent SHA256 channel namespace",
+  "original_registration": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/n1024_consistency_20261019_v1/repair_v1/registration.json",
+    "bytes": 48119,
+    "sha256": "4789b2595190262a5970f985d25f420663d8225321830a770c4400fc82487670"
+  },
+  "frozen_policy": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/t1b_m10_calibration_20261016_v1/delivery/frozen_policies.json",
+    "bytes": 55839,
+    "sha256": "81dfc416ccd82bad538885e8f71f394a6f7f94bb21e403b510721d78582b3e02"
+  },
+  "catalogue": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/t1b_m10_calibration_20261016_v1/public_catalogue.json",
+    "bytes": 1531959,
+    "sha256": "135d97ccd7d590435388b72c1e36ec5f1789da5ed18fe2ad4a2dae498bad059d"
+  },
+  "phy_qualification": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/outputs/WCL-ENTROPY-PARTIAL-20261010/H800_PHY457_v2/completion.json",
+    "sha256": "ee7a5d9359e82dba62bfdaa3f4d1246815a05f13f393edd23500a6bdd6f6967d"
+  },
+  "backend_identity": {
+    "bit_mapping": "original_MAIN_q2_q4_and_q6_Gray_I_then_Q;nominal_Es2;no_frame_normalization",
+    "decoder": {
+      "cn_schedule": "flooding",
+      "cn_update": "boxplus-phi",
+      "early_stop": false,
+      "hard_out": true,
+      "harq_mode": false,
+      "llr_max": 20.0,
+      "num_iter": 20,
+      "precision": "single",
+      "prune_pcm": true,
+      "return_infobits": true,
+      "vn_update": "sum"
+    },
+    "device": "cpu",
+    "implementation": "Sionna_5G_LDPC_WCL_T1_ADAPTER_V1",
+    "original_backend_identity": {
+      "bit_mapping": "component_Gray_00_-3_01_-1_10_3_11_1_over_sqrt5;QPSK_0_plus1_1_minus1",
+      "cuda": "12.8",
+      "decoder": {
+        "cn_schedule": "flooding",
+        "cn_update": "boxplus-phi",
+        "early_stop": false,
+        "hard_out": true,
+        "harq_mode": false,
+        "llr_max": 20.0,
+        "num_iter": 20,
+        "precision": "single",
+        "prune_pcm": true,
+        "return_infobits": true,
+        "vn_update": "sum"
+      },
+      "decoder_source_sha256": "44d84b92b749e2970f94d92cd348a11648e2286b4d851faa0af8b21d08f0da23",
+      "encoder_source_sha256": "34d8db6660b2e84708a8fb534f63c194f6f2b964e3693fcffc9dcaf21532ccfd",
+      "implementation": "Sionna_5G_LDPC",
+      "power_protocol": "fixed_constellation_average_Es2",
+      "precision": "float32",
+      "rate_matching": "Sionna RV0; filler removal, first2Z and tail puncturing; supported n only",
+      "scrambling": "public_PCG64_SHA256_protocol_session_frame_group_counter_after_rate_matching_v1",
+      "torch": "2.11.0+cu128",
+      "version": "2.2.0"
+    },
+    "power_protocol": "fixed_constellation_average_Es2_no_per_frame_normalization",
+    "precision": "float32",
+    "rate_matching": "Sionna RV0; filler removal, first2Z and tail puncturing; supported n only",
+    "scrambling": "WCL_T1_public_PCG64_SHA256_protocol_session_counter_after_RV0_v1"
+  },
+  "bootstrap": {
+    "seed": 2026100701,
+    "replicates": 10000,
+    "draw_matrix_calls": 1,
+    "indices": {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/arpc_external_20261019_v1/a3_metrics_v1/bootstrap/source_indices.npy",
+      "bytes": 8000128,
+      "sha256": "5e11cd2ee931a2de9f22f8e42034a71ef610eb83a48bac9e53224e666f5a447d"
+    },
+    "source_ids": [
+      "n03017168/ILSVRC2012_val_00010781_n03017168",
+      "n02814860/ILSVRC2012_val_00009026_n02814860",
+      "n03297495/ILSVRC2012_val_00004086_n03297495",
+      "n03947888/ILSVRC2012_val_00044427_n03947888",
+      "n01945685/ILSVRC2012_val_00014130_n01945685",
+      "n01514859/ILSVRC2012_val_00049833_n01514859",
+      "n02219486/ILSVRC2012_val_00011617_n02219486",
+      "n02807133/ILSVRC2012_val_00011487_n02807133",
+      "n03961711/ILSVRC2012_val_00034549_n03961711",
+      "n04398044/ILSVRC2012_val_00032195_n04398044",
+      "n02167151/ILSVRC2012_val_00030419_n02167151",
+      "n04554684/ILSVRC2012_val_00049921_n04554684",
+      "n02480495/ILSVRC2012_val_00031083_n02480495",
+      "n03187595/ILSVRC2012_val_00017123_n03187595",
+      "n02788148/ILSVRC2012_val_00005736_n02788148",
+      "n02410509/ILSVRC2012_val_00007597_n02410509",
+      "n02110806/ILSVRC2012_val_00032209_n02110806",
+      "n02018795/ILSVRC2012_val_00034725_n02018795",
+      "n07802026/ILSVRC2012_val_00005847_n07802026",
+      "n02009229/ILSVRC2012_val_00025744_n02009229",
+      "n02488291/ILSVRC2012_val_00038601_n02488291",
+      "n02123394/ILSVRC2012_val_00013785_n02123394",
+      "n12768682/ILSVRC2012_val_00014129_n12768682",
+      "n04522168/ILSVRC2012_val_00048744_n04522168",
+      "n01807496/ILSVRC2012_val_00031806_n01807496",
+      "n02480855/ILSVRC2012_val_00016173_n02480855",
+      "n12267677/ILSVRC2012_val_00004433_n12267677",
+      "n01756291/ILSVRC2012_val_00019270_n01756291",
+      "n02730930/ILSVRC2012_val_00009021_n02730930",
+      "n02105855/ILSVRC2012_val_00041339_n02105855",
+      "n02791124/ILSVRC2012_val_00041772_n02791124",
+      "n07760859/ILSVRC2012_val_00002217_n07760859",
+      "n04487081/ILSVRC2012_val_00047730_n04487081",
+      "n01877812/ILSVRC2012_val_00007957_n01877812",
+      "n04026417/ILSVRC2012_val_00013578_n04026417",
+      "n02910353/ILSVRC2012_val_00035865_n02910353",
+      "n02137549/ILSVRC2012_val_00031784_n02137549",
+      "n01739381/ILSVRC2012_val_00013397_n01739381",
+      "n01698640/ILSVRC2012_val_00006516_n01698640",
+      "n02769748/ILSVRC2012_val_00043513_n02769748",
+      "n03623198/ILSVRC2012_val_00009657_n03623198",
+      "n01632458/ILSVRC2012_val_00030418_n01632458",
+      "n02113624/ILSVRC2012_val_00039376_n02113624",
+      "n03630383/ILSVRC2012_val_00016123_n03630383",
+      "n02966193/ILSVRC2012_val_00016573_n02966193",
+      "n02128757/ILSVRC2012_val_00042484_n02128757",
+      "n01828970/ILSVRC2012_val_00000420_n01828970",
+      "n02091134/ILSVRC2012_val_00036765_n02091134",
+      "n12144580/ILSVRC2012_val_00048526_n12144580",
+      "n02259212/ILSVRC2012_val_00011888_n02259212",
+      "n02825657/ILSVRC2012_val_00007587_n02825657",
+      "n01806567/ILSVRC2012_val_00040056_n01806567",
+      "n02088466/ILSVRC2012_val_00013080_n02088466",
+      "n02105251/ILSVRC2012_val_00046037_n02105251",
+      "n02444819/ILSVRC2012_val_00004298_n02444819",
+      "n01440764/ILSVRC2012_val_00046499_n01440764",
+      "n03773504/ILSVRC2012_val_00025097_n03773504",
+      "n02396427/ILSVRC2012_val_00011734_n02396427",
+      "n02107312/ILSVRC2012_val_00010372_n02107312",
+      "n02793495/ILSVRC2012_val_00017403_n02793495",
+      "n02132136/ILSVRC2012_val_00042274_n02132136",
+      "n03160309/ILSVRC2012_val_00010266_n03160309",
+      "n07717410/ILSVRC2012_val_00033494_n07717410",
+      "n04487394/ILSVRC2012_val_00028418_n04487394",
+      "n03388549/ILSVRC2012_val_00048243_n03388549",
+      "n02916936/ILSVRC2012_val_00038590_n02916936",
+      "n02093256/ILSVRC2012_val_00013508_n02093256",
+      "n02804610/ILSVRC2012_val_00002180_n02804610",
+      "n04525038/ILSVRC2012_val_00044419_n04525038",
+      "n04548280/ILSVRC2012_val_00035525_n04548280",
+      "n01768244/ILSVRC2012_val_00040047_n01768244",
+      "n03770439/ILSVRC2012_val_00003742_n03770439",
+      "n13052670/ILSVRC2012_val_00041075_n13052670",
+      "n03314780/ILSVRC2012_val_00028520_n03314780",
+      "n04286575/ILSVRC2012_val_00036296_n04286575",
+      "n04263257/ILSVRC2012_val_00016290_n04263257",
+      "n02090379/ILSVRC2012_val_00015885_n02090379",
+      "n02835271/ILSVRC2012_val_00012667_n02835271",
+      "n03895866/ILSVRC2012_val_00039656_n03895866",
+      "n04548362/ILSVRC2012_val_00006088_n04548362",
+      "n01871265/ILSVRC2012_val_00045814_n01871265",
+      "n04604644/ILSVRC2012_val_00037279_n04604644",
+      "n01860187/ILSVRC2012_val_00001044_n01860187",
+      "n03220513/ILSVRC2012_val_00046008_n03220513",
+      "n04515003/ILSVRC2012_val_00013446_n04515003",
+      "n02979186/ILSVRC2012_val_00033397_n02979186",
+      "n02117135/ILSVRC2012_val_00035999_n02117135",
+      "n01797886/ILSVRC2012_val_00036227_n01797886",
+      "n04355338/ILSVRC2012_val_00042255_n04355338",
+      "n03584829/ILSVRC2012_val_00008710_n03584829",
+      "n02085620/ILSVRC2012_val_00029450_n02085620",
+      "n03133878/ILSVRC2012_val_00042723_n03133878",
+      "n04141076/ILSVRC2012_val_00045041_n04141076",
+      "n03461385/ILSVRC2012_val_00016284_n03461385",
+      "n01558993/ILSVRC2012_val_00020610_n01558993",
+      "n02102040/ILSVRC2012_val_00027918_n02102040",
+      "n04273569/ILSVRC2012_val_00000901_n04273569",
+      "n01910747/ILSVRC2012_val_00003419_n01910747",
+      "n03188531/ILSVRC2012_val_00041052_n03188531",
+      "n03417042/ILSVRC2012_val_00033842_n03417042"
+    ],
+    "unit": "source; each source first averages three noise realizations",
+    "interval": "pointwise percentile 95%, NumPy quantile method=linear; no multiplicity adjustment",
+    "paired_delta": "EC_VAR_PARTIAL source mean minus ARPC source mean before resampling; never subtract marginal intervals",
+    "old_method_scores_recomputed": false,
+    "NeST19": "T1-C m10 revised PARTIAL new_mean",
+    "noise": "ARPC and NeST6201/2/3; other historical baselines2001/2/3. Source pairing, not identical-noise coupling."
+  },
+  "bootstrap_identity": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/arpc_external_baseline_20261019_v1/a3_metrics_v1/bootstrap_identity.json",
+    "bytes": 5971,
+    "sha256": "746a3d88517a4da629d593323c9a059ef08c988b45611dff856e51d2ddb694f0"
+  },
+  "caps": {
+    "logical_receptions": 1800,
+    "new_physical_max": 1800,
+    "packet_decodes_max": 3600,
+    "source_rx_max": 1800,
+    "render_max": 1800,
+    "unique_metric_pairs_per_metric_max": 1800
+  },
+  "max_seconds": 10800,
+  "automatic_retry": false,
+  "reuse": "old10 only with exact waveform/observation/noise/backend proof; deterministic RX by actual input key; metrics by source/pixel identity",
+  "code": [
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/wcl-revision-20261027/p1_common.py",
+      "bytes": 2490,
+      "sha256": "91dde2faddf72c8262ad10f0ba03ef19484b212826b67cf81d7ef1b86325cee2"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/wcl-revision-20261027/p1_control.py",
+      "bytes": 1959,
+      "sha256": "2dc4fe107d972debfe9c9430db3f816f2beef6270974c8e65b8b9df6c6856bb4"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/wcl-revision-20261027/p1_link.py",
+      "bytes": 4834,
+      "sha256": "56cbbde334beaa1fdfdc54f96c5a4c2ad2d467323ab03a1d37d3d98d857afd6d"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/wcl-revision-20261027/p1_prepare.py",
+      "bytes": 5372,
+      "sha256": "6e1892e568e06845f62195357c66d8bfe9b25959052f2c1a3af6a071198b471a"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/wcl-revision-20261027/test_p1.py",
+      "bytes": 1193,
+      "sha256": "95d0cc2644d417b24585bce4382b6152d7d7edacae9cc6b68457be15ca2e12a0"
+    }
+  ]
+}

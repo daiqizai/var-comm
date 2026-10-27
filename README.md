@@ -1,5 +1,13 @@
 ## 2026-10-27 A/B/C response study: formal Ada comparison completed
 
+## 2026-10-27 — WCL reproducibility revision and frozen-policy SNR diagnostic
+
+The revised anonymous [manuscript v2](paper/manuscripts/nestcom_wcl_adatoken_20261027_v2/README.md) includes verified candidate/MCS/fallback rules, A0/B0/C0 definitions, actual power/SNR assumptions and final receiver counts. The five-page IEEE 10pt PDF, 13-page double-spaced single-column PDF and editable 14-page Word were compiled/rendered and inspected. All three figures, the 72 frozen main means/CIs and historical v1 remain unchanged.
+
+The [bounded P1 diagnostic](results/wcl_revision_20261027_v1/p1_delivery/REPORT.md) completed 1800 logical receptions on the existing100 sources: frozen10dB WHOLE/PARTIAL policies, true8/10/12dB, shared actual AWGN and true RX noise variance. Both reject300/300 at8dB and accept300/300 at10/12dB, where their received prefixes/reconstructions match. PARTIAL gains0.660dB [0.515,0.814] and reduces DreamSim by0.02384 [0.01797,0.02999]. All failed gray outputs remain included. Actual new work:1200 physical frames,2400 packet decodes,461 metric scalars;600 verified old10dB events reused,zero new source-model/VAR reconstruction and no new bootstrap indices.
+
+The original link worker exited1 after its completed loop at an invalid global CUDA-context assertion; its failure is preserved. Independent metadata-only ledger/output checks closed all saved scientific results without repeating a successful call; metrics/statistics exited0. Complete evidence and final main-frame failure counts are in [the result directory](results/wcl_revision_20261027_v1/README.md). P2 remains unstarted. Old automation stays paused; no training or main-grid rerun.
+
 ## 2026-10-27 — WCL three-figure/two-table manuscript and two Ada examples
 
 The complete anonymous manuscript is in [paper/manuscripts/nestcom_wcl_adatoken_20261027_v1](paper/manuscripts/nestcom_wcl_adatoken_20261027_v1/README.md): 5-page IEEEtran 10pt PDF, double-spaced single-column PDF, editable Word, native Fig.1 PPTX, three figures and two tables. The 72 frozen six-system mean/CI rows are unchanged and verified; main common500/Kodak and the 100-source diagnostics remain distinct. Perceptual tradeoffs favoring Ada at some operating points are reported.

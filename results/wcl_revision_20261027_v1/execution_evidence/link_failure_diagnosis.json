@@ -1,0 +1,98 @@
+{
+  "failure": {
+    "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/wcl-revision-20261027/p1_link.py\", line 41, in main\n    assert len(rows)==1800 and ledger.snapshot()['unresolved']==0 and not rt.torch.cuda.is_initialized()\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "packets": {
+      "total": 2400,
+      "unresolved": 0,
+      "cap": 3600
+    },
+    "automatic_retry": false
+  },
+  "actual_wait": {
+    "actual_wait": true,
+    "returncode": 1,
+    "process": {
+      "pid": 3837845,
+      "start_ticks": 278575208,
+      "state": "R"
+    },
+    "parent_process": {
+      "pid": 3837781,
+      "start_ticks": 278575199,
+      "state": "R"
+    },
+    "terminated": false,
+    "killed": false,
+    "timed_out": false,
+    "seconds": 60.65151632903144
+  },
+  "physical_files": 1200,
+  "schema": [
+    [
+      "config",
+      "CREATE TABLE config (id INTEGER PRIMARY KEY, hash TEXT NOT NULL, cap INTEGER NOT NULL)"
+    ],
+    [
+      "events",
+      "CREATE TABLE events (event_id TEXT PRIMARY KEY, event TEXT NOT NULL, request TEXT NOT NULL, result TEXT, status TEXT NOT NULL)"
+    ],
+    [
+      "sqlite_autoindex_events_1",
+      null
+    ]
+  ],
+  "counts": [],
+  "after_torch_import": false,
+  "after_ep_import": false,
+  "after_CPU_runtime_constructors": true,
+  "backend_device": "cpu",
+  "cuda_allocated_bytes": 0,
+  "backend_identity": {
+    "implementation": "Sionna_5G_LDPC_WCL_T1_ADAPTER_V1",
+    "original_backend_identity": {
+      "implementation": "Sionna_5G_LDPC",
+      "version": "2.2.0",
+      "encoder_source_sha256": "34d8db6660b2e84708a8fb534f63c194f6f2b964e3693fcffc9dcaf21532ccfd",
+      "decoder_source_sha256": "44d84b92b749e2970f94d92cd348a11648e2286b4d851faa0af8b21d08f0da23",
+      "decoder": {
+        "cn_update": "boxplus-phi",
+        "vn_update": "sum",
+        "cn_schedule": "flooding",
+        "num_iter": 20,
+        "llr_max": 20.0,
+        "hard_out": true,
+        "return_infobits": true,
+        "prune_pcm": true,
+        "harq_mode": false,
+        "precision": "single",
+        "early_stop": false
+      },
+      "bit_mapping": "component_Gray_00_-3_01_-1_10_3_11_1_over_sqrt5;QPSK_0_plus1_1_minus1",
+      "scrambling": "public_PCG64_SHA256_protocol_session_frame_group_counter_after_rate_matching_v1",
+      "power_protocol": "fixed_constellation_average_Es2",
+      "precision": "float32",
+      "rate_matching": "Sionna RV0; filler removal, first2Z and tail puncturing; supported n only",
+      "cuda": "12.8",
+      "torch": "2.11.0+cu128"
+    },
+    "decoder": {
+      "cn_update": "boxplus-phi",
+      "vn_update": "sum",
+      "cn_schedule": "flooding",
+      "num_iter": 20,
+      "llr_max": 20.0,
+      "hard_out": true,
+      "return_infobits": true,
+      "prune_pcm": true,
+      "harq_mode": false,
+      "precision": "single",
+      "early_stop": false
+    },
+    "bit_mapping": "original_MAIN_q2_q4_and_q6_Gray_I_then_Q;nominal_Es2;no_frame_normalization",
+    "scrambling": "WCL_T1_public_PCG64_SHA256_protocol_session_counter_after_RV0_v1",
+    "power_protocol": "fixed_constellation_average_Es2_no_per_frame_normalization",
+    "rate_matching": "Sionna RV0; filler removal, first2Z and tail puncturing; supported n only",
+    "precision": "float32",
+    "device": "cpu"
+  }
+}

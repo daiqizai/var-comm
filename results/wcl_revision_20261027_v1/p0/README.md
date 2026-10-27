@@ -1,0 +1,14 @@
+# Reproducibility audit of frozen main experiments
+
+The public basis is `1f2a86a41b65fe90c0bf245076212b0a27852deb`. No main experiment, calibration or inference was repeated for this audit.
+
+- `frozen_strategies.json`: actual 4/10/19 dB WHOLE/PARTIAL target, MCS, paid capacity and complete ordered fallback chain. Minimum endpoint (4,0); no-fit raises an execution error, with no invented null-profile transmission.
+- `complete_candidate_records.json`: original 144 targets/MCSs, 24 symmetric full-m10 candidates, and the exact final eligible IDs, DINO means and winners from T1-B. This separates shortlist selection from deterministic fallback. All 19 dB results retain the T1-C m10 correction.
+- `final_reception_counts.csv`: source/output-level final acceptance counts, not only physical CRC. common500 has 1500 and Kodak has 72 logical frames per method/SNR. WHOLE is the shared-model reference; six systems form the main external comparison. Latent JSCC is continuous and has no CRC rejection rule. All reported final failures are zero; NeST TX length fallback remains a separate column.
+- `evidence_audit.json` and `kodak_arpc_final_audit.json`: exact underlying evidence identities. The latter validates all 72 unique Kodak ARPC native outputs and 216 logical links. Its historical 100 blocked reads of the native source-code file are preserved, not represented as an empty audit list.
+
+The first pilot uses 100 calibration sources, 144 candidates, one registered noise; the shortlist (top three plus the original WHOLE anchor) uses all 1000 calibration sources and three noises. The later m10 extension registers 24 candidates; 20 exact-stream aliases are reused and four distinct policies are evaluated. Each SNR's final PARTIAL set includes the four prior finalists and the four distinct new candidates; WHOLE retains its eligible original anchor and two new whole policies. Exact ties prefer legacy IDs, then lexical ID. Gray reconstructions contribute to DINO means. This is staged selection, not exhaustive full-population optimization.
+
+Next-scale CDFs condition on complete coarse scales. Boundary locations not transmitted keep the coarse-conditioned prediction. Overwriting received positions changes the residual latent and the context used by finer scales, without predicting the other boundary positions again conditioned on K.
+
+Digital constellations have nominal average Es=2 without per-frame normalization. The 68-symbol protected profile uses rotated BPSK ±(1+j), while the 956-symbol body uses LDPC/QAM. Latent/Swin continuous data are normalized per image, with required Swin side information paid inside N. RX LLR uses true noise variance. The matched main experiment gives TX the corresponding SNR; the P1 diagnostic alone freezes TX lookup at 10 dB while changing the true SNR.
