@@ -1,54 +1,74 @@
-# Manuscript revision tasks after the Ada concern
+# Completed evidence and manuscript changes
 
-This is a bounded revision checklist, not a new full manuscript or a claim
-that the Ada formal evaluation has finished.
+Keep the title **NeST-Com: Fixed-Budget Next-Scale Token Communication**.
+The released earlier manuscript is historical; these replacement paragraphs and
+the six-system Fig. 2 are the current A/B/C evidence package. No new study is pending.
 
-## Attribution and method scope
+## Attribution paragraph for related work
 
-1. Attribute prefix entropy coding, receiver tail generation and joint
-   prefix/MCS selection to the related token-communication literature,
-   including [Ada-TokenCom](https://arxiv.org/html/2608.28086v1).
-2. Attribute the next-scale multiscale representation and conditional
-   known-token overwrite to VAR. Describe NeST-Com's implemented contribution
-   as within-scale endpoint granularity coupled to actual terminated-length
-   fitting under a per-image hard symbol budget and its receiver integration.
-3. Distinguish Ada's long-term average resource/ARQ setting from this fixed
-   per-image N1024 adaptation. The class comes from a fixed sender classifier
-   and costs10 transmitted bits, protected and included in the body length.
-   Do not call it free class information or ImageNet ground truth.
+Ada-TokenCom combines prefix entropy coding, receiver-side tail generation and
+joint prefix/MCS selection under a long-term average resource constraint. Our
+comparison adapts this class-conditioned approach to a fixed per-image frame:
+a frozen sender classifier predicts the class, its 10-bit ID is transmitted and
+protected within the budget, and an independently terminated prefix is chosen
+to fit the available payload. We retain the official LlamaGen-L/VQ16 components
+and report the adaptation separately from the original controller and ARQ setting.
 
-## Evidence and placement
+The multiscale next-scale representation and known-token overwrite mechanism
+come from VAR. NeST-Com studies the granularity of within-scale endpoints,
+actual terminated-length fitting and prefix-constrained reconstruction together
+under a per-image hard symbol budget. WHOLE/PARTIAL and the controlled nested
+endpoint experiment isolate internal design effects; the external comparison
+compares entire systems with different tokenizers, priors and image decoders.
 
-- Keep the existing jointly calibrated WHOLE/PARTIAL evidence. Its endpoint
-  families, targets and fallback were separately calibrated; it is not the
-  same experiment as the new controlled nested grids.
-- A fixes the models, MCS, maximum endpoint and fitting rule. Report all four
-  grids and all three SNRs, including the10dB eighth-minus-quarter DreamSim
-  and CLIP-I intervals that cross zero. Do not claim quarter is globally
-  optimal or replace the frozen main setting from these observed scores.
-- B is secondary explanatory evidence. Separate direct correction from
-  subsequent propagation. Preserve the19dB zero propagation increment and
-  the same-device numerical amendment; no general representation-order
-  causal claim follows from the ablation.
-- C supplies the nearest external fixed-frame reference after formal
-  completion. Retain ARPC. Add the qualified C results to Fig.2 only after
-  calibration freezes the strategy and formal common500/Kodak results close.
-  Do not substitute qualification images or calibration scores.
-- Do not automatically widen Fig.3. Preserve its confirmed examples and
-  realization-specific scores.
+## III.B replacement result paragraph
 
-## Claims requiring recheck after C
+The six-system comparison shows a quality tradeoff rather than uniform
+dominance. Relative to the predicted-class Ada fixed-frame adaptation,
+NeST-Com improves common500 PSNR by 4.116, 0.455 and 1.226 dB at 4, 10 and
+19 dB, respectively. At 4 dB, NeST-Com also has lower LPIPS and DreamSim,
+whereas Ada has higher CLIP-I. At 10 dB, Ada has lower LPIPS and DreamSim and
+higher CLIP-I despite its lower PSNR. At 19 dB, NeST-Com retains higher PSNR
+and CLIP-I and lower LPIPS, while Ada has lower DreamSim. The corresponding
+direct source-paired intervals are reported without inferring differences
+from overlap between marginal intervals.
 
-Recheck the method count, every best/lowest/highest claim, the abstract and
-the discussion of pixel/perceptual/semantic tradeoffs. Report all predefined
-outcomes whether favorable, unfavorable or uncertain. Use direct source-
-paired intervals, not overlap between marginal intervals. System differences
-include tokenizer/prior/decoder differences and cannot all be credited to
-within-scale endpoints. The existing100-source diagnostic is not a new blind
-test; common500 and Kodak must remain separate populations.
+On Kodak, NeST-Com improves all four metrics at 4 dB and PSNR at 10 and 19 dB.
+Its LPIPS advantage at 19 dB also has a nonzero paired interval. The other
+perceptual/CLIP contrasts at 10 or 19 dB span zero; this is uncertainty, not
+evidence of equivalence. The two populations are reported separately.
 
-The official LlamaGen generation configuration is frozen from
-[`sample_c2i.py`](https://github.com/FoundationVision/LlamaGen/blob/ce98ec41803a74a90ce68c40ababa9eaeffeb4ec/autoregressive/sample/sample_c2i.py).
-It is an explicitly documented adaptation because the Ada paper does not
-specify a complete sampling configuration. Source CDFs use the full-vocabulary
-conditional branch; tail sampling alone uses the frozen CFG/top-k route.
+## III.C mechanism paragraph
+
+With fixed models, MCS, maximum endpoint and fitting rule, the quarter grid
+improves 10-dB PSNR by 0.660 dB over whole-scale endpoints. Refining to eighths
+adds 0.123 dB, but the DreamSim and CLIP-I increments span zero. We therefore
+retain the frozen main grid and do not claim quarter-scale endpoints are
+globally optimal. The receiver ablation separates direct residual correction
+from propagation through finer scales. At the final scale, the latter term is
+exactly zero, a boundary case included in the reported results.
+
+## Exact claim and figure edits
+
+- Replace “five methods” with “six systems” only for the new N1024 quantitative
+  comparison; the confirmed qualitative figure still shows its original five.
+- Replace Fig.2 with figures_v1/four_metrics_common500.pdf. Use the separate Kodak
+  figure as supplementary evidence. Keep ARPC and the original five curves.
+- Remove unrestricted “lowest DreamSim/highest CLIP-I at all SNRs.” At common500
+  10/19 dB Ada has lower DreamSim; at 4/10 dB it has higher CLIP-I.
+- Keep NeST's non-leading PSNR versus Swin/BPG, Latent's lower 4-dB LPIPS,
+  and ARPC's favorable N2048 19-dB DISTS. No N2048 experiment or timing was added.
+- Do not attribute the CLIP gap to class conditioning without an ablation.
+  Do not interpret four metrics as four independent confirmations.
+- Preserve jointly calibrated WHOLE/PARTIAL and utilization evidence. The new
+  controlled A experiment is a separate existing100-source diagnostic, not a new blind test.
+
+## Sources
+
+- Ada-TokenCom: https://arxiv.org/html/2608.28086v1
+- Official LlamaGen: commit ce98ec41803a74a90ce68c40ababa9eaeffeb4ec;
+  sampling defaults explicitly adapted because the Ada paper does not disclose
+  the full generation configuration.
+- Experiment plan: experiments/adatoken-response-20261026/C_PREDICTED_CLASS_PLAN.md.
+- Exact current numbers: inputs/{common500,kodak24}/paired_differences.csv,
+  combined_summary.csv and original provenance.json; no new statistics in this document.

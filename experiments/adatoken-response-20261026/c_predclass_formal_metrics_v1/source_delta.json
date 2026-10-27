@@ -1,0 +1,61 @@
+{
+  "status": "DRAFT_NOT_QUALIFIED_OR_DEPLOYED",
+  "parent": {
+    "path": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\experiments\\adatoken-response-20261026\\a_metrics.py",
+    "sha256": "7660d015e9163b0586e14181ba5b4eb3169859375bb7ddb1e7968afc38b01755"
+  },
+  "worker_sha256": "e9fcb4b376338e2484a8f91ee0f18bccbd4536f4e3307abbdaa26dec10ec0692",
+  "previous_unqualified_draft_sha256": "a5e4cbf817e9d377554ddf07b1a4aa2e867a0f96e6ce4993a57d29c56ccfada1",
+  "changes": [
+    [
+      "\"\"\"Score closed A grid outputs; original metric functions, exact B pair/feature reuse.\"\"\"",
+      "\"\"\"Four frozen metrics on closed formal Ada outputs, separate populations.\"\"\"\nfrom pathlib import Path\nimport sys\nsys.path.insert(0,str(Path(__file__).resolve().parents[1]))\nfrom contracts import validate_plan,validate_closure,validate_metric_identity"
+    ],
+    [
+      " plan=cr(reg['plan']);keys=[(v['source_index'],v['snr_db'],v['noise_seed'],v['arm'])for v in plan['frames']]\n assert len(keys)==3600 and len(set(keys))==3600\n assert {k[3]for k in keys}=={'WHOLE','HALF','QUARTER','EIGHTH'}",
+      " plan=cr(reg['plan']);validate_plan(plan,reg['population'])"
+    ],
+    [
+      " plan=metric_inputs(r);out=L/role;",
+      " plan=metric_inputs(r);total=validate_plan(plan,r['population'])\n assert r['frozen_policy']==plan['frozen_policy'];checked(r['frozen_policy'])\n checked(r['scope']);checked(r['revision'])\n assert r['revision']['sha256']=='fb80b863dad31fa37cac9cc2e8d8ee4a7d5248071b3a73fdcc74c704517fc254'\n assert os.uname().nodename==r['hostname']=='aibox-r59688baa77c-57c794f5c6-44lm7'\n assert any(c['kind']=='PHY'for c in r['science_closures'])\n assert len({c['role']for c in r['science_closures']})==len(r['science_closures'])\n for c in r['science_closures']:\n  w=cr(c['actual_wait']);done=cr(c['completion']);audit=cr(c['audit'])if c.get('audit')else None\n  assert c['kind']in('SOURCE','PHY','RX')\n  validate_closure(w,done,gone,audit)\n  for suffix in('','_control','_initial_control'):assert not(L/(c['role']+suffix)/'failure.json').exists()\n  if c['kind']=='RX':\n   assert audit is not None and audit['actual_wait']==c['actual_wait']and audit['source_output_manifest']==done['outputs']\n  elif c['kind']=='PHY':assert done['logical_events']==total and done['population']==r['population']\n out=L/role;"
+    ],
+    [
+      "rr=r['resources'][role];assert torch.__version__==rr['torch']",
+      "rr=r['resources'][role];assert torch.__version__==rr['torch']and torch.version.cuda==rr['cuda']"
+    ],
+    [
+      "cfg=r['config'];met=module",
+      "cfg=r['config']\n for donor in r['cache_metric_identities'][role]:validate_metric_identity(cr(donor),rr,r['frozen_metric_registration'],cfg['clip']['loader'])\n met=module"
+    ],
+    [
+      "triple=role=='a_three_metrics';",
+      "assert r['metric_kinds'][role]in('three','clip');triple=r['metric_kinds'][role]=='three';"
+    ],
+    [
+      "closed_B_feature_cache=r['feature_cache'][role]",
+      "closed_feature_cache=r['feature_cache'][role],population=r['population'],frozen_policy=r['frozen_policy']"
+    ],
+    [
+      "       with np.load(checked(j['image']),allow_pickle=False)as z:y=z['image'].copy()",
+      "       if j['image']is None:y=np.full((3,256,256),.5,np.float32)\n       else:\n        with np.load(checked(j['image']),allow_pickle=False)as z:y=z['image'].copy()"
+    ],
+    [
+      "        else:\n         ref=refs[s['source_id']];assert ref['pixel_sha256']==s['reference_sha256']\n         with checked(ref['feature']).open('rb')as f:fx=torch.from_numpy(np.load(f,allow_pickle=False)).cuda()",
+      "        elif s['source_id']in refs:\n         ref=refs[s['source_id']];assert ref['pixel_sha256']==s['reference_sha256']\n         with checked(ref['feature']).open('rb')as f:fx=torch.from_numpy(np.load(f,allow_pickle=False)).cuda()\n        else:fx=feature(x,s['reference_sha256'])"
+    ],
+    [
+      "('source_id','source_index','rank','snr_db','noise_seed','arm','m','K','accepted','pixel_sha256')",
+      "('source_id','source_index','population','snr_db','noise_seed','method','received_prefix','wire_status','source_status','accepted','pixel_sha256')"
+    ],
+    [
+      "assert len(rows)==3600 and all(st=='COMPLETE'",
+      "assert len(rows)==total and all(st=='COMPLETE'"
+    ],
+    [
+      "rows=3600,scores=",
+      "population=r['population'],rows=total,scores="
+    ]
+  ],
+  "mathematical_changes": "None intended. Original loaders, preprocessing, PSNR/LPIPS and feature/cosine calls retained. Must qualify exact differences before deployment.",
+  "executed_scientific_calls": 0
+}

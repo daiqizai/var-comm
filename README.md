@@ -1,3 +1,33 @@
+## 2026-10-27 A/B/C response study: formal Ada comparison completed
+
+All formal Ada predicted-class fixed-frame results are closed: common500500sources
+/4500events and Kodak24sources/216events, N1024 and AWGN4/10/19dB, three noises.
+The independently frozen calibration policy, paid10-bit predicted class, original
+source identities and receiver-only inputs are preserved.1496 unique formal RX
+outputs and1496 unique pairs per metric cover every logical result. Source-paired
+statistics reuse the original10000x500 and10000x24 banks with no new random draws.
+Old five-method scores/intervals remain unchanged; new six-system curves are in
+paper/adatoken_response_20261026_v1/figures_v1/ and were actually visually reviewed.
+
+Common500 NeST-minus-Ada PSNR is+4.116/+0.455/+1.226dB at4/10/19dB.
+Ada has higherCLIP-I at4/10dB and lowerDreamSim at10/19dB; at10dB itsLPIPS is
+also lower. These direct paired intervals do not cross zero. Kodak4dB favors
+NeST in allfour; at10dB onlyPSNR has a nonzero interval, and at19dB PSNR/LPIPS
+favorNeST while DreamSim/CLIP spanzero. No claim of universal superiority.
+The new result invalidates unqualified all-SNR perceptual/semantic leadership
+claims in earlier five-method drafts; exact replacement wording is delivered.
+
+A/B complete evidence remains unchanged, including uncertain eighth-grid gains
+and zero final-scale propagation. Full report: results/adatoken_response_20261026_v1/
+FINAL_REPORT_zh.md. ActualC compute/evidence: c_final_execution_evidence_v1/.
+Cumulative22740PHY/45480packets/1532sourcepasses/5702decoderoutputs are within
+the frozen scope. All metrics/statistics realexit0/gone/unresolved0; initialasset
+and metadata-preparation failures retained. No new training or old-study restart.
+This bounded round is scientifically complete; large caches remain on PFS and
+backups are deferred. Normal publication receipts are recorded separately.
+
+---
+
 ## 2026-10-26 Controlled endpoints completed; predicted-class Ada adaptation in calibration
 
 A and C now have equal first priority. A fixes models, MCS and maximum endpoint
@@ -11,7 +41,7 @@ increment cross zero. The frozen main configuration is unchanged.
 B is also closed: direct correction and subsequent propagation are reported
 separately; at19dB the propagation increment is exactly zero at the final
 scale. Original numerical/import failures and explicit amendments are retained.
-Reports: results/adatoken_response_20261026_v1/{a_delivery,b_delivery}/'/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM'RT.md.
+Reports: results/adatoken_response_20261026_v1/{a_delivery,b_delivery}/REPORT.md.
 Reviewed vector/PNG curves: results/adatoken_response_20261026_v1/figures_a_v2/.
 
 C is Ada-TokenCom (predicted-class, fixed-frame adaptation): official LlamaGen-L

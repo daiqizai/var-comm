@@ -1,0 +1,30 @@
+--- prepare_formal_metrics_once_v1.py
++++ prepare_formal_metrics_once_v2.py
+@@ -49,7 +49,20 @@
+   assert not(ap.parent/'failure.json').exists();audit=read(ap)
+   assert audit['actual_wait']==pin(wp)and audit['source_output_manifest']==d['outputs']
+   assert audit['logical_manifest']==admission['logical_manifest'];checked(audit['all_checks'])
+- validate_closure(w,d,gone,audit)
++ # Historical DINO contributes only closed GPU spend, never formal scores.
++ # Its distinct completion schema is accepted only for these exact receipts.
++ if role=='c_predclass_cal1000_dino':
++  assert kind is None and admission is None and audit is None
++  assert pin(wp)==dict(path=str(L/'c_predclass_cal1000_dino_control/actual_wait.json'),bytes=1219,sha256='76ccc8c1edcd84d5933d8a36b9c5990119542e8997ab5164bea8a6fc31ee8d3e')
++  assert pin(cp)==dict(path=str(L/'c_predclass_cal1000_dino/completion.json'),bytes=2189,sha256='25136a1fa5e820d04111217a015cfd4f81f53f46e91daddc7de7d3b2b5a9345b')
++  assert w['actual_wait']is True and type(w['returncode'])is int and w['returncode']==0
++  assert gone(w['process'])and gone(w['parent_process'])
++  assert all(w[k]is False for k in('timed_out','terminated','killed'))and w['metadata_error']is None
++  assert d['status']=='CAL1000_DINO_CLOSED_POLICY_NOT_SELECTED'and d['ledger']['unresolved']==0
++  assert d['registration_sha256']==w['registration']['sha256']=='7ae9bb70cce94d4bad5da58330c3bf77617fa07f8d087062758d1aa768f4af95'
++  checked(w['registration'])
++ else:
++  validate_closure(w,d,gone,audit)
+  item=dict(role=role,actual_wait=pin(wp),completion=pin(cp),elapsed_seconds=w['elapsed_seconds'])
+  if kind:item['kind']=kind
+  if audit is not None:item['audit']=pin(ap)
+@@ -226,4 +239,4 @@
+ print(json.dumps(dict(preparation=pin(prep/'completion.json'),registrations=summary)))
+ '''.replace('__ROOT__',repr(R)).replace('__POP__',repr(population)).replace('__FILES__',repr(files))
+ compile(code,'<closed formal four-metric preparation>','exec')
+-if __name__=='__main__':print(run(code,'prepare_formal_'+population+'_metrics_v1',host=PRO,timeout=600).decode())
++if __name__=='__main__':print(run(code,'prepare_formal_'+population+'_metrics_v2',host=PRO,timeout=600).decode())
