@@ -1,0 +1,378 @@
+NeST-Com：图表精简与 WCL 新稿组织方案（可直接交给 Codex）
+日期：2026-10-27（北京时间）
+证据基线：daiqizai/var-comm @ 6118401ac749939127445ee6cca6f0449fb7a242
+用途：根据已经完成的 A/B/C 实验，重新组织图表和文章；本文件本身没有修改仓库或启动实验。
+
+一、执行目标与范围
+
+将新稿组织为“3 张图 + 2 张表”，突出：
+固定 next-scale 表示下，尺度内端点与真实终止码长装入如何改善固定数字帧的容量利用和重建质量。
+
+主图从四指标四面板减为 PSNR + DreamSim 两个宽面板。六种系统全部保留；LPIPS 和 CLIP-I 在正文表格中完整给出 4/10/19 dB 三个点。核心内部证据先于外部比较讲述。
+
+先完成基于已有证据的完整新稿，不重训模型、不改主配置、不重跑 common500/Kodak、不因新排名修改指标或生成超参数。原稿、原数据、原图保留。
+唯一可能新增的图像计算是 Fig.3 的两张既定 development 示例对应的 Ada 重建；其有限范围见第五节。校准敏感性、SNR 失配等另列为后续任务，不能预写结果。
+
+开始前核对当前 HEAD、AGENTS.md 和最新状态。如果仓库出现后续正式结果，先识别其与本方案基线的差异，不覆盖新结果。本文件中的数值仅对应上述提交。
+
+建议新工作目录：
+paper/manuscripts/nestcom_wcl_adatoken_20261027_v1/
+若已有同名目录，检查其身份和状态后续写，不覆盖他人的工作。
+
+二、图表总安排
+
+Fig.1：NeST 方法与端点装入机制，沿用已认可版，局部减字和重排。
+Table I：内部端点证据，两分块：正式 WHOLE/PARTIAL + 受控四网格。
+Fig.2：六系统 PSNR / DreamSim 两面板主图。
+Table II：六系统 LPIPS / CLIP-I，完整覆盖三个 SNR。
+Fig.3：10 dB 的两张固定源图，展示最相关方法的真实重建。
+
+N2048 表压成短段，完整表留在结果包。
+计时表取消，沿用两句简洁正文。
+B 接收消融用两三句数字说明，不另加图表。
+完整四指标六方法图、Kodak 六方法图、A 的所有 SNR/指标曲线均保留为完整结果材料，不全部塞入正文。
+
+三、Fig.1：局部简化，保留已认可的结构和技术关系
+
+现有源图：
+paper/manuscripts/nestcom_wcl_kodak_20261026_v1/figures/figure1.pdf
+
+先沿出处找到对应可编辑源或绘图脚本。保留已有鸟图、色彩体系、发送端与接收端的对称感，以及 (a)/(b)/(c) 的结构。不做一轮完全不同的构图。
+
+(a) System overview：
+- 主数据流只有一个明确阅读方向：图像编码/残差 VQ -> 多尺度源前缀 -> 熵编码 -> 数字链路 -> 熵解码 -> 前缀补全/残差累加 -> 图像解码。
+- 发送端保留多尺度透视图与残差的减号/求和关系，避免又退回“只有几个文字方框”。
+- 完整的残差递推公式放正文，不在图中重复展示多处等价表达。
+- 接收端的完整预测尺度序列可适当收拢，因为具体覆盖与推进已在 (c) 展开；必须保留残差累加到图像 decoder 的关系。
+- CDF 路线用细线：TX 的已知粗尺度 -> Entropy prior -> Arithmetic encoder；RX 的实际已解粗尺度 -> Entropy prior -> Arithmetic decoder。不能为减线删掉 RX 的本地 CDF 重建。
+- Profile -> Recovered profile -> endpoint/MCS 的作用必须保留。主数据线、CDF 线、profile 控制线有层级，避免交叉和两根相邻箭头同时弯折。
+- 共享冻结 VAR 权重只说明一次；Encoder/Decoder 图形大小、文字基线和边距对齐。
+- 不把 Ada、实验分组、全部拒收条件或训练配置加入系统框图。
+
+(b) Within-scale endpoints：
+- 是核心视觉，保留 Whole / Next whole overflow / Partial 三条码流及 k_a 容量边界。
+- 保留独立终止码长和 13-bit length + CRC16 的装入关系。
+- 不恢复已删掉的额外顶部码流。
+- 源前缀应包含完整粗尺度与边界 K 个 token，不能只画边界尺度而让人误解。
+- 实测利用率仍用 common500 的 77.70% / 95.21%，长度比例沿用核准口径。
+- 不把新 A 子集的 78.15% / 95.38% 替换进来；它们来自另一实验总体。
+- 图注一句交代利用率是 500 图均值，示意条并非某一张具体图的码流实例。
+
+(c) Boundary-scale completion：
+- 用三个动作层级即可：Predict -> Overwrite received positions -> Update state and advance。
+- 保留已收到 K 个 token 对预测边界 map 的覆盖，以及合并后的 map 进入残差 latent 和更细尺度的关系。
+- 不同时放一个 Advance 框和另一个同义 Update state 框。
+- 直接修正残差与后续传播两个作用不能在简化中丢失；到末尺度时没有后续传播。
+- H_m、q-tilde 等定义放图注或正文，不扩成长句标签。
+
+建议印刷尺寸约 7.16 英寸宽、3.1–3.4 英寸高，以保持可读性为先。
+常规标注约 7.5–8.5 pt，最小常规标签不低于 7 pt；标题约 9 pt，不用很大的粗体字。
+通过实际重排压缩重复留白，不能整体缩放导致字体过小。
+优先输出矢量 PDF 与可编辑 SVG；已有 PPT 源若被修改应同步保存，不能把整张图片贴入 PPT 冒充可编辑对象。
+
+四、Fig.2 与 Table II：减少图面板，完整保留指标
+
+4.1 Fig.2 推荐版本
+
+(a) PSNR (dB) vs SNR
+(b) DreamSim vs SNR
+
+理由：分别呈现像素保真与感知相似度。新结果中 NeST 与 Ada 的取舍在这两项上清楚可见；LPIPS 与 CLIP-I 移入正文表，评价指标不减少。
+
+两个 panel 均显示六系统：
+NeST-Com、Latent JSCC、SwinJSCC、BPG + LDPC、ARPC + LDPC、Ada-TokenCom (adapted)。
+
+版式：
+- 通栏 7.16 英寸宽，高约 2.0–2.2 英寸；两个 panel 等宽。
+- 图例共用，置于上方，两行三列，不压住绘图区。
+- 保留既有颜色映射，NeST/Ada 稍加强，其余曲线仍清楚可读。避免六条曲线全部采用粗线、大实心 marker 和复杂点划线。
+- NeST/Ada 约 1.5–1.7 pt，其他约 1.0–1.2 pt；marker 约 3.5–4 pt。以实际打印效果修正。
+- 常规文字约 8–9 pt，最小不低于 7 pt。
+- 保留真实 4/10/19 dB 横坐标间距、原始均值与点位区间。CI 用细误差棒，不再叠加大面积阴影。
+- 背景白色，网格很淡；不加局部放大、第二纵轴、差值嵌图或每点数值标签。
+- 不把 WHOLE 加成第七条外部系统曲线。内部机制集中在 Table I。
+- 不平滑、不偏移点、不换数据、不使用截断坐标掩盖差异。
+- 图注定义 Ada 为 predicted-class, fixed-frame adaptation，并说明 source-bootstrap 区间。用简明学术语言，不放内部执行术语。
+
+数据：
+paper/adatoken_response_20261026_v1/inputs/common500/combined_summary.csv
+paper/adatoken_response_20261026_v1/inputs/common500/paired_differences.csv
+
+绘图脚本应从完整精度 CSV 读取，输出两面板 PDF/SVG/PNG、数据 CSV。
+旧四面板图保留为 full_metrics_common500 等完整结果，不覆盖原文件。
+
+4.2 Table II：LPIPS / CLIP-I
+
+六行方法，三列 SNR，推荐格式：
+
+Method                     4 dB              10 dB             19 dB
+NeST-Com                 0.263 / 0.821    0.171 / 0.873    0.118 / 0.900
+Latent JSCC              0.219 / 0.741    0.173 / 0.789    0.158 / 0.804
+SwinJSCC                 0.530 / 0.627    0.469 / 0.669    0.440 / 0.697
+BPG + LDPC               0.725 / 0.586    0.589 / 0.635    0.458 / 0.684
+ARPC + LDPC              0.512 / 0.644    0.341 / 0.713    0.250 / 0.788
+Ada-TokenCom (adapted)    0.395 / 0.828    0.167 / 0.884    0.138 / 0.892
+
+每格固定为 LPIPS-Alex（越低越好）/ CLIP-I（越高越好），图注定义。
+上表为展示舍入示例；正式表由输入 CSV 自动生成，保留全精度数据。
+如标最佳值，只分别标注各 SNR 下每个指标的最佳均值，不把整行 NeST 全部加粗。均值最佳不自动等于显著领先。
+正文明确 Ada 在 4/10 dB 的 CLIP-I 更好；不能只留 10 dB 表而省略其他工作点。
+完整配对 CI 保留在结果材料；正文用关键配对结论说明，不靠边际误差棒是否重叠判断差异。
+
+五、Fig.3：10 dB、两行，推荐五列
+
+最终推荐列：
+Original | NeST-Com | Ada (adapted) | Latent JSCC | ARPC + LDPC
+
+选择这些列是为了展示当前最相关的 token/生成式与 latent 重建。Swin/BPG 完整保留在定量 Fig.2/Table II，原全部方法定性图保留为完整结果。
+这样比把六方法加原图硬塞成七列更易读。
+
+固定约束：
+- 仍为 10 dB、N1024，两行，不加放大框。
+- 不换已选源图：Pastries 和 Dog。
+- 每图只保留 LPIPS / DreamSim 两个数值，统一三位小数。
+- 源图、重建的显示裁剪与尺寸一致；不修饰/增强/生成重建图片。
+- 图注写 selected methods / selected development examples，不能写全部六方法或随机样本。
+- 定性文字只描述确实可见的差异，不由两个示例推出总体排名，也不把 ARPC 的形变解释成“它没有 token 约束”。
+
+已选源图和原元数据：
+paper/manuscripts/nestcom_wcl_kodak_20261026_v1/figure3_metrics.csv
+Pastries:
+  source_id = n07860988/ILSVRC2012_val_00010848_n07860988
+  development source_index = 95
+Dog:
+  source_id = n02105641/ILSVRC2012_val_00018762_n02105641
+  development source_index = 21
+旧展示的 noise_seed 为 2001，具体方法原噪声 namespace 按保存记录，不声称跨方法是完全相同的噪声实现。
+
+先检查这两张图是否已有完全匹配的 Ada 重建。它们不是 common500 的两张样本，不能用同名/相似图替代。
+如果没有：
+- 将以下内容登记为一个单独的两图可视化小任务，再执行；不重开已闭合的 C 正式测试。
+- 仅这两个 source ID，原 source float pixels、固定 10 dB 策略、现有预测类别/付费帧/生成配置；每图一个预先固定的信道实现。
+- 最多 2 次分类、2 次 tokenizer、2 次源概率遍历，生成所需实际终止前缀；最多 2 次真实 PHY 事件/4 次头部正文译码/2 次实际 RX 重建；LPIPS 与 DreamSim 各 2 对。
+- 一次输出固定后就使用，不依据重建好坏换 seed、换图或重新采样。
+- 使用接收端合法公开输入；counter 接口先按第九节核实。
+- 该两图结果仅用于可视化，不加入 common500/Kodak 的总体统计，不引发重新校准。
+若环境/资产不支持这一步，先保留原已核准 Fig.3 完成新稿，明确标记 Ada 可视化未完成；绝不使用占位图当真实结果。
+本规划阶段不执行任何图像推理。
+
+六、Table I：核心证据先呈现
+
+Table I 采用上下两个分块，单栏优先；通过列数与文字精简保证读数清楚。
+
+Block A：正式主策略 WHOLE/PARTIAL
+两个数据集分别标组标题，合计六行：
+SNR | utilization W -> P (%) | Delta PSNR (dB), paired 95% CI
+
+common500:
+4: 73.81 -> 93.08; +0.616 [0.564, 0.673]
+10: 77.70 -> 95.21; +0.701 [0.637, 0.766]
+19: 85.24 -> 94.73; +0.319 [0.290, 0.349]
+
+Kodak24:
+4: 75.69 -> 93.43; +0.396 [0.236, 0.543]
+10: 78.11 -> 94.99; +0.674 [0.408, 0.958]
+19: 85.69 -> 93.71; +0.228 [0.140, 0.324]
+
+使用原表/原完整精度统计自动生成，不从本文件舍入值反推数据。
+内部 DreamSim 在正文给代表性结果，并明确 Kodak19dB区间跨零；完整表保留全部指标和CI。
+可以合并利用率两列为一格 W -> P；CI单行，不继续使用上下堆叠。
+这些是各端点族分别校准的主策略，不称“只改网格的完全单变量实验”。
+
+Block B：受控网格诊断，100源，10 dB
+Grid | candidate count | utilization (%) | PSNR (dB)
+WHOLE   7   78.15   18.952
+HALF   13   89.21   19.396
+QUARTER25   95.38   19.612
+EIGHTH 49   97.39   19.735
+
+候选数一列如使表过宽，可删除并在正文用一句交代；优先保留网格、利用率、PSNR。
+标题写明此分块固定模型/MCS/最大端点/装入规则。与Block A的人群和策略不同，不用它替换common500主数值。
+正文报告 QUARTER-WHOLE +0.660 [0.515,0.814] dB，以及 EIGHTH-QUARTER +0.123 [0.079,0.169] dB。
+四分之一是已固定的主设置，不宣称其最优。八分之一在其他SNR也有小幅PSNR/LPIPS收益，不能概括为“没有提升”。
+检查次数只表示缓存码长比较，不用它推导运行时间或模型计算翻倍。
+
+Table I应放在内部结果首次讨论附近，不能再次漂到结论之后。
+如果单栏实排确实拥挤，允许改为通栏紧凑表，保持字体可读；不默认额外增加第四张图。
+
+七、文章结构与写作重点
+
+题目保持：
+NeST-Com: Fixed-Budget Next-Scale Token Communication
+
+起始预算：正文约1700–2000英文词，不含图注和参考文献；以实际5页IEEEtran 10pt双栏渲染为准，不把字数当硬限制。
+
+Abstract：75–100词，优先90–100词
+1. 完整尺度端点会留下固定数字帧容量。
+2. 尺度内端点、真实终止码长装入、共享冻结先验补全。
+3. 明确“on 500 ImageNet images / common500”：同先验/同decoder下0.32–0.70dB，10dB利用率约78%->95%。
+4. 外部结果给具体取舍：对适配Ada的PSNR较高，某些工作点Ada感知指标更优。
+不再写所有SNR最低DreamSim/最高CLIP-I。
+不把100图受控+.660与500图主+.701混写为同一个实验。
+摘要不需要列每个模型名或两套内部实验的所有数字。
+
+I. Introduction：四段，约300–360词
+P1：每图硬符号预算下，真实源码长、信道保护和重建质量的约束。
+P2：简述数字压缩/FEC与JSCC；重点定位Ada、ARPC、VAR。已有嵌入式码流截断/速率匹配引用保持准确。
+P3：完整尺度端点步长大，且实际熵码长随图像变化；这两点共同造成装入空余。说明为何需要尺度内合法端点。
+P4：提出本文设计，给同模型收益，再一句概括六系统取舍。
+贡献两项足够：具体端点/帧装入设计；受控效果与完整系统评估。不把每个标准组件列成一项创新。
+
+归属与措辞：
+- VAR提供多尺度残差表示、next-scale先验及已知token覆盖的既有操作。
+- Ada已有前缀熵编码、尾部生成和平均资源适配。
+- NeST聚焦现有next-scale表示中的尺度内端点和真实码长硬帧装入。
+- 不写“光栅前缀就是上方像素全部细节”“缺失尺度只有高频”“截断只降低输出分辨率”。
+- 不宣称比Ada逐token截断更细；“细粒度”是相对于同表示的WHOLE。
+
+II. Proposed Method：三个小节，约500–650词
+
+A. Next-Scale Representation and Digital Frame
+- 图像、AWGN、N、Es、复符号定义，必要时一句给CBR=1/192。
+- 冻结tokenizer/VAR与固定Dc分工；Dc用20k ImageNet训练子集适配。
+- 明确NeST运行时是null class，不使用测试真值类别。
+- 头部68、正文956；头部真实两点星座为旋转BPSK，不能误写成普通四点QPSK。
+- 标准FEC和算术编码引用集中一次，不展开完整教科书介绍。
+
+B. Within-Scale Endpoints and Actual-Length Fitting
+- 是方法节重点：e=(m,K)、前缀π_e、四分之一K候选、actual terminated bit length b(x,e)。
+- 主NeST正文约束b(x,e)+29<=k_a，η=b/(k_a-29)；别把Ada额外10bit类别的k-39套到NeST。
+- 离线DINOv2校准与在线真实码长回退各自负责什么。
+- 主配置是已校准目标及回退链；不能把A诊断或Ada的全候选最长装入规则错误替换成原NeST主实现。
+- 在本节定义η，不反复在各节重复10dB数字。
+
+C. Prefix-Constrained Reconstruction
+- 一句完整拒收/灰图规则。
+- 从实际解出的token本地重建CDF。
+- 边界预测、覆盖收到的位置、更新残差latent。
+- 若还有更细尺度，合并map作为其上下文。
+- 末尺度只有直接修正，没有后续传播。
+- 覆盖操作引用VAR；不将其单独命名为全新生成算法。
+
+III. Experimental Results：先内部，后外部，约650–850词
+
+A. Experimental Setup
+- common500、独立cal1000、Kodak24及固定256裁剪；4/10/19dB、N1024、Es2。
+- 六系统及必要适配，尤其Ada的固定ConvNeXt预测类/付费10bit/固定帧含义。
+- 20k训练集和JSCC损失、checkpoint按实际记录写。Swin仍是budget cap while improving，不称所有模型收敛。
+- 四指标定义、三次信道重复、逐源均值与配对CI。生成seed固定是实现设置，不能写三次独立生成平均。
+- 不向读者展示内部路径、noise namespace、ledger、共享机器负载等工程术语。
+
+B. Effect of Within-Scale Endpoints
+- Table I Block A：主配置common500/Kodak收益。
+- Block B：受控四网格解释粒度作用与进一步加密收益。
+- B接收消融两三句：10dB直接+.220、后续传播+.440；19dB传播0。
+- A/B是同一已存在100源子集的机制诊断，不称两个独立盲测。
+- 保留四分之一非最优这一事实，但无需反复用否定句自辩；直接报告八分之一带来小幅额外收益。
+
+C. Comparison With Existing Methods
+- Fig.2 + Table II，按结果含义组织，不逐格朗读全部数值。
+- common500对Ada的PSNR增益：4/10/19dB为+4.116/+0.455/+1.226dB。
+- 10dB Ada的LPIPS/DreamSim/CLIP-I更好，不能继续写NeST全面感知领先。
+- 4dB Ada CLIP更好；19dB Ada DreamSim略好，NeST PSNR/LPIPS/CLIP更好。
+- Swin/BPG在三个点的PSNR都高于NeST；Latent在4/10dB的PSNR更高，4dB LPIPS更好。
+- 19dB Ada已完整送达256tokens，未运行尾部采样。其58%源容量利用率是完整表示已发送，不是装入失效。
+- Fig.3只作两例可视化说明，不代替总体比较，不声称两例都能清楚显示NeST优于Latent或Ada。
+- ARPC采样敏感性压成一句，保留最多约0.15dB的观察，不用严格“at most0.15”掩盖未舍入0.150381。
+
+D. Additional Results and Processing Cost
+紧凑三段：
+1. Kodak：4dB相对Ada四项有利；10dB仅PSNR的配对差不跨零；19dB PSNR/LPIPS有利，其余跨零。
+2. N2048：100图完整表示对比，19dB对ARPC PSNR +1.806dB，ARPC DISTS更好；说明表示/decoder也影响质量。
+3. 计时：沿用现有10dB RTX PRO6000、6CPU、batch1的平均处理时间；NeST619.71ms、Latent42.48、Swin44.69、ARPC1520.30、BPG2293.01。正文两句足够，短括注保留16图×3次测量等统计口径。
+
+当前没有Ada同协议计时，不填估计值，不把约17小时的整轮任务耗时当单图latency。可以明确该段报告已测五种实现，不声称完整六方法时延排名。如后续实际完成Ada计时，再补入。
+不通过新增一个“局限性清单”把正文写成审稿回复。
+
+IV. Conclusion：40–60词
+重申具体端点/装入设计及同模型收益，简短说明外部质量取舍，最多一句后续方向。不要复述六系统所有排名。
+
+八、写作与版面规则
+
+- 用“设计 -> 观察结果 -> 对问题的含义”组织段落。
+- 结果不佳的工作点直接报告，不自动归因于类别条件、温度、解码器强弱，除非相应因素已经隔离验证。
+- 避免 repeatedly “to ensure fairness”“this is not merely”“should not be interpreted as”等审稿回复式句子。
+- 公平性定义在设置中说明一次，工程核验留复现材料。
+- 同模型增益、外部系统差距分开归因。
+- Figure/Table编号重排后逐条核对引用；Table II现在是LPIPS/CLIP表，旧N2048 Table II与旧计时Table III不应残留引用。
+- 不额外加新的方法缩写。图内Ada简写adapted，首次设置给完整predicted-class fixed-frame含义。
+- 主文10pt IEEEtran；通过结构与内容取舍满足5页，不用缩小正文、负间距或难读表格强塞。
+- 图表放首次讨论附近；重点Table I不出现在Conclusion之后。
+- 保持所有图表的同一方法名称、色彩映射、指标方向和小数格式。
+
+九、与本轮稿件整合分开的后续事项
+
+1. 接收端counter接口：
+   当前formal plan的counter含TX profile_id。RX先解付费header、后用counter解扰。
+   将公开输入改为独立公共帧序号/base，header通过后由实际RX profile派生同一counter。
+   先用已有记录核验正确头部下counter一致；检查是否有CRC漏检的错误合法header。
+   如存在，只对受影响的已有观测有限重解码；不能依靠TX真值直接拒收。
+   不默认重跑整套模型/信道/指标。保留原记录和修订证据。
+   此项在最终声称接收接口闭合前完成；正文无需加入冗长防御性解释。
+
+2. PSNR或LPIPS校准敏感性：
+   另立有限方案，用原cal1000及原候选范围重新选择，不能只重排DINO预筛finalists。
+   不预写“与校准目标无关”。
+
+3. SNR失配：
+   另立有限方案，固定10dB发送策略，实际SNR可用6/8/10/12/14，至少WHOLE/PARTIAL；需要连续对照时加Latent。
+   写清是TX策略失配还是连RX噪声估计也失配；报告拒收率。
+   不预写“鲁棒”或“平滑退化”。
+
+4. Swin训练：
+   先整理真实验证走势和选模依据，再决定有界续训；不因写作任务自动重训。
+
+5. Ada计时：
+   只有要完整比较六种时延时，按原相同协议新增测量；不从累计任务耗时估算。
+
+以上未完成事项不能作为已完成结果进入摘要、结论或图注。当前稿可依据已完成A/B/C写成完整版本。
+
+十、交付与验收
+
+按现有仓库协作要求执行正常版本管理，不覆盖历史结果。
+交付：
+- 新稿完整LaTeX源、引用、原生图表脚本与数据；
+- 双栏10pt、正常IEEEtran、最多5页PDF；
+- 单栏双倍行距PDF；
+- 同步Word审阅版，文字/表格可编辑；
+- Fig.1–3矢量PDF、可编辑源与预览；
+- 新Table I/II自动生成的LaTeX与完整精度数据引用；
+- 中文变更说明，明确已完成文字/图表、任何有限新增可视化、仍未完成的实验。
+
+验证只做与本次修改相关的必要检查：
+1. 论文编译无缺失引用/图片，摘要75–100词；
+2. 实际打开每页PDF及Word渲染页检查，确认5页版式、字体、漂浮表格和裁切；
+3. 六方法三个SNR四指标与冻结CSV一致，LPIPS/CLIP未因主图减面板而丢点；
+4. Table I的500/24主评测与100图机制诊断不混用；
+5. 图3源图/方法/噪声/指标一一对应，新增Ada结果不进入主统计；
+6. 旧的全面领先、五方法主图、四分之一最优、末尺度仍传播等表述已清理；
+7. 未做实验标记为未做，不补造数字；
+8. 遵循现有AGENTS要求的仓库检查和发布流程，不改变访问权限、不强推。
+
+十一、主要证据路径
+
+当前整篇旧稿：
+paper/manuscripts/nestcom_wcl_kodak_20261026_v1/
+
+最新六系统图包与全精度输入：
+paper/adatoken_response_20261026_v1/
+paper/adatoken_response_20261026_v1/inputs/common500/
+paper/adatoken_response_20261026_v1/inputs/kodak24/
+
+本轮正式报告：
+results/adatoken_response_20261026_v1/FINAL_REPORT_zh.md
+
+内部受控与接收消融：
+results/adatoken_response_20261026_v1/a_delivery/
+results/adatoken_response_20261026_v1/b_delivery/
+
+Ada适配计划：
+experiments/adatoken-response-20261026/C_PREDICTED_CLASS_PLAN.md
+
+接收counter相关：
+experiments/adatoken-response-20261026/c_predclass_formal_link_v1/plan.py
+experiments/entropy-partial-mismatch-20261010/scripts/ep_phy.py
+
+WCL官方指南（页数、摘要和提交格式以当前官方为准）：
+https://www.comsoc.org/publications/journals/ieee-wcl/policies-guidelines
+

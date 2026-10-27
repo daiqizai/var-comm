@@ -1,5 +1,11 @@
 ## 2026-10-27 A/B/C response study: formal Ada comparison completed
 
+## 2026-10-27 — WCL three-figure/two-table manuscript and two Ada examples
+
+The complete anonymous manuscript is in [paper/manuscripts/nestcom_wcl_adatoken_20261027_v1](paper/manuscripts/nestcom_wcl_adatoken_20261027_v1/README.md): 5-page IEEEtran 10pt PDF, double-spaced single-column PDF, editable Word, native Fig.1 PPTX, three figures and two tables. The 72 frozen six-system mean/CI rows are unchanged and verified; main common500/Kodak and the 100-source diagnostics remain distinct. Perceptual tradeoffs favoring Ada at some operating points are reported.
+
+The separately authorized Pastries95/Dog21 supplement completed exactly two Ada source traversals, two physical frames/four packet decodes, two independent RX reconstructions, and two LPIPS/DreamSim pairs, all with actual exit 0 and processes gone. See [the report](results/wcl_adatoken_20261027_v1/REPORT.md). The public-counter adapter uses the actually decoded paid profile; the historical 22,716-frame audit found no affected frame. Old science, scores and failed preparations are preserved. No new training, main-grid run, bootstrap or timing was performed. Further calibration sensitivity, SNR mismatch, Swin training and Ada timing remain unperformed; old automation remains paused.
+
 All formal Ada predicted-class fixed-frame results are closed: common500500sources
 /4500events and Kodak24sources/216events, N1024 and AWGN4/10/19dB, three noises.
 The independently frozen calibration policy, paid10-bit predicted class, original
