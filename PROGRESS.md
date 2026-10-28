@@ -1,3 +1,23 @@
+## 2026-10-28 — Same-ceiling confirmation and fixed16 residual diagnostic complete
+
+The [bounded follow-up report](results/two_route_confirmation_20261028_v1/REPORT_zh.md)
+holds both endpoint sets to m5/K27 and the same actual MCS/frame. On the original
+32 development sources, token-wise fill increases mean source-capacity use from
+94.14% to 99.07%, with PSNR +0.07343 dB and DreamSim -0.01404. Individual PSNR
+improves on 13 sources, worsens on 13, and is unchanged on six. All conditions
+retain their full denominators. These are developmental results, not common500.
+
+At the progressive arm's saved step3000 and j256, all 16 preregistered sources'
+quantized residuals exactly match their conditional entropy argmax; all 16 also
+have the same complete quantized vector. Paired PSNR/LPIPS/D differences are zero.
+This demonstrates no extra residual source discrimination on this subset; it does
+not test synthesis sensitivity to different residuals. Actual new work: 243 PHY
+events, 16 source/receiver materializations, 16 native renders; identical predicted
+inputs reuse their outputs. No training, new metric forwards or bootstrap.
+
+Original training remains user-paused at3809/3815. Checkpoints and the old STOP
+remain intact. No shared-codeword expansion or automatic follow-up is launched.
+
 ## 2026-10-28 — Two-route study: A closed; B paused with interim evidence
 
 The [shared-codeword study](results/shared_codeword_fit_20261028_v1/REPORT_zh.md)
