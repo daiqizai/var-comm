@@ -1,0 +1,319 @@
+{
+  "stages": [
+    {
+      "role": "b0",
+      "returncode": 1,
+      "seconds": 26.254334388300776,
+      "GPU": true,
+      "ledger": [
+        {
+          "kind": "direct_latent",
+          "status": "COMPLETE",
+          "count": 1
+        },
+        {
+          "kind": "lpips_load",
+          "status": "COMPLETE",
+          "count": 1
+        },
+        {
+          "kind": "mixed_encode",
+          "status": "FAILED",
+          "count": 1
+        },
+        {
+          "kind": "model_load",
+          "status": "COMPLETE",
+          "count": 1
+        },
+        {
+          "kind": "source_probability",
+          "status": "COMPLETE",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "role": "b0_mixed_v1",
+      "returncode": 0,
+      "seconds": 129.68305626977235,
+      "GPU": true,
+      "ledger": [
+        {
+          "kind": "decoder_anchor",
+          "status": "COMPLETE",
+          "count": 148
+        },
+        {
+          "kind": "direct_latent",
+          "status": "COMPLETE",
+          "count": 3
+        },
+        {
+          "kind": "lpips_anchor",
+          "status": "COMPLETE",
+          "count": 148
+        },
+        {
+          "kind": "lpips_load",
+          "status": "COMPLETE",
+          "count": 1
+        },
+        {
+          "kind": "mixed_encode",
+          "status": "COMPLETE",
+          "count": 8
+        },
+        {
+          "kind": "mixed_roundtrip",
+          "status": "COMPLETE",
+          "count": 2056
+        },
+        {
+          "kind": "model_load",
+          "status": "COMPLETE",
+          "count": 1
+        },
+        {
+          "kind": "source_probability",
+          "status": "COMPLETE",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "role": "cache_v1",
+      "returncode": 1,
+      "seconds": 126.78306616004556,
+      "GPU": true,
+      "ledger": [
+        {
+          "kind": "coarse_RX",
+          "status": "FAILED",
+          "count": 1
+        },
+        {
+          "kind": "coarse_TX",
+          "status": "COMPLETE",
+          "count": 1
+        },
+        {
+          "kind": "latent_batch",
+          "status": "COMPLETE",
+          "count": 1401
+        },
+        {
+          "kind": "model_load",
+          "status": "COMPLETE",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "role": "canonical_cache_v2",
+      "returncode": 0,
+      "seconds": 81.42448132205755,
+      "GPU": true,
+      "ledger": [
+        {
+          "kind": "canonical_TX_Fc",
+          "status": "COMPLETE",
+          "count": 15
+        },
+        {
+          "kind": "coarse_TX",
+          "status": "COMPLETE",
+          "count": 199
+        },
+        {
+          "kind": "independent_coarse_RX",
+          "status": "COMPLETE",
+          "count": 199
+        },
+        {
+          "kind": "model_load",
+          "status": "COMPLETE",
+          "count": 1
+        },
+        {
+          "kind": "new_direct_full_Fc",
+          "status": "COMPLETE",
+          "count": 184
+        }
+      ]
+    },
+    {
+      "role": "f0_dev200_v1",
+      "returncode": 0,
+      "seconds": 336.3958589406684,
+      "GPU": true,
+      "ledger": [
+        {
+          "kind": "fine_source_extension",
+          "status": "COMPLETE",
+          "count": 192
+        },
+        {
+          "kind": "lpips_load",
+          "status": "COMPLETE",
+          "count": 1
+        },
+        {
+          "kind": "model_load",
+          "status": "COMPLETE",
+          "count": 1
+        },
+        {
+          "kind": "pair_metric",
+          "status": "COMPLETE",
+          "count": 599
+        },
+        {
+          "kind": "receive_render",
+          "status": "COMPLETE",
+          "count": 560
+        }
+      ]
+    },
+    {
+      "role": "fc_diagnostic_v1",
+      "returncode": 0,
+      "seconds": 19.101274834014475,
+      "GPU": true,
+      "ledger": [
+        {
+          "kind": "independent_coarse_RX_diagnostic",
+          "status": "COMPLETE",
+          "count": 1
+        },
+        {
+          "kind": "model_load",
+          "status": "COMPLETE",
+          "count": 1
+        },
+        {
+          "kind": "single_TX_coarse_diagnostic",
+          "status": "COMPLETE",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "role": "train_progressive_first25",
+      "returncode": 0,
+      "seconds": 54.89056097436696,
+      "GPU": true,
+      "ledger": [
+        {
+          "kind": "lpips_load",
+          "status": "COMPLETE",
+          "count": 1
+        },
+        {
+          "kind": "model_load",
+          "status": "COMPLETE",
+          "count": 1
+        },
+        {
+          "kind": "training_update",
+          "status": "COMPLETE",
+          "count": 25
+        }
+      ]
+    },
+    {
+      "role": "train_progressive_to5000",
+      "returncode": 0,
+      "seconds": 2743.037237998098,
+      "GPU": true,
+      "ledger": [
+        {
+          "kind": "eval_encode",
+          "status": "COMPLETE",
+          "count": 600
+        },
+        {
+          "kind": "eval_rx_image_metric",
+          "status": "COMPLETE",
+          "count": 601
+        },
+        {
+          "kind": "lpips_load",
+          "status": "COMPLETE",
+          "count": 1
+        },
+        {
+          "kind": "model_load",
+          "status": "COMPLETE",
+          "count": 1
+        },
+        {
+          "kind": "training_update",
+          "status": "COMPLETE",
+          "count": 3790
+        }
+      ]
+    },
+    {
+      "role": "train_scalar_first25",
+      "returncode": 0,
+      "seconds": 55.08860299363732,
+      "GPU": true,
+      "ledger": [
+        {
+          "kind": "lpips_load",
+          "status": "COMPLETE",
+          "count": 1
+        },
+        {
+          "kind": "model_load",
+          "status": "COMPLETE",
+          "count": 1
+        },
+        {
+          "kind": "training_update",
+          "status": "COMPLETE",
+          "count": 25
+        }
+      ]
+    },
+    {
+      "role": "train_scalar_to5000",
+      "returncode": 0,
+      "seconds": 2743.3189763724804,
+      "GPU": true,
+      "ledger": [
+        {
+          "kind": "eval_encode",
+          "status": "COMPLETE",
+          "count": 600
+        },
+        {
+          "kind": "eval_rx_image_metric",
+          "status": "COMPLETE",
+          "count": 600
+        },
+        {
+          "kind": "lpips_load",
+          "status": "COMPLETE",
+          "count": 1
+        },
+        {
+          "kind": "model_load",
+          "status": "COMPLETE",
+          "count": 1
+        },
+        {
+          "kind": "training_update",
+          "status": "COMPLETE",
+          "count": 3784
+        }
+      ]
+    }
+  ],
+  "GPU_device_seconds": 6315.977450253442,
+  "conservative_CPU_worker_wall_seconds": 6315.977450253442,
+  "GPU_limit_hours": 48,
+  "CPU_worker_limit_hours": 16,
+  "interpretation": "shared-resource stage wall times, not a latency benchmark; CPU field is a conservative worker-wall proxy"
+}

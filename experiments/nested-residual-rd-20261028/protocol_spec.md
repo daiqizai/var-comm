@@ -1,0 +1,11 @@
+# Source format and reconstruction
+
+Full latent is32×16×16. C is the cumulative quantized latent of received scales1..4, with30coarse tokens. New analysis maps (Ffull−Fc,Fc) to64 scalars in[-1,1]; each scalar has4 nested precision bits. Synthesis receives reconstructed scalars and precision mask plus Fc. Entropy probabilities depend only on Fc/public positions; no uncharged source gain, class, hyperlatent or ordering is transmitted.
+
+v=clip(floor((u+1)*8),0,15). Afterd>0 high bits with prefixp, reconstruction is−1+(2p+1)/2^d; d0 is constant0 in forward/backward. Progressive order visits all64 coordinates at each precision; scalar order completes one coordinate then the next, permitting partial final coordinates. Both allow j0..256.
+
+A single32-bit arithmetic state first encodes coarse4096-class symbols using frozen VAR CDF, then binary decisions using pphi's integer Bernoulli CDF(total2^24, nozero bins). Each endpoint invokes a nonmutating actual finish; no truncating the longest finished stream. RX decodes coarse first, builds canonical batch-one Fc from recovered tokens, evaluates pphi, decodesj decisions, then re-encodes the whole mixed sequence and checks canonical finish and30-lookahead. RX coarse-CDF memoization is keyed only by already decoded prefix, and entries came from independent receiver contexts.
+
+Proposed single-body integration is L13+finishedAC+padding+CRC16, paid profile gives fixed format/model/m4/j/k; N1024=68+956,Es2,n1912. Source budgets449/547/608 correspond to qualified k478/576/637. j0 no-fit uses paidNULL/gray with denominator retained. This B1 evaluates the source path, not actual wireless reliability. Global CRC does not offer independently usable C after body rejection. No combination with A's local-recovery syntax is claimed.
+
+Training uses actual hard quantization with straight-through distortion gradients and hard-forward/soft-backward rate gradients. Both analysis gradients were checked finite/nonzero. Dc parameters are frozen while its input gradient remains active. Train Fc uses its original FP32 batched cache; wire/evaluation Fc is canonical batchone, proven identical at TX/RX. The original sub-micro-unit batch rounding discrepancy and corrected cache lineage remain documented.

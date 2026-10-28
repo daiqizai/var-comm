@@ -1,0 +1,65 @@
+{
+  "base": "2f13240b9338c8e79f14d6087e221714d3259c6b",
+  "request": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nested-residual-rd-20261028/user_request.txt",
+    "bytes": 34019,
+    "sha256": "7ef964f175b506f17b47ba1a8696545ad708ea1cb11bf35e812fd3ff171e5506"
+  },
+  "study": "B_NESTED_RESIDUAL",
+  "initial_stage": "B0_then_gated_B1",
+  "m": 4,
+  "latent_shape": [
+    32,
+    16,
+    16
+  ],
+  "bottleneck": [
+    4,
+    4,
+    4
+  ],
+  "max_bits_per_scalar": 4,
+  "orders": [
+    "scalar",
+    "progressive"
+  ],
+  "seed": 2026102801,
+  "lambda_bits": 1e-05,
+  "updates_per_arm": 5000,
+  "batch": 4,
+  "total_main_exposures": 40000,
+  "optimizer": {
+    "name": "AdamW",
+    "lr": 0.0001,
+    "weight_decay": 0.01,
+    "clip": 1
+  },
+  "endpoint_distribution": "p256=.25; remaining1..255 each.75/255",
+  "D": "MSE+0.1LPIPS",
+  "rate_units": "bits/image",
+  "checkpoint_selection": "equal_dev200_equal_net_budgets449_547_608_actual_finish_D_min",
+  "validation_every_updates": 1000,
+  "frozen": [
+    "tokenizer",
+    "VQ",
+    "VAR",
+    "Dc"
+  ],
+  "train_manifest": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/progressive_rd_scaleup_20261022_v1/train_index.json",
+    "bytes": 22346660,
+    "sha256": "fd3cc64196f3674d8a4d64d19476bad1f86dfe01c24b1381a71a30734571ad57"
+  },
+  "cache_limit": 20168,
+  "b0_train_sources": 4,
+  "gpu_device_hours": 48,
+  "cpu_worker_hours": 16,
+  "max_stage_seconds": 28800,
+  "window": "uncertain: stop/save at update/source boundary",
+  "training_resume": "same pinned source/data/RNG/optimizer; no repeat completed updates",
+  "second_lambda": "GATED_NOT_LAUNCHED",
+  "second_seed": "GATED_NOT_LAUNCHED",
+  "wireless": "GATED_NOT_LAUNCHED",
+  "formal": "GATED_NOT_LAUNCHED",
+  "failure_policy": "preserve_no_automatic_retry"
+}

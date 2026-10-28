@@ -1,0 +1,17 @@
+# Nested residual finite execution plan
+
+Current status: **USER_PAUSED_PRO6000** at scalar3809/progressive3815. Original5000-step limits are unchanged. Completed1000/2000/3000 evaluations and F0 are published as interim development evidence. No automatic continuation or new diagnostic run; explicit user resume is required. The plan below records the previously authorized finite scope, not current launch permission.
+
+The immutable scope is `results/nested_residual_rd_20261028_v1/scope.json` (SHA256 c1c99746255e06a7995268d37008f99a40f2ed9e67c0693b37f5fb4fd7baacdd), based on remote main2f13240b. User says resource window is uncertain; use recoverable checkpoints. The WCL paper and frozen official results remain unchanged.
+
+B0: four fixed training sources, scalar/progressive, all257 independently terminated mixed-alphabet endpoints;17 image anchors and actual selected endpoints. Freeze tokenizer,VQ,VAR,Dc; train only analysis/synthesis/entropy,446276 parameters. Original arithmetic validator failure is retained; a separately qualified3/4097-column adapter keeps32-bit arithmetic and24-bit CDF mathematics unchanged.2056 real token roundtrips passed.
+
+B1:19968 original training sources, fixed disjoint200 calibration/development sources, batch4,5000 updates per arm, seed2026102801, AdamW1e-4,wd.01,clip1,lambda1e-5 bit^-1. Identical initialization and source/j schedules. Objective MSE+0.1LPIPS+lambda*new-residual-estimated-bits. j256 probability.25; j1..255 share.75. Evaluate every1000 updates at actual net capacities449/547/608, select deepest fitting j by true finish length, retain paidNULL. Choose minimum equal-source/equal-budget D checkpoint. No formal test data in selection.
+
+True recovery: first25 updates per arm completed in separate processes, then optimizer/RNG/schedule restored and continuation starts at26 without replay. Every update atomically writes a checkpoint before ledger COMPLETE; explicit stop is honored between updates. Dedicated checkpoint root is `liberai-checkpoint/liulu/var_comm/nested_residual_rd_20261028_v1`. Do not launch a second continuation or edit bound code. Interrupted evaluation needs an exact missing-row continuation, not rerunning completed evaluation calls.
+
+Necessary F0 comparator: same200 sources, capacities449/547/608 and frozen decoder/generation, finer legal token endpoints m4..fullm6, strongest available single continuous stream.8 existing fine-source entries and all exact native stream caches are checked for reuse; only missing finer source contexts and native results are computed. No channel experiments. F1 old decoder adaptation has no verified m4 comparison and is not presumed compatible or beneficial.
+
+Caps:48 GPU-device hours,16 CPU-worker hours, individual stages≤8h (stricter per registration). Real consumed time and remaining bounds checked before new stages. Second seed,10k continuation, secondlambda,128-source wireless, strategy calibration and formal evaluation are gated, not unconditional. No widening bottleneck, changingcoarse scale or training original large models.
+
+Before any B2 launch, report complete B1 matched results at all budgets and selected/late checkpoints, actual bits, LPIPS/PSNR/D, and F0. A short trial that does not establish gain is not evidence against all residual-code research. Estimated entropy alone is insufficient. Stop the concrete MVP if no meaningful actual-budget tradeoff appears; do not manufacture a positive conclusion by changing the objective.

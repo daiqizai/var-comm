@@ -1,0 +1,24 @@
+{
+  "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nextscale-selective-blocks-20261028/dino_worker.py\", line 51, in main\n    scores[key]=ledger.call('pair',key,compute)\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nextscale-selective-blocks-20261028/block_common.py\", line 43, in call\n    try:v=fn()\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nextscale-selective-blocks-20261028/dino_worker.py\", line 49, in compute\n    val=evaluator.score(torch.from_numpy(x[None]).cuda(),torch.from_numpy(y[None]).cuda(),[0],label_conditioned=False,prepared=features[sid])[0]['dinov2_vitl14_cosine'];assert np.isfinite(val)\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/pilot_metric_code_seed_v1/metric_models.py\", line 480, in score\n    raise ValueError(\"Reference feature cache does not match these exact source pixels\")\nValueError: Reference feature cache does not match these exact source pixels\n",
+  "ledger": {
+    "caps": {
+      "model_load": 1,
+      "reference": 32,
+      "pair": 243
+    },
+    "counts": [
+      {
+        "kind": "model_load",
+        "status": "COMPLETE",
+        "count": 1
+      },
+      {
+        "kind": "pair",
+        "status": "FAILED",
+        "count": 1
+      }
+    ],
+    "unresolved": 1
+  },
+  "automatic_retry": false
+}

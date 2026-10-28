@@ -1,0 +1,127 @@
+{
+  "status": "PASS",
+  "checks": [
+    {
+      "name": "verify_repository",
+      "returncode": 0,
+      "seconds": 177.73433756828308,
+      "stdout_tail": "{\n  \"status\": \"PASS\",\n  \"tracked_files\": 20110,\n  \"source_export_entries_accounted\": 113,\n  \"GPU\": \"NOT_RUN\"\n}\n",
+      "stderr_tail": ""
+    },
+    {
+      "name": "targeted_cpu",
+      "returncode": 0,
+      "seconds": 17.50265645980835,
+      "stdout_tail": ".........                                                                [100%]\n9 passed in 15.50s\n",
+      "stderr_tail": ""
+    },
+    {
+      "name": "run_cpu_checks",
+      "returncode": 0,
+      "seconds": 40.52563524246216,
+      "stdout_tail": "y.digital_grid\": \"experiments/token_channel_efficiency_20260923/src/token_efficiency/digital_grid.py\",\n    \"token_efficiency.continuous_grid\": \"experiments/token_channel_efficiency_20260923/src/token_efficiency/continuous_grid.py\",\n    \"token_efficiency.resource_report\": \"experiments/token_channel_efficiency_20260923/src/token_efficiency/resource_report.py\",\n    \"token_efficiency.delivery_chain\": \"experiments/token_channel_efficiency_20260923/src/token_efficiency/delivery_chain.py\",\n    \"token_efficiency.C_lifecycle\": \"experiments/token_channel_efficiency_20260923/src/token_efficiency/C_lifecycle.py\",\n    \"token_efficiency.C_train\": \"experiments/token_channel_efficiency_20260923/src/token_efficiency/C_train.py\",\n    \"token_efficiency.C_evaluate\": \"experiments/token_channel_efficiency_20260923/src/token_efficiency/C_evaluate.py\",\n    \"token_efficiency.C_qualify\": \"experiments/token_channel_efficiency_20260923/src/token_efficiency/C_qualify.py\",\n    \"token_efficiency.C_cache\": \"experiments/token_channel_efficiency_20260923/src/token_efficiency/C_cache.py\",\n    \"token_efficiency.C_first_matrix\": \"experiments/token_channel_efficiency_20260923/src/token_efficiency/C_first_matrix.py\",\n    \"token_efficiency.C_followups\": \"experiments/token_channel_efficiency_20260923/src/token_efficiency/C_followups.py\",\n    \"token_efficiency.C_report\": \"experiments/token_channel_efficiency_20260923/src/token_efficiency/C_report.py\"\n  },\n  \"GPU\": \"NOT_RUN\"\n}\n........................................................................ [ 27%]\n........................................................................ [ 54%]\n........................................................................ [ 81%]\n................................................                         [100%]\n264 passed in 36.80s\n",
+      "stderr_tail": ""
+    }
+  ],
+  "whitespace_review": {
+    "crlf_source": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nested-residual-rd-20261028/qualify_residual_v2.py",
+    "crlf_source_sha256": "9881b1301e3703d1b1930df509d2d78a2cda89228c3273955a044b4ec01557d7",
+    "preserved_user_request_eof": [
+      "experiments/nested-residual-rd-20261028/user_request.txt",
+      "experiments/shared-codeword-fit-20261028/user_request.txt"
+    ],
+    "preserved_matplotlib_svg_whitespace": "results/shared_codeword_fit_20261028_v1/figures_v1/accounting_quality.svg",
+    "other_whitespace_errors": 0
+  },
+  "initial_check_history": [
+    {
+      "name": "verify_repository",
+      "returncode": 0,
+      "seconds": 177.73433756828308,
+      "stdout_tail": "{\n  \"status\": \"PASS\",\n  \"tracked_files\": 20110,\n  \"source_export_entries_accounted\": 113,\n  \"GPU\": \"NOT_RUN\"\n}\n",
+      "stderr_tail": ""
+    },
+    {
+      "name": "targeted_cpu",
+      "returncode": 0,
+      "seconds": 17.50265645980835,
+      "stdout_tail": ".........                                                                [100%]\n9 passed in 15.50s\n",
+      "stderr_tail": ""
+    },
+    {
+      "name": "run_cpu_checks",
+      "returncode": 1,
+      "seconds": 17.85172724723816,
+      "stdout_tail": ".............................                         [100%]\n=================================== FAILURES ===================================\n_____ PublicResultsTests.test_manifest_keeps_original_and_published_hashes _____\n\nself = <test_public_results.PublicResultsTests testMethod=test_manifest_keeps_original_and_published_hashes>\n\n    def test_manifest_keeps_original_and_published_hashes(self):\n>       manifest = check_manifest()\n\ntests/test_public_results.py:15: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nroot = PosixPath('/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM')\n\n    def check_manifest(root=ROOT):\n        manifest = json.loads((root / \"release_manifest.json\").read_text())\n        seen = set()\n        for entry in manifest[\"files\"]:\n            relative = Path(entry[\"published_path\"])\n            if relative.is_absolute() or \"..\" in relative.parts or relative.as_posix() in seen:\n                raise RuntimeError(\"unsafe or duplicated manifest path\")\n            seen.add(relative.as_posix())\n            path = root / relative\n            if path.is_symlink() or not path.is_file():\n                raise RuntimeError(f\"missing or symlinked publication file: {relative}\")\n            data = path.read_bytes()\n            if len(data) != entry[\"bytes\"] or hashlib.sha256(data).hexdigest() != entry[\"published_sha256\"]:\n>               raise RuntimeError(f\"published artifact changed: {relative}\")\nE               RuntimeError: published artifact changed: EXPERIMENTS.md\n\ntools/check_release.py:35: RuntimeError\n=========================== short test summary info ============================\nFAILED tests/test_public_results.py::PublicResultsTests::test_manifest_keeps_original_and_published_hashes\n1 failed, 263 passed in 8.80s\n",
+      "stderr_tail": ""
+    }
+  ],
+  "release_metadata_update": {
+    "original_sha256": "3f2cdbb347decbecc47487c1e10a3ded0d3dc9d21342cb20e40827e5cff18089",
+    "changes": [
+      {
+        "path": "EXPERIMENTS.md",
+        "before": {
+          "published_path": "EXPERIMENTS.md",
+          "bytes": 170822,
+          "source_sha256": "b6381e3e3b2159968a5658741374807ce6e3620359c97f822daea491d170352d",
+          "published_sha256": "b590c27d663d1de5da75e4eac4b5bdadb648cd80fd1d4650e227f99ad3e3e5b3"
+        },
+        "after": {
+          "published_path": "EXPERIMENTS.md",
+          "bytes": 172130,
+          "source_sha256": "b6381e3e3b2159968a5658741374807ce6e3620359c97f822daea491d170352d",
+          "published_sha256": "8920b246a350cacbb77b96b7c3a7d688fc0e9b7210492a6cb6e2a0046de94ab8"
+        }
+      },
+      {
+        "path": "PROGRESS.md",
+        "before": {
+          "published_path": "PROGRESS.md",
+          "bytes": 241650,
+          "source_sha256": "83ed37e851072bd28fe61441d649ac846a95e378ac68e3e20e9ca0f1b84830f9",
+          "published_sha256": "1d1cfadfa5b286dbc868b7451f2cc6b921ab7fec1f2af95300780d606bbe44e0"
+        },
+        "after": {
+          "published_path": "PROGRESS.md",
+          "bytes": 242958,
+          "source_sha256": "83ed37e851072bd28fe61441d649ac846a95e378ac68e3e20e9ca0f1b84830f9",
+          "published_sha256": "a868ad45939230c4f0c4973a4ca7fca5331e878d4487dcf49428ffca4bca580a"
+        }
+      },
+      {
+        "path": "README.md",
+        "before": {
+          "published_path": "README.md",
+          "bytes": 125264,
+          "source_sha256": "faef219c251ab7bf7ca124f50296e6206663fca10910608ab36ebdb9bfc0475b",
+          "published_sha256": "554534abc1c7526237cd63d75a89230a518a70db4737eee474456088c36432d0"
+        },
+        "after": {
+          "published_path": "README.md",
+          "bytes": 126572,
+          "source_sha256": "faef219c251ab7bf7ca124f50296e6206663fca10910608ab36ebdb9bfc0475b",
+          "published_sha256": "99701bef0c63ac151463f84f1ff63b7afeadbfba6094d31e8bbf51e765e3e53e"
+        }
+      },
+      {
+        "path": "RESEARCH_STATUS.md",
+        "before": {
+          "published_path": "RESEARCH_STATUS.md",
+          "bytes": 141318,
+          "source_sha256": "5ee55596550d2cef8ae600dc40ea8ddd49ddf56b399c55aeb202c959f6bf3565",
+          "published_sha256": "e73a7149aa2d77090f84db3080e29a2059ca6de62d81a541f62c651b7d0edb06"
+        },
+        "after": {
+          "published_path": "RESEARCH_STATUS.md",
+          "bytes": 142626,
+          "source_sha256": "5ee55596550d2cef8ae600dc40ea8ddd49ddf56b399c55aeb202c959f6bf3565",
+          "published_sha256": "19bbcd05803894becf8bbba3f21cadbabda8669ae259450d45266be9d5dfd69a"
+        }
+      }
+    ],
+    "reason": "Root documentation updated for two-route interim publication; original source hashes retained"
+  },
+  "scientific_scope": "CPU tests and consistency checks only; no new scientific calls",
+  "gpu_pause_preserved": true
+}

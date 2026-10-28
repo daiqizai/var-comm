@@ -1,0 +1,125 @@
+{
+  "created_unix": 1793181158.9994998,
+  "scope": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/nested_residual_rd_20261028_v1/scope.json",
+    "bytes": 1837,
+    "sha256": "c1c99746255e06a7995268d37008f99a40f2ed9e67c0693b37f5fb4fd7baacdd"
+  },
+  "cache_index": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nested_residual_rd_20261028_v1/canonical_cache_v2/index.json",
+    "bytes": 16110215,
+    "sha256": "7b1795a193ccf2f2855ce32144f0eb7092c665a2f5ab3b7bf9c9f42b38f62c84"
+  },
+  "source_selection": "first 16 entries in frozen dev200 order, fixed before final checkpoint selection",
+  "sources": [
+    {
+      "source_id": "n02974003/ILSVRC2012_val_00009164_n02974003",
+      "source_index": 479
+    },
+    {
+      "source_id": "n03075370/ILSVRC2012_val_00020842_n03075370",
+      "source_index": 507
+    },
+    {
+      "source_id": "n03529860/ILSVRC2012_val_00035132_n03529860",
+      "source_index": 598
+    },
+    {
+      "source_id": "n03841143/ILSVRC2012_val_00038367_n03841143",
+      "source_index": 685
+    },
+    {
+      "source_id": "n03803284/ILSVRC2012_val_00012090_n03803284",
+      "source_index": 676
+    },
+    {
+      "source_id": "n04447861/ILSVRC2012_val_00003415_n04447861",
+      "source_index": 861
+    },
+    {
+      "source_id": "n02089078/ILSVRC2012_val_00012293_n02089078",
+      "source_index": 165
+    },
+    {
+      "source_id": "n02398521/ILSVRC2012_val_00014340_n02398521",
+      "source_index": 344
+    },
+    {
+      "source_id": "n07802026/ILSVRC2012_val_00034579_n07802026",
+      "source_index": 958
+    },
+    {
+      "source_id": "n02114548/ILSVRC2012_val_00048997_n02114548",
+      "source_index": 270
+    },
+    {
+      "source_id": "n01943899/ILSVRC2012_val_00040963_n01943899",
+      "source_index": 112
+    },
+    {
+      "source_id": "n04008634/ILSVRC2012_val_00038596_n04008634",
+      "source_index": 744
+    },
+    {
+      "source_id": "n02102318/ILSVRC2012_val_00024691_n02102318",
+      "source_index": 219
+    },
+    {
+      "source_id": "n02793495/ILSVRC2012_val_00010809_n02793495",
+      "source_index": 425
+    },
+    {
+      "source_id": "n03991062/ILSVRC2012_val_00024174_n03991062",
+      "source_index": 738
+    },
+    {
+      "source_id": "n04111531/ILSVRC2012_val_00001625_n04111531",
+      "source_index": 766
+    }
+  ],
+  "arms": [
+    "scalar",
+    "progressive"
+  ],
+  "checkpoint_selection": "minimum mean D=MSE+0.1 LPIPS across 200 sources x three actual budgets at steps1000/2000/3000/4000/5000; first step on ties",
+  "budgets": [
+    449,
+    547,
+    608
+  ],
+  "anchors": [
+    0,
+    16,
+    32,
+    48,
+    64,
+    80,
+    96,
+    112,
+    128,
+    144,
+    160,
+    176,
+    192,
+    208,
+    224,
+    240,
+    256
+  ],
+  "limits": {
+    "source_encodes": 32,
+    "new_native_materializations": 640,
+    "anchor_lpips": 544,
+    "extra_metric_logical_pairs": 144
+  },
+  "extra_metrics": [
+    "dinov2_vitl14_cosine",
+    "dreamsim",
+    "clip_image_cosine"
+  ],
+  "extra_metric_scope": "only 16 x 3 actual budgets x F0/scalar/progressive; cache identical pixels; no extra metrics at all257 endpoints or all checkpoints",
+  "materialization": "Training evaluation saved scores but not native pixels or streams. This is separately registered deterministic materialization, with same selected checkpoint/device/math and exact MSE validation against saved chosen-j rows; saved LPIPS reused. New anchors scored only where no saved chosen-j result exists.",
+  "budget": "Within existing B48 GPU-device hours/16 CPU-worker hours; each materialization role<=3600s; each metric role<=3600s; no wireless, second seed, lambda or long training here",
+  "independence": "RX CDF memo comes only from earlier independent source reception, keyed by actual decoded prefix. No TX CDF or full latent passed to RX. Canonical mixed AC must match received bits.",
+  "statistics": "Descriptive fixed development subset; no bootstrap or independent-test claim; selected-checkpoint full200 metrics remain primary"
+}

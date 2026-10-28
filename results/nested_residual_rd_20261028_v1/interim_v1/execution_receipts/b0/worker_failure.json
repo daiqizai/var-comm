@@ -1,0 +1,44 @@
+{
+  "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nested-residual-rd-20261028/qualify_residual.py\", line 39, in main\n    streams_j,emitted=ledger.call('mixed_encode',s['source_id']+'|'+order,lambda:encode_candidates(codec.Encoder,txparts,txcdf,v,prob,order))\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nextscale-selective-blocks-20261028/block_common.py\", line 43, in call\n    try:v=fn()\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nested-residual-rd-20261028/qualify_residual.py\", line 39, in <lambda>\n    streams_j,emitted=ledger.call('mixed_encode',s['source_id']+'|'+order,lambda:encode_candidates(codec.Encoder,txparts,txcdf,v,prob,order))\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nested-residual-rd-20261028/nested_entropy.py\", line 18, in encode_candidates\n    e.encode(np.asarray([(v>>(3-d))&1],np.int64),cdf)\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/src/var_comm/whole_entropy.py\", line 44, in encode\n    cdf = validate_cdf(cdf, rows=len(values))\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/src/var_comm/entropy.py\", line 37, in validate_cdf\n    raise ValueError(\"CDF must have shape [tokens, 4097]\")\nValueError: CDF must have shape [tokens, 4097]\n",
+  "ledger": {
+    "caps": {
+      "model_load": 1,
+      "lpips_load": 1,
+      "direct_latent": 4,
+      "source_probability": 4,
+      "mixed_encode": 8,
+      "mixed_roundtrip": 2056,
+      "decoder_anchor": 160,
+      "lpips_anchor": 160
+    },
+    "counts": [
+      {
+        "kind": "direct_latent",
+        "status": "COMPLETE",
+        "count": 1
+      },
+      {
+        "kind": "lpips_load",
+        "status": "COMPLETE",
+        "count": 1
+      },
+      {
+        "kind": "mixed_encode",
+        "status": "FAILED",
+        "count": 1
+      },
+      {
+        "kind": "model_load",
+        "status": "COMPLETE",
+        "count": 1
+      },
+      {
+        "kind": "source_probability",
+        "status": "COMPLETE",
+        "count": 1
+      }
+    ],
+    "unresolved": 1
+  },
+  "automatic_retry": false
+}

@@ -1,3 +1,23 @@
+## 2026-10-28 — Two-route study: A closed; B paused with interim evidence
+
+The [shared-codeword study](results/shared_codeword_fit_20261028_v1/REPORT_zh.md)
+completed 1440 new real frames and reused 576 exact historical frames on32
+development sources. Fine-fill single-stream DINO J=0.4293869403 exceeds compact
+token-wise splitting J=0.3991225157. Shared-codeword expansion is stopped by its
+registered quality gate; all seven arms, failures, accounting and source-paired
+differences remain available.
+
+The [nested-residual pilot](results/nested_residual_rd_20261028_v1/REPORT_zh.md)
+is **USER_PAUSED_PRO6000**, at scalar3809/progressive3815 of5000 updates per arm.
+Both saved complete model/optimizer/RNG state and exited normally; automatic
+resume is prohibited. Actual1000/2000/3000-step dev200 evaluations and the matched
+fine-token F0 are published as interim evidence. At3000 both arms selectj256 at
+all three source capacities; mean finished-length increment over coarse is
+0.100/0.465bit. This suggests residual under-use but does not establish its cause.
+No final B1 selection, diagnostic16 neural inference, second seed or B wireless
+evaluation is claimed. Prepared followup source is marked NOT_RUN. Checkpoints,
+arrays and logs stay on PFS; current WCL and historical studies are unchanged.
+
 ## 2026-10-28 — Same-scale selective recovery P0–P3 completed: NO_GO_STOP
 
 The [complete bounded study](results/nextscale_selective_blocks_20261028_v1/REPORT_zh.md)
