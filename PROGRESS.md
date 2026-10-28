@@ -1,3 +1,18 @@
+## 2026-10-28 — Same-scale selective recovery P0–P3 completed: NO_GO_STOP
+
+The [complete bounded study](results/nextscale_selective_blocks_20261028_v1/REPORT_zh.md)
+evaluated all 220 packet proxies, nominated 11 three-block and 4 single-block
+candidates, and completed 4320 real N1024 frames (10656 transmitted body blocks;
+9029 body decoder attempts). ALL/SEQ/SEL reuse identical received observations.
+Best measured SEL DINO J=0.356429421213559 versus best measured single
+J=0.3994955714119391. No candidate meets both registered continuation conditions.
+C-success/A-fail/B-success occurred in 77/3168 triple frames across 11 candidates;
+the same-waveform SEL−SEQ contribution has both signs. All failures/paid NULLs,
+five metrics, source-paired differences and actual costs are retained.
+This is a 32-source calibration study, with no new bootstrap or held-out claim.
+P4/P5 and training are not run; existing WCL and historical negative results stay fixed.
+The initial CPU cache-preparation failure and independent successful v2 remain recorded.
+
 ## 2026-10-28 — Same-scale selective recovery P1 verified; P2 packet probes complete
 
 The authorized [P0–P3 study](results/nextscale_selective_blocks_20261028_v1/REPORT_P1.md)

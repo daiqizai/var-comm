@@ -1,0 +1,53 @@
+--- p3_rx_replay.py
++++ p3_rx_replay_v2.py
+@@ -3,6 +3,9 @@
+ from protocol import OFFSETS,state_identity,replay_states
+ from audit_prepare_p1 import closed
+ import collections,traceback
++
++def content_identity(state):
++ return {k:v for k,v in state.items()if k!='preprocessing'}
+ 
+ def make_cache():
+  """Read only completed independent RX inputs/outputs, never TX source archives."""
+@@ -40,11 +43,16 @@
+    assert bywire[key]['old_record']['canonical']and not bywire[key]['old_record']['source_truth_used']
+    put(p,dict(m=v['m'],coarse=v['coarse'],positions=v['positions'],values=v['values']),dict(completion=origin['completion'],key=key));found.add(key)
+  assert found==set(bywire)
+- preprocess={r['state']['preprocessing']for r in normal};assert len(preprocess)==1
++ preprocess={r['state']['preprocessing']for r in normal}
+  native={r['key']:dict(state=r['state'],image=r['image'],pixel_sha256=r['pixel_sha256'])for r in normal}
+  assert len(native)==928
+  for key,r in native.items():assert key==digest(r['state'])and r['state']['route']==routes
+- return dict(cache=cache,native=native,route=routes,preprocessing=next(iter(preprocess)),provenance=provenance)
++ index={}
++ for key,r in native.items():
++  content=digest(content_identity(r['state']))
++  if content in index:assert native[index[content]]['pixel_sha256']==r['pixel_sha256']
++  else:index[content]=key
++ return dict(cache=cache,native=native,content_index=index,route=routes,preprocessing_source_hashes=sorted(preprocess),provenance=provenance)
+ 
+ def replay(v,bundle):
+  """Only actual parsed RX blocks, public profile, and previously verified RX cache."""
+@@ -58,9 +66,9 @@
+   for mode,state in states.items():
+    if state is None:result[mode]=dict(state='GRAY',state_key=None,pixel_sha256=None);continue
+    label,m,C,pos,values=state
+-   identv=state_identity(m,C,pos,values,bundle['preprocessing'],bundle['route']);key=digest(identv);n=bundle['native'].get(key)
+-   if n is None:missing.append(dict(type='NATIVE_STATE',key=key,state=identv));result[mode]=dict(state=label,state_key=key,pending=True);continue
+-   assert n['state']==identv
++   identv=state_identity(m,C,pos,values,'',bundle['route']);content=digest(content_identity(identv));key=bundle['content_index'].get(content);n=bundle['native'].get(key)
++   if n is None:missing.append(dict(type='NATIVE_STATE',key=content,state=identv));result[mode]=dict(state=label,state_key=key,pending=True);continue
++   assert content_identity(n['state'])==content_identity(identv)and digest(n['state'])==key
+    result[mode]=dict(state=label,state_key=key,pixel_sha256=n['pixel_sha256'])
+   return dict(kind=kind,modes=result,source_status=decisions,reused_decode_keys=used,missing=missing,TX_truth_used=False)
+  if not v['header']['header_ok']:
+@@ -97,7 +105,7 @@
+  return finish(states,kind)
+ 
+ def main():
+- out=L/'p3_replay';out.mkdir(exist_ok=False)
++ out=L/'p3_replay_v2';out.mkdir(exist_ok=False)
+  try:
+   bundle=make_cache();save(out/'receiver_cache.json',bundle)
+   rows=[];wire={};missing={};receipts=[]

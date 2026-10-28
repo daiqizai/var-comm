@@ -1,0 +1,40 @@
+{
+  "status": "PASS",
+  "checks": [
+    {
+      "name": "staged_diff",
+      "command": [
+        "git",
+        "diff",
+        "--cached",
+        "--check"
+      ],
+      "actual_wait": true,
+      "returncode": 0,
+      "seconds": 0.16772141680121422
+    },
+    {
+      "name": "verify_repository",
+      "command": [
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_visual_py310/bin/python",
+        "-B",
+        "tools/verify_repository.py"
+      ],
+      "actual_wait": true,
+      "returncode": 0,
+      "seconds": 182.04957428760827
+    },
+    {
+      "name": "run_cpu_checks",
+      "command": [
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_visual_py310/bin/python",
+        "-B",
+        "tools/run_cpu_checks.py"
+      ],
+      "actual_wait": true,
+      "returncode": 0,
+      "seconds": 79.32625068817288
+    }
+  ],
+  "meaning": "Repository engineering checks only; no scientific reruns"
+}

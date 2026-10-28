@@ -1,0 +1,51 @@
+{
+  "status": "PASS",
+  "checks": [
+    {
+      "name": "staged_diff",
+      "command": [
+        "git",
+        "diff",
+        "--cached",
+        "--check"
+      ],
+      "actual_wait": true,
+      "returncode": 0,
+      "seconds": 0.16772141680121422
+    },
+    {
+      "name": "verify_repository",
+      "command": [
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_visual_py310/bin/python",
+        "-B",
+        "tools/verify_repository.py"
+      ],
+      "actual_wait": true,
+      "returncode": 0,
+      "seconds": 182.04957428760827
+    },
+    {
+      "name": "run_cpu_checks",
+      "command": [
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_visual_py310/bin/python",
+        "-B",
+        "tools/run_cpu_checks.py"
+      ],
+      "actual_wait": true,
+      "returncode": 0,
+      "seconds": 79.32625068817288
+    }
+  ],
+  "successful_review": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/nextscale_selective_blocks_20261028_v1/validation_p3/review_v2/CHECKS.json",
+    "sha256": "608086cb9a0ca02274713862fe9ef1e7489cfc578db70b447208b5baac87506a",
+    "bytes": 987
+  },
+  "preserved_first_diff_failure": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/nextscale_selective_blocks_20261028_v1/validation_p3/staged_diff.actual_wait.json",
+    "sha256": "9f8ecd2eda8a06f9a97558e5de70d248efe38178e4fb5f1a374ef47979ea9bf5",
+    "bytes": 177
+  },
+  "initial_issue": "Generated SVG path separators and patch blank-context whitespace only; scoped artifact review preserves exact bytes",
+  "no_scientific_rerun": true
+}
