@@ -1,3 +1,20 @@
+## 2026-10-28 — WCL representation and fixed-frame narrative revision
+
+The anonymous [manuscript v2](paper/manuscripts/nestcom_wcl_n512_20261028_v2/README.md)
+revises the abstract, introduction, method transitions, reduced-budget discussion
+and conclusion from `ccf4084165cc57e356157ae074c9bfdedb03d2fa`. The argument now
+connects coarse-to-fine residual representation, endpoint/capacity mismatch,
+actual-length fitting and the two reconstruction roles of received boundary tokens.
+WHOLE−Ada differences are descriptive frozen means; interval claims reuse the
+existing NeST−WHOLE source-paired statistics. Unfavorable Ada comparisons remain.
+
+The reviewed double-column PDF has 5 pages and a 91-word abstract; the
+single-column PDF and editable Word have also been synchronized and inspected.
+All three figures, three tables, prior manuscripts and scientific results remain
+unchanged. No experiment, inference, timing or bootstrap was run in this revision.
+Publication checks are recorded in the manuscript's `validation/repository_checks/`.
+Completed scientific tasks and their automations remain stopped.
+
 ## 2026-10-28 — N512 evaluation and complete WCL manuscript
 
 The [N512 study](results/nestcom_n512_20261028_v1/delivery/REPORT.md) is complete:

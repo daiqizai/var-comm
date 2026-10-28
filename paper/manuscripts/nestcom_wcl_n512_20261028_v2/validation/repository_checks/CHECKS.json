@@ -1,0 +1,77 @@
+{
+  "status": "PASS",
+  "base_commit": "ccf4084165cc57e356157ae074c9bfdedb03d2fa",
+  "checks": [
+    {
+      "name": "table",
+      "command": [
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_visual_py310/bin/python",
+        "-B",
+        "paper/manuscripts/nestcom_wcl_n512_20261028_v2/scripts/build_table.py",
+        "--check"
+      ],
+      "actual_returncode": 0,
+      "actual_wait": true,
+      "pid": 814938,
+      "start_ticks": 284291947,
+      "started_unix": 1793156706.6148238,
+      "seconds": 0.11443257331848145,
+      "scientific_calls": 0
+    },
+    {
+      "name": "diff",
+      "command": [
+        "git",
+        "-c",
+        "core.whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol",
+        "diff",
+        "--cached",
+        "--check",
+        "--",
+        ".",
+        ":(exclude)paper/manuscripts/nestcom_wcl_n512_20261028_v2/IEEEtran.cls",
+        ":(exclude)paper/manuscripts/nestcom_wcl_n512_20261028_v2/figures/figure2.svg",
+        ":(exclude)paper/manuscripts/nestcom_wcl_n512_20261028_v2/figures/figure3.svg"
+      ],
+      "actual_returncode": 0,
+      "actual_wait": true,
+      "pid": 814939,
+      "start_ticks": 284291958,
+      "started_unix": 1793156706.7297854,
+      "seconds": 0.1642918586730957,
+      "scientific_calls": 0
+    },
+    {
+      "name": "verify_repository",
+      "command": [
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_visual_py310/bin/python",
+        "-B",
+        "tools/verify_repository.py"
+      ],
+      "actual_returncode": 0,
+      "actual_wait": true,
+      "pid": 814953,
+      "start_ticks": 284291975,
+      "started_unix": 1793156706.8945634,
+      "seconds": 159.6049108505249,
+      "scientific_calls": 0
+    },
+    {
+      "name": "run_cpu_checks",
+      "command": [
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_visual_py310/bin/python",
+        "-B",
+        "tools/run_cpu_checks.py"
+      ],
+      "actual_returncode": 0,
+      "actual_wait": true,
+      "pid": 823276,
+      "start_ticks": 284307935,
+      "started_unix": 1793156866.5001698,
+      "seconds": 57.40786385536194,
+      "scientific_calls": 0
+    }
+  ],
+  "scientific_calls": 0,
+  "whitespace_exception": "Only three byte-identical inherited assets excluded: IEEEtran.cls, figures/figure2.svg, figures/figure3.svg"
+}
