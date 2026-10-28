@@ -1,0 +1,398 @@
+experiments/nextscale-selective-blocks-20261028/block_common.py:1: trailing whitespace.
++"""Exclusive finite-stage records for the 2026-10-28 selective-block study."""
+experiments/nextscale-selective-blocks-20261028/block_common.py:2: trailing whitespace.
++from pathlib import Path
+experiments/nextscale-selective-blocks-20261028/block_common.py:3: trailing whitespace.
++import hashlib,json,os,sqlite3,sys,time
+experiments/nextscale-selective-blocks-20261028/block_common.py:4: trailing whitespace.
++import numpy as np
+experiments/nextscale-selective-blocks-20261028/block_common.py:5: trailing whitespace.
++R=Path('/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM')
+experiments/nextscale-selective-blocks-20261028/block_common.py:6: trailing whitespace.
++B=Path('/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm')
+experiments/nextscale-selective-blocks-20261028/block_common.py:7: trailing whitespace.
++RT=R.parent.parent/'var_comm_runtime_20261010'
+experiments/nextscale-selective-blocks-20261028/block_common.py:8: trailing whitespace.
++E=R/'experiments/nextscale-selective-blocks-20261028'
+experiments/nextscale-selective-blocks-20261028/block_common.py:9: trailing whitespace.
++O=R/'results/nextscale_selective_blocks_20261028_v1'
+experiments/nextscale-selective-blocks-20261028/block_common.py:10: trailing whitespace.
++L=B/'nextscale_selective_blocks_20261028_v1'
+experiments/nextscale-selective-blocks-20261028/block_common.py:11: trailing whitespace.
++BASE='a7eb2f3cd1621f819845bdcc1e0de5bb242b793e'
+experiments/nextscale-selective-blocks-20261028/block_common.py:12: trailing whitespace.
++def sha(p):
+experiments/nextscale-selective-blocks-20261028/block_common.py:13: trailing whitespace.
++ h=hashlib.sha256()
+experiments/nextscale-selective-blocks-20261028/block_common.py:14: trailing whitespace.
++ with Path(p).open('rb') as f:
+experiments/nextscale-selective-blocks-20261028/block_common.py:15: trailing whitespace.
++  for b in iter(lambda:f.read(8<<20),b''):h.update(b)
+experiments/nextscale-selective-blocks-20261028/block_common.py:16: trailing whitespace.
++ return h.hexdigest()
+experiments/nextscale-selective-blocks-20261028/block_common.py:17: trailing whitespace.
++def pin(p):return dict(path=str(p),bytes=Path(p).stat().st_size,sha256=sha(p))
+experiments/nextscale-selective-blocks-20261028/block_common.py:18: trailing whitespace.
++def checked(d):
+experiments/nextscale-selective-blocks-20261028/block_common.py:19: trailing whitespace.
++ p=Path(d['path']);assert p.is_absolute() and not p.is_symlink() and sha(p)==d['sha256'],p
+experiments/nextscale-selective-blocks-20261028/block_common.py:20: trailing whitespace.
++ assert 'bytes' not in d or p.stat().st_size==d['bytes'];return p
+experiments/nextscale-selective-blocks-20261028/block_common.py:21: trailing whitespace.
++def read(p):return json.loads(Path(p).read_bytes())
+experiments/nextscale-selective-blocks-20261028/block_common.py:22: trailing whitespace.
++def cr(d):return read(checked(d))
+experiments/nextscale-selective-blocks-20261028/block_common.py:23: trailing whitespace.
++def digest(v):return hashlib.sha256(json.dumps(v,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
+experiments/nextscale-selective-blocks-20261028/block_common.py:24: trailing whitespace.
++def asha(a):
+experiments/nextscale-selective-blocks-20261028/block_common.py:25: trailing whitespace.
++ a=np.ascontiguousarray(a);return hashlib.sha256(str(a.dtype).encode()+str(a.shape).encode()+a.tobytes()).hexdigest()
+experiments/nextscale-selective-blocks-20261028/block_common.py:26: trailing whitespace.
++def save(p,v):
+experiments/nextscale-selective-blocks-20261028/block_common.py:27: trailing whitespace.
++ p=Path(p);p.parent.mkdir(parents=True,exist_ok=True)
+experiments/nextscale-selective-blocks-20261028/block_common.py:28: trailing whitespace.
++ with p.open('x',encoding='utf8') as f:json.dump(v,f,indent=2,allow_nan=False);f.write('\n');f.flush();os.fsync(f.fileno())
+experiments/nextscale-selective-blocks-20261028/block_common.py:29: trailing whitespace.
++def ident(pid):
+experiments/nextscale-selective-blocks-20261028/block_common.py:30: trailing whitespace.
++ try:
+experiments/nextscale-selective-blocks-20261028/block_common.py:31: trailing whitespace.
++  s=Path('/proc',str(pid),'stat').read_text().rsplit(')',1)[1].split();return dict(pid=int(pid),start_ticks=int(s[19]),state=s[0])
+experiments/nextscale-selective-blocks-20261028/block_common.py:32: trailing whitespace.
++ except FileNotFoundError:return None
+experiments/nextscale-selective-blocks-20261028/block_common.py:33: trailing whitespace.
++def gone(v):
+experiments/nextscale-selective-blocks-20261028/block_common.py:34: trailing whitespace.
++ z=ident(v['pid']);return z is None or z['start_ticks']!=v['start_ticks'] or z['state']=='Z'
+experiments/nextscale-selective-blocks-20261028/block_common.py:35: trailing whitespace.
++class Ledger:
+experiments/nextscale-selective-blocks-20261028/block_common.py:36: trailing whitespace.
++ def __init__(self,path,caps):
+experiments/nextscale-selective-blocks-20261028/block_common.py:37: trailing whitespace.
++  assert not Path(path).exists();self.caps=caps;self.db=sqlite3.connect(path)
+experiments/nextscale-selective-blocks-20261028/block_common.py:38: trailing whitespace.
++  self.db.execute('PRAGMA synchronous=FULL');self.db.execute('CREATE TABLE calls(kind TEXT,key TEXT,status TEXT,started REAL,finished REAL,error TEXT,PRIMARY KEY(kind,key))');self.db.commit()
+experiments/nextscale-selective-blocks-20261028/block_common.py:39: trailing whitespace.
++ def call(self,kind,key,fn):
+experiments/nextscale-selective-blocks-20261028/block_common.py:40: trailing whitespace.
++  assert kind in self.caps
+experiments/nextscale-selective-blocks-20261028/block_common.py:41: trailing whitespace.
++  assert self.db.execute('SELECT COUNT(*) FROM calls WHERE kind=?',(kind,)).fetchone()[0]<self.caps[kind]
+experiments/nextscale-selective-blocks-20261028/block_common.py:42: trailing whitespace.
++  self.db.execute('INSERT INTO calls VALUES(?,?,?,?,NULL,NULL)',(kind,str(key),'RESERVED',time.time()));self.db.commit()
+experiments/nextscale-selective-blocks-20261028/block_common.py:43: trailing whitespace.
++  try:v=fn()
+experiments/nextscale-selective-blocks-20261028/block_common.py:44: trailing whitespace.
++  except BaseException as e:
+experiments/nextscale-selective-blocks-20261028/block_common.py:45: trailing whitespace.
++   self.db.execute('UPDATE calls SET status=?,finished=?,error=? WHERE kind=? AND key=?',('FAILED',time.time(),repr(e),kind,str(key)));self.db.commit();raise
+experiments/nextscale-selective-blocks-20261028/block_common.py:46: trailing whitespace.
++  self.db.execute('UPDATE calls SET status=?,finished=? WHERE kind=? AND key=?',('COMPLETE',time.time(),kind,str(key)));self.db.commit();return v
+experiments/nextscale-selective-blocks-20261028/block_common.py:47: trailing whitespace.
++ def summary(self):return dict(caps=self.caps,counts=[dict(kind=k,status=s,count=n) for k,s,n in self.db.execute('SELECT kind,status,COUNT(*) FROM calls GROUP BY kind,status')],unresolved=self.db.execute("SELECT COUNT(*) FROM calls WHERE status!='COMPLETE'").fetchone()[0])
+experiments/nextscale-selective-blocks-20261028/block_common.py:48: trailing whitespace.
++
+experiments/nextscale-selective-blocks-20261028/block_common.py:49: trailing whitespace.
++
+experiments/nextscale-selective-blocks-20261028/block_common.py:50: trailing whitespace.
++def module(path,name):
+experiments/nextscale-selective-blocks-20261028/block_common.py:51: trailing whitespace.
++ import importlib.util
+experiments/nextscale-selective-blocks-20261028/block_common.py:52: trailing whitespace.
++ spec=importlib.util.spec_from_file_location(name,path);m=importlib.util.module_from_spec(spec);sys.modules[name]=m;spec.loader.exec_module(m);return m
+experiments/nextscale-selective-blocks-20261028/block_common.py:53: trailing whitespace.
++
+experiments/nextscale-selective-blocks-20261028/block_common.py:54: trailing whitespace.
++def csvsave(p,rows):
+experiments/nextscale-selective-blocks-20261028/block_common.py:55: trailing whitespace.
++ import csv
+experiments/nextscale-selective-blocks-20261028/block_common.py:56: trailing whitespace.
++ with Path(p).open("x",encoding="utf8",newline="")as f:
+experiments/nextscale-selective-blocks-20261028/block_common.py:57: trailing whitespace.
++  w=csv.DictWriter(f,fieldnames=list(rows[0]));w.writeheader();w.writerows(rows)
+experiments/nextscale-selective-blocks-20261028/control.py:1: trailing whitespace.
++"""Exclusive detached owner, real child wait, finite wall time; no auto retry."""
+experiments/nextscale-selective-blocks-20261028/control.py:2: trailing whitespace.
++from block_common import *
+experiments/nextscale-selective-blocks-20261028/control.py:3: trailing whitespace.
++import subprocess,signal,argparse,traceback
+experiments/nextscale-selective-blocks-20261028/control.py:4: trailing whitespace.
++def owner(request,expected):
+experiments/nextscale-selective-blocks-20261028/control.py:5: trailing whitespace.
++ assert sha(request)==expected;r=read(request);c=Path(r['control']);c.mkdir(parents=True,exist_ok=False)
+experiments/nextscale-selective-blocks-20261028/control.py:6: trailing whitespace.
++ save(c/'owner.json',dict(process=ident(os.getpid()),parent=ident(os.getppid()),request=pin(request)))
+experiments/nextscale-selective-blocks-20261028/control.py:7: trailing whitespace.
++ for p in r['code']:checked(p)
+experiments/nextscale-selective-blocks-20261028/control.py:8: trailing whitespace.
++ env=os.environ.copy();env.update(PYTHONDONTWRITEBYTECODE='1',OMP_NUM_THREADS='2',MKL_NUM_THREADS='2',OPENBLAS_NUM_THREADS='2',CUDA_VISIBLE_DEVICES='',CUBLAS_WORKSPACE_CONFIG=':4096:8');env.update(r.get('environment',{}))
+experiments/nextscale-selective-blocks-20261028/control.py:9: trailing whitespace.
++ start=time.monotonic()
+experiments/nextscale-selective-blocks-20261028/control.py:10: trailing whitespace.
++ with (c/'stdout.log').open('xb') as so,(c/'stderr.log').open('xb') as se:
+experiments/nextscale-selective-blocks-20261028/control.py:11: trailing whitespace.
++  child=subprocess.Popen(r['argv'],cwd=R,env=env,stdout=so,stderr=se,start_new_session=True)
+experiments/nextscale-selective-blocks-20261028/control.py:12: trailing whitespace.
++  process=ident(child.pid);save(c/'launch.json',dict(process=process,owner=ident(os.getpid()),argv=r['argv'],request=pin(request)))
+experiments/nextscale-selective-blocks-20261028/control.py:13: trailing whitespace.
++  timed_out=False
+experiments/nextscale-selective-blocks-20261028/control.py:14: trailing whitespace.
++  try:rc=child.wait(timeout=r['seconds'])
+experiments/nextscale-selective-blocks-20261028/control.py:15: trailing whitespace.
++  except subprocess.TimeoutExpired:
+experiments/nextscale-selective-blocks-20261028/control.py:16: trailing whitespace.
++   timed_out=True;os.killpg(child.pid,signal.SIGTERM)
+experiments/nextscale-selective-blocks-20261028/control.py:17: trailing whitespace.
++   try:rc=child.wait(timeout=60)
+experiments/nextscale-selective-blocks-20261028/control.py:18: trailing whitespace.
++   except subprocess.TimeoutExpired:os.killpg(child.pid,signal.SIGKILL);rc=child.wait(timeout=30)
+experiments/nextscale-selective-blocks-20261028/control.py:19: trailing whitespace.
++ save(c/'actual_wait.json',dict(returncode=rc,actual_wait=True,timed_out=timed_out,seconds=time.monotonic()-start,process=process,child_gone=gone(process),owner=ident(os.getpid()),request=pin(request),stdout=pin(c/'stdout.log'),stderr=pin(c/'stderr.log')))
+experiments/nextscale-selective-blocks-20261028/control.py:20: trailing whitespace.
++ if rc:save(c/'failure.json',dict(returncode=rc,timed_out=timed_out,automatic_retry=False))
+experiments/nextscale-selective-blocks-20261028/control.py:21: trailing whitespace.
++ return rc
+experiments/nextscale-selective-blocks-20261028/control.py:22: trailing whitespace.
++if __name__=='__main__':
+experiments/nextscale-selective-blocks-20261028/control.py:23: trailing whitespace.
++ p=argparse.ArgumentParser();p.add_argument('request');p.add_argument('expected');a=p.parse_args();sys.exit(owner(a.request,a.expected))
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:1: trailing whitespace.
++"""DINO calibration only; source and pair caching with fixed device/numerics."""
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:2: trailing whitespace.
++from block_common import *
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:3: trailing whitespace.
++import tempfile,traceback,ctypes
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:4: trailing whitespace.
++def main(request,expected):
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:5: trailing whitespace.
++ assert sha(request)==expected;r=read(request)
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:6: trailing whitespace.
++ for d in r['code']:checked(d)
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:7: trailing whitespace.
++ plan=cr(r['plan']);out=Path(r['output']);out.mkdir(exist_ok=False);(out/'references').mkdir();(out/'pairs').mkdir();(out/'tmp').mkdir();tempfile.tempdir=str(out/'tmp')
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:8: trailing whitespace.
++ os.environ.update(TMPDIR=str(out/'tmp'),TORCHINDUCTOR_CACHE_DIR=str(out/'inductor'),TRITON_CACHE_DIR=str(out/'triton'),HF_HUB_OFFLINE='1',TRANSFORMERS_OFFLINE='1',CUBLAS_WORKSPACE_CONFIG=':4096:8');os.sched_setaffinity(0,set(r['cpu_affinity']))
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:9: trailing whitespace.
++ ledger=Ledger(out/'calls.sqlite',dict(model_load=1,reference=len(plan['sources']),pair=len(plan['pairs'])));beg=time.monotonic()
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:10: trailing whitespace.
++ try:
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:11: trailing whitespace.
++  sys.path.insert(0,str(R/'experiments/entropy-partial-mismatch-20261010/scripts'));import h800_ep_pilot_metrics_v1 as old
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:12: trailing whitespace.
++  config=r['metric_config'];sys.path.insert(0,str(R/'tools'));import checkpoint_relocation_20261028 as relocation;assets=relocation.metric_assets(old,config)
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:13: trailing whitespace.
++  import torch
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:14: trailing whitespace.
++  torch.set_num_threads(6);torch.set_num_interop_threads(2);torch.set_float32_matmul_precision('highest');torch.backends.cuda.matmul.allow_tf32=False;torch.backends.cudnn.allow_tf32=False;torch.backends.cudnn.benchmark=False;torch.backends.cudnn.deterministic=True;torch.use_deterministic_algorithms(True);torch.cuda.set_device(0)
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:15: trailing whitespace.
++  assert torch.__version__=='2.11.0+cu128' and old.flags_function(config['sources']['step0_reference_metrics.py']['path'])(torch)==old.FLAGS
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:16: trailing whitespace.
++  lib=ctypes.CDLL('libcuda.so.1');dev=ctypes.c_int();assert lib.cuDeviceGet(ctypes.byref(dev),0)==0;buf=ctypes.create_string_buffer(32);assert lib.cuDeviceGetPCIBusId(buf,32,dev)==0 and buf.value.decode().lower()==r['pci'].lower()
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:17: trailing whitespace.
++  assert torch.cuda.mem_get_info()[0]>=8<<30;torch.cuda.set_per_process_memory_fraction((6<<30)/torch.cuda.get_device_properties(0).total_memory)
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:18: trailing whitespace.
++  module=old.load_module(config['sources']['metric_models.py'],'_CAB_FROZEN_DINO')
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:19: trailing whitespace.
++  with module.no_network():evaluator=ledger.call('model_load','once',lambda:module.MetricEvaluator(assets['dinov2_manifest'],device='cuda:0',requested=('dinov2_vitl14',)))
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:20: trailing whitespace.
++  identity=dict(evaluator_identity=evaluator.identity(),metadata=evaluator.metadata,pci=r['pci'],torch=torch.__version__,numpy=np.__version__,FP32=True,TF32=False,AMP=False,batch=1,threads=6,interop=2)
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:21: trailing whitespace.
++  save(out/'identity.json',identity);prior_refs={};prior_pairs={}
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:22: trailing whitespace.
++  for olddir in r.get('prior_score_dirs',[]):
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:23: trailing whitespace.
++   d=Path(olddir);assert read(d/'identity.json')==identity;done=read(d/'completion.json');assert done['status']=='COMPLETE_DINO'
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:24: trailing whitespace.
++   prior_refs.update(cr(done['references']));prior_pairs.update(cr(done['scores']))
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:25: trailing whitespace.
++  refs={};scores={};sources={s['source_id']:s for s in plan['sources']};pixels={};features={}
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:26: trailing whitespace.
++  with torch.inference_mode(),torch.autocast('cuda',enabled=False):
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:27: trailing whitespace.
++   for j in plan['pairs']:
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:28: trailing whitespace.
++    assert time.monotonic()-beg<r['max_seconds'] and torch.cuda.mem_get_info()[0]>=2<<30 and not (L/'STOP').exists()
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:29: trailing whitespace.
++    sid=j['source_id'];s=sources[sid];refkey=s['reference_sha256'];key=j['pair_key']
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:30: trailing whitespace.
++    if key in prior_pairs:scores[key]=prior_pairs[key];continue
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:31: trailing whitespace.
++    if sid not in pixels:
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:32: trailing whitespace.
++     with np.load(checked(s['archive']),allow_pickle=False)as z:x=z['pixels'].astype(np.float32)/np.float32(255)
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:33: trailing whitespace.
++     assert asha(x)==refkey;pixels[sid]=x
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:34: trailing whitespace.
++     if refkey in prior_refs:
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:35: trailing whitespace.
++      desc=prior_refs[refkey];a=np.load(checked(desc),allow_pickle=False);prepared={'dinov2_vitl14':torch.from_numpy(a)};refs[refkey]=desc
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:36: trailing whitespace.
++     else:
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:37: trailing whitespace.
++      def reference():
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:38: trailing whitespace.
++       v=evaluator.prepare_reference(torch.from_numpy(x[None]).cuda());a=v['dinov2_vitl14'].numpy();p=out/'references'/(refkey+'.npy')
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:39: trailing whitespace.
++       with p.open('xb')as f:np.save(f,a,allow_pickle=False)
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:40: trailing whitespace.
++       refs[refkey]=pin(p);return v
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:41: trailing whitespace.
++      prepared=ledger.call('reference',refkey,reference)
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:42: trailing whitespace.
++     features[sid]=prepared
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:43: trailing whitespace.
++    x=pixels[sid]
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:44: trailing whitespace.
++    if j['image'] is None:y=np.full((3,256,256),.5,np.float32)
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:45: trailing whitespace.
++    else:
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:46: trailing whitespace.
++     with np.load(checked(j['image']),allow_pickle=False)as z:y=z['image'].copy()
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:47: trailing whitespace.
++    assert asha(y)==j['pixel_sha256'] and y.dtype==np.float32 and y.shape==(3,256,256)
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:48: trailing whitespace.
++    def compute():
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:49: trailing whitespace.
++     val=evaluator.score(torch.from_numpy(x[None]).cuda(),torch.from_numpy(y[None]).cuda(),[0],label_conditioned=False,prepared=features[sid])[0]['dinov2_vitl14_cosine'];assert np.isfinite(val)
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:50: trailing whitespace.
++     record=dict(source_id=sid,pair_key=key,pixel_sha256=j['pixel_sha256'],reference_sha256=refkey,value=float(val));save(out/'pairs'/(key+'.json'),record);return record
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:51: trailing whitespace.
++    scores[key]=ledger.call('pair',key,compute)
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:52: trailing whitespace.
++    if len(scores)%100==0:print('DINO_PAIRS',len(scores),len(plan['pairs']),flush=True)
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:53: trailing whitespace.
++  save(out/'references.json',refs);save(out/'scores.json',scores);assert ledger.summary()['unresolved']==0
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:54: trailing whitespace.
++  save(out/'completion.json',dict(status='COMPLETE_DINO',request=pin(request),scores=pin(out/'scores.json'),references=pin(out/'references.json'),identity=pin(out/'identity.json'),count=len(scores),ledger=ledger.summary(),seconds=time.monotonic()-beg))
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:55: trailing whitespace.
++ except BaseException:save(out/'failure.json',dict(traceback=traceback.format_exc(),ledger=ledger.summary(),automatic_retry=False));raise
+experiments/nextscale-selective-blocks-20261028/dino_worker.py:56: trailing whitespace.
++if __name__=='__main__':main(*sys.argv[1:])
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:1: trailing whitespace.
++"""Frozen four metric definitions on native pixels; no models or channel reruns."""
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:2: trailing whitespace.
++from block_common import *
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:3: trailing whitespace.
++import importlib.util,traceback,ctypes,tempfile
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:4: trailing whitespace.
++def module(path,name):
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:5: trailing whitespace.
++ spec=importlib.util.spec_from_file_location(name,path);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m);return m
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:6: trailing whitespace.
++def main(request,expected):
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:7: trailing whitespace.
++ assert sha(request)==expected;r=read(request);rp=pin(request);[checked(d)for d in r['code']]
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:8: trailing whitespace.
++ plan=cr(r['plan']);out=Path(r['output']);out.mkdir(exist_ok=False);(out/'features').mkdir();(out/'pairs').mkdir();(out/'tmp').mkdir();tempfile.tempdir=str(out/'tmp')
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:9: trailing whitespace.
++ os.environ.update(TMPDIR=str(out/'tmp'),HF_HUB_OFFLINE='1',TRANSFORMERS_OFFLINE='1',CUBLAS_WORKSPACE_CONFIG=':4096:8');os.sched_setaffinity(0,set(r['cpu_affinity']))
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:10: trailing whitespace.
++ import torch,torch.nn.functional as F
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:11: trailing whitespace.
++ torch.set_num_threads(6);torch.set_num_interop_threads(2);torch.set_float32_matmul_precision('highest');torch.backends.cuda.matmul.allow_tf32=False;torch.backends.cudnn.allow_tf32=False;torch.backends.cudnn.benchmark=False;torch.backends.cudnn.deterministic=True;torch.use_deterministic_algorithms(True);torch.cuda.set_device(0)
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:12: trailing whitespace.
++ assert torch.__version__==r['torch'];lib=ctypes.CDLL('libcuda.so.1');dev=ctypes.c_int();assert lib.cuDeviceGet(ctypes.byref(dev),0)==0;bus=ctypes.create_string_buffer(32);assert lib.cuDeviceGetPCIBusId(bus,32,dev)==0 and bus.value.decode().lower()==r['pci'].lower()
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:13: trailing whitespace.
++ torch.cuda.set_per_process_memory_fraction((12<<30)/torch.cuda.get_device_properties(0).total_memory)
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:14: trailing whitespace.
++ triple=r['mode']=='three';ledger=Ledger(out/'calls.sqlite',r['caps']);beg=time.monotonic();cfg=r['config'];met=module(checked(cfg['clip']['loader']),'_CAB_FROZEN_METRICS')
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:15: trailing whitespace.
++ features={};rows={};cache=cr(r['feature_cache'])if r.get('feature_cache')else{};reuse=cr(r['pair_cache'])if r.get('pair_cache')else{}
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:16: trailing whitespace.
++ try:
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:17: trailing whitespace.
++  if triple:
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:18: trailing whitespace.
++   sys.path.insert(0,str(Path(r['original_four']['path']).parent));four=module(checked(r['original_four']),'_CAB_FOUR');c=cfg['config']['metric_config'];sys.path.insert(0,str(R/'tools'));import checkpoint_relocation_20261028 as relocation;assets=relocation.metric_assets(four,c)
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:19: trailing whitespace.
++   import lpips
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:20: trailing whitespace.
++   assert sha(Path(lpips.__file__).parent/'weights/v0.1/alex.pth')==four.WEIGHT_SHA['lpips']
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:21: trailing whitespace.
++   psnr,pp=four.psnr_projection(c['sources']['score_bpg_cached_holdout_r2.py']['path']);lp_load,lp_pair,lp_proof=four.lpips_projection(c['sources']['quality.py']['path'],dict(Path=Path,lpips=lpips,torch=torch))
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:22: trailing whitespace.
++   with met.no_network():lp=ledger.call('load_lpips','once',lambda:lp_load({'alexnet_checkpoint':assets['weights']['alexnet']['path']},'cuda:0'))
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:23: trailing whitespace.
++   sup=cfg['supplement'];overlay=cr(sup['dependency_overlay']);[checked(d)for d in overlay['files']];sys.path.insert(0,cfg['config']['supplemental_overlay_root']);ma=cr(sup['metric_assets']);torch.manual_seed(2026101401)
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:24: trailing whitespace.
++   with met.no_network():network=ledger.call('load_dreamsim','once',lambda:met.load_dreamsim(ma['models']['dreamsim'],torch.device('cuda:0')))
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:25: trailing whitespace.
++   preprocess=met.preprocess_dreamsim;references={}
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:26: trailing whitespace.
++  else:
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:27: trailing whitespace.
++   with met.no_network():network=ledger.call('load_clip','once',lambda:met.load_clip(cfg['clip']['clip_assets'],torch.device('cuda:0')))
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:28: trailing whitespace.
++   preprocess=lambda x:met.preprocess_clip(met.validate_images(x));references={}
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:29: trailing whitespace.
++  save(out/'identity.json',dict(request=rp,mode=r['mode'],config=r['frozen_metric_registration'],torch=torch.__version__,pci=bus.value.decode(),FP32=True,TF32=False,AMP=False,batch=1,loader=cfg['clip']['loader'],original_AST=dict(psnr=pp,lpips=lp_proof)if triple else None))
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:30: trailing whitespace.
++  def feature(a,h):
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:31: trailing whitespace.
++   if h in cache:
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:32: trailing whitespace.
++    with checked(cache[h]).open('rb')as f:return torch.from_numpy(np.load(f,allow_pickle=False)).cuda()
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:33: trailing whitespace.
++   if h not in features:
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:34: trailing whitespace.
++    def embed():
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:35: trailing whitespace.
++     x=torch.from_numpy(a[None]).cuda();f=(network.embed(preprocess(x))if triple else network.encode_image(preprocess(x))).float().cpu().numpy();p=out/'features'/(h+'.npy')
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:36: trailing whitespace.
++     with p.open('xb')as z:np.save(z,f,allow_pickle=False);z.flush();os.fsync(z.fileno())
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:37: trailing whitespace.
++     features[h]=pin(p);return f
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:38: trailing whitespace.
++    a=ledger.call('embedding',h,embed)
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:39: trailing whitespace.
++   else:
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:40: trailing whitespace.
++    with checked(features[h]).open('rb')as f:a=np.load(f,allow_pickle=False)
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:41: trailing whitespace.
++   return torch.from_numpy(a).cuda()
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:42: trailing whitespace.
++  sources={s['source_id']:s for s in plan['sources']};last=None;metrics=['psnr_db','lpips_alex','dreamsim']if triple else['clip_image_cosine']
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:43: trailing whitespace.
++  with torch.inference_mode(),torch.autocast('cuda',enabled=False):
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:44: trailing whitespace.
++   for j in sorted(plan['pairs'],key=lambda j:(j['source_index'],j['pair_key'])):
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:45: trailing whitespace.
++    assert time.monotonic()-beg<r['max_seconds']and torch.cuda.mem_get_info()[0]>=2<<30 and not(L/'STOP').exists();key=j['pair_key'];s=sources[j['source_id']]
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:46: trailing whitespace.
++    if key in reuse:rows[key]=dict(reuse[key],origin='EXACT_NATIVE_PAIR_REUSE');continue
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:47: trailing whitespace.
++    if last!=s['source_id']:
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:48: trailing whitespace.
++     with np.load(checked(s['archive']),allow_pickle=False)as z:x=z['pixels'].astype(np.float32)/np.float32(255)
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:49: trailing whitespace.
++     assert asha(x)==s['reference_sha256'];xt=torch.from_numpy(x[None]).cuda();last=s['source_id']
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:50: trailing whitespace.
++     fx=feature(x,s['reference_sha256'])
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:51: trailing whitespace.
++    if j['image']is None:y=np.full((3,256,256),.5,np.float32)
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:52: trailing whitespace.
++    else:
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:53: trailing whitespace.
++     with np.load(checked(j['image']),allow_pickle=False)as z:y=z['image'].copy()
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:54: trailing whitespace.
++    assert asha(y)==j['pixel_sha256']and y.dtype==np.float32 and y.shape==(3,256,256)and np.isfinite(y).all()and 0<=y.min()<=y.max()<=1
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:55: trailing whitespace.
++    fy=feature(y,j['pixel_sha256']);yt=torch.from_numpy(y[None]).cuda()
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:56: trailing whitespace.
++    def score():
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:57: trailing whitespace.
++     values=dict(psnr_db=float(psnr(x,y)),lpips_alex=float(lp_pair(lp,yt,xt)[0].item()),dreamsim=float((1-F.cosine_similarity(fx,fy,dim=-1))[0].item()))if triple else dict(clip_image_cosine=float(F.cosine_similarity(fx,fy,dim=-1)[0].item()))
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:58: trailing whitespace.
++     assert set(values)==set(metrics)and all(np.isfinite(v)for v in values.values());record=dict(pair_key=key,source_id=s['source_id'],source_index=s['source_index'],reference_sha256=s['reference_sha256'],pixel_sha256=j['pixel_sha256'],origin='NEW_FROZEN_METRIC_PAIR',**values);save(out/'pairs'/(key+'.json'),record);return record
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:59: trailing whitespace.
++    rows[key]=ledger.call('pair',key,score)
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:60: trailing whitespace.
++    if len(rows)%100==0:print('FORMAL_PAIR',r['mode'],len(rows),len(plan['pairs']),flush=True)
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:61: trailing whitespace.
++  save(out/'scores.json',rows);save(out/'features.json',features);save(out/'completion.json',dict(status='COMPLETE_FORMAL_METRICS',request=rp,mode=r['mode'],scores=pin(out/'scores.json'),features=pin(out/'features.json'),ledger=ledger.summary(),count=len(rows),seconds=time.monotonic()-beg,new_reconstruction=0,new_PHY=0))
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:62: trailing whitespace.
++ except BaseException:save(out/'failure.json',dict(traceback=traceback.format_exc(),ledger=ledger.summary(),automatic_retry=False));raise
+experiments/nextscale-selective-blocks-20261028/metric_worker.py:63: trailing whitespace.
++if __name__=='__main__':main(*sys.argv[1:])

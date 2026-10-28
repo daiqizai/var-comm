@@ -1,3 +1,14 @@
+## 2026-10-28 — Same-scale selective recovery P1 verified; P2 packet probes complete
+
+The authorized [P0–P3 study](results/nextscale_selective_blocks_20261028_v1/REPORT_P1.md)
+uses 32 fixed calibration sources and independent C/A/B streams. Complete and
+deletion-of-A roundtrips pass; missing C cannot restore B. Full-CAB native images
+match the continuous-prefix receiver. All four configurations have positive mean
+DINO(C+B)−DINO(C), with individual losses and four reporting metrics retained.
+This is clean-state evidence only. All 28 LDPC layouts qualify; the 10,752 P2 noisy body probes and 384 headers
+have completed. Proxy nomination, P3 and wireless net benefit remain pending. P4/P5 are
+outside this scope. Existing WCL results stay fixed.
+
 ## 2026-10-28 — WCL representation and fixed-frame narrative revision
 
 ## 2026-10-28: VAR_COMM weight storage relocation

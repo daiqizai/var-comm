@@ -6,3 +6,12 @@
 # Keep producer whitespace in byte-preserved execution/acceptance evidence.
 results/review_20260923_phase2/execution_logs/*.txt -whitespace
 results/review_20260923_phase2/acceptance/*.txt -whitespace
+
+# Preserve exact CRLF bytes of these registered execution sources.
+experiments/nextscale-selective-blocks-20261028/block_common.py whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+experiments/nextscale-selective-blocks-20261028/control.py whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+experiments/nextscale-selective-blocks-20261028/dino_worker.py whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+experiments/nextscale-selective-blocks-20261028/metric_worker.py whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+
+# The retained failed-review transcript quotes those exact CRLF source bytes.
+results/nextscale_selective_blocks_20261028_v1/validation/diff.stdout.txt whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
