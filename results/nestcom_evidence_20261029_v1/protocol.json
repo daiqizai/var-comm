@@ -1,0 +1,103 @@
+{
+  "schema": "NEST_EVIDENCE_20261029_V1",
+  "basis_HEAD": "8bab318fbc8f8f115e96c9aeffeef10d3c2bb4b6",
+  "population": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/nestcom_evidence_20261029_v1/source_manifest.json",
+    "bytes": 69754,
+    "sha256": "b073e90f968b3d402e66e9314b52896e3fbfb58e3c5233125470e7e183bbbd67"
+  },
+  "cache_identity": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/nestcom_evidence_20261029_v1/cache_identity.json",
+    "bytes": 773056,
+    "sha256": "05936e5a23fb4ec53c70325e15f31eeb3640b1b3360c64bb2952855c36ef27ad"
+  },
+  "E1": {
+    "workpoints": [
+      [
+        512,
+        4
+      ],
+      [
+        512,
+        10
+      ],
+      [
+        1024,
+        10
+      ]
+    ],
+    "sources": 100,
+    "repeats": 3,
+    "logical_per_arm": 900,
+    "arms": [
+      "Ada-sampling",
+      "Ada-argmax",
+      "NeST"
+    ],
+    "only_change": "Unreceived tail argmax of original CFG4 logits; fresh KV on received prefix, then greedy context",
+    "source_entropy_CDF": "unchanged conditional branch",
+    "paired": [
+      "Ada-argmax minus Ada-sampling",
+      "NeST minus Ada-argmax",
+      "NeST minus Ada-sampling"
+    ]
+  },
+  "E2": {
+    "workpoints": [
+      [
+        512,
+        4
+      ],
+      [
+        512,
+        10
+      ]
+    ],
+    "sources": 100,
+    "repeats": 3,
+    "logical_per_arm": 600,
+    "arms": [
+      "R0-coarse-only",
+      "R1-VAR-completed"
+    ],
+    "only_change": "Omit unreceived scale residual contributions; original S10 C_s and 16x16 latent, identical Dc",
+    "paired": [
+      "R1 minus R0"
+    ]
+  },
+  "statistics": {
+    "metrics": [
+      "psnr_db",
+      "lpips_alex",
+      "dreamsim",
+      "clip_image_cosine"
+    ],
+    "source_aggregation": "Arithmetic mean of three original repetitions, then equal sources",
+    "bootstrap": "Original 10000x100 bank in source_manifest, full order checked",
+    "interval": "Direct paired source differences, percentile 2.5/97.5",
+    "new_bank_draws": 0
+  },
+  "budget": {
+    "max_unique_E1": 285,
+    "max_unique_E2": 200,
+    "max_qualification_replays_E1": 4,
+    "max_qualification_replays_E2": 4,
+    "max_new_metric_pairs": 485,
+    "max_metric_embeddings_per_network": 485,
+    "GPU_device_hours": 12,
+    "CPU_process_hours": 12,
+    "receiver_stage_seconds": 3600,
+    "metric_stage_seconds": 3600,
+    "new_PHY": 0,
+    "new_training": 0,
+    "new_tokenizer": 0,
+    "new_source_encoding": 0
+  },
+  "no_automatic_retry": true,
+  "qualifications": "First bank-ordered accepted input per original physical device for each experiment. Valid new results retained.",
+  "figure_selection": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/nestcom_evidence_20261029_v1/figure3_selection.json",
+    "bytes": 1638,
+    "sha256": "959c3c433883fe010fd69a0c49f113fd8c971f8bd7576fa36aa9298a56915a7b"
+  }
+}

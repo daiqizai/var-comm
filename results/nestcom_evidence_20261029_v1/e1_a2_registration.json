@@ -1,0 +1,333 @@
+{
+  "kind": "e1",
+  "count": 49,
+  "inputs": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_evidence_20261029_v1/input_inventory_v2/e1_a2_received_only.json",
+    "bytes": 98172,
+    "sha256": "713e14272817c54cc7d50300d541ea9d2136a0c53a4a41ec4410811050c27d13"
+  },
+  "output": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_evidence_20261029_v1/e1_a2",
+  "donor_identity": {
+    "torch": "2.11.0+cu128",
+    "cuda": "12.8",
+    "device": "NVIDIA RPBZZZ6",
+    "pci": "0000:A2:00.0",
+    "precision": "FP32",
+    "TF32": false,
+    "AMP": false,
+    "threads": 6,
+    "interop": 2,
+    "SDPA": "math for all TX/RX positions",
+    "null_class": 1000,
+    "condition": "paid predicted class",
+    "TX_RX_batch": 2,
+    "source_distribution": "conditional full vocabulary",
+    "tail_cfg_scale": 4.0,
+    "temperature": 1.0,
+    "top_k": 2000,
+    "top_p": 1.0,
+    "weights": {
+      "prior": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/adatoken_response_20261026_v1/c_assets_proxy_v2/c2i_L_256.pt",
+        "bytes": 1371712314,
+        "sha256": "15fe788b9c0e8dfe36f3e3fd701b44d0c934e4fd94a0ab599b69669aa8f44a55"
+      },
+      "vq": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/adatoken_response_20261026_v1/c_assets_proxy_v2/vq_ds16_c2i.pt",
+        "bytes": 287920306,
+        "sha256": "109aa8afb2cf3761eec23cdc8644154cb498f5ab7eef2a35264d25e5e0499f7d"
+      }
+    },
+    "upstream": [
+      {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/upstream/llamagen/autoregressive/models/generate.py",
+        "bytes": 7910,
+        "sha256": "512bd8bf9b10977d7276d79c0679f52bf4a578ad3ce20a2137b374067176fb2d"
+      },
+      {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/upstream/llamagen/autoregressive/models/gpt.py",
+        "bytes": 19663,
+        "sha256": "7397395d8a42eb01fb6f1a30a9b42e915c334cba011a19b2d6f9a2e4f4e6cd8e"
+      },
+      {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/upstream/llamagen/autoregressive/sample/sample_c2i.py",
+        "bytes": 5635,
+        "sha256": "5db1fd735f8287c7d003855bae9178f91f9ed2e7c8d181621550ec8a81840008"
+      },
+      {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/upstream/llamagen/tokenizer/tokenizer_image/vq_model.py",
+        "bytes": 15975,
+        "sha256": "b430a63437caf1417a6975a1b48310a7f6ee796bde731e0cb64ac458064cb245"
+      },
+      {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/upstream/llamagen/utils/drop_path.py",
+        "bytes": 1594,
+        "sha256": "92c2281eeb035318df14806170ad02dc0c8b01c0034d9a8e6b3e21e75d27e489"
+      }
+    ]
+  },
+  "pci": "0000:a2:00.0",
+  "cpu_affinity": [
+    16,
+    17,
+    18,
+    19,
+    20,
+    21
+  ],
+  "qualification_keys": [
+    "67913cf7d4500010209b81cd86f8f6d9ffb70086d90622809a34671aaae1510b"
+  ],
+  "caps": {
+    "model_load": 1,
+    "receiver_render": 49,
+    "qualification_replay": 1
+  },
+  "max_seconds": 3600,
+  "protocol": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/nestcom_evidence_20261029_v1/protocol.json",
+    "bytes": 2911,
+    "sha256": "01e2f66a419fe1cd53399efac4bc228ea6220be26e631212a0766169002d1aac"
+  },
+  "code": [
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/c_arithmetic.py",
+      "bytes": 2512,
+      "sha256": "4101ec85bfc4ca2e3026c2dd7ca724638dc059f2be4b66b21edbd249e08c7a30"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/c_native.py",
+      "bytes": 3833,
+      "sha256": "1a9c28c65305899d811ceb638d20773eb9259fb538a8f22f1ab91269a4ad3767"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/c_predclass_classifier.py",
+      "bytes": 1547,
+      "sha256": "1e91f0078321cc515a8119751602acf9e89148682833067139b4bedbc37c6846"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/c_predclass_native.py",
+      "bytes": 4994,
+      "sha256": "848ccfa3dc2b5b3c179214894f184808b8492c61c2b1697f3a9d60aff2ffbc12"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/c_predclass_production_rx_v1/README.md",
+      "bytes": 1969,
+      "sha256": "fa35f86aeb1b053a84fdc7631e1c78cff346a55f4b3b1558690877ed02bb1f2b"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/c_predclass_production_rx_v1/protocol_rx.py",
+      "bytes": 2754,
+      "sha256": "ae8e13b37b7206821f27154d97302949604d97a701a23e4be81676dcbbbd94bf"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/c_predclass_production_rx_v1/test_protocol_rx.py",
+      "bytes": 6471,
+      "sha256": "968b6f500c8a877972117f35c9a71da22f3f220a28ab52cc81d89ce2fa03ae41"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/c_predclass_production_rx_v1/worker.py",
+      "bytes": 5287,
+      "sha256": "0748f19767e9715bd55b18010d0b44278e3bd1f8c30930b4af893a286743ad7e"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/c_predclass_protocol.py",
+      "bytes": 1881,
+      "sha256": "e458cab04f179631d2d1f7285531983d94d0bf598199861e1f8aafef18bc73e2"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/c_predclass_receiver.py",
+      "bytes": 3686,
+      "sha256": "d82d566df1195f1fe8e9bd394c594f80daee6f70660bf94d3e349c580e0e34df"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/c_predclass_source.py",
+      "bytes": 4438,
+      "sha256": "e2f67b517cc6d8b3faef196b572b34734aeb1e91ce0c5e7b0050d82d8165bb52"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/c_receiver.py",
+      "bytes": 3467,
+      "sha256": "1db49b3e17e1a1f0930ede3552ebb56aa1dd342b0e8f07ac2340140083506dd1"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/c_source.py",
+      "bytes": 3219,
+      "sha256": "b634bd27e571d004ff3822c3434acfd2aab3f417826b686f1327753ccc65dc6c"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/common.py",
+      "bytes": 4249,
+      "sha256": "bcd0c519b02d720a8f2c99b1fb02a8b00e75f75271c24acc78475295a2c6ba28"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/control.py",
+      "bytes": 2238,
+      "sha256": "d218bedfcdc95275e1cb42280dcb543ce5b4c0926aa2d11f99212ed63f0b57b0"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/test_c_arithmetic.py",
+      "bytes": 2005,
+      "sha256": "3f2f3ce953d18b3ecd0a2583bfa6f61f4531b959bbdae813bc6a931f892146f1"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/test_c_predclass.py",
+      "bytes": 3532,
+      "sha256": "7556102ad25b5e317496c5d733b40d2886e40589662f152af7ef2568a66db62b"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/upstream/llamagen/autoregressive/models/generate.py",
+      "bytes": 7910,
+      "sha256": "512bd8bf9b10977d7276d79c0679f52bf4a578ad3ce20a2137b374067176fb2d"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/upstream/llamagen/autoregressive/models/gpt.py",
+      "bytes": 19663,
+      "sha256": "7397395d8a42eb01fb6f1a30a9b42e915c334cba011a19b2d6f9a2e4f4e6cd8e"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/upstream/llamagen/autoregressive/sample/sample_c2i.py",
+      "bytes": 5635,
+      "sha256": "5db1fd735f8287c7d003855bae9178f91f9ed2e7c8d181621550ec8a81840008"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/upstream/llamagen/tokenizer/tokenizer_image/vq_model.py",
+      "bytes": 15975,
+      "sha256": "b430a63437caf1417a6975a1b48310a7f6ee796bde731e0cb64ac458064cb245"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/upstream/llamagen/utils/drop_path.py",
+      "bytes": 1594,
+      "sha256": "92c2281eeb035318df14806170ad02dc0c8b01c0034d9a8e6b3e21e75d27e489"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-n512-20261028/n512_common.py",
+      "bytes": 2936,
+      "sha256": "78b233f2cc9310fa26c03e141dfaa6de3898ff070e7e6af1c7594c96401ac10e"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/runtime_boundary.py",
+      "bytes": 1548,
+      "sha256": "ddd93796ace45ff754319e8870e82fa6766ade8851c9fe657703e83bef72527f"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/src/var_comm/entropy.py",
+      "bytes": 6567,
+      "sha256": "f3adf956fba05d60e687472fa153e0bf684119ef6c8885a75fe4ea21962b2b2b"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/src/var_comm/whole_entropy.py",
+      "bytes": 14494,
+      "sha256": "5d08d2f8c218f0bdf5b6d2a8ca7b3aa729baa75e274531afbfd8f31c95b24a5b"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/pilot_metric_code_seed_v1/common500_validation_metrics.py",
+      "bytes": 9529,
+      "sha256": "3f40eda1ba9d79ba4412a57560f9f5420b92e7e426b9152c7907f5f7eba4e7e3"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-n512-20261028/rx_worker_v2.py",
+      "bytes": 4883,
+      "sha256": "c10870974eae3ee0a4c5c3a442945cb02e42a3e4a40645bbb584f41bff751192"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-n512-20261028/dispatch.py",
+      "bytes": 1462,
+      "sha256": "aa321e957ec5b8a688372108abdee92876d2ee3185608267a8b4a43691840c4f"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-n512-20261028/stage_operations_v5.py",
+      "bytes": 4008,
+      "sha256": "e1ebd53e37d79650216248731d936cca6c53f01eed0aede3af8d2f0d896067ae"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-n512-20261028/pipeline_lineage_v3.py",
+      "bytes": 8205,
+      "sha256": "76fd7a235dc74b79d6b0947f27a9857f380bbec0555c695c31f69bc29f5202f2"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-n512-20261028/rx_lineage.py",
+      "bytes": 1294,
+      "sha256": "65ef3cbb5b2bb8c906390b6a45c860b70f77219c5cdeab325fd260e71a836f1e"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-evidence-20261029/register_receivers_v2.py",
+      "bytes": 5902,
+      "sha256": "5bdce08241ef9a89d47ea536152bea492475d1942592c1142c218c4e4fe34a1f"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-evidence-20261029/prepare_inputs_v2.py",
+      "bytes": 12345,
+      "sha256": "7defb21d5f8b03348054d37281c0e30e95c0df56d2117225604e0dbc88c12da9"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-evidence-20261029/prepare_inputs.py",
+      "bytes": 12376,
+      "sha256": "7f928ea225bf20e6da5aab02ca8c3cb97647cdde1ea2eb7fb6eee0d4a90c0d83"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-evidence-20261029/control.py",
+      "bytes": 1796,
+      "sha256": "0abedf46c19d098664410826cb06c68ea248c90800f893b3b0306db21872e323"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-evidence-20261029/test_receiver.py",
+      "bytes": 2370,
+      "sha256": "a4b28daf6e5e17c7af9c39260cd8940a54b627b4b9fcba4bbc366be75f436df2"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-evidence-20261029/register_receivers.py",
+      "bytes": 5592,
+      "sha256": "99c53abc80ec9e436bc263e48c333b6983a5d19d7dba9e165008913a57194080"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-evidence-20261029/evidence_common.py",
+      "bytes": 2997,
+      "sha256": "ab4e4bd1fd67c76a955ee4c7e6829cd40fb1ff549fedcb7bc0a841b29b6deff4"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-evidence-20261029/receiver_worker.py",
+      "bytes": 7509,
+      "sha256": "f62f039243392c1ece90d2e29634a641507aa92336d53a6171ce0affc3699281"
+    }
+  ],
+  "weights": {
+    "prior": {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/adatoken_response_20261026_v1/c_assets_proxy_v2/c2i_L_256.pt",
+      "bytes": 1371712314,
+      "sha256": "15fe788b9c0e8dfe36f3e3fd701b44d0c934e4fd94a0ab599b69669aa8f44a55"
+    },
+    "vq": {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/adatoken_response_20261026_v1/c_assets_proxy_v2/vq_ds16_c2i.pt",
+      "bytes": 287920306,
+      "sha256": "109aa8afb2cf3761eec23cdc8644154cb498f5ab7eef2a35264d25e5e0499f7d"
+    }
+  },
+  "upstream_code": [
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/upstream/llamagen/autoregressive/models/generate.py",
+      "bytes": 7910,
+      "sha256": "512bd8bf9b10977d7276d79c0679f52bf4a578ad3ce20a2137b374067176fb2d"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/upstream/llamagen/autoregressive/models/gpt.py",
+      "bytes": 19663,
+      "sha256": "7397395d8a42eb01fb6f1a30a9b42e915c334cba011a19b2d6f9a2e4f4e6cd8e"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/upstream/llamagen/autoregressive/sample/sample_c2i.py",
+      "bytes": 5635,
+      "sha256": "5db1fd735f8287c7d003855bae9178f91f9ed2e7c8d181621550ec8a81840008"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/upstream/llamagen/tokenizer/tokenizer_image/vq_model.py",
+      "bytes": 15975,
+      "sha256": "b430a63437caf1417a6975a1b48310a7f6ee796bde731e0cb64ac458064cb245"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/upstream/llamagen/utils/drop_path.py",
+      "bytes": 1594,
+      "sha256": "92c2281eeb035318df14806170ad02dc0c8b01c0034d9a8e6b3e21e75d27e489"
+    }
+  ]
+}

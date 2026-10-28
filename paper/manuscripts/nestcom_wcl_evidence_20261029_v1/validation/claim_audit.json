@@ -1,0 +1,112 @@
+{
+  "status": "PASS",
+  "claims": [
+    {
+      "id": "C1",
+      "claim": "Next-scale organization motivates the model choice; original VAR benchmark SOTA is not communication SOTA.",
+      "location": "Introduction",
+      "evidence": "VAR 2404.02905v2; source literature, not a NeST experiment",
+      "scope": "original class-conditional ImageNet generation",
+      "source": "references.tex"
+    },
+    {
+      "id": "C2",
+      "claim": "Within-scale endpoints improve same-model main policies at N1024.",
+      "location": "III.B / Table I(A)",
+      "evidence": "PSNR +0.616/+0.701/+0.319 dB; 10 dB utilization 77.70 to95.21 percent",
+      "scope": "common500 (500 sources), Kodak24 separately; independently calibrated endpoint families",
+      "source": "inputs/internal_common500_paired.csv; inputs/internal_kodak_paired.csv"
+    },
+    {
+      "id": "C3",
+      "claim": "Finer grids can add quality, without proving Quarter optimal.",
+      "location": "III.B / Table I(B)",
+      "evidence": "Eighth−Quarter +0.122946 [0.078557,0.169317] dB; DreamSim/CLIP-I intervals cross zero",
+      "scope": "fixed100; model/MCS/max endpoint/fitting fixed; checks not elapsed time",
+      "source": "inputs/a_paired.csv; inputs/a_efficiency.csv"
+    },
+    {
+      "id": "C4",
+      "claim": "Received boundary tokens affect both latent residual and finer-scale conditioning.",
+      "location": "II.C / Fig1(c) / III.B / Table I(C)",
+      "evidence": "10 dB B0−A0 +0.220; C0−B0 +0.440 dB; last-scale19 propagation exactly0",
+      "scope": "100 sources, identical actual prefixes, ordered interventions; A0 includes completion",
+      "source": "inputs/b_paired.csv"
+    },
+    {
+      "id": "C5",
+      "claim": "Completion improves feature quality; PSNR effect depends on operating point in the adapted receiver.",
+      "location": "III.B E2",
+      "evidence": "R1−R0 PSNR .026[-.204,.271] at4 and .771[.563,.986] at10; all3feature metrics improve",
+      "scope": "N512fixed100×3; WHOLE actual prefixes, original10 transforms/fullgrid/sameDc; not decoder-independent",
+      "source": "inputs/e2_paired_deltas.csv; results/nestcom_evidence_20261029_v1/e2/"
+    },
+    {
+      "id": "C6",
+      "claim": "N1024 six-system performance is metric-dependent.",
+      "location": "III.C / Fig2 / TableII",
+      "evidence": "Swin/BPG higher PSNR; Ada better10dB LPIPS/DreamSim/CLIP; original sampling remains main baseline",
+      "scope": "common500 (500 sources); systems differ in tokenizer/prior/decoder/conditioning; Ada predicted-class fixed-frame adaptation",
+      "source": "inputs/common500_summary.csv; inputs/common500_paired.csv"
+    },
+    {
+      "id": "C7",
+      "claim": "Argmax does not remove the low-budget gap, but N1024 perceptual tradeoffs remain.",
+      "location": "III.C/III.D E1",
+      "evidence": "N512 argmax−sampling PSNR −.475/−.651; NeST−argmax +4.632/+4.600; N102410 NeST−argmax PSNR+.568 and DreamSim+.0178",
+      "scope": "same100 sources and3originalrepeats; CFG4; onlyunreceivedtail changed; no newPHY",
+      "source": "inputs/e1_paired_deltas.csv; results/nestcom_evidence_20261029_v1/e1/"
+    },
+    {
+      "id": "C8",
+      "claim": "N512 same-model benefits persist; external feature metrics show tradeoffs.",
+      "location": "III.D / TableIII",
+      "evidence": "NeST−WHOLE .392/.399/.792dB and all4CIsfavorNeST; Ada winsDreamSim19 andCLIPall; W−Ada meansdescriptive",
+      "scope": "common500 (500 sources),3repeats; independentbudgetcalibration, differentcandidatepools",
+      "source": "inputs/paired_deltas.csv; inputs/summary.csv; inputs/capacity_summary.csv"
+    },
+    {
+      "id": "C9",
+      "claim": "Individual displayed outcomes need not follow aggregate rankings.",
+      "location": "III.D / Fig3",
+      "evidence": "Image1 WHOLE lowerdistances thanNeST; Image2 NeSTlowest; all methods alterdetails",
+      "scope": "firsttwo identity-eligiblecommon500 sources, firstrepeat6201; notrandom/representative",
+      "source": "figure3_metrics.csv; inputs/figure3_native_mapping.json"
+    },
+    {
+      "id": "C10",
+      "claim": "Existing mismatch observations do not establish robustness.",
+      "location": "III.E / Conclusion",
+      "evidence": "8dB all300permethodreject;10/12allaccept withidenticaloutputs",
+      "scope": "100 sources, fixed10dBpolicies; no claimofcriticalthreshold orgracefuldegradation",
+      "source": "results/wcl_revision_20261027_v1/p1_delivery/"
+    },
+    {
+      "id": "C11",
+      "claim": "Processing cost comparisons exclude Ada.",
+      "location": "III.E",
+      "evidence": "619.71/42.48/44.69/1520.30/2293.01ms perimage",
+      "scope": "16development,3repeats,warmup,batch1,sixCPU,PRO6000; Adauntimed",
+      "source": "inputs/timing_summary.csv"
+    },
+    {
+      "id": "C12",
+      "claim": "Full-token endpoints can leave capacity unused.",
+      "location": "III.C",
+      "evidence": "N102419 Ada receivesall256tokens; roughly58percent is not packingfailure",
+      "scope": "fixed-frame completeAda representation; source-capacitynotair efficiency",
+      "source": "inputs/common500_summary.csv; frozen original Ada policies"
+    }
+  ],
+  "prohibited_claims_absent": [
+    "NeST universal SOTA",
+    "Quarter optimal",
+    "per-image monotonic gain",
+    "SNR robustness",
+    "faster than Ada",
+    "A0 is no-completion",
+    "100-source minus500-source means"
+  ],
+  "new_key_values_in_paper": true,
+  "adverse_and_mixed_findings_retained": true
+}

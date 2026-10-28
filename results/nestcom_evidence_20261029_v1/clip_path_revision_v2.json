@@ -1,0 +1,72 @@
+{
+  "reason": "Known old pathname after completed user-authorized checkpoint move; zero model forwards/embeddings/pair scores in original stage",
+  "old_wait": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_evidence_20261029_v1/clip_metrics_control/actual_wait.json",
+    "bytes": 1071,
+    "sha256": "02bd1831ecc11d2ff8c488785fc67f0926e8a51fa9bd02e69696d5add70f66c9"
+  },
+  "old_failure": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_evidence_20261029_v1/clip_metrics/failure.json",
+    "bytes": 2338,
+    "sha256": "e520fa4ac4cb76ded5afb7bfb724df5df419d5152db3d44f21012a87174f75d5"
+  },
+  "old_calls": [
+    [
+      "load_clip",
+      "once",
+      "FAILED"
+    ]
+  ],
+  "old_code": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-evidence-20261029/metric_worker.py",
+    "bytes": 7161,
+    "sha256": "e7b220a9a2e9b95930d856a7f885ca64b9b0866676c82cdba011b4014c0e94b3"
+  },
+  "new_code": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-evidence-20261029/metric_worker_clip_path_v2.py",
+    "bytes": 7296,
+    "sha256": "eceb3299f3968082a34bf951b3c4719e4c130a2fff2a3a90ea82c3f1c3b00124"
+  },
+  "old_assets": {
+    "implementation": {
+      "files": {
+        "clip/__init__.py": "d7930eb290ebed432116795c91473200d098451a94c0aedd4ae0f934f97955e8",
+        "clip/clip.py": "9540f200fbf8145479fa655382a56dab048d238cc698b9cbd8df3b6d86d3f1b6",
+        "clip/model.py": "9902cbe5ee90a1da2aa3e6f043e8a23dc1f8831193b963785c9af03d5c7bef2c",
+        "clip/simple_tokenizer.py": "d1b09f10ed3d1e2c343619cb98cbfacb92363dd8607526a43aa7fe2d60d15bad",
+        "hubconf.py": "0641946610c17a743ebcc3f6e85cffff1400337bb9a99766740c40b01d9a3e14",
+        "setup.py": "6a913890284a988293f7b0b3ca017de29c65ce2bdce9fdd09cb481fc6bd5a636",
+        "tests/test_consistency.py": "342f84e4814143e1117dbc14baa6cf2a2ec01f61542e3952edc91e68f5eed206"
+      },
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/clip_i_frozen_v1/sources/clip",
+      "revision": "d05afc436d78f1c48dc0dbf8e5980a9d471f35f6"
+    },
+    "weights": {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/clip_i_frozen_v1/weights/ViT-L-14.pt",
+      "sha256": "b8cca3fd41ae0c99ba7e8951adf17d267cdb84cd88be6f7c2e0eca1737a03836"
+    }
+  },
+  "effective_assets": {
+    "implementation": {
+      "files": {
+        "clip/__init__.py": "d7930eb290ebed432116795c91473200d098451a94c0aedd4ae0f934f97955e8",
+        "clip/clip.py": "9540f200fbf8145479fa655382a56dab048d238cc698b9cbd8df3b6d86d3f1b6",
+        "clip/model.py": "9902cbe5ee90a1da2aa3e6f043e8a23dc1f8831193b963785c9af03d5c7bef2c",
+        "clip/simple_tokenizer.py": "d1b09f10ed3d1e2c343619cb98cbfacb92363dd8607526a43aa7fe2d60d15bad",
+        "hubconf.py": "0641946610c17a743ebcc3f6e85cffff1400337bb9a99766740c40b01d9a3e14",
+        "setup.py": "6a913890284a988293f7b0b3ca017de29c65ce2bdce9fdd09cb481fc6bd5a636",
+        "tests/test_consistency.py": "342f84e4814143e1117dbc14baa6cf2a2ec01f61542e3952edc91e68f5eed206"
+      },
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/clip_i_frozen_v1/sources/clip",
+      "revision": "d05afc436d78f1c48dc0dbf8e5980a9d471f35f6"
+    },
+    "weights": {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-checkpoint/liulu/var_comm/code_assets_20261028/var_comm_runtime_20261010/assets/clip_i_frozen_v1/weights/ViT-L-14.pt",
+      "sha256": "b8cca3fd41ae0c99ba7e8951adf17d267cdb84cd88be6f7c2e0eca1737a03836"
+    }
+  },
+  "patch": "--- metric_worker.py\n+++ metric_worker_clip_path_v2.py\n@@ -24,7 +24,8 @@\n    with met.no_network():network=ledger.call('load_dreamsim','once',lambda:met.load_dreamsim(ma['models']['dreamsim'],torch.device('cuda:0')))\n    preprocess=met.preprocess_dreamsim;references={}\n   else:\n-   with met.no_network():network=ledger.call('load_clip','once',lambda:met.load_clip(cfg['clip']['clip_assets'],torch.device('cuda:0')))\n+   sys.path.insert(0,str(R/'tools'));import checkpoint_relocation_20261028 as relocation;effective_clip_assets=relocation.relocate_value(cfg['clip']['clip_assets']);checked(effective_clip_assets['weights'])\n+   with met.no_network():network=ledger.call('load_clip','once',lambda:met.load_clip(effective_clip_assets,torch.device('cuda:0')))\n    preprocess=lambda x:met.preprocess_clip(met.validate_images(x));old=cr(r['prior_clip_identity']);assert old['fp32']and not old['tf32']and not old['amp']and old['cuda_bus'].lower()==r['pci'].lower();assert old['assets']==cfg['clip']['clip_assets']and old['loader']==cfg['clip']['loader']and old['preprocessing']==cfg['clip']['metric_definition']\n    references={v['source_id']:v for v in cr(r['clip_cache'])}\n   save(out/'identity.json',dict(request=rp,mode=r['mode'],config=r['frozen_metric_registration'],torch=torch.__version__,pci=bus.value.decode(),FP32=True,TF32=False,AMP=False,batch=1,loader=cfg['clip']['loader'],original_AST=dict(psnr=pp,lpips=lp_proof)if triple else None))\n",
+  "numerical_or_method_changes": false,
+  "automatic_retry": false,
+  "scope": "Only missing 485 native CLIP pairs; same GPU1 torch2.10; no receiver calls"
+}

@@ -1,0 +1,145 @@
+{
+  "status": "PASS",
+  "required_checks": [
+    {
+      "argv": [
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_visual_py310/bin/python",
+        "-B",
+        "tools/verify_repository.py"
+      ],
+      "pid": 320183,
+      "start_ticks": 659237792,
+      "actual_wait": true,
+      "returncode": 0,
+      "seconds": 143.44464808981866,
+      "stdout_sha256": "d386918193d0efa800b0e0475080913188a92a32763ca836efb4740f49e21006",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_visual_py310/bin/python",
+        "-B",
+        "tools/run_cpu_checks.py"
+      ],
+      "pid": 320187,
+      "start_ticks": 659252138,
+      "actual_wait": true,
+      "returncode": 0,
+      "seconds": 40.914790449664,
+      "stdout_sha256": "e7717ee44fc11fd0396fb501eb72669716a44ef3386eb0f01ddc2287a6d39ce5",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "verify_output": "{\n  \"status\": \"PASS\",\n  \"tracked_files\": 20332,\n  \"source_export_entries_accounted\": 113,\n  \"GPU\": \"NOT_RUN\"\n}\n",
+  "cpu_output_tail": "iency/budget_train_microbatch.py\",\n    \"token_efficiency.coordinator_v3\": \"experiments/token_channel_efficiency_20260923/src/token_efficiency/coordinator_v3.py\",\n    \"token_efficiency.thermal_guard_v2\": \"experiments/token_channel_efficiency_20260923/src/token_efficiency/thermal_guard_v2.py\",\n    \"token_efficiency.budget_lifecycle\": \"experiments/token_channel_efficiency_20260923/src/token_efficiency/budget_lifecycle.py\",\n    \"token_efficiency.budget_extension\": \"experiments/token_channel_efficiency_20260923/src/token_efficiency/budget_extension.py\",\n    \"token_efficiency.evaluation_io\": \"experiments/token_channel_efficiency_20260923/src/token_efficiency/evaluation_io.py\",\n    \"token_efficiency.digital_grid\": \"experiments/token_channel_efficiency_20260923/src/token_efficiency/digital_grid.py\",\n    \"token_efficiency.continuous_grid\": \"experiments/token_channel_efficiency_20260923/src/token_efficiency/continuous_grid.py\",\n    \"token_efficiency.resource_report\": \"experiments/token_channel_efficiency_20260923/src/token_efficiency/resource_report.py\",\n    \"token_efficiency.delivery_chain\": \"experiments/token_channel_efficiency_20260923/src/token_efficiency/delivery_chain.py\",\n    \"token_efficiency.C_lifecycle\": \"experiments/token_channel_efficiency_20260923/src/token_efficiency/C_lifecycle.py\",\n    \"token_efficiency.C_train\": \"experiments/token_channel_efficiency_20260923/src/token_efficiency/C_train.py\",\n    \"token_efficiency.C_evaluate\": \"experiments/token_channel_efficiency_20260923/src/token_efficiency/C_evaluate.py\",\n    \"token_efficiency.C_qualify\": \"experiments/token_channel_efficiency_20260923/src/token_efficiency/C_qualify.py\",\n    \"token_efficiency.C_cache\": \"experiments/token_channel_efficiency_20260923/src/token_efficiency/C_cache.py\",\n    \"token_efficiency.C_first_matrix\": \"experiments/token_channel_efficiency_20260923/src/token_efficiency/C_first_matrix.py\",\n    \"token_efficiency.C_followups\": \"experiments/token_channel_efficiency_20260923/src/token_efficiency/C_followups.py\",\n    \"token_efficiency.C_report\": \"experiments/token_channel_efficiency_20260923/src/token_efficiency/C_report.py\"\n  },\n  \"GPU\": \"NOT_RUN\"\n}\n........................................................................ [ 27%]\n........................................................................ [ 54%]\n........................................................................ [ 81%]\n................................................                         [100%]\n264 passed in 35.88s\n",
+  "GPU": "NOT_RUN",
+  "prior_failed_checks_preserved": [
+    {
+      "receipt": {
+        "argv": [
+          "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_ldpc_py311/bin/python",
+          "tools/verify_repository.py"
+        ],
+        "pid": 319922,
+        "start_ticks": 659201751,
+        "actual_wait": true,
+        "returncode": 1,
+        "seconds": 106.29462848883122,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "3bc3dc07f027585822f974843ba8a706f5987616d990d10783481b6525457e96"
+      },
+      "reason": "Ran before staging; correctly rejected the new untracked source files."
+    },
+    {
+      "receipt": {
+        "argv": [
+          "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_ldpc_py311/bin/python",
+          "tools/run_cpu_checks.py"
+        ],
+        "pid": 320086,
+        "start_ticks": 659227747,
+        "actual_wait": true,
+        "returncode": 1,
+        "seconds": 14.191143079660833,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "da7612f4a09dc09220919ce3992e7bd7a90a9c02daaf1ef12e27088b0097f7a4"
+      },
+      "reason": "LDPC-only environment lacks torchvision. No test or scientific source was changed; final checks use the existing visual environment."
+    }
+  ],
+  "whitespace": {
+    "default_diff_check_returncode": 2,
+    "crlf_bytes_preserved": true,
+    "remaining_warning_files": [
+      "experiments/nestcom-evidence-20261029/evidence_common.py",
+      "paper/manuscripts/nestcom_wcl_evidence_20261029_v1/IEEEtran.cls",
+      "paper/manuscripts/nestcom_wcl_evidence_20261029_v1/figures/figure2.svg",
+      "paper/manuscripts/nestcom_wcl_evidence_20261029_v1/figures/figure3.svg",
+      "paper/manuscripts/nestcom_wcl_evidence_20261029_v1/scripts/build_tables.py",
+      "paper/manuscripts/nestcom_wcl_evidence_20261029_v1/supplemental/N1024_figure3.svg"
+    ],
+    "explanation": "Bound science source, inherited IEEEtran and generated SVG bytes retain their hashes; EOF-only warning in the artifact table builder is harmless. No claim of a warning-free raw diff."
+  },
+  "release_manifest_update": {
+    "original_sha256": "2644f29f6910f5cfc34acd5defcbbbcf2bb5c6648bde79c705d6b8cc54d917fd",
+    "changes": [
+      {
+        "before": {
+          "published_path": "EXPERIMENTS.md",
+          "bytes": 173431,
+          "source_sha256": "b6381e3e3b2159968a5658741374807ce6e3620359c97f822daea491d170352d",
+          "published_sha256": "2c5ebf5fb43978cc2e1094d22d1b18e81e14f2dff720da47b9cd2a1f1db5cb7b"
+        },
+        "after": {
+          "published_path": "EXPERIMENTS.md",
+          "bytes": 174866,
+          "source_sha256": "b6381e3e3b2159968a5658741374807ce6e3620359c97f822daea491d170352d",
+          "published_sha256": "c4b5ac569f6104510f6911f6027bcc9ba3a7c62a3d900b24aadd73c6da152e21"
+        }
+      },
+      {
+        "before": {
+          "published_path": "PROGRESS.md",
+          "bytes": 244259,
+          "source_sha256": "83ed37e851072bd28fe61441d649ac846a95e378ac68e3e20e9ca0f1b84830f9",
+          "published_sha256": "952b41250b6c542bc5bb2167ac16e9849e112bd21fdf801992c989b9c09024de"
+        },
+        "after": {
+          "published_path": "PROGRESS.md",
+          "bytes": 245694,
+          "source_sha256": "83ed37e851072bd28fe61441d649ac846a95e378ac68e3e20e9ca0f1b84830f9",
+          "published_sha256": "4762c5622a55ebd7f7e1d1b4a0b2f15494c2c703786530f1bfe75735b31dfcf7"
+        }
+      },
+      {
+        "before": {
+          "published_path": "README.md",
+          "bytes": 127873,
+          "source_sha256": "faef219c251ab7bf7ca124f50296e6206663fca10910608ab36ebdb9bfc0475b",
+          "published_sha256": "8403137ea0be39eae11bc5518f822501795f6568c8539a2dcb46cd3be311d25c"
+        },
+        "after": {
+          "published_path": "README.md",
+          "bytes": 129308,
+          "source_sha256": "faef219c251ab7bf7ca124f50296e6206663fca10910608ab36ebdb9bfc0475b",
+          "published_sha256": "d1fadb51c1276971ad70fa2ea188e1ceb7abfb399bd4d2364701ee434de38e01"
+        }
+      },
+      {
+        "before": {
+          "published_path": "RESEARCH_STATUS.md",
+          "bytes": 143927,
+          "source_sha256": "5ee55596550d2cef8ae600dc40ea8ddd49ddf56b399c55aeb202c959f6bf3565",
+          "published_sha256": "eb854396f776900c105e1c2285bb3425e82f7728ec6091bd9b47ef1885994cee"
+        },
+        "after": {
+          "published_path": "RESEARCH_STATUS.md",
+          "bytes": 145362,
+          "source_sha256": "5ee55596550d2cef8ae600dc40ea8ddd49ddf56b399c55aeb202c959f6bf3565",
+          "published_sha256": "05d66ef4e18f47b83c005dc95e83b3321628011ac4dc7ff3f8e706dbc49b76bc"
+        }
+      }
+    ]
+  },
+  "new_scientific_calls": 0
+}

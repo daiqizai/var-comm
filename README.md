@@ -1,3 +1,25 @@
+## 2026-10-29 — E1/E2 evidence and revised WCL manuscript complete
+
+The [evidence report](results/nestcom_evidence_20261029_v1/final_report_zh.md)
+and [anonymous manuscript](paper/manuscripts/nestcom_wcl_evidence_20261029_v1/README.md)
+retain the original N1024/N512 results and add two fixed 100-source diagnostics.
+Ada argmax reduces PSNR relative to sampling at N512/4 and 10 dB; NeST retains
+paired PSNR advantages of 4.632 and 4.600 dB over that fixed variant. Perceptual
+tradeoffs remain. WHOLE-prefix VAR completion improves perceptual metrics at both
+N512 points; its 4 dB PSNR interval crosses zero, while the 10 dB gain is 0.771 dB.
+
+All four metrics, rejected outputs, 3900 logical records and directly paired
+source-bootstrap intervals are delivered. There are 485 new unique diagnostic
+outputs plus eight exact qualification replays, with no new PHY, training,
+source encoding or bootstrap draws. Original failures and successful revisions
+are preserved. Paused residual training and other research branches remain paused.
+
+The manuscript has five double-column pages, fifteen double-spaced single-column
+pages and a fifteen-page editable Word version. Three editable/exported figures,
+three native tables, source mappings and actual page-review records accompany it.
+Large arrays, weights and full logs stay on PFS. Normal publication receipts are
+recorded separately; no submission, merge or force-push is performed.
+
 ## 2026-10-28 — Same-ceiling confirmation and fixed16 residual diagnostic complete
 
 The [bounded follow-up report](results/two_route_confirmation_20261028_v1/REPORT_zh.md)
