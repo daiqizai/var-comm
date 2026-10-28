@@ -1,0 +1,30 @@
+{
+  "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-n512-20261028/rx_worker.py\", line 60, in main\n    save(out/'outputs.json',rows);save(out/'completion.json',dict(status='COMPLETE_RX',request=pin(request),outputs=pin(out/'outputs.json'),count=len(rows),ledger=ledger.summary(),seconds=time.monotonic()-beg))\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-n512-20261028/n512_common.py\", line 17, in pin\n    def pin(p):return dict(path=str(p),bytes=Path(p).stat().st_size,sha256=sha(p))\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-n512-20261028/n512_common.py\", line 14, in sha\n    with Path(p).open('rb') as f:\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_python_base_v1/lib/python3.10/pathlib.py\", line 1119, in open\n    return self._accessor.open(self, mode, buffering, encoding, errors,\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/runtime_boundary.py\", line 23, in audit\n    if any(p==str(x)or p.startswith(str(x)+'/')for x in sensitive)and p not in allowed:raise PermissionError('RX truth/storage boundary: '+p)\nPermissionError: RX truth/storage boundary: /mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/nestcom_n512_20261028_v1/qualification_rx_nest_registration.json\n",
+  "ledger": {
+    "caps": {
+      "model_load": 1,
+      "receive_render": 15,
+      "prior_scale": 300,
+      "decoder_forward": 15
+    },
+    "counts": [
+      {
+        "kind": "model_load",
+        "status": "COMPLETE",
+        "count": 1
+      },
+      {
+        "kind": "prior_scale",
+        "status": "COMPLETE",
+        "count": 95
+      },
+      {
+        "kind": "receive_render",
+        "status": "COMPLETE",
+        "count": 15
+      }
+    ],
+    "unresolved": 0
+  },
+  "automatic_retry": false
+}

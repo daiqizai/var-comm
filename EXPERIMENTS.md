@@ -1,3 +1,26 @@
+## 2026-10-28 — N512 evaluation and complete WCL manuscript
+
+The [N512 study](results/nestcom_n512_20261028_v1/delivery/REPORT.md) is complete:
+500 original common500 sources, three methods, three SNRs and three noise
+realizations give 13,500 formal logical frames. Policies were independently
+calibrated and frozen before testing. All 36 mean CIs, 24 source-paired CIs and
+12 budget interactions use the existing source-bootstrap bank. The 17 logical
+CRC failures remain in the denominator; no no-fit or NULL event occurred.
+
+NeST−Ada PSNR differences at 4/10/19 dB are +4.180/+4.055/+1.740 dB.
+DreamSim favors NeST at 4/10 dB and Ada at 19 dB; CLIP-I favors Ada at all
+three points. NeST−WHOLE PSNR gains are +0.392/+0.399/+0.792 dB. Cross-budget
+comparisons describe independently calibrated systems, not an isolated effect
+of N or token ordering. Historical N1024 results and figures are unchanged.
+
+The anonymous [revised manuscript](paper/manuscripts/nestcom_wcl_n512_20261028_v1/README.md)
+includes a reviewed 5-page, 10 pt double-column PDF, a double-spaced review PDF,
+editable Word, LaTeX, unchanged Figures 1–3 and the new N512 Table III.
+Original failed attempts, exact reuse and actual computation are documented.
+All scientific stages are closed; their launchers must not be rerun. Backups
+remain deferred as authorized. Repository-check receipts are under
+`results/nestcom_n512_20261028_v1/publication_validation/`.
+
 ## 2026-10-27 A/B/C response study: formal Ada comparison completed
 
 ## 2026-10-27 — WCL reproducibility revision and frozen-policy SNR diagnostic

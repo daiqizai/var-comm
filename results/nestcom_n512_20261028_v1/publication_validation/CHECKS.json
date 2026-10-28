@@ -1,0 +1,90 @@
+{
+  "status": "PASS_WITH_DOCUMENTED_HISTORICAL_WHITESPACE",
+  "checks": [
+    {
+      "name": "table",
+      "command": [
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_visual_py310/bin/python",
+        "-B",
+        "paper/manuscripts/nestcom_wcl_n512_20261028_v1/scripts/build_table.py",
+        "--check"
+      ],
+      "actual_returncode": 0,
+      "started_unix": 1793149016.7661302,
+      "seconds": 0.47135257720947266,
+      "GPU": "NOT_RUN"
+    },
+    {
+      "name": "catalogue",
+      "command": [
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_visual_py310/bin/python",
+        "-B",
+        "experiments/nestcom-n512-20261028/restore_public_catalogue.py",
+        "--check"
+      ],
+      "actual_returncode": 0,
+      "started_unix": 1793149017.238604,
+      "seconds": 0.4753117561340332,
+      "GPU": "NOT_RUN"
+    },
+    {
+      "name": "diff_preserved_artifacts",
+      "command": [
+        "git",
+        "-c",
+        "core.whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol",
+        "diff",
+        "--cached",
+        "--check",
+        "--",
+        ".",
+        ":(exclude)experiments/nestcom-n512-20261028/n512_common.py",
+        ":(exclude)paper/manuscripts/nestcom_wcl_n512_20261028_v1/IEEEtran.cls",
+        ":(exclude)paper/manuscripts/nestcom_wcl_n512_20261028_v1/figures/figure2.svg",
+        ":(exclude)paper/manuscripts/nestcom_wcl_n512_20261028_v1/figures/figure3.svg"
+      ],
+      "actual_returncode": 0,
+      "started_unix": 1793149176.4117913,
+      "seconds": 0.17266225814819336,
+      "GPU": "NOT_RUN"
+    },
+    {
+      "name": "verify_repository",
+      "command": [
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_visual_py310/bin/python",
+        "-B",
+        "tools/verify_repository.py"
+      ],
+      "actual_returncode": 0,
+      "started_unix": 1793149176.5855734,
+      "seconds": 213.3570945262909,
+      "GPU": "NOT_RUN"
+    },
+    {
+      "name": "run_cpu_checks",
+      "command": [
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_visual_py310/bin/python",
+        "-B",
+        "tools/run_cpu_checks.py"
+      ],
+      "actual_returncode": 0,
+      "started_unix": 1793149494.1126256,
+      "seconds": 51.64621901512146,
+      "GPU": "NOT_RUN",
+      "reason": "Rerun after updating stale published document hashes; original failed check retained."
+    }
+  ],
+  "base_commit": "43ccd51473f978510f7310342b7b513f70c3da5d",
+  "scientific_reruns": 0,
+  "notes": {
+    "default_diff": "CRLF document sources and whitespace in original bound code/historical assets retained. Other whitespace checks pass.",
+    "preserved_byte_identical_files": [
+      "experiments/nestcom-n512-20261028/n512_common.py",
+      "paper/manuscripts/nestcom_wcl_n512_20261028_v1/IEEEtran.cls",
+      "paper/manuscripts/nestcom_wcl_n512_20261028_v1/figures/figure2.svg",
+      "paper/manuscripts/nestcom_wcl_n512_20261028_v1/figures/figure3.svg"
+    ],
+    "initial_cpu_check": "263 passed; release-manifest assertion failed because four project documents changed. Published hashes updated without changing original-source hashes; complete suite rerun passed.",
+    "initial_staging": "Completed with --sparse; no scientific calls affected."
+  }
+}
