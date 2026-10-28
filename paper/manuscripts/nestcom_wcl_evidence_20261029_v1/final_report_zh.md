@@ -19,4 +19,4 @@ Fig1原PPTX三面板与鸟图/网格保留，百分比删除为示意，双重�
 `paper/manuscripts/nestcom_wcl_evidence_20261029_v1/`含TeX、两PDF、Word、三图各格式、三表CSV/TeX、来源映射、主张矩阵和验收。
 科学输入大数组/权重/完整日志仍在PFS，未迁移、未上传Git。既有停止分支未恢复。E1/E2是固定既有子集诊断，不是独立盲测；完整系统比较不能分离所有模型因素；E2不能排除既有Dc适配。
 
-Git仅远端原仓库main，基准`8bab318fbc8f8f115e96c9aeffeef10d3c2bb4b6`；精确发布结果以`validation/publication.json`为准。当前报告不冒称未执行的仓库检查/推送已通过。
+Git仅使用远端原仓库main。已正常提交并推送实验与稿件：`58c762e11eb539041a2694b6e38036805fd376f0`，远端SHA逐字一致。仓库检查通过，264项CPU测试通过；未合并、未强推，原有未跟踪文件保留。发布回执见稿件`validation/publication.json`与结果目录`publication.json`。后续仅补入本发布回执和完成状态，不改变已验收科学结果或稿件。

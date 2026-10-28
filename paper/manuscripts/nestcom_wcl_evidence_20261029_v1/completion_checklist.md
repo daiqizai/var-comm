@@ -11,6 +11,6 @@
 | done | 图注/数字/三表/Word/LaTeX同源同步 |
 | done | 5页10pt双栏、15页单栏、15页Word实际渲染检查 |
 | done | 来源映射、主张矩阵、账目、失败链和可复现脚本 |
-| blocked | 仓库必要检查与正常commit/push等待最后发布步骤，实际状态见publication.json |
+| done | 仓库检查通过、264项CPU测试通过；正常提交并推送，远端SHA一致，见validation/publication.json |
 | not-run-optional | SNR裕量、逐token全控制、粒度实测计时、Ada计时；未新增对应主张 |
 | not-run-optional | 自动投稿、外部消息、合并、强推、大数组迁移；不在本轮范围 |
