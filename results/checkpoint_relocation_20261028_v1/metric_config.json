@@ -1,0 +1,350 @@
+{
+  "clip": {
+    "SNRS": [
+      4,
+      10,
+      19
+    ],
+    "automatic_N2048": false,
+    "automatic_retry": false,
+    "basis_HEAD": "3f0f999c5e7ae7ac264586b91ff661187dd0f479",
+    "cache_review": {
+      "current_five_method_metrics": "No CLIP-I in original seven-metric deliveries",
+      "historical_unified": "Historical different source/method/runtime identity; no admissible current frozen pixel/device cache",
+      "within_run": "Exact canonical pixel hash + this entire registration; pair additionally binds source hash"
+    },
+    "clip_assets": {
+      "implementation": {
+        "files": {
+          "clip/__init__.py": "d7930eb290ebed432116795c91473200d098451a94c0aedd4ae0f934f97955e8",
+          "clip/clip.py": "9540f200fbf8145479fa655382a56dab048d238cc698b9cbd8df3b6d86d3f1b6",
+          "clip/model.py": "9902cbe5ee90a1da2aa3e6f043e8a23dc1f8831193b963785c9af03d5c7bef2c",
+          "clip/simple_tokenizer.py": "d1b09f10ed3d1e2c343619cb98cbfacb92363dd8607526a43aa7fe2d60d15bad",
+          "hubconf.py": "0641946610c17a743ebcc3f6e85cffff1400337bb9a99766740c40b01d9a3e14",
+          "setup.py": "6a913890284a988293f7b0b3ca017de29c65ce2bdce9fdd09cb481fc6bd5a636",
+          "tests/test_consistency.py": "342f84e4814143e1117dbc14baa6cf2a2ec01f61542e3952edc91e68f5eed206"
+        },
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/clip_i_frozen_v1/sources/clip",
+        "revision": "d05afc436d78f1c48dc0dbf8e5980a9d471f35f6"
+      },
+      "weights": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-checkpoint/liulu/var_comm/code_assets_20261028/var_comm_runtime_20261010/assets/clip_i_frozen_v1/weights/ViT-L-14.pt",
+        "sha256": "b8cca3fd41ae0c99ba7e8951adf17d267cdb84cd88be6f7c2e0eca1737a03836"
+      }
+    },
+    "code": [
+      {
+        "bytes": 3518,
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/clip-i-common500-20261020/common.py",
+        "sha256": "217a7b508539ad25b11f6aa14f588a52c587ed5bf2b6824dde2bd33e8ef00712"
+      },
+      {
+        "bytes": 7602,
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/clip-i-common500-20261020/inventory.py",
+        "sha256": "ae29fd7ead740ef51d58067fd9ade5f6dcb3e91b6bc0324706b2c3dca53f1067"
+      },
+      {
+        "bytes": 7448,
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/clip-i-common500-20261020/score.py",
+        "sha256": "9bb20420738c4a956213f91ace8664a986caddd0abaa5e26960f17c9b9fa524e"
+      },
+      {
+        "bytes": 1955,
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/clip-i-common500-20261020/control.py",
+        "sha256": "f24eeced82f898c13509c84b0d5bf56df311d20c6a2a820009fa6b8a48ebb68e"
+      },
+      {
+        "bytes": 1817,
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/clip-i-common500-20261020/test_protocol.py",
+        "sha256": "ee1f7c005c1fbfbafd06f07b45e7ddbe47e7c2cea68ac091018bdd041e537eea"
+      }
+    ],
+    "created_unix": 1792492960.3743913,
+    "existing_feature_cache_reuse": 0,
+    "existing_pair_score_reuse": 0,
+    "inventory": {
+      "bytes": 6985,
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/clip_i_common500_20261020_v1/inventory.json",
+      "sha256": "890b18080bab9a232d759fc3f0e79e071b46c885b9f3da93677822d5a6dba9f2"
+    },
+    "limits": {
+      "cosine_pair": 13480,
+      "image_embedding": 13980,
+      "model_load": 1
+    },
+    "loader": {
+      "bytes": 30518,
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/unified-metrics-20261002/metric_models.py",
+      "sha256": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066"
+    },
+    "logical_pairs": 22500,
+    "max_seconds": 14400,
+    "methods": [
+      "EC_VAR_PARTIAL",
+      "P100000",
+      "Swin200000",
+      "BPG_ADAPTIVE_DOWNSAMPLING_LDPC_N1024",
+      "ARPC_ADAPTED"
+    ],
+    "metric_definition": {
+      "RGB": "native float32 [0,1]",
+      "caption": false,
+      "center_crop": 224,
+      "column": "clip_image_cosine",
+      "definition": "CLIP image-image cosine similarity",
+      "input": 224,
+      "model": "OpenAI ViT-L/14",
+      "name": "CLIP-I",
+      "normalization_mean": [
+        0.48145466,
+        0.4578275,
+        0.40821073
+      ],
+      "normalization_std": [
+        0.26862954,
+        0.26130258,
+        0.27577711
+      ],
+      "percentage": false,
+      "resize": "tensor bicubic antialias=True",
+      "softmax": false
+    },
+    "noise_seeds": {
+      "ARPC_ADAPTED": [
+        6201,
+        6202,
+        6203
+      ],
+      "BPG_ADAPTIVE_DOWNSAMPLING_LDPC_N1024": [
+        2001,
+        2002,
+        2003
+      ],
+      "EC_VAR_PARTIAL": [
+        6201,
+        6202,
+        6203
+      ],
+      "P100000": [
+        2001,
+        2002,
+        2003
+      ],
+      "Swin200000": [
+        2001,
+        2002,
+        2003
+      ]
+    },
+    "qualification": {
+      "bytes": 1019,
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/clip_i_common500_20261020_v1/qualification/actual_wait.json",
+      "sha256": "3447d7b10b3ed918ed9452bebad3be04555363301b36818f7392b0bf04585052"
+    },
+    "resource": {
+      "TF32": false,
+      "allocator_gib": 12,
+      "batch_size": 1,
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "gpu_uuid": "GPU-f5047136-08e5-9416-3c86-87786d0b355e",
+      "host": "aibox-r59688baa77c-57c794f5c6-44lm7",
+      "interop_threads": 2,
+      "pci_bus_id": "0000:62:00.0",
+      "precision": "FP32",
+      "runtime_free_mib": 2048,
+      "startup_free_mib": 8192,
+      "threads": 6,
+      "visible_index": 1
+    },
+    "schema": "CLIP_I_N1024_COMMON500_FIVE_METHODS_V1",
+    "source_count": 500,
+    "statistics": {
+      "all_method_pairs": 30,
+      "bootstrap": {
+        "array_sha256": "5008414437d48252ad3536f07d7f522a001b7b5eab54c02400ebfb7323c5386f",
+        "indices": {
+          "bytes": 40000128,
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/t1c_m10_test_20261016_v1/delivery/common500_bootstrap_indices.npy",
+          "sha256": "5ca12fe75af6a09e1d3c18e205d7394bf4cdca53c25f7ca21005e5de30117634"
+        },
+        "population": "common500",
+        "replicates": 10000,
+        "seed": 2026100701
+      },
+      "confidence": "pointwise95 source-paired; no multiplicity correction",
+      "marginal_rows": 15,
+      "nest_minus_baseline": 12,
+      "new_random_draws": 0,
+      "selection_feedback": false,
+      "source_noise_mean": 3,
+      "sources": 500
+    },
+    "user_scope": "Current5 methods common500,3 SNR,3 original noises; scoring only; no N2048 yet",
+    "zero_calls": [
+      "training",
+      "channel",
+      "decoder",
+      "source_encoder",
+      "caption",
+      "reconstruction",
+      "other_neural_metrics"
+    ]
+  },
+  "config": {
+    "metric_config": {
+      "dino_receipt": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/incoming/pilot_metric_weights_seed_v1/dino157_hydration_completion.json",
+        "sha256": "1f3a298980eb02983123f963768326a5e0f231ad1bdcf0c4f7dd4efea40eb6a4"
+      },
+      "manifest": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/pilot_metric_code_seed_v1/modelmanifest.json",
+        "sha256": "851a92682162e2b2be6e4e53498c50c7c3a9a1d2ea9e559b13cb9215f658ea9f"
+      },
+      "registration": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/pilot_metric_code_seed_v1/metrics_registration.json",
+        "sha256": "61b6b89f3bf0c0886025d57bfb415f7a880bc1ab6e7e0b68d111ce02ea0ab004"
+      },
+      "runtime_identity": {
+        "current_host": "aibox-rfbd2ce574fd-5df9766c45-vz6d9",
+        "device": {
+          "allocator_gib": 6,
+          "cuda_admission": {
+            "cuda_uuid_hex": "c61b6bf89457fee77b51761b157e0065",
+            "pci_bus_id": "0000:63:00.0",
+            "visible_index": 0
+          },
+          "gpu": {
+            "free_mib": 20075,
+            "index": 0,
+            "name": "NVIDIA H800",
+            "total_mib": 81559,
+            "utilization": 0,
+            "uuid": "GPU-c38d7822-f973-c389-37c9-9ffa97610ac8"
+          },
+          "interop_threads": 2,
+          "running_free_gib": 2,
+          "start_free_gib": 8,
+          "threads": 6
+        },
+        "expected_torch": "2.11.0+cu128",
+        "historical_config_source": {
+          "bytes": 38933806,
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/qualification/h800_ep_pilot_metrics_v1_attempt1/registered/request.json",
+          "sha256": "b01586e1fe39daad1b47a8d102949c6003136dc58036bab47bf6dab9c2cd0347"
+        },
+        "no_cross_hardware_timing_claim": true,
+        "numeric_flags": {
+          "cudnn_benchmark": false,
+          "cudnn_deterministic": true,
+          "cudnn_tf32": false,
+          "deterministic": true,
+          "interop_threads": 2,
+          "matmul_tf32": false,
+          "precision": "highest",
+          "threads": 6
+        }
+      },
+      "sources": {
+        "common500_validation_metrics.py": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/pilot_metric_code_seed_v1/common500_validation_metrics.py",
+          "sha256": "3f40eda1ba9d79ba4412a57560f9f5420b92e7e426b9152c7907f5f7eba4e7e3"
+        },
+        "metric_models.py": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/pilot_metric_code_seed_v1/metric_models.py",
+          "sha256": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066"
+        },
+        "quality.py": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/pilot_metric_code_seed_v1/quality.py",
+          "sha256": "589d43a9dede2327c67d363f3b8b879cfb184e40e6a58b1aa2ae9b675d63a1a5"
+        },
+        "score_bpg_cached_holdout_r2.py": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/pilot_metric_code_seed_v1/score_bpg_cached_holdout_r2.py",
+          "sha256": "d8e9f85c83f63a288cf0500e53857bc6e81c205cec93897e4d46f9f177c79d8e"
+        },
+        "step0_reference_metrics.py": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/pilot_metric_code_seed_v1/step0_reference_metrics.py",
+          "sha256": "2c5b712fcf36e859e73ef6a680989ce9a8ef29884ab63b0c3e14e7720d7dae28"
+        }
+      },
+      "weight_receipt": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/incoming/pilot_metric_weights_seed_v1/hydration_completion.json",
+        "sha256": "2c6778ede6c15e21947ea0dd1bc9df4c96f97c7d366c3ac6ee0db10704de744a"
+      },
+      "whole_policy": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/fixed_existing32_seed_v1/VAR_COMM/outputs/WCL-EVIDENCE-CLOSURE-20261009/T1_entropy_whole/frozen_policy.json",
+        "sha256": "08097679bd01e6988fc4574d4f74ab57e1a891b2837a2f7a77713565ace7f70d"
+      }
+    },
+    "pair_plan": {
+      "bytes": 661479,
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/arpc_external_baseline_20261019_v1/a3_metrics_v1/pair_plan.json",
+      "sha256": "af227888b29b72b0c0e61a1a116dc17cd485ac86ec26139057b5c9cf648a5758"
+    },
+    "supplemental_overlay_root": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/quality_metrics_supplement_20261014_v1/dependency_overlay_v1/sitepackages",
+    "supplemental_registration": {
+      "bytes": 339898,
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/quality_metrics_supplement_20261014_v1/common500/registration.json",
+      "sha256": "191f10cce3ac20000583f70edfbe74e83ec0d22272e403ea0b683eed484cfb02"
+    }
+  },
+  "supplement": {
+    "dependency_overlay": {
+      "bytes": 19881,
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/quality_metrics_supplement_20261014_v1/dependency_overlay_v1/manifest.json",
+      "sha256": "c3372713ca0237ade062a3a286b9ce7a531858d607f247a97a3d793e8c9bee4d"
+    },
+    "loader": {
+      "bytes": 30518,
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/unified-metrics-20261002/metric_models.py",
+      "sha256": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066"
+    },
+    "metric_assets": {
+      "bytes": 31475,
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/quality_metrics_supplement_20261014_v1/metric_assets_posix_manifest.json",
+      "sha256": "1dc00388cc91e86ffb3296e794ea23229d945a25e5a2a47619cf13c6b8c02362"
+    },
+    "protocol": {
+      "dists": {
+        "RGB": "float32 original256x256, [0,1], no resize/crop/quantization",
+        "batch_average": false,
+        "direction": "lower",
+        "normalization": "official internal ImageNet mean/std"
+      },
+      "dreamsim": {
+        "branch": "ensemble",
+        "direction": "lower",
+        "normalization": "unchanged official per-backbone internal normalization",
+        "normalize_embeds": true,
+        "preprocessing": "official square224 bicubic antialiased tensor geometry; original RGB floats retained, no PIL requantization or crop",
+        "release": "v0.2.0-checkpoints",
+        "use_patch_model": false
+      },
+      "ms_ssim": {
+        "K": [
+          0.01,
+          0.03
+        ],
+        "RGB": "float32 original256x256, [0,1], no resize/crop/quantization",
+        "data_range": 1.0,
+        "direction": "higher",
+        "size_average": false,
+        "weights": [
+          0.0448,
+          0.2856,
+          0.3001,
+          0.2363,
+          0.1333
+        ],
+        "win_sigma": 1.5,
+        "win_size": 11
+      }
+    }
+  }
+}

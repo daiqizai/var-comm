@@ -1,5 +1,16 @@
 ## 2026-10-28 — WCL representation and fixed-frame narrative revision
 
+## 2026-10-28: VAR_COMM weight storage relocation
+
+Seven existing runtime weights (4,964,756,469 bytes; 4.624 GiB) now reside in
+`/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-checkpoint/liulu/var_comm/code_assets_20261028`.
+All seven full SHA-256 hashes match; their old code-area files are absent.
+Use [the relocated model/metric configurations and migration map](results/checkpoint_relocation_20261028_v1/README.md)
+for new runs. Historical registrations are unchanged. No training, reconstruction,
+channel or metric computation was performed for this storage operation.
+The inventory covers VAR_COMM and its frozen runtime, not other projects.
+
+
 The anonymous [manuscript v2](paper/manuscripts/nestcom_wcl_n512_20261028_v2/README.md)
 revises the abstract, introduction, method transitions, reduced-budget discussion
 and conclusion from `ccf4084165cc57e356157ae074c9bfdedb03d2fa`. The argument now
