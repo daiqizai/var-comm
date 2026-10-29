@@ -7,4 +7,4 @@
 - done — Independent N1024NULL extension with actual18frame/36packet checks; old code intact.
 - done — Same-source LaTeX/Word/figures/tables and all-page actual render review.
 - not-run-optional — New training, N512 BPG/Swin, expanded noise/temperature studies, Ada timing.
-- blocked — Required repository checks and publication are pending the final integration step; see the subsequent publication receipt.
+- done — Required repository checks passed. The reviewed delivery was committed and normally pushed on remote main; remote SHA verified. See validation/publication.json.
