@@ -1,3 +1,23 @@
+## 2026-10-29 — Focused WCL narrative and figure revision
+
+The [new anonymous manuscript](paper/manuscripts/nestcom_wcl_focused_20261029_v1/README.md)
+connects coarse-to-fine representation, within-scale endpoints, actual terminated
+length fitting and the two receiver uses of received tokens. Results now has four
+subsections; full training/configuration records and diagnostics remain accessible
+in an eight-page supplement. Existing E1/E2 and N1024/N512 science is unchanged.
+
+Fig. 2 has a taller plot region with exactly the same 36 means and 36 intervals.
+Fig. 3 uses the previously displayed lamp at N512/10 dB/seed6201, with identical
+ROI coordinates and full-image PSNR/LPIPS. The prior two-case figure is preserved.
+The package has a five-page 10 pt double-column paper, a thirteen-page double-spaced
+single-column paper, and a thirteen-page editable Word export; all pages were
+rendered and visually reviewed. The original Fig. 1 PPTX remains editable.
+
+Seven synthetic CPU checks verify the existing N512 paid-NULL versus N1024 error
+behavior when no endpoint fits; frozen protocols were not changed. No new science,
+model inference, wireless frames, metrics, resampling or training was performed.
+All paused branches remain paused; arrays, checkpoints and full logs stay on PFS.
+
 ## 2026-10-29 — E1/E2 evidence and revised WCL manuscript complete
 
 The [evidence report](results/nestcom_evidence_20261029_v1/final_report_zh.md)

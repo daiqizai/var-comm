@@ -1,0 +1,93 @@
+{
+  "status": "VERIFIED_EXISTING_DIFFERENCE_NO_PROTOCOL_CHANGE",
+  "base_commit": "2c303b615f73edd0a7a971308c0df8bd5bb885d0",
+  "sources": [
+    {
+      "path": "experiments/nestcom-n512-20261028/n512_phy.py",
+      "sha256": "62105b293c14f23fda5b597497e71d4787a0079b83c12918c19a8fe1b7ffa5f9",
+      "extracted_original_nodes": [
+        {
+          "name": "nt",
+          "line": 16,
+          "end_line": 16
+        },
+        {
+          "name": "choose",
+          "line": 24,
+          "end_line": 41
+        },
+        {
+          "name": "received_projection",
+          "line": 91,
+          "end_line": 104
+        }
+      ]
+    },
+    {
+      "path": "experiments/entropy-partial-mismatch-20261010/scripts/ep_plan.py",
+      "sha256": "7f354687caa3271ce4375f598f4d9e3ff6086df28d8be478c80835ab4ccd7862",
+      "extracted_original_nodes": [
+        {
+          "name": "require",
+          "line": 16,
+          "end_line": 18
+        },
+        {
+          "name": "ks",
+          "line": 21,
+          "end_line": 23
+        },
+        {
+          "name": "token_count",
+          "line": 26,
+          "end_line": 28
+        },
+        {
+          "name": "fallback_endpoints",
+          "line": 31,
+          "end_line": 42
+        },
+        {
+          "name": "select_stream",
+          "line": 45,
+          "end_line": 57
+        }
+      ]
+    },
+    {
+      "path": "experiments/t1b-m10-calibration-20261016/tb_plan.py",
+      "sha256": "362419fa2b6718989baf49a7b4dea3b0ab5934b69b7b59b4072c9f4c23b8dc60",
+      "extracted_original_nodes": [
+        {
+          "name": "nt",
+          "line": 8,
+          "end_line": 10
+        },
+        {
+          "name": "fallback",
+          "line": 11,
+          "end_line": 13
+        },
+        {
+          "name": "choose",
+          "line": 14,
+          "end_line": 18
+        }
+      ]
+    }
+  ],
+  "checks": [
+    "N512 no-fit selects paid NULL and two zero payload bits",
+    "N512 accepted NULL projects to fixed gray",
+    "N512 fitting stream payload preserved",
+    "N1024 original no-fit raises ValueError",
+    "N1024 original fitting stream selects longest legal endpoint",
+    "N1024 m10 no-fit raises ValueError",
+    "N1024 m10 fitting stream selects full endpoint"
+  ],
+  "checks_passed": 7,
+  "scope": "Synthetic CPU source-selection and RX-projection checks of unmodified AST-extracted functions; no model, PHY or metric calls. Not new wireless qualification.",
+  "code_edits": 0,
+  "protocol_unified": false,
+  "rationale": "The request requires audit and only conditionally a unified repair. Frozen historical protocols remain unchanged; the manuscript states the difference accurately. All evaluated N512 TX_NO_FIT counts are zero; prior N1024 evidence reported no no-fit source."
+}
