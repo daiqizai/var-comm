@@ -1,0 +1,816 @@
+{
+  "role": "cal_phy_nest",
+  "method": "NEST",
+  "stage": "calibration",
+  "gpu": false,
+  "output": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_7db_20261030_v1/cal_phy_nest",
+  "sources": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/nestcom_7db_20261030_v1/calibration_sources.json",
+    "bytes": 3434089,
+    "sha256": "b052d9faa8ddf5a1a558a0678a8b21deeb1e69d9da6c8a843e04f200074c7515"
+  },
+  "phy_qualification": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/outputs/WCL-ENTROPY-PARTIAL-20261010/H800_PHY457_v2/completion.json",
+    "sha256": "ee7a5d9359e82dba62bfdaa3f4d1246815a05f13f393edd23500a6bdd6f6967d"
+  },
+  "protocol_sha256": "c74884430e06163eb1518fc8b398f14ff58712cf36e46522c05c9b79b3eb8bd7",
+  "code": [
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-7db-20261030/phy.py",
+      "bytes": 6194,
+      "sha256": "004b8193e2b43809ad41b8c0a1f43180fb044553f3998997c2292a934301e35e"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-7db-20261030/control.py",
+      "bytes": 2324,
+      "sha256": "f34428da2977990a07a8a5af7079dab15fadc11add042b8f986aadd921e2d334"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-7db-20261030/g.py",
+      "bytes": 1288,
+      "sha256": "b00a59ca35547f49c121b6a418232e6085981caaa29b0e036b8c096d9d47b8be"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/b_ablation.py",
+      "bytes": 1759,
+      "sha256": "07062bb8e3f686c1c923f8528b22e609ffc948f8edc0622ef746f29297fdf161"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/test_a_codec.py",
+      "bytes": 2094,
+      "sha256": "f87ccc0392f5c712bd92119be0d9a11c2efd5db21460d16b4312c18b55287fcd"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/b_receiver_same_device.py",
+      "bytes": 4093,
+      "sha256": "162df1a1d1d9b8f9a749c405b28dd1ad49f5dde324198db2b250d33415fd0c90"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/acquire_assets.py",
+      "bytes": 1763,
+      "sha256": "0d515ec575faeaeff3d7c72c6764a417f77448933c6bb16497a4cb20c0826b64"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/test_c_arithmetic.py",
+      "bytes": 2005,
+      "sha256": "3f2f3ce953d18b3ecd0a2583bfa6f61f4531b959bbdae813bc6a931f892146f1"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/c_predclass_receiver.py",
+      "bytes": 3686,
+      "sha256": "d82d566df1195f1fe8e9bd394c594f80daee6f70660bf94d3e349c580e0e34df"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/a_source_same_route_v3.py",
+      "bytes": 3696,
+      "sha256": "f660d823fe4497f67c7de2d63063f3e3ef8f03d923d8af9c2c33a8ab21fa8b88"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/a_codec.py",
+      "bytes": 1790,
+      "sha256": "378f82f096596f5fb1ef89502bb79d5c335da62b404843030a0e7f04bb9cb315"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/a_statistics.py",
+      "bytes": 5433,
+      "sha256": "4c64886c565ed213582737dd9f7760ffb2ba2c2830358c3d206bcf4f0b045dd0"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/prepare_b.py",
+      "bytes": 4528,
+      "sha256": "da37871e67ed51a4049eaf9c541ef98c5c3a9cf28a1b22c47555fbc56f76b7df"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/a_rx_diagnostic.py",
+      "bytes": 2602,
+      "sha256": "6daf4a2c7d5195cb3b742c00770a7c5240f04ed187e960faf1709b6dab211ee7"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/a_link_import_v2.py",
+      "bytes": 3891,
+      "sha256": "485badc78887e5b8e782cb444857fd494e7d2fba592d254c238b14cd5905ea71"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/b_statistics.py",
+      "bytes": 4695,
+      "sha256": "ace6a914be328a81428ff143a2ea40671bad00e2fd181d46e45a7c9232c2fafa"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/c_predclass_frame.py",
+      "bytes": 2719,
+      "sha256": "8b17e4188899ef8d5fdc7f6a41db580bc81eb52c76bb891552b2a81b9b821f27"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/fixed_frame.py",
+      "bytes": 3388,
+      "sha256": "85bbaa08d2afd14795a28655596722e02b31a673c1b508928a1b1ec7fb06996b"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/control.py",
+      "bytes": 2238,
+      "sha256": "d218bedfcdc95275e1cb42280dcb543ce5b4c0926aa2d11f99212ed63f0b57b0"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/c_predclass_classifier.py",
+      "bytes": 1547,
+      "sha256": "1e91f0078321cc515a8119751602acf9e89148682833067139b4bedbc37c6846"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/c_predclass_native.py",
+      "bytes": 4994,
+      "sha256": "848ccfa3dc2b5b3c179214894f184808b8492c61c2b1697f3a9d60aff2ffbc12"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/a_link.py",
+      "bytes": 3834,
+      "sha256": "722144cad81ea41131664232c68ca7b22456491d29afffdde68134a9dbd8c461"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/render_a_results_v2.py",
+      "bytes": 5211,
+      "sha256": "9a5a8ca3deba409fbaab12ae692ac1d72e38f4ec35d2eb72d6405695bd0b1170"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/c_predclass_phy_qualification.py",
+      "bytes": 3426,
+      "sha256": "4197a7fbf07fb4cf805132cffb0780f0d5f08b68c1f3c807f3c2b949bac30979"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/a_receiver.py",
+      "bytes": 4190,
+      "sha256": "97106a92cf122992937322e7d2b77c77e385905799cb4039846c7ce6eef06d4e"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/test_c_predclass.py",
+      "bytes": 3532,
+      "sha256": "7556102ad25b5e317496c5d733b40d2886e40589662f152af7ef2568a66db62b"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/c_predclass_protocol.py",
+      "bytes": 1881,
+      "sha256": "e458cab04f179631d2d1f7285531983d94d0bf598199861e1f8aafef18bc73e2"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/b_metrics.py",
+      "bytes": 7493,
+      "sha256": "4d17a01b60b5dc5e9e73ccd948429120632e8ad34de9c34149af3642300fc529"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/common.py",
+      "bytes": 4249,
+      "sha256": "bcd0c519b02d720a8f2c99b1fb02a8b00e75f75271c24acc78475295a2c6ba28"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/test_a_fixed_frame.py",
+      "bytes": 1916,
+      "sha256": "d604c49e9f8244633a22f5f9ccedbed2a233ee33687e064acdf7b04a54d7ebeb"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/render_a_results.py",
+      "bytes": 5043,
+      "sha256": "dfe6551bdd1e9d17ebdd213b51db552e657dabed5bb55fb320addb651c11ddb7"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/c_source.py",
+      "bytes": 3219,
+      "sha256": "b634bd27e571d004ff3822c3434acfd2aab3f417826b686f1327753ccc65dc6c"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/acquire_assets_proxy.py",
+      "bytes": 1772,
+      "sha256": "7f6bdc0a5878f2fcf0e6ea6356155837ad869deb82e2ae8969333ba69971d86a"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/a_metrics.py",
+      "bytes": 7747,
+      "sha256": "7660d015e9163b0586e14181ba5b4eb3169859375bb7ddb1e7968afc38b01755"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/c_arithmetic.py",
+      "bytes": 2512,
+      "sha256": "4101ec85bfc4ca2e3026c2dd7ca724638dc059f2be4b66b21edbd249e08c7a30"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/test_contract.py",
+      "bytes": 3609,
+      "sha256": "17880416e9b0cc42a106a913faf2b7ed908e4a638a763c94b8eda8d5899d5199"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/a_source.py",
+      "bytes": 3404,
+      "sha256": "23336f81ff029e42b86ea5094bf53b1abea8663114cf7aa1adb5611c454d8f75"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/a_source_hash_v2.py",
+      "bytes": 3517,
+      "sha256": "c53021b295adbf64bc3096e986a466bff6d9d8ba01654cdc191c693cf0e83212"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/c_receiver.py",
+      "bytes": 3467,
+      "sha256": "1db49b3e17e1a1f0930ede3552ebb56aa1dd342b0e8f07ac2340140083506dd1"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/c_predclass_source.py",
+      "bytes": 4438,
+      "sha256": "e2f67b517cc6d8b3faef196b572b34734aeb1e91ce0c5e7b0050d82d8165bb52"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/test_c_predclass_frame.py",
+      "bytes": 1934,
+      "sha256": "0842b4464f6ec971d019e28a3da6a9bf5431d9558d8b33df1c45ec98adabdf14"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/c_native.py",
+      "bytes": 3833,
+      "sha256": "1a9c28c65305899d811ceb638d20773eb9259fb538a8f22f1ab91269a4ad3767"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/b_receiver.py",
+      "bytes": 3805,
+      "sha256": "d07008628b5711482de4197fc1ed556ea00306ea1ef63db665e9e95b5abac3e6"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/wcl-adatoken-20261027/reuse_worker.py",
+      "bytes": 1430,
+      "sha256": "a8f35994aa88dcc83828af84efbf06c743732414b2786e4f2271916f53f22162"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/wcl-adatoken-20261027/control_route.py",
+      "bytes": 443,
+      "sha256": "c13a662a06ddccaf6036bbcece9d0adc783a00d70e0651ae3d90b9212a7b6f14"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/wcl-adatoken-20261027/link_worker.py",
+      "bytes": 3692,
+      "sha256": "1c0f6f3da8dd370c5a17ad27978d73122fe66d23537329105caeb90b250748d8"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/wcl-adatoken-20261027/public_counter_rx.py",
+      "bytes": 1571,
+      "sha256": "430b88e29acb62119a9518ee35a97356e6be140861c8ad7e3ea9b38025763889"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/wcl-adatoken-20261027/test_public_counter_rx.py",
+      "bytes": 2321,
+      "sha256": "d42267666a001fa3c9b06e74fefd02ebb95139b70aab605717e054e72ed3e48f"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/wcl-adatoken-20261027/score_worker.py",
+      "bytes": 5346,
+      "sha256": "fb9942a2b53717c215c812072969c1d4947cba27f72604ce984c1578a42481ab"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/test_runtime_boundary.py",
+      "bytes": 1605,
+      "sha256": "6e51c0b7fdcd66020c15104f6512f591a596f0e4635a9059e7ab78c1c7f47766"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/deliver.py",
+      "bytes": 11918,
+      "sha256": "7ed5d97325c7bae251de371dd547293f3538dca37be147684acf5235774eea4e"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/tb_metrics_recovery_v1.py",
+      "bytes": 6762,
+      "sha256": "4d2ba5594bb059e7c497d446693c76d0c1ed9245470f8261facb49aa430f95ef"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/tb_common.py",
+      "bytes": 3827,
+      "sha256": "75ee18f53f128ac307fb16c6905a21f540b30a5c157096ae7393da32206d19cf"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/test_metric_device_recovery_v2.py",
+      "bytes": 795,
+      "sha256": "22ca9c7636c77b192dac504038bc57901f524005f25d02443ee6cfce7a3144d9"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/tb_plan.py",
+      "bytes": 2716,
+      "sha256": "362419fa2b6718989baf49a7b4dea3b0ab5934b69b7b59b4072c9f4c23b8dc60"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/tb_receiver_recovery_v1.py",
+      "bytes": 5226,
+      "sha256": "6697e6c9b39e200367961c577e3af6f1be6d4176dd2b100a519eab5f498ec4f2"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/test_plan.py",
+      "bytes": 2945,
+      "sha256": "8873193c40270d60ff9d4852f550a95936597a1e4ae18e88dbc9a692da7f0aaf"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/prepare.py",
+      "bytes": 11113,
+      "sha256": "4e032c70fb3851abd3b80d5f90007c6c7301cdab41ce4b6bf5c836c0323d84fa"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/tb_metrics_recovery_v2.py",
+      "bytes": 6899,
+      "sha256": "8d539f0b36e3cff2386e1876e99c05dcd4c18d4f160878f9de625ddf67ed0b56"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/tb_control_recovery_v1.py",
+      "bytes": 4128,
+      "sha256": "82f90c0a3418d828fab33395b2517605893e357f5fbeb926d2404bb46f0f33ac"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/tb_select.py",
+      "bytes": 3356,
+      "sha256": "0d5f92546fbc2731cb46d8a58c006d16f02a84ab129d9b4745c33d9b41a1e1ae"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/tb_control.py",
+      "bytes": 3704,
+      "sha256": "d677efa3ae4f8b5f16cf6689acf52e10c770cf71fb05ec1bb88813348a86d66e"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/tb_receiver.py",
+      "bytes": 5501,
+      "sha256": "7cd115f18d51740e25119d8ac99388e3555251e97ae293186e9109ce1b4032ab"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/publication_recovery_v1.py",
+      "bytes": 10630,
+      "sha256": "8c84c6a70dfff58206a3c21712b5623b62fd02650e3205321894fe50256510d1"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/register.py",
+      "bytes": 5778,
+      "sha256": "8a70bc78c0d027ec3052febf8911e541eec1ff09173a6644be07c548fda1bd60"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/publication.py",
+      "bytes": 9690,
+      "sha256": "eef7e9d1d9e4aae93ee3c9eefd929715858be22bbd0c89499838d69e1784c214"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/recovery_binding.py",
+      "bytes": 620,
+      "sha256": "65b83895c21c8525c3167fbca469d90ce04aa753449576f2b55251ece50ac41a"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/runtime_boundary.py",
+      "bytes": 1548,
+      "sha256": "ddd93796ace45ff754319e8870e82fa6766ade8851c9fe657703e83bef72527f"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/publication_recovery_v2.py",
+      "bytes": 11241,
+      "sha256": "872d47ff4c79003377b9ad44c25af90db3de6ba8f7a161e1cb7c6be8509e1f8f"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/tb_native.py",
+      "bytes": 4619,
+      "sha256": "6de8addc4cda68248474b83e93d1eecc2e198e65d861eae10fb17042ecc6b37a"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/test_execution.py",
+      "bytes": 3360,
+      "sha256": "af15e70c750adca39a373a2840ffd22484df7b760520f3c62181e377d053a149"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/tb_select_recovery_v2.py",
+      "bytes": 3400,
+      "sha256": "04a8d56a1a723009e4d078238a11968832dbc85e60b2de25b3a941f0eaa92e32"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/tb_metrics.py",
+      "bytes": 6674,
+      "sha256": "88fb437f003bc54fa7a1ff464bbf466701e935980629271d1c0e932e076bc4d7"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/tb_phy.py",
+      "bytes": 4235,
+      "sha256": "12d3acd257eabed12381864bb15366a2fc1253bb40117bc8ae006b41cb585686"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/tb_control_recovery_v2.py",
+      "bytes": 4164,
+      "sha256": "9f84afa702f230a9d5b9b39e38d65434495c66e47b5467192c26555a43f6c2a2"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/deliver_recovery_v1.py",
+      "bytes": 13446,
+      "sha256": "36f10d3082bbe525284d7c35eb1c2cf28b731e3cf65a900e6b1f3a9b71df8150"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/deliver_recovery_v2.py",
+      "bytes": 14429,
+      "sha256": "befad9826e057ffa09c97331ea4a65665fa5e219e6143445877f358b7d5aa0ef"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/metric_device_recovery_v2.py",
+      "bytes": 689,
+      "sha256": "7578c8af3a3a4a6c24b2a4f9ecb23b76eda3a22920602947c4260ea679356ef3"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/test_mismatch_plan.py",
+      "bytes": 8228,
+      "sha256": "b62d41eef8da0c18c2a2c16b4c0e89c4557c6ac6075811314b949b82bd16eccd"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/leo_whole_gate_v1.py",
+      "bytes": 52115,
+      "sha256": "06c8f1659eed5d67c9bcd368a91f6c35628d83136e4a9ff4e2fbe356cb65f81b"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_new100_metric_owner_v1.py",
+      "bytes": 19181,
+      "sha256": "fe2c954d26f457b076798efe4c3b01c4a5d9966804834977a635d26b032b7a8c"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_mismatch_metric_owner_v1.py",
+      "bytes": 16810,
+      "sha256": "55c3957d2b3de73051f831e243b3028f7558d802e5da43fcdd4194635c5d68ff"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/leo_single_rx_diagnostic_v1.py",
+      "bytes": 17737,
+      "sha256": "2935a1bc597b1cbdd8ef5c22f31ef550adf704e3d8795b55dc482e51bdb6daff"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/leo_mismatch_statistics_v1.py",
+      "bytes": 22513,
+      "sha256": "def9b0febb8fb742b0766df27138e2257b314244e6e6394567d729c95529ac31"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/ep_new100_source_core_v1.py",
+      "bytes": 6846,
+      "sha256": "c11e379e76615b8a35f8c890cbc731a000c4a88dcf65fc6e31bd587b89a4c5a9"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_full_phy_core_v1.py",
+      "bytes": 9532,
+      "sha256": "9891079955cfb2988a05e5a7e7f5ea9bcf2eb653ec47817afd10feb343c99866"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_full_evaluation_core_v1.py",
+      "bytes": 14284,
+      "sha256": "6ca973dcf0e1fd3fb5ebfd405e913c1e16a6fd4b80e24740b667baed6d6f4f7e"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_same_host_codec_v1.py",
+      "bytes": 13593,
+      "sha256": "04972f2c45d88e61d5d6d1abe528ec3db2838efa045171e520dd59db0171782f"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/ep_t1_portable_qualification_v1.py",
+      "bytes": 7588,
+      "sha256": "a8f07ced19ee3f3fb8d3b284e962afb07c1b64aa1ba33c507d160a9a23e01b72"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/leo_mismatch_visual_v3.py",
+      "bytes": 11489,
+      "sha256": "807228a03279922f323123e43332b14762d076b9dc36bbb9884fe384fb757df2"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/ep_new100_alternate_visual_core_v2.py",
+      "bytes": 8091,
+      "sha256": "0020417f6e181b550b7131387944d4f78263f1a68b9db17883957ce194e04155"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/mismatch_plan.py",
+      "bytes": 16813,
+      "sha256": "c15e7975334bd40eb46fe35cdaa65a7e4532b63514540eb98cb05bf36a9ba0bf"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_single_rx_v1.py",
+      "bytes": 12506,
+      "sha256": "d2a8410f02078ba44f08d9e2e490174fb6f4549f60df2b4300a56592e6fd2f4a"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_mismatch_phy_v1.py",
+      "bytes": 18056,
+      "sha256": "3d01e32bb505d322dadf37aae8c45a7398171ddd38091393340d3b24e91c5ee8"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_mismatch_metric_owner_v2.py",
+      "bytes": 2581,
+      "sha256": "b44c924ce09fa5bd57797cf2e75da443c4087ed2f45c743a86bfdb5dab69e2c9"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_new100_source_v1.py",
+      "bytes": 17841,
+      "sha256": "e3751c723700aa2b6a9cf7c229d418ad52553defb24ec0c07ef9823104cdb8df"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_new100_visual_v2.py",
+      "bytes": 12011,
+      "sha256": "5ea07c138e555702ed703667a7dee764080017c7e8510d16bedb0302573c161a"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/leo_whole_input_map_v1.py",
+      "bytes": 9683,
+      "sha256": "b7224728fc22b233745b3ff358308f0c6e4135a6f0adacbb7ce2459203a78cd0"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_pilot_metrics_v1.py",
+      "bytes": 17475,
+      "sha256": "6bde19df620a7dbf391f5d406daa3b4c1de2a66d051c990c26ae9a2474c1ec8d"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_mismatch_input_plan_v1.py",
+      "bytes": 10114,
+      "sha256": "cd76c5dda42635be8fd21d32d2e2c9a660506970e753ecafb372c4f629ed895b"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/ep_new100_download_owner_v1.py",
+      "bytes": 11877,
+      "sha256": "6f6e7411e29f0a82f6d24702dcb956f7fa5cfd7465d8564312d8e958f321d2fc"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/test_ep_source_codec.py",
+      "bytes": 11037,
+      "sha256": "2f4bc483a43df43edd875d1dc1e4134b68b86809a5c77e3d9be4f0cbaf4dd7d2"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/leo_mismatch_metric_owner_v4.py",
+      "bytes": 12201,
+      "sha256": "babcc219548b8679a6180bf970172b2c508e4159f4abc12e17cc374d195315a5"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/leo_mismatch_metric_owner_v3.py",
+      "bytes": 7398,
+      "sha256": "db6e009ada8266424f9afa81609f8f65f1dc7503cf5affa7f12aaecfc0cfb521"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/ep_new100_selection_owner_v1.py",
+      "bytes": 11583,
+      "sha256": "6974b16a6b25bd8a6bb65f37d614c39c670c1cd4ec12147d6f52cffba898bddf"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/ep_new100_confirmation_core_v1.py",
+      "bytes": 20048,
+      "sha256": "0e688098e8ecf41daccd5cdc93f91a08bbeac1d4f40b273a42d6b89d05284bc8"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_pilot_phy_v1.py",
+      "bytes": 15981,
+      "sha256": "61683057d883ae6ecd317d7ab998930e9e367fade54ca3ef97d791431f90aaed"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_full_visual_v1.py",
+      "bytes": 15057,
+      "sha256": "44ed9ab36c2507ad4919aeb20c082701362521058f9c126c2774eb9b353e58a9"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_mismatch_phy_core_v1.py",
+      "bytes": 12820,
+      "sha256": "8c74597d691e3cb545cea76b3f0dc0922dc2efe84e5fa72e9448c3f01a8228d0"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_full_phy_v1.py",
+      "bytes": 21707,
+      "sha256": "51217148ec4da7aecb171eb38378380c9f1e33edca31a692f743ba3dbf09a3f0"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/test_ep_plan.py",
+      "bytes": 2185,
+      "sha256": "8bca1c415fe3014152f291cd7feef993c9e21a070323ac845be104184fe8a5a6"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_new100_visual_v1.py",
+      "bytes": 11129,
+      "sha256": "c568dc7e72e9b0f8d67b4d4348b8e670df9f58fc762ff8be5e6a5511b38adaa7"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/leo_shared_preflight.py",
+      "bytes": 18498,
+      "sha256": "0f7473aa003991edca43a4587bbd03dfef0955e13f85cf23ffaff1dae1cf66ab"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/ep_source_population.py",
+      "bytes": 17844,
+      "sha256": "4b7fb4a7131a616e1b8f636a1ab631354c8f77035d37ecb937ac1413f16b17f7"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_ep48_link_gate_v1.py",
+      "bytes": 21230,
+      "sha256": "2d904126bcd99465a971314148e09aa2b4a9f9e1dbf1bcf3595ec42a702f6882"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_full_source_v1.py",
+      "bytes": 23379,
+      "sha256": "0f565e6862aa0bda4f165d8a7a578e69458c298853ddad7581398e60ac625d3b"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_new100_metric_owner_v3.py",
+      "bytes": 10569,
+      "sha256": "562f209b8db97268fad8a5fdbfa70659ebcc4d73cfc2c07ddda86ec844f4f672"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/ep_plan.py",
+      "bytes": 5619,
+      "sha256": "7f354687caa3271ce4375f598f4d9e3ff6086df28d8be478c80835ab4ccd7862"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/leo_mismatch_statistics_v2.py",
+      "bytes": 22745,
+      "sha256": "f4f2dd4d65eef5b06f9c82c25d828d60f2024bfb78522d379572fbfe9a469cd2"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_new100_statistics_v2.py",
+      "bytes": 26940,
+      "sha256": "0ac81125e0a2e7ebe492d14c12e15b893a853f0f7b88a9e120610c31e4f570d1"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/ep_source_codec.py",
+      "bytes": 8665,
+      "sha256": "65a9f599bef2205c15f864f40ec07f27d8c9d03ed2d318838706f29dd1b3cb4e"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/ep_new100_phy_core_v1.py",
+      "bytes": 13021,
+      "sha256": "4602e50055d84e9ed12bf9020ccb297490b50ee6a2c6c1e3f565859d7acbbaa5"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_new100_phy_v1.py",
+      "bytes": 19598,
+      "sha256": "f6088c2a30506c8f85b2e5aaf9cafa161ffe7491ee22f12bd5f6a3df7dda11ad"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_ep48_link_core_v1.py",
+      "bytes": 13310,
+      "sha256": "4ee75147eec3e1008045bc7cfd30eb0cb0ff96d0468097384251a48870deabb4"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_pilot_metric_owner_v1.py",
+      "bytes": 24599,
+      "sha256": "8f5b04978b23d8b4525b03599d13a9aa1277872481624fa17c5a0627f43b60e1"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_mismatch_metrics_v1.py",
+      "bytes": 6982,
+      "sha256": "38bfd1130a2ecc881b945712c3a0629d1fd9abd943b9b4a31d28310565896396"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/ep_qualify_phy.py",
+      "bytes": 16755,
+      "sha256": "87db9e0bf0b366a0fb51eca9ac431b24044c7ff031e4c617ef9d49b63d58d224"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_ep32_source_gate_v1.py",
+      "bytes": 23184,
+      "sha256": "5ffd10b0e44e18667b9de87ac5dfbdf01a0a99948d081a8293b61c20815787c7"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/ep_phy.py",
+      "bytes": 23161,
+      "sha256": "12cad3e495fc91d8f6819b895674df08e312da3833291019b8966a2211ec8c75"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_mismatch_visual_v1.py",
+      "bytes": 16650,
+      "sha256": "de547876187cf8e69a68b964f8e8170a0326ea126355e85d583640a89d15e59b"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_shared_gpu_resource_v2.py",
+      "bytes": 7346,
+      "sha256": "0a412ff2705c047ac74426bdb889c55dbad5cb8a669a84bca3b9a8ad728ed7e4"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/test_ep_phy.py",
+      "bytes": 2895,
+      "sha256": "2619805128b3b552dd6846c1abe9e18ec0718fcf6c16e73d8ee1ca16c036bec1"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/ep_prior_hashes.py",
+      "bytes": 11882,
+      "sha256": "6cd8d55983c68eda23ffb9988f1f435e25ea8bc0adacebdf78d56aa13fc5954f"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_pilot_core_v1.py",
+      "bytes": 21496,
+      "sha256": "3f0ea97b7902de4c24e80ebcfe731b160863ac252ba7ff81948e86b7ca0103cb"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_full_metric_owner_v1.py",
+      "bytes": 18289,
+      "sha256": "e5a66c19bae58e11d4bac4c0b0429430469930fec91db1536eb551c5c9ba675b"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_new100_statistics_v1.py",
+      "bytes": 23219,
+      "sha256": "b2424a8e32337895648fc65ba8552d71a2a80ccd9265acb718eb153d34acbb56"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/ep_new100_content_io_v1.py",
+      "bytes": 7527,
+      "sha256": "66a6da8376b3a55aed32a5e9397ab5888ac1c41d1c2ac7dc2e480a4bf111ff22"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_new100_metric_owner_v2.py",
+      "bytes": 10523,
+      "sha256": "0b7854a230ec05ed9787c41596e81da882d9df1a0765de3dbb9cdccd27aa7b9a"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/ep_new100_statistics_core_v1.py",
+      "bytes": 7157,
+      "sha256": "e5513d8ef0d885d91ef809d38a6cc111c8a472a09841c517a15824768ce49321"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_mismatch_visual_v2.py",
+      "bytes": 2148,
+      "sha256": "4b234e16aa42648f5d10b223d8abe54403cacc0e6f1a38ade2b8811e9098ee0d"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/leo_whole_math_v1.py",
+      "bytes": 15525,
+      "sha256": "db4349f936b2cd0c267932cc286e2661e1f7d56dd10d1c4e4a5d7d90ec279252"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/leo_runtime_verify_v1.py",
+      "bytes": 7505,
+      "sha256": "77a059e9c8f4d4328b338274ef2dd8580c6634bd3e1d5ba0e6613b7237422981"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_new100_visual_v3.py",
+      "bytes": 10041,
+      "sha256": "fd9d2665eee207d424c1ed1c93595c990930b9b32fba9c48d3dafb31124e1503"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_pilot_visual_v1.py",
+      "bytes": 18961,
+      "sha256": "d790fb8787ceea4f8c200eb9edaacd226b1903a1a5293513adb6f4c1abb46f7f"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_alternate_gpu_resource_v3.py",
+      "bytes": 9565,
+      "sha256": "ce303965e47d2b947707696c392a8f7bb81910bbc19afd8e277ed174fd6132a9"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_full_visual_v2.py",
+      "bytes": 15630,
+      "sha256": "6b1c81ef90be96d4c83a509464973e8f75f424ec6dcf62452d0035c2c5e149bd"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/ep_new100_content_owner_v1.py",
+      "bytes": 16734,
+      "sha256": "e47ea3ef1fba693abb08b887e897c71b43ab523dff2bbba23cc801185d13345b"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/ep_new100_metric_core_v1.py",
+      "bytes": 11697,
+      "sha256": "47b1dc3f6ab563c16e9779067c95f9c4cd8647ec86a13d1372778d25fb757427"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_full_metric_owner_v2.py",
+      "bytes": 18892,
+      "sha256": "0ff1e074c8881e4f15eff7c90943431eed092c578e0ac6ae712360396dfa1ebb"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/ep_new100_visual_core_v1.py",
+      "bytes": 7613,
+      "sha256": "d073c139cf23abce4f538b6ff32ca9744df5c10f95edd930180643600e3b6d71"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/leo_single_rx_diagnostic_v2.py",
+      "bytes": 28049,
+      "sha256": "08835b22a2c4378cd462ae68690d2d00e2865971c130d4456dc21122d6df6de7"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_pilot_source_v1.py",
+      "bytes": 18407,
+      "sha256": "661d6f1c8c45b3b324c8c488118ccb4c96c3ea8217281bd4d6bb0ebd014403e2"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-external-baseline-20261019/phy_v1/test_control.py",
+      "bytes": 1014,
+      "sha256": "7e5f2cd9abc94931fc8b9429999c66f82ace76cfca789220eaf53b41e74c590d"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-external-baseline-20261019/phy_v1/link.py",
+      "bytes": 6823,
+      "sha256": "d6515cc9096d5e964b078d07a5e716eff76d7b0881f87d0c4dec74f76622fcea"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-external-baseline-20261019/phy_v1/execute.py",
+      "bytes": 2251,
+      "sha256": "82904d55876a92b30b539fb095dc7397f2fcd2771d4be525e15a76abf86f2fc3"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-external-baseline-20261019/phy_v1/owner.py",
+      "bytes": 8826,
+      "sha256": "dcb6774d9d4deb3ceac261e224f7097d477b6274255be6f47e779dd637332955"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-external-baseline-20261019/phy_v1/test_link.py",
+      "bytes": 2834,
+      "sha256": "cc05d064239d0d49080dc2a750695c54f66ca226cf1ba912e6ae373cc31a4cc1"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-external-baseline-20261019/phy_v1/engineering.py",
+      "bytes": 7770,
+      "sha256": "359254256a22dfe79d012fc6943e534d4be6d29b16b3a03140f38b77fad02b18"
+    }
+  ],
+  "dependencies": [],
+  "max_seconds": 3600,
+  "argv": [
+    "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_ldpc_py311/bin/python",
+    "-B",
+    "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-7db-20261030/phy.py"
+  ]
+}

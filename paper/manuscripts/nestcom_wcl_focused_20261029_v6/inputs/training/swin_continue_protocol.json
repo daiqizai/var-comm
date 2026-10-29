@@ -1,0 +1,88 @@
+{
+  "effective_batch": 16,
+  "precision": "FP32",
+  "TF32": false,
+  "calibration_sources": 1000,
+  "train_sources": 20000,
+  "stable_absolute_relative_threshold": 0.002,
+  "holdout_for_selection": false,
+  "branch": "Swin",
+  "parent_step": 80000,
+  "initial_resume": "WEIGHT_INITIALIZED_ADDITIONAL_TRAINING_NOT_EXACT_RESUME",
+  "user_authorized_optimizer_reset": true,
+  "parent_sha256": "8857b8c5ed91a5c316084e8c252a8e2168e424a767378389436d96268e65ba21",
+  "historical_updates_preserved": 80000,
+  "new_optimizer": "Adam",
+  "initial_lr": 0.0001,
+  "initial_lr_reason": "Explicit fresh-optimizer amendment; not a recovered old LR",
+  "optimizer_rng_order_reinitialized": true,
+  "model_seed": 2026101101,
+  "order_seed": 2026101104,
+  "channel_seed": 2026101105,
+  "microbatch": 4,
+  "training_snrs": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19
+  ],
+  "calibration_snrs": [
+    1,
+    4,
+    7,
+    10,
+    13,
+    19
+  ],
+  "calibration_seeds": [
+    4101
+  ],
+  "rates": [
+    6,
+    13
+  ],
+  "budgets": [
+    1024,
+    2048
+  ],
+  "calibration_interval": 5000,
+  "first_added": 80000,
+  "maximum_added": 120000,
+  "maximum_total": 240000,
+  "LR_added": [
+    [
+      1,
+      40000,
+      0.0001
+    ],
+    [
+      40001,
+      60000,
+      3e-05
+    ],
+    [
+      60001,
+      120000,
+      1e-05
+    ]
+  ],
+  "stability_window": 10000,
+  "regular_full_checkpoint_interval": 1000,
+  "retention": "two atomic complete recovery slots plus all calibrated weights and full milestone states",
+  "microbatch_amendment": "Original microbatch16 hit the private16GiB allocator cap during isolated R0; microbatch4 with four accumulated losses retains effective16, original train_update and FP32; cross-microbatch bitwise training trajectory is not claimed."
+}

@@ -1,0 +1,85 @@
+{
+  "status": "FROZEN_BEFORE_DEVELOPMENT",
+  "protocol": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/nestcom_7db_20261030_v1/protocol.json",
+    "bytes": 2736,
+    "sha256": "c74884430e06163eb1518fc8b398f14ff58712cf36e46522c05c9b79b3eb8bd7"
+  },
+  "score_identity": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_7db_20261030_v1/cal_dino/identity.json",
+    "bytes": 22601,
+    "sha256": "376835a9555b78ad65f9556800905459d951428e16277dc59e0960365d41ef72"
+  },
+  "scores": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_7db_20261030_v1/cal_dino/scores.json",
+    "bytes": 500767,
+    "sha256": "cfb47760c1159e30a9f1ec296580f1b94e60596003b5f3b9c3e5aeff810ee3f7"
+  },
+  "summary": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/nestcom_7db_20261030_v1/calibration_summary.csv",
+    "bytes": 1454,
+    "sha256": "d2e34e94a454abff0e4bb07f4c3189b46263c33b00d0678fd55ca504af611a4b"
+  },
+  "methods": {
+    "NEST": {
+      "method": "NEST",
+      "q": 4,
+      "rate": "1/2",
+      "candidate_id": "q4_r1-2",
+      "sources": 100,
+      "channel_repetitions": 1,
+      "dinov2_cosine": 0.6336314923316241,
+      "physical_rejections": 0,
+      "mean_source_utilization": 0.9382527881040893
+    },
+    "WHOLE": {
+      "method": "WHOLE",
+      "q": 4,
+      "rate": "1/2",
+      "candidate_id": "q4_r1-2",
+      "sources": 100,
+      "channel_repetitions": 1,
+      "dinov2_cosine": 0.5984732923656702,
+      "physical_rejections": 0,
+      "mean_source_utilization": 0.8294636218799788
+    },
+    "ADA": {
+      "method": "ADA",
+      "q": 4,
+      "rate": "1/2",
+      "candidate_id": "q4_r1-2",
+      "sources": 100,
+      "channel_repetitions": 1,
+      "dinov2_cosine": 0.7703256532549858,
+      "physical_rejections": 1,
+      "mean_source_utilization": 0.9969888475836433
+    },
+    "ARPC": {
+      "method": "ARPC",
+      "q": 2,
+      "rate": "3/4",
+      "candidate_id": "q2_r3-4",
+      "sources": 100,
+      "channel_repetitions": 1,
+      "dinov2_cosine": 0.14405966500751674,
+      "physical_rejections": 0,
+      "mean_source_utilization": 0.8417935943060497
+    },
+    "BPG": {
+      "reused_frozen_policy": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/paper_supplement_20261008/a1_bpg_adaptive/a1b_adaptive_v1/freeze/worker_0.json",
+        "bytes": 21281,
+        "sha256": "0e0c130ae1905c38cd287579cfa1b4cc223f1ca8ff2bbf980896fcf8fc341bf3"
+      },
+      "profile_id": 3006,
+      "MCS": [
+        4,
+        "1/2"
+      ],
+      "basis": "same adaptive four-resolution source rule; historical100 calibration x3 noise, PSNR objective; no new BPG calibration"
+    }
+  },
+  "selection": "maximum equal-source DINOv2 cosine; ties declaration order; BPG reuses historical PSNR-calibrated profile",
+  "new_test_results_seen": 0,
+  "frozen_unix": 1793294342.1200454
+}

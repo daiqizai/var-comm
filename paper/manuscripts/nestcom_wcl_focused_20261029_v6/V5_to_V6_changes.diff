@@ -1,0 +1,322 @@
+--- a/nestcom_wcl_focused_20261029_v5/scripts/finalize_v5_metadata.py
++++ b/nestcom_wcl_focused_20261029_v6/scripts/finalize_v5_metadata.py
+@@ -1,142 +0,0 @@
+-"""Record V5 evidence promotion without altering frozen scientific results."""
+-from pathlib import Path
+-import copy
+-import difflib
+-import hashlib
+-import json
+-import re
+-
+-P = Path(__file__).resolve().parents[1]
+-ROOT = P.parents[2]
+-PREVIOUS = P.with_name("nestcom_wcl_focused_20261029_v4")
+-
+-
+-def sha(path):
+-    return hashlib.sha256(path.read_bytes()).hexdigest()
+-
+-
+-def record(path):
+-    return {
+-        "path": path.relative_to(P).as_posix(),
+-        "sha256": sha(path),
+-        "bytes": path.stat().st_size,
+-    }
+-
+-
+-def dump(path, value):
+-    path.parent.mkdir(parents=True, exist_ok=True)
+-    path.write_text(json.dumps(value, indent=2, ensure_ascii=False) + "\n", encoding="utf8")
+-
+-
+-frozen = {}
+-for directory in ("inputs", "figures", "tables"):
+-    checks = []
+-    for old in sorted((PREVIOUS / directory).rglob("*")):
+-        if not old.is_file() or "__pycache__" in old.parts:
+-            continue
+-        rel = old.relative_to(PREVIOUS)
+-        current = P / rel
+-        assert current.is_file(), f"Missing frozen input: {rel}"
+-        assert sha(current) == sha(old), f"Changed frozen input: {rel}"
+-        item = record(current)
+-        item["parent_path"] = old.relative_to(ROOT).as_posix()
+-        checks.append(item)
+-    frozen[directory] = checks
+-assert [len(frozen[k]) for k in ("inputs", "figures", "tables")] == [40, 35, 7]
+-
+-equations = lambda path: re.findall(
+-    r"\\begin\{equation\}(.*?)\\end\{equation\}",
+-    path.read_text(encoding="utf8"), flags=re.S
+-)
+-assert equations(P / "sections/method.tex") == equations(PREVIOUS / "sections/method.tex")
+-
+-new_evidence = [
+-    record(path) for path in sorted((P / "inputs").rglob("*"))
+-    if path.is_file() and not (PREVIOUS / path.relative_to(P)).exists()
+-]
+-previous_manifest = json.loads((PREVIOUS / "input_manifest.json").read_text())
+-manifest = {
+-    "revision": "V5",
+-    "scientific_base_commit": previous_manifest["base_commit"],
+-    "parent_manuscript": PREVIOUS.relative_to(ROOT).as_posix(),
+-    "previous_manifest": (PREVIOUS / "input_manifest.json").relative_to(ROOT).as_posix(),
+-    "frozen_parent_files": frozen,
+-    "additional_evidence": new_evidence,
+-    "revision_scope": "Main-text evidence promotion, precise training description, and descriptive summaries of saved training/payload records.",
+-    "quality_data_unchanged": True,
+-    "figures_unchanged": True,
+-    "tables_unchanged": True,
+-    "equations_unchanged": True,
+-    "new_model_training": "NOT_RUN",
+-    "new_model_inference": "NOT_RUN",
+-    "new_channel_experiments": "NOT_RUN",
+-    "new_quality_metric_evaluation": "NOT_RUN",
+-    "new_bootstrap": "NOT_RUN",
+-    "quarter_eighth_full_timing_complete": False,
+-}
+-dump(P / "input_manifest.json", manifest)
+-
+-old_map = json.loads((PREVIOUS / "figure_table_sources.json").read_text())
+-source_map = json.loads(json.dumps(old_map).replace(
+-    PREVIOUS.relative_to(ROOT).as_posix(), P.relative_to(ROOT).as_posix()
+-))
+-source_map["previous_source_map"] = (PREVIOUS / "figure_table_sources.json").relative_to(ROOT).as_posix()
+-for fig in source_map["figures"].values():
+-    fig["unchanged_from"] = PREVIOUS.relative_to(ROOT).as_posix()
+-source_map["revision_scope"] = "All figure/table assets and numerical values retain V4 bytes; V5 promotes existing evidence into the main text."
+-source_map["supplement_new_sources"]["S1.3"] = [
+-    "inputs/review_audit/arpc_common100_actual_payload_summary.csv",
+-    "inputs/review_audit/arpc_common100_actual_payload_breakdown.csv",
+-    "inputs/review_audit/arpc_common100_actual_payload_receipt.json",
+-]
+-source_map["supplement_new_sources"]["S1.2_training"] = [
+-    "inputs/training/swin_training_audit.json",
+-    "inputs/training/source_manifest.json",
+-]
+-dump(P / "figure_table_sources.json", source_map)
+-
+-captions = (P / "captions.md").read_text()
+-(P / "captions.md").write_text(captions.replace("V4 TeX", "V5 TeX"), encoding="utf8")
+-
+-abstract = (P / "sections/abstract.tex").read_text()
+-abstract = abstract.split(r"\begin{abstract}")[1].split(r"\end{abstract}")[0]
+-abstract_words = len(abstract.replace("~", " ").replace(r"\%", "%").split())
+-assert 75 <= abstract_words <= 100
+-audit = {
+-    "status": "PASS",
+-    "parent": PREVIOUS.relative_to(ROOT).as_posix(),
+-    "scientific_input_files": len(frozen["inputs"]),
+-    "figure_asset_files": len(frozen["figures"]),
+-    "table_asset_files": len(frozen["tables"]),
+-    "frozen_inputs_figures_tables_byte_identical": True,
+-    "display_equations_identical": 6,
+-    "abstract_word_count": abstract_words,
+-    "additional_evidence_files": len(new_evidence),
+-    "new_scientific_experiments": "NOT_RUN",
+-    "descriptive_aggregation": [
+-        "Existing Swin training-window means and calibration changes",
+-        "Existing ARPC100 actual payload accounting",
+-    ],
+-}
+-dump(P / "validation/data_identity_check.json", audit)
+-
+-diffs = []
+-changed_files = []
+-for path in sorted(P.rglob("*")):
+-    if not path.is_file() or path.suffix not in (".tex", ".py"):
+-        continue
+-    old = PREVIOUS / path.relative_to(P)
+-    if old.exists() and path.read_bytes() == old.read_bytes():
+-        continue
+-    rel = path.relative_to(P).as_posix()
+-    changed_files.append(rel)
+-    diffs.extend(difflib.unified_diff(
+-        old.read_text().splitlines(keepends=True) if old.exists() else [],
+-        path.read_text().splitlines(keepends=True),
+-        fromfile=f"V4/{rel}" if old.exists() else "/dev/null",
+-        tofile=f"V5/{rel}",
+-    ))
+-(P / "V4_to_V5_changes.diff").write_text("".join(diffs), encoding="utf8")
+-audit["changed_tex_and_script_files"] = changed_files
+-dump(P / "validation/data_identity_check.json", audit)
+-print(json.dumps(audit, ensure_ascii=False, indent=2))
+--- a/nestcom_wcl_focused_20261029_v5/scripts/finalize_v6_metadata.py
++++ b/nestcom_wcl_focused_20261029_v6/scripts/finalize_v6_metadata.py
+@@ -0,0 +1,113 @@
++"""Verify frozen V5 evidence and record the V6 editorial/asset-availability revision."""
++from pathlib import Path
++import csv
++import difflib
++import hashlib
++import json
++import re
++
++P = Path(__file__).resolve().parents[1]
++OLD = P.parent / 'nestcom_wcl_focused_20261029_v5'
++assert OLD.is_dir(), 'Place the delivered V5 directory adjacent to V6.'
++
++def sha(path):
++    return hashlib.sha256(path.read_bytes()).hexdigest()
++
++def record(path):
++    return {'path': path.relative_to(P).as_posix(), 'sha256': sha(path),
++            'bytes': path.stat().st_size}
++
++def write(path, value):
++    path.write_text(json.dumps(value, indent=2, ensure_ascii=False) + '\n')
++
++frozen = {}
++for folder in ('inputs', 'figures', 'tables'):
++    frozen[folder] = []
++    for old in sorted((OLD / folder).rglob('*')):
++        if not old.is_file():
++            continue
++        path = P / old.relative_to(OLD)
++        assert path.is_file() and sha(path) == sha(old), str(path)
++        item = record(path)
++        item['parent_path'] = old.relative_to(P.parents[2]).as_posix()
++        frozen[folder].append(item)
++assert [len(frozen[k]) for k in ('inputs', 'figures', 'tables')] == [56, 35, 7]
++assert sha(P / 'sections/method.tex') == sha(OLD / 'sections/method.tex')
++assert sha(P / 'supplementary.pdf') == sha(OLD / 'supplementary.pdf')
++equations = re.findall(r'\\begin\{equation\}(.*?)\\end\{equation\}',
++                       (P / 'sections/method.tex').read_text(), re.S)
++assert len(equations) == 6
++new_inputs = [record(path) for path in sorted((P / 'inputs').rglob('*'))
++              if path.is_file() and not (OLD / path.relative_to(P)).exists()]
++assert len(new_inputs) == 2
++abstract = re.search(r'\\begin\{abstract\}(.*?)\\end\{abstract\}',
++                     (P / 'sections/abstract.tex').read_text(), re.S).group(1)
++abstract_words = len(abstract.replace('~', ' ').replace(r'\%', '%').split())
++assert 75 <= abstract_words <= 100
++
++science = {'new_training': 0, 'new_neural_inference': 0, 'new_channel_events': 0,
++           'new_metric_forwards': 0, 'new_bootstrap_resamples': 0}
++manifest = {'revision': 'V6',
++    'scientific_base_commit': 'b55bc901a285d91499550290a9146ec1eaeb317f',
++    'parent_manuscript': 'paper/manuscripts/' + OLD.name,
++    'parent_package_sha256': '9bc12c172e0109e9ea3b91ae18384be6ccbdea7cd60c11ff73c35bbb94613fb6',
++    'frozen_parent_files': frozen, 'new_descriptive_inputs': new_inputs,
++    'abstract_word_count': abstract_words, 'scientific_execution': science,
++    'figure3': {'delivered_snr_db': 10, 'N': 1024,
++                'proposed_snr_db': 4, 'proposed_image_status': 'NOT_MATERIALIZED',
++                'task': 'Figure3_4dB_Minimal_Task_zh.md'}}
++write(P / 'input_manifest.json', manifest)
++
++mapping = json.loads((OLD / 'figure_table_sources.json').read_text())
++def relink(value):
++    if isinstance(value, str):
++        return value.replace(OLD.name, P.name)
++    if isinstance(value, list):
++        return [relink(v) for v in value]
++    if isinstance(value, dict):
++        return {k: relink(v) for k, v in value.items()}
++    return value
++mapping = relink(mapping)
++mapping['revision'] = 'V6'
++mapping['previous_source_map'] = 'paper/manuscripts/' + OLD.name + '/figure_table_sources.json'
++for figure in mapping.get('figures', {}).values():
++    figure['unchanged_from'] = 'paper/manuscripts/' + OLD.name
++mapping['figure3_4db_status'] = manifest['figure3']
++write(P / 'figure_table_sources.json', mapping)
++
++values = list(csv.DictReader((P / 'figures/figure2_data.csv').open()))
++lookup = {(r['method'], r['metric'], int(r['snr_db'])): float(r['mean']) for r in values}
++assert len(values) == 36
++assert round(lookup['NEST', 'lpips_alex', 4], 3) == 0.263
++assert round(lookup['NEST', 'dreamsim', 4], 3) == 0.184
++assert round(lookup['ADA_PREDCLASS_FIXEDFRAME', 'lpips_alex', 4], 3) == 0.395
++assert round(lookup['ADA_PREDCLASS_FIXEDFRAME', 'dreamsim', 4], 3) == 0.243
++
++write(P / 'validation/data_identity_check.json', {
++    'status': 'PASS', 'frozen_inputs': 56, 'unchanged_figure_files': 35,
++    'unchanged_table_files': 7, 'method_section_byte_identical': True,
++    'unchanged_display_equations': 6, 'figure2_points': 36,
++    'added_4db_prose_values_verified': True, 'abstract_word_count': abstract_words,
++    'supplement_byte_identical': True, 'new_4db_images_generated': False,
++    'scientific_execution': science})
++write(P / 'validation/publication_status.json', {
++    'status': 'USER_WILL_UPLOAD', 'committed': False, 'pushed': False,
++    'remote_modified': False,
++    'upload_path': 'paper/manuscripts/' + P.name})
++
++names = sorted({x.relative_to(OLD) for x in OLD.rglob('*')
++                if x.is_file() and x.suffix in {'.tex', '.py'}} |
++               {x.relative_to(P) for x in P.rglob('*')
++                if x.is_file() and x.suffix in {'.tex', '.py'}})
++chunks = []
++for relative in names:
++    before = (OLD / relative).read_text().splitlines(True) if (OLD / relative).exists() else []
++    after = (P / relative).read_text().splitlines(True) if (P / relative).exists() else []
++    if before != after:
++        chunks.extend(difflib.unified_diff(before, after,
++            fromfile='a/' + OLD.name + '/' + relative.as_posix(),
++            tofile='b/' + P.name + '/' + relative.as_posix()))
++(P / 'V5_to_V6_changes.diff').write_text(''.join(chunks))
++print(json.dumps({'status': 'PASS', 'abstract_words': abstract_words,
++                  'inputs': 56, 'figures': 35, 'tables': 7,
++                  'new_audit_inputs': len(new_inputs)}))
+--- a/nestcom_wcl_focused_20261029_v5/sections/abstract.tex
++++ b/nestcom_wcl_focused_20261029_v6/sections/abstract.tex
+@@ -1,4 +1,4 @@
+ \begin{abstract}
+-NeST-Com targets perceptually faithful image reconstruction within fixed digital frames. It fits independently terminated within-scale prefixes of a next-scale residual representation and uses received boundary tokens for residual reconstruction and finer-scale conditioning. Relative to whole-scale transmission with shared models on 500 ImageNet images, LPIPS and DreamSim decrease across all matched SNRs at 512 and 1024 symbols, alongside 0.32--0.79~dB PSNR gains. At 1024 symbols and 10~dB, source-bit utilization rises from 77.70\% to 95.21\%, while mean LPIPS and DreamSim fall by 13.7\% and 18.3\%. Existing-system comparisons reveal perceptual and pixel fidelity tradeoffs.
++NeST-Com uses next-scale residual tokens for digital image communication under a fixed per-image symbol budget. Within-scale endpoints fit independently terminated entropy-coded prefixes to available payloads; received boundary tokens update residual reconstruction and finer-scale prediction. Against whole-scale transmission with shared models at 512 and 1024 symbols, LPIPS and DreamSim decrease at all matched SNRs, with PSNR gains of 0.32--0.79~dB. At 1024 symbols and 10~dB, source-bit utilization rises from 77.70\% to 95.21\%, while LPIPS and DreamSim fall by 13.7\% and 18.3\%. Complete-system comparisons characterize the resulting quality tradeoffs.
+ \end{abstract}
+ \begin{IEEEkeywords}Semantic communication, next-scale tokens, fixed-budget transmission, generative reconstruction.\end{IEEEkeywords}
+--- a/nestcom_wcl_focused_20261029_v5/sections/conclusion.tex
++++ b/nestcom_wcl_focused_20261029_v6/sections/conclusion.tex
+@@ -1,2 +1,2 @@
+ \section{Conclusion}
+-NeST-Com adapts next-scale residual representations to fixed digital frames through within-scale endpoints, actual terminated-length fitting, and prefix-constrained reconstruction. Shared-model experiments at 512 and 1024 symbols show that retaining and using additional boundary tokens improves source-bit utilization and source-referenced LPIPS and DreamSim. Complete-system comparisons characterize the resulting perceptual and pixel-fidelity tradeoffs under limited transmission budgets. Future work will extend frame selection to uncertain channel conditions.
++NeST-Com enables next-scale image communication within fixed digital frames through within-scale prefixes, actual terminated-length fitting, and prefix-constrained reconstruction. Shared-model controls at 512 and 1024 symbols show that additional boundary information improves source-bit utilization and perceptual reconstruction. Comparisons with digital adaptations of ARPC and Ada-TokenCom, conventional coding, and JSCC establish the system's perceptual and pixel-fidelity tradeoffs.
+--- a/nestcom_wcl_focused_20261029_v5/sections/introduction.tex
++++ b/nestcom_wcl_focused_20261029_v6/sections/introduction.tex
+@@ -1,8 +1,8 @@
+ \section{Introduction}
+-A fixed per-image channel-symbol budget limits the source description available for image reconstruction. Digital coding and learned joint source--channel coding (JSCC) address this resource constraint through different source and channel representations~\cite{deepjscc,swinjscc}. With a generative receiver, transmitted information constrains reconstruction to the source image while a learned prior completes the untransmitted content. The resulting design problem is to retain useful source information within the frame and use it to preserve image structure and appearance.
++A fixed per-image channel-symbol budget must accommodate source information, signaling, and channel protection. Digital coding and learned joint source--channel coding (JSCC) address this constraint through different representations~\cite{deepjscc,swinjscc}. With a generative receiver, delivered information constrains reconstruction to the source image while a learned prior predicts untransmitted content. Efficient communication depends on both retaining useful information within the frame and using it during reconstruction.
+ 
+-Next-scale representations organize images into complete coarse token maps followed by residual refinements. After resizing, each coarse map covers the full latent grid; finer maps add residual detail. Visual autoregressive modeling (VAR) reported state-of-the-art results on its original class-conditional ImageNet generation benchmarks~\cite{var}, motivating its use as a completion prior. ARPC uses next-scale token maps for progressive image compression and generates unreceived scales~\cite{arpc}. Ada-TokenCom couples next-token prefix coding and tail generation with wireless resource adaptation~\cite{adatokencom}, while TONIC addresses task-oriented token transmission~\cite{tonic}. We study how a next-scale residual description can fill each fixed digital frame when its capacity ends inside a scale.
++Next-scale tokenization organizes an image into complete coarse maps followed by residual refinements. Each resized coarse map covers the full latent grid, providing a basis for finer-scale prediction. Visual autoregressive modeling (VAR) reported state-of-the-art class-conditional ImageNet generation results~\cite{var}, motivating its use as a completion prior. ARPC uses next-scale entropy coding and scale completion for progressive image compression~\cite{arpc}. Ada-TokenCom couples next-token prefix coding and tail generation with wireless resource adaptation~\cite{adatokencom}; TONIC studies task-oriented token transmission~\cite{tonic}. We develop next-scale image communication under a hard symbol budget for each image.
+ 
+-Adapting progressive descriptions to channel resources is a classical communication problem~\cite{chande}. For next-scale tokens, whole-scale boundaries need not coincide with fixed frame capacity: adding a scale requires many tokens, and the terminated entropy-code length varies across images. A frame may therefore have room for part of the next scale even when the complete scale does not fit. Within-scale endpoints can retain this otherwise excluded source information. The receiver must then incorporate the delivered boundary tokens into both the residual representation and the context used to predict finer scales.
++Adapting progressive descriptions to channel resources is a classical communication problem~\cite{chande}. Next-scale boundaries can leave usable frame capacity: a complete map may not fit although a subset of its tokens would. Entropy-code lengths vary across images, so fitting requires actual decodable lengths. The resulting incomplete boundary map must then contribute to residual reconstruction and to the conditions for predicting finer scales.
+ 
+-NeST-Com connects frame fitting to the use of the additional source information. Both terminals obtain boundary-scale coding probabilities from complete coarse maps; independently finalized arithmetic prefixes provide actual decodable lengths for fitting. At reception, known-token overwrite~\cite{var} merges delivered positions with predictions, and the merged map updates both residual accumulation and finer-scale conditioning. Shared-model comparisons against whole-scale transmission show lower LPIPS and DreamSim at all six tested budget/SNR points. At 1024 symbols and 10~dB, source-bit utilization increases from 77.70\% to 95.21\%, with mean LPIPS and DreamSim reductions of 13.7\% and 18.3\%. Fixed-granularity controls and receiver interventions establish how finer endpoints and the two reconstruction paths produce these gains.
++NeST-Com addresses these requirements through within-scale endpoints, actual-length fitting, and prefix-constrained reconstruction. Both terminals obtain boundary coding probabilities from complete coarse maps. Independently finalized arithmetic prefixes provide decodable candidates; received tokens overwrite boundary predictions~\cite{var}, and the merged map updates residual accumulation and finer-scale conditioning. Shared-model experiments show lower LPIPS and DreamSim than whole-scale transmission at all six matched budget/SNR points. At 1024 symbols and 10~dB, source-bit utilization rises from 77.70\% to 95.21\%, with LPIPS and DreamSim reductions of 13.7\% and 18.3\%. Endpoint controls and receiver interventions explain these gains; system comparisons include digital adaptations of ARPC and Ada-TokenCom under the same frame budget.
+--- a/nestcom_wcl_focused_20261029_v5/sections/results.tex
++++ b/nestcom_wcl_focused_20261029_v6/sections/results.tex
+@@ -3,7 +3,7 @@
+ \subsection{Experimental Setup}
+ We use common500 ImageNet validation images~\cite{imagenet}, a disjoint cal1000 set, and Kodak24~\cite{kodak}, with fixed $256\times256$ preprocessing. ImageNet-calibrated policies remain fixed on Kodak. The six-system main study uses $N=1024$; NeST, WHOLE, and Ada also use $N=512$, each calibrated separately at 4/10/19~dB.
+ 
+-Our convolutional Latent JSCC maps tokenizer latents to symbols and shares $\Dc$, using MSE, LPIPS, and latent-consistency losses with a 100k-update checkpoint. SwinJSCC~\cite{swinjscc} is trained for 200k updates with RGB MSE and selected by minimum mean calibration MSE. Both use 20\,000 training images and are adapted to $256\times256$ and $N=1024$. Digital baselines are adaptive BPG~\cite{bpg} + LDPC, ARPC~\cite{arpc} + LDPC with paid captions, and Ada-TokenCom~\cite{adatokencom} adapted to the fixed single-frame budget. Ada retains LlamaGen-L/VQ16 and prefix arithmetic coding, with a fixed ConvNeXt predicting a paid 10-bit class. Its sampled tail uses CFG=4, $T=1$, top-$k=2000$, and top-$p=1$ (Supplement~S1.2).
++Our convolutional Latent JSCC maps tokenizer latents to symbols and shares $\Dc$, using MSE, LPIPS, and latent-consistency losses with a 100k-update checkpoint. SwinJSCC~\cite{swinjscc} is trained for 200k updates with RGB MSE and selected by minimum mean calibration MSE. Both use 20\,000 training images and are adapted to $256\times256$ and $N=1024$. Digital baselines include adaptive BPG~\cite{bpg} + LDPC. We implement ARPC~\cite{arpc} with LDPC/QAM and adapt Ada-TokenCom~\cite{adatokencom} to fixed frames, counting captions, classes, and protocol overhead within the symbol budget. Ada retains LlamaGen-L/VQ16 and prefix arithmetic coding, with a fixed ConvNeXt predicting a paid 10-bit class. Its sampled tail uses CFG=4, $T=1$, top-$k=2000$, and top-$p=1$ (Supplement~S1.2).
+ 
+ At both budgets, NeST, WHOLE, and Ada select QPSK rate 2/3, 16-QAM rate 2/3, and 64-QAM rate 5/6 at 4/10/19~dB. In that order, NeST/WHOLE targets are $(7,25)/(7,0)$, $(8,126)/(9,0)$, and $(10,0)/(10,0)$ at $N=1024$; they are $(5,27)/(6,0)$, $(7,0)/(7,0)$, and $(8,84)/(8,0)$ at $N=512$. Ada permits up to 256 tokens before fitting.
+ 
+@@ -12,9 +12,9 @@
+ \ifCLASSOPTIONonecolumn\else\input{sections/figure3_float}\fi
+ \subsection{Effect of Within-Scale Transmission}
+ \input{tables/table_i}
+-Table~\ref{tab:internal}(A) compares WHOLE and NeST-Com (PARTIAL) with a shared tokenizer, prior, entropy coder, and $\Dc$. Their separately calibrated policies select the same MCS at each SNR. At $N=1024$, 10~dB, within-scale transmission increases source-bit utilization from 77.70\% to 95.21\%. Mean LPIPS decreases from 0.198718 to 0.171465, and DreamSim from 0.131728 to 0.107680, corresponding to relative metric reductions of 13.7\% and 18.3\%. The DreamSim paired difference is $-0.0240\,[-0.0270,-0.0212]$, complementing the LPIPS interval in the table. Both distances improve at all three SNRs, with PSNR gains of 0.32--0.70~dB (Supplement~S2.4). Kodak also has lower LPIPS at all three SNRs under the unchanged ImageNet policies (S2.5).
++Table~\ref{tab:internal}(A) compares WHOLE and NeST-Com (PARTIAL) with a shared tokenizer, prior, entropy coder, and $\Dc$. Their separately calibrated policies select the same MCS at each SNR. At $N=1024$, 10~dB, within-scale transmission increases source-bit utilization from 77.70\% to 95.21\%. Mean LPIPS decreases from 0.198718 to 0.171465, and DreamSim from 0.131728 to 0.107680, corresponding to relative metric reductions of 13.7\% and 18.3\%. The paired DreamSim difference is $-0.0240\,[-0.0270,-0.0212]$. Both distances improve at all three SNRs, with PSNR gains of 0.32--0.70~dB (Supplement~S2.4). Kodak also has lower LPIPS at all three SNRs under the unchanged ImageNet policies (S2.5).
+ 
+-Block~B treats endpoint granularity as a design parameter while fixing the 100 sources, model, MCS, maximum endpoint, and fitting rule. Refining the grid from Whole to Eighth increases utilization from 78.15\% to 97.39\% and reduces LPIPS from 0.201821 to 0.172939. Relative to the predefined Quarter configuration, Eighth further reduces LPIPS by $0.00223\,[0.00131,0.00323]$ and increases PSNR by $0.123\,[0.079,0.169]$~dB. Its DreamSim difference is $-0.00073\,[-0.00196,0.00048]$. Both grids use ten prior-scale calls and one 680-token coding traversal, with 25/49 independent finalizations, respectively (Supplement~S5.1).
++Block~B fixes the 100 sources, model, MCS, maximum endpoint, and fitting rule. Whole-to-Eighth refinement raises utilization from 78.15\% to 97.39\% and lowers LPIPS from 0.201821 to 0.172939. Compared with the predefined Quarter grid, Eighth reduces LPIPS by $0.00223\,[0.00131,0.00323]$ and increases PSNR by $0.123\,[0.079,0.169]$~dB. Its DreamSim difference is $-0.00073\,[-0.00196,0.00048]$. Both grids use ten prior-scale calls and one 680-token coding traversal, with 25/49 independent finalizations, respectively (Supplement~S5.1).
+ 
+ Block~C uses identical actual received prefixes to examine how boundary information affects reconstruction. At 10~dB, adding residual correction (B0--A0) reduces LPIPS by 0.01003; then updating finer-scale conditioning (C0--B0) reduces it by a further 0.01662. The corresponding DreamSim differences are $-0.00845\,[-0.01136,-0.00564]$ and $-0.01537\,[-0.01988,-0.01111]$. These ordered interventions show how the additional source tokens constrain perceptual reconstruction. At 19~dB the boundary lies in the final scale, so the conditioning update has zero effect.
+ 
+@@ -25,7 +25,7 @@
+ \input{tables/table_ii}
+ Fig.~\ref{fig:performance} compares the six complete systems at $N=1024$. NeST has lower mean LPIPS and DreamSim than SwinJSCC, BPG, and ARPC at all tested SNRs. Table~\ref{tab:external} shows the associated pixel-fidelity results: SwinJSCC and BPG have higher PSNR throughout. Against Latent JSCC, NeST has lower DreamSim at all three points; at 4~dB Latent JSCC has lower LPIPS and higher PSNR.
+ 
+-The comparison with Ada varies across working points. At 10~dB Ada has lower LPIPS and DreamSim and higher CLIP-I, whereas NeST has higher PSNR. Ada also has higher CLIP-I at 4~dB and slightly lower DreamSim at 19~dB. NeST's PSNR gains over Ada are 4.116/0.455/1.226~dB at 4/10/19~dB. All 1500 evaluated transmissions per SNR succeed for NeST, WHOLE, and Ada, so their overall and success-conditioned means coincide (Supplement~S2).
++At 4~dB, NeST achieves mean LPIPS/DreamSim of 0.263/0.184, compared with 0.395/0.243 for Ada. At 10~dB Ada has lower LPIPS and DreamSim and higher CLIP-I, whereas NeST has higher PSNR. At 19~dB NeST has lower LPIPS, while Ada has slightly lower DreamSim. Ada also has higher CLIP-I at 4~dB. NeST's PSNR gains over Ada are 4.116/0.455/1.226~dB at 4/10/19~dB. All 1500 evaluated transmissions per SNR succeed for NeST, WHOLE, and Ada, so their overall and success-conditioned means coincide (Supplement~S2).
+ 
+ On the fixed 100-source control set, replacing Ada's sampled tail with argmax increases both LPIPS and DreamSim at $N=512$, 4/10~dB and $N=1024$, 10~dB; all six paired intervals exclude zero (Supplement~S3). Thus sampling gives the stronger perceptual baseline at these tested points.
+ 

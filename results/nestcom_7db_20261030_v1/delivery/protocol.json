@@ -1,0 +1,92 @@
+{
+  "schema": "N1024_7DB_BOUNDED_CALIBRATION_AND_TWO_DEVELOPMENT_IMAGES_V1",
+  "base_commit": "b55bc901a285d91499550290a9146ec1eaeb317f",
+  "N": 1024,
+  "snr_db": 7,
+  "header": 68,
+  "body": 956,
+  "Es": 2,
+  "calibration_sources": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/nestcom_7db_20261030_v1/calibration_sources.json",
+    "bytes": 3434089,
+    "sha256": "b052d9faa8ddf5a1a558a0678a8b21deeb1e69d9da6c8a843e04f200074c7515"
+  },
+  "development_sources": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/nestcom_7db_20261030_v1/development_sources.json",
+    "bytes": 1903,
+    "sha256": "81eb14aa6db29d86cbd69c6c3614eb7dd0c695c1fb88b4421edb45c09ae62e2f"
+  },
+  "MCS": [
+    [
+      2,
+      "2/3"
+    ],
+    [
+      2,
+      "3/4"
+    ],
+    [
+      2,
+      "5/6"
+    ],
+    [
+      4,
+      "1/2"
+    ],
+    [
+      4,
+      "2/3"
+    ]
+  ],
+  "calibration_noise": [
+    4101
+  ],
+  "development_noise": {
+    "NEST": 6201,
+    "WHOLE": 6201,
+    "ARPC": 6201,
+    "ADA": 2001,
+    "BPG": 2001,
+    "P100000": 2001,
+    "Swin200000": 2001
+  },
+  "endpoint_rule": {
+    "NEST": "largest feasible of 25 terminated quarter-grid prefixes up to m10",
+    "WHOLE": "largest feasible of seven terminated whole scales m4..m10",
+    "ADA": "largest feasible independently terminated prefix1..256, paid predicted class10",
+    "ARPC": "largest feasible complete paid container e1..7"
+  },
+  "selection": "maximum equal-source DINOv2 ViT-L/14 cosine including fixed-gray failures; ties MCS declaration order",
+  "BPG": {
+    "reused_frozen_policy": {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/paper_supplement_20261008/a1_bpg_adaptive/a1b_adaptive_v1/freeze/worker_0.json",
+      "bytes": 21281,
+      "sha256": "0e0c130ae1905c38cd287579cfa1b4cc223f1ca8ff2bbf980896fcf8fc341bf3"
+    },
+    "profile_id": 3006,
+    "MCS": [
+      4,
+      "1/2"
+    ],
+    "basis": "same adaptive four-resolution source rule; historical100 calibration x3 noise, PSNR objective; no new BPG calibration"
+  },
+  "caps": {
+    "new_calibration_frames": 2000,
+    "authorized_frame_ceiling": 2500,
+    "development_digital_frames": 10,
+    "development_continuous_trials": 4,
+    "GPU_device_seconds": 43200,
+    "calibration_RX": 2000,
+    "calibration_DINO_pairs": 2000,
+    "development_reconstructions": 14,
+    "development_LPIPS_pairs": 14,
+    "development_DreamSim_pairs": 14,
+    "new_NeST_source_probability_passes": 2,
+    "new_ARPC_source_passes_max": 2,
+    "new_tokenizer_max": 2,
+    "new_training": 0,
+    "new_bootstrap": 0
+  },
+  "label": "bounded development diagnostic, not common500 or a new formal main curve",
+  "automatic_retry": false
+}

@@ -1,0 +1,29 @@
+\begin{table}[t]
+\caption{Reduced-budget perceptual differences on common500 at $N=512$. (A) NeST-Com minus WHOLE with shared models. (B) NeST-Com minus the fixed-frame Ada-TokenCom adaptation. Brackets give direct source-paired 95\% CIs; negative values favor NeST-Com.}
+\label{tab:reduced}
+\centering\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{ccc}
+\toprule SNR & $\Delta$LPIPS & $\Delta$DreamSim \\
+\midrule
+\multicolumn{3}{l}{(A) NeST-Com minus WHOLE} \\
+4 & $-0.0299$ & $-0.0428$ \\
+ & $[-0.0337,-0.0264]$ & $[-0.0483,-0.0373]$ \\
+10 & $-0.0155$ & $-0.0127$ \\
+ & $[-0.0170,-0.0137]$ & $[-0.0150,-0.0104]$ \\
+19 & $-0.0275$ & $-0.0241$ \\
+ & $[-0.0288,-0.0262]$ & $[-0.0264,-0.0220]$ \\
+\midrule
+\multicolumn{3}{l}{(B) NeST-Com minus Ada (adapted)} \\
+4 & $-0.1890$ & $-0.1029$ \\
+ & $[-0.1966,-0.1814]$ & $[-0.1142,-0.0917]$ \\
+10 & $-0.1384$ & $-0.0660$ \\
+ & $[-0.1440,-0.1328]$ & $[-0.0747,-0.0573]$ \\
+19 & $-0.0245$ & $+0.0139$ \\
+ & $[-0.0280,-0.0212]$ & $[0.0103,0.0173]$ \\
+\bottomrule
+\end{tabular}
+\par\smallskip\begin{minipage}{\columnwidth}\footnotesize
+Successful receptions (4/10/19~dB), each out of 1500: NeST 1496/1499/1500; WHOLE 1493/1500/1500; Ada 1495/1500/1500. All failures are body-CRC rejections retained as gray.
+\end{minipage}
+\end{table}

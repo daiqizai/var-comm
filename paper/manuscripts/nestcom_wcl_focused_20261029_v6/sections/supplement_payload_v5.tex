@@ -1,0 +1,16 @@
+\clearpage\subsection*{S1.3. ARPC caption and visual payload accounting}
+This descriptive audit uses the existing \texttt{external\_common100} sources contained in the common500 study. For each source and SNR, the recorded endpoint is joined to the original source-container breakdown. The 900 source/SNR/repetition identities agree with the common500 reception records, and the 300 source/SNR container lengths agree with the source encoder records. Repetitions of an identical source payload are counted once when computing the equal-source means.
+
+The encoded caption content averages 258.64 bits, with a range of 96--424 bits. A one-bit coding-mode flag and nine-bit length field bring the mean caption contribution to 268.64 bits. The table reports the source container before the outer 29-bit length/CRC overhead, LDPC, and protected physical profile. Percentages are the means of per-source component/container ratios, rather than ratios of the displayed means. The remaining source-container bits contain its other recorded fields.
+
+\begin{center}\small\setlength{\tabcolsep}{6pt}
+\begin{tabular}{rrrrr}\toprule
+SNR (dB) & Container (bit) & Visual data (bit) & Caption share & Visual share\\\midrule
+4 & 950.48 & 571.26 & 31.64\% & 56.80\%\\
+10 & 2245.36 & 1672.79 & 11.84\% & 74.57\%\\
+19 & 4516.88 & 3808.86 & 6.12\% & 84.10\%\\
+\bottomrule\end{tabular}\end{center}
+
+These values describe the fixed-frame operating points of the 100-source audit. The main image-quality comparison continues to use all 500 sources. Exact component lengths, joins, and source hashes are provided in
+\path{inputs/review_audit/arpc_common100_actual_payload_breakdown.csv},
+\path{inputs/review_audit/arpc_common100_actual_payload_summary.csv}, and the accompanying receipt.

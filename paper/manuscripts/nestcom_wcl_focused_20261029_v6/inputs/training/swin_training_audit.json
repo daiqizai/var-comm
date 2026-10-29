@@ -1,0 +1,78 @@
+{
+  "scope": "READ_ONLY_EXISTING_RECORD_AGGREGATION",
+  "selected_step": 200000,
+  "completed_step": 200000,
+  "stop_status": "BUDGET_CAP_WHILE_IMPROVING",
+  "checkpoint_sha256": "572d7acaceed2712d885ebd351f65ef6042f7716082d81f63bf45fbf8aadbd45",
+  "train_windows": [
+    {
+      "start_exclusive": 140000,
+      "end_inclusive": 160000,
+      "block_count": 40,
+      "updates": 20000,
+      "mean": 0.006115509365885373
+    },
+    {
+      "start_exclusive": 160000,
+      "end_inclusive": 180000,
+      "block_count": 40,
+      "updates": 20000,
+      "mean": 0.006115821430805226
+    },
+    {
+      "start_exclusive": 180000,
+      "end_inclusive": 200000,
+      "block_count": 40,
+      "updates": 20000,
+      "mean": 0.006086149529604154
+    },
+    {
+      "start_exclusive": 180000,
+      "end_inclusive": 190000,
+      "block_count": 20,
+      "updates": 10000,
+      "mean": 0.0060689965417870554
+    },
+    {
+      "start_exclusive": 190000,
+      "end_inclusive": 200000,
+      "block_count": 20,
+      "updates": 10000,
+      "mean": 0.006103302517421252
+    }
+  ],
+  "calibration_changes": [
+    {
+      "start": 160000,
+      "end": 200000,
+      "before": 0.006596924220382788,
+      "after": 0.006566026536579253,
+      "relative_reduction_percent": 0.46836499513013957
+    },
+    {
+      "start": 180000,
+      "end": 200000,
+      "before": 0.006579187295491768,
+      "after": 0.006566026536579253,
+      "relative_reduction_percent": 0.20003624036562137
+    },
+    {
+      "start": 190000,
+      "end": 200000,
+      "before": 0.00657111098406555,
+      "after": 0.006566026536579253,
+      "relative_reduction_percent": 0.07737576642102637
+    }
+  ],
+  "selection": "minimum mean RGB MSE over 12 equally weighted N/SNR cells; 1000 sources, one fixed noise per cell; no test/holdout data",
+  "supports": "trained; late-stage loss largely stable; final 200k checkpoint selected by calibration MSE",
+  "does_not_support": "passed registered all-cell convergence criterion; full convergence guarantee",
+  "sources": {
+    "results/baseline_strength_20261011/Swin_1to19/selected_checkpoint.json": "a2c48d5568f9a72ace241f8df419304c2bdc2573fb283a2ca2b32a14740aab80",
+    "results/baseline_strength_20261011/Swin_1to19/calibration_history.json": "2d37f6e393ab379f39ad709b7b64c581fd9216f6f7ebf32ec1659b5cb59eae9d",
+    "results/baseline_strength_20261011/Swin_1to19/stopping_checks.json": "36d493b96e49f09f4e1d938810cd31aef834f3e14f52ad4caa6c22beea38da4e",
+    "results/baseline_strength_20261011/training_figures_v1/plot_data.csv": "a1ed86645d810e7b9d39ee8d562c97b1a9af9f9daf7e2657d607bc942efdc835",
+    "experiments/baseline-strength-20261011/run_continue.py": "38bbb26c15c99fa54cd10b0b4dd9029255daa5217fe383e687c80cdbd3a5ebcf",
+    "experiments/baseline-strength-20261011/training_rules.py": "2d99de4f0fb5b64c90f49766c19762b1bf26d17fb142b085e0dc99d42c62427d"
+  }
+}

@@ -1,0 +1,156 @@
+--- supplied_v6/sections/results.tex
++++ executed_v6/sections/results.tex
+@@ -29,9 +29,9 @@
+ 
+ On the fixed 100-source control set, replacing Ada's sampled tail with argmax increases both LPIPS and DreamSim at $N=512$, 4/10~dB and $N=1024$, 10~dB; all six paired intervals exclude zero (Supplement~S3). Thus sampling gives the stronger perceptual baseline at these tested points.
+ 
+-Fig.~\ref{fig:qualitative} illustrates the reconstruction differences on two development examples. Latent JSCC smooths pastry ridges and facial details, while ARPC changes pastry shapes and the dog's pose. NeST and Ada retain more of these structures, with different detail and metric rankings across images.
++Fig.~\ref{fig:qualitative} shows fixed 4-dB development cases. WHOLE and NeST retain scene layout but round off croissant shapes. NeST better preserves the dog's dark ear; Ada changes plate contents and coat pattern, while ARPC changes shapes and pose. Supplement~S8 retains all methods and the 10-dB view.
+ 
+-At $N=1024$, 10~dB, NeST's mean TX/RX processing times are 220.89/398.82~ms on an RTX PRO 6000 with six CPU cores, batch one, and 16 development images with three measured repetitions (Supplement~S5). A 100-source ARPC payload audit gives 268.64 caption bits on average including its mode/length fields, and visual-token shares of 56.80/74.57/84.10\% of the source container at 4/10/19~dB (S1.3).
++NeST's mean TX/RX times at $N=1024$, 10~dB are 220.89/398.82~ms (RTX PRO 6000, six cores, batch one, 16 sources, three repetitions; Supplement~S5). ARPC averages 268.64 caption bits including mode/length fields; visual tokens occupy 56.80/74.57/84.10\% of its source container at 4/10/19~dB (100-source audit; S1.3).
+ 
+ \subsection{Transmission With a Reduced Symbol Budget}
+ \input{tables/table_iii}
+--- supplied_v6/sections/figure3_float.tex
++++ executed_v6/sections/figure3_float.tex
+@@ -1,5 +1,5 @@
+ \begin{figure*}[t]
+ \centering\includegraphics[width=\textwidth]{figure3.pdf}
+-\caption{Qualitative reconstructions of two development examples at $N=1024$ and 10~dB. Values denote LPIPS-Alex$\downarrow$ / DreamSim$\downarrow$. Ada denotes the fixed-frame adaptation.}
++\caption{Qualitative reconstructions of two fixed development examples at $N=1024$ and 4~dB. Values denote LPIPS-Alex$\downarrow$ / DreamSim$\downarrow$ for each displayed realization. Ada denotes the predicted-class, fixed-frame adaptation.}
+ \label{fig:qualitative}
+ \end{figure*}
+--- supplied_v6/supplementary.tex
++++ executed_v6/supplementary.tex
+@@ -294,7 +294,7 @@
+ 
+ \input{sections/supplement_timing_v3}
+ \clearpage\section*{S6. Preserved qualitative cases and source records}
+-The main letter restores two existing N1024/10~dB development examples, Pastries and Dog, with full source IDs:
++The earlier N1024/10~dB development examples, Pastries and Dog, are preserved in S8 alongside the new 4-dB displays. Their full source IDs are:
+ \begin{itemize}
+ \item Pastries: \path{n07860988/ILSVRC2012_val_00010848_n07860988}
+ \item Dog: \path{n02105641/ILSVRC2012_val_00018762_n02105641}
+@@ -331,4 +331,24 @@
+ \item \path{results/nestcom_focused_review_20261029_v2/nofit/}
+ \end{itemize}
+ 
++\clearpage\section*{S8. Fixed 4-dB development examples and preserved 10-dB view}
++The main Fig.~3 uses the same previously selected Pastries (development index 95) and Dog (index 21), at $N=1024$ and 4~dB. They are not a random or representative common500 sample. The five historical methods use their original first formal timing repetition (\texttt{r3}); their ten recovered float arrays match the original recorded hashes exactly. Only the two missing WHOLE and two missing Ada events are new. All four new receptions succeeded. No selection, policy recalibration, training, or population-level statistical test was performed.
++
++WHOLE uses the frozen target $(7,0)$ and QPSK rate 2/3, falling back to $(6,0)$ for both images. It sends 974 source bits per image within the 1245-bit source capacity. Ada reuses the original predicted classes and independently terminated source streams; its paid prefixes contain 103 and 101 tokens for Pastries and Dog. The sampled tail retains CFG=4, $T=1$, top-$k=2000$, and top-$p=1$.
++
++The original method-specific noise identities are retained: NeST/ARPC use 6201 and Latent/Swin/BPG use 2001. The four new visualization events have a separately registered namespace, with WHOLE seed 6201 and Ada seed 2001. Equal seed labels do not assert identical noise vectors across methods. Metrics below are computed from the displayed native float32 reconstructions using the frozen LPIPS-Alex and DreamSim loaders. PNGs use only clipping and rounding to uint8; there is no crop, enhancement, or repair.
++
++For these two images, NeST has lower LPIPS and DreamSim than WHOLE. Both next-scale reconstructions nevertheless change croissant shapes. Latent JSCC has lower LPIPS than NeST in both cases and lower DreamSim for Pastries. These local observations do not replace the common500 results or the 10-dB Ada advantage reported in the main text.
++\begin{center}\includegraphics[width=6.5in]{supplemental/N1024_4dB_0095.pdf}\end{center}
++\noindent Pastries at 4~dB: original plus all seven systems. Values are LPIPS-Alex$\downarrow$ / DreamSim$\downarrow$ for each displayed realization.
++\clearpage
++\begin{center}\includegraphics[width=6.5in]{supplemental/N1024_4dB_0021.pdf}\end{center}
++\noindent Dog at 4~dB: original plus all seven systems. The images are shown at their complete $256\times256$ field of view. Values are LPIPS-Alex$\downarrow$ / DreamSim$\downarrow$ for each displayed realization.
++
++\medskip\noindent The complete native-array identifiers, paid profiles, source identities, received inputs, noise identities and full-precision metrics are recorded in the accompanying \texttt{figure3\_metrics.csv} and source mapping. The task adds four physical frames, fourteen receiver renders (ten historical recoveries), fourteen LPIPS pairs and fourteen DreamSim pairs. A WHOLE import-name conflict failed before model loading and was repaired by a separately recorded entry point; the failed receipt is retained.
++
++\clearpage
++\begin{center}\includegraphics[width=6.5in]{supplemental/N1024_10dB_figure3.pdf}\end{center}
++\noindent Preserved original N1024/10-dB Fig.~3, without image or metric changes. Its five columns are Original, NeST-Com, Ada (fixed-frame), Latent JSCC, and ARPC + LDPC. The corresponding metrics remain in \path{supplemental/N1024_10dB_figure3_metrics.csv}. This display uses the historical development identities described in S6 and is not a matched-noise causal comparison with the new 4-dB visualization events.
++
+ \end{document}
+--- supplied_v6/scripts/build_word.py
++++ executed_v6/scripts/build_word.py
+@@ -135,6 +135,13 @@
+         text=OxmlElement('m:t');text.text=punctuation;run.append(text)
+         node.append(run)
+         inline_punctuation_attached+=1
++# Word does not always wrap long reference URLs at slashes. Break opportunities
++# affect displayed text only; hyperlink targets and citation contents are intact.
++url_wrap_nodes=0
++for text_node in d.element.xpath('.//w:t'):
++    if text_node.text and ('https://' in text_node.text or 'http://' in text_node.text):
++        text_node.text=text_node.text.replace('/', '/\u200b').replace('_', '_\u200b')
++        url_wrap_nodes+=1
+ d.core_properties.title='NeST-Com: Fixed-Budget Next-Scale Token Communication'
+ d.core_properties.author='Anonymous Authors';d.core_properties.last_modified_by='Anonymous Authors'
+ d.core_properties.comments=''
+@@ -176,7 +183,7 @@
+ d.save(target)
+ import zipfile
+ with zipfile.ZipFile(target)as z:xml=z.read('word/document.xml')
+-record=dict(source_tex_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),word_sha256=hashlib.sha256(target.read_bytes()).hexdigest(),reference_keys=keys,display_equation_count=eqn[0],expected_display_equations=expected_display_equations,editable_omml_count=xml.count(b'<m:oMath>'),numeric_ci_text_count=numeric_ci_text_count,delimiter_properties_reordered=delimiter_properties_reordered,inline_punctuation_attached=inline_punctuation_attached,native_tables=len(d.tables),native_table_sources=native_table_records,figures=3,body_double_line_spacing=True,figures_unchanged=True, unchanged_figures=[1,2,3], revised_figures=[],figure_pdf_hashes={str(i):hashlib.sha256((P/f'figures/figure{i}.pdf').read_bytes()).hexdigest() for i in range(1,4)},render_review_pending=True)
++record=dict(source_tex_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),word_sha256=hashlib.sha256(target.read_bytes()).hexdigest(),reference_keys=keys,display_equation_count=eqn[0],expected_display_equations=expected_display_equations,editable_omml_count=xml.count(b'<m:oMath>'),numeric_ci_text_count=numeric_ci_text_count,delimiter_properties_reordered=delimiter_properties_reordered,inline_punctuation_attached=inline_punctuation_attached,native_tables=len(d.tables),native_table_sources=native_table_records,figures=3,body_double_line_spacing=True,figures_unchanged=False, unchanged_figures=[1,2], revised_figures=[3],figure_pdf_hashes={str(i):hashlib.sha256((P/f'figures/figure{i}.pdf').read_bytes()).hexdigest() for i in range(1,4)},render_review_pending=True)
+ (QA/'conversion_check.json').write_text(json.dumps(record,indent=2)+'\n',newline='\n')
+ assert record['display_equation_count']==expected_display_equations and record['editable_omml_count']>=expected_display_equations and record['native_tables']==3
+ print(json.dumps(record))
+--- supplied_v6/scripts/draw_figure3.py
++++ executed_v6/scripts/draw_figure3.py
+@@ -1,27 +1,49 @@
+-"""Full native field of view; fixed examples and unchanged saved PNGs."""
++"""Fixed 4 dB native-array displays, no enhancement or scientific rescoring."""
+ from pathlib import Path
+ import csv,json,hashlib
+ import matplotlib
+ matplotlib.use('Agg')
+ from matplotlib import pyplot as plt
+ from PIL import Image
+-P=Path(__file__).resolve().parents[1];rows=list(csv.DictReader((P/'figure3_metrics.csv').open()))
++P=Path(__file__).resolve().parents[1]
++rows=list(csv.DictReader((P/'figure3_metrics.csv').open()))
+ plt.rcParams.update({'font.family':'DejaVu Sans','font.size':8.3,'pdf.fonttype':42,'ps.fonttype':42,'svg.fonttype':'none'})
+-fig=plt.figure(figsize=(7.16,3.35));left=.018;right=.986;gap=.012;width=(right-left-4*gap)/5;height=width*7.16/3.35
+-methods=['original','NEST','ADA_PREDCLASS_FIXEDFRAME','P100000','ARPC'];names=['Original','NeST-Com','Ada (fixed-frame)','Latent JSCC','ARPC + LDPC']
+-for c,name in enumerate(names):fig.text(left+c*(width+gap)+width/2,.974,name,ha='center',va='top',fontsize=8.5)
+-for row,(idx,name)in enumerate(((95,'(a) Pastries'),(21,'(b) Dog'))):
+- top=(3.08-row*1.54)/3.35
+- for c,method in enumerate(methods):
+-  if method=='original':path=P/f'figures/individual_n1024/{idx:04d}_original.png';label=name
+-  else:
+-   r=next(r for r in rows if r['source_index']==str(idx)and r['method']==method);path=P/r['image_path'].replace('figures/individual/', 'figures/individual_n1024/');assert hashlib.sha256(path.read_bytes()).hexdigest()==r['image_png_sha256'];label=f"{float(r['lpips_alex']):.3f} / {float(r['dreamsim']):.3f}"
+-  image=Image.open(path).convert('RGB');assert image.size==(256,256)
+-  x=left+c*(width+gap);ax=fig.add_axes([x,top-height,width,height]);ax.imshow(image,interpolation='none');ax.set_axis_off()
+-  fig.text(x+width/2,top-height-.035/3.35,label,ha='center',va='top',fontsize=8.3)
+-fig.canvas.draw();renderer=fig.canvas.get_renderer()
+-for t in fig.texts:
+- b=t.get_window_extent(renderer);assert b.x0>=0 and b.y0>=0 and b.x1<=fig.bbox.width and b.y1<=fig.bbox.height,(t.get_text(),b.bounds,fig.bbox.bounds)
+-for ext in('pdf','svg','png'):fig.savefig(P/'figures'/('figure3.'+ext),dpi=600,facecolor='white')
+-fig.savefig(P/'figures/figure3_print_size.png',dpi=150,facecolor='white')
+-(P/'figures/figure3_validation.json').write_text(json.dumps(dict(rows=2,columns=5,source_indices=[95,21],source_count=2,reconstruction_count=8,full_view=True,independent_development_examples=True,no_metric_recomputation=True,size_inches=[7.16,3.35],all_saved_image_hashes_checked=True),indent=2)+'\n')
++names={'original':'Original','WHOLE':'WHOLE','NEST':'NeST-Com','ADA_PREDCLASS_FIXEDFRAME':'Ada (fixed-frame)','ARPC':'ARPC + LDPC','P100000':'Latent JSCC','Swin200000':'SwinJSCC','BPG':'BPG + LDPC'}
++main=['original','WHOLE','NEST','ADA_PREDCLASS_FIXEDFRAME','ARPC']
++all_methods=['original','WHOLE','NEST','ADA_PREDCLASS_FIXEDFRAME','ARPC','P100000','Swin200000','BPG']
++def cell(fig,idx,method,x,y,w,h,label=None):
++    if method=='original':
++        path=P/f'figures/individual_4db/{idx:04d}_original.png'
++        label=label or ('Pastries'if idx==95 else'Dog')
++    else:
++        r=next(r for r in rows if int(r['source_index'])==idx and r['method']==method)
++        path=P/'figures/individual_4db'/Path(r['display_image']).name
++        assert hashlib.sha256(path.read_bytes()).hexdigest()==r['display_png_sha256']
++        label=f"{float(r['lpips_alex']):.3f} / {float(r['dreamsim']):.3f}"
++    im=Image.open(path).convert('RGB');assert im.size==(256,256)
++    ax=fig.add_axes([x,y,w,h]);ax.imshow(im,interpolation='none');ax.set_axis_off()
++    fig.text(x+w/2,y-.012,label,ha='center',va='top',fontsize=8.3)
++def save(fig,stem):
++    fig.canvas.draw();renderer=fig.canvas.get_renderer()
++    for t in fig.texts:
++        b=t.get_window_extent(renderer)
++        assert b.x0>=0 and b.y0>=0 and b.x1<=fig.bbox.width and b.y1<=fig.bbox.height,(t.get_text(),b.bounds)
++    for ext in ['pdf','svg','png']:fig.savefig(stem.with_suffix('.'+ext),dpi=450,facecolor='white')
++    fig.savefig(stem.parent/(stem.name+'_print_size.png'),dpi=150,facecolor='white');plt.close(fig)
++def two_rows(methods,size,stem):
++    fw,fh=size;fig=plt.figure(figsize=size);left=.018;right=.986;gap=.012;w=(right-left-(len(methods)-1)*gap)/len(methods);h=w*fw/fh
++    for c,m in enumerate(methods):fig.text(left+c*(w+gap)+w/2,.974,names[m],ha='center',va='top',fontsize=8.5)
++    for r,idx in enumerate([95,21]):
++        top=(3.08-r*1.54)/3.35
++        for c,m in enumerate(methods):cell(fig,idx,m,left+c*(w+gap),top-h,w,h,('(a) Pastries'if idx==95 else'(b) Dog'))
++    save(fig,stem)
++two_rows(main,(7.16,3.35),P/'figures/figure3')
++two_rows(all_methods,(11.456,3.35),P/'supplemental/N1024_4dB_all_methods')
++for idx,title in [(95,'Pastries'),(21,'Dog')]:
++    fig=plt.figure(figsize=(7.16,4.40));left=.018;gap=.014;w=(.986-left-3*gap)/4;h=w*7.16/4.40
++    for k,m in enumerate(all_methods):
++        r,c=divmod(k,4);x=left+c*(w+gap);top=.92-r*.47
++        fig.text(x+w/2,top+.025,names[m],ha='center',va='bottom',fontsize=8.5)
++        cell(fig,idx,m,x,top-h,w,h,title)
++    save(fig,P/f'supplemental/N1024_4dB_{idx:04d}')
++(P/'figures/figure3_validation.json').write_text(json.dumps(dict(N=1024,snr_db=4,rows=2,columns=5,methods=main,source_indices=[95,21],full_view=True,reconstruction_count=8,complete_gallery_reconstructions=14,size_inches=[7.16,3.35],all_display_hashes_checked=True,metrics_from_native_arrays=True,metric_order='LPIPS-Alex / DreamSim',new_metric_computation_by_drawing=0),indent=2)+'\n')
