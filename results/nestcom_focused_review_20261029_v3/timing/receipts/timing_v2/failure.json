@@ -1,0 +1,19 @@
+{
+  "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-focused-v3-20261029/timing_worker_admission_v2.py\", line 42, in main\n    n,_=ledger.call('model_load','once',lambda:load(cr(r['model_routes']),native_counts,boundary,out,r['gpu_pci']))\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/common.py\", line 60, in call\n    try:v=fn()\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-focused-v3-20261029/timing_worker_admission_v2.py\", line 42, in <lambda>\n    n,_=ledger.call('model_load','once',lambda:load(cr(r['model_routes']),native_counts,boundary,out,r['gpu_pci']))\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/kodak-current-20261026/nest_v1/kn_native.py\", line 7, in load\n    return ns['build'](routes,ledger,boundary,out,pci)\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/t1b-m10-calibration-20261016/tb_native.py\", line 24, in build\n    checked(p)\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/kodak-current-20261026/nest_v1/kn_common.py\", line 26, in checked\n    a=pin(p);assert a['sha256']==d['sha256']and a['bytes']==d.get('bytes',a['bytes']),p\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/kodak-current-20261026/nest_v1/kn_common.py\", line 21, in pin\n    p=Path(p);a=p.stat();h=sha(p);z=p.stat();assert(a.st_size,a.st_mtime_ns)==(z.st_size,z.st_mtime_ns)\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_python_base_v1/lib/python3.10/pathlib.py\", line 1097, in stat\n    return self._accessor.stat(self, follow_symlinks=follow_symlinks)\nFileNotFoundError: [Errno 2] No such file or directory: '/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/model_seed_v1/VAR_COMM/outputs/VAR-LATENT-ENHANCEMENT-20260917/stage_A_v1/checkpoints/update_0038000_1789635001035591298.pt'\n",
+  "ledger": {
+    "caps": {
+      "complete_tx": 610,
+      "model_load": 1
+    },
+    "counts": [
+      {
+        "kind": "model_load",
+        "status": "FAILED",
+        "count": 1
+      }
+    ],
+    "unresolved": 1
+  },
+  "native_counts": {},
+  "automatic_retry": false
+}

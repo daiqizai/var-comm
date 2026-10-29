@@ -1,0 +1,97 @@
+{
+  "checks": [
+    {
+      "name": "diff_check",
+      "argv": [
+        "git",
+        "diff",
+        "--cached",
+        "--check"
+      ],
+      "pid": 4143362,
+      "actual_wait": 2,
+      "seconds": 0.37582898139953613
+    },
+    {
+      "name": "verify_repository",
+      "argv": [
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_ldpc_py311/bin/python",
+        "tools/verify_repository.py"
+      ],
+      "pid": 4143367,
+      "actual_wait": 0,
+      "seconds": 109.40912246704102
+    },
+    {
+      "name": "cpu_checks",
+      "argv": [
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_visual_py310/bin/python",
+        "tools/run_cpu_checks.py"
+      ],
+      "pid": 4149252,
+      "actual_wait": 0,
+      "seconds": 57.10507130622864
+    }
+  ],
+  "logs": [
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_focused_20261029_v3/publication_checks/cpu_checks.json",
+      "sha256": "7fcb91c6153ed029d1e32650bfd940ad7c9f2fb3ed5a3dc5e0a1c2a89f3ac46a",
+      "bytes": 253
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_focused_20261029_v3/publication_checks/cpu_checks.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_focused_20261029_v3/publication_checks/cpu_checks.stdout",
+      "sha256": "a58a23ce70d373b9708a8095d2f72455c4bbba4bda5574e316c0d496339f11cd",
+      "bytes": 6320
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_focused_20261029_v3/publication_checks/diff_check.json",
+      "sha256": "fcc3d710ae341088b6501d25951c8cd9706cb0f88ed395911c0ed52d8008fc0a",
+      "bytes": 168
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_focused_20261029_v3/publication_checks/diff_check.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_focused_20261029_v3/publication_checks/diff_check.stdout",
+      "sha256": "a272f522dd1fa8478facd371ec886e1847dbad0eee22a456fddbb4209035c173",
+      "bytes": 7941429
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_focused_20261029_v3/publication_checks/diff_check_cr_at_eol.stdout",
+      "sha256": "f18b12124f87b1821b10cb168acbdc18acbdb0eea91c11e757b235c01b3c51b0",
+      "bytes": 52539
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_focused_20261029_v3/publication_checks/summary.json",
+      "sha256": "1d758479852d53faf57e1b401e0590a6a0391103a4fb791bc89465c120624bf7",
+      "bytes": 755
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_focused_20261029_v3/publication_checks/verify_repository.json",
+      "sha256": "bf050cf169a381d5fb494f6cf863401609e871b147be509271740e85eebc607f",
+      "bytes": 262
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_focused_20261029_v3/publication_checks/verify_repository.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_focused_20261029_v3/publication_checks/verify_repository.stdout",
+      "sha256": "6fb41fd75eb9de7249dcd820675f10714e4f75f1d54d5836de8ffa965fb8b5aa",
+      "bytes": 111
+    }
+  ],
+  "cpu_tail": "  \"token_efficiency.C_followups\": \"experiments/token_channel_efficiency_20260923/src/token_efficiency/C_followups.py\",\n    \"token_efficiency.C_report\": \"experiments/token_channel_efficiency_20260923/src/token_efficiency/C_report.py\"\n  },\n  \"GPU\": \"NOT_RUN\"\n}\n........................................................................ [ 27%]\n........................................................................ [ 54%]\n........................................................................ [ 81%]\n................................................                         [100%]\n264 passed in 31.23s\n",
+  "whitespace_note": "Additional git diff --check returned 2: CRLF false positives, inherited IEEEtran/class and SVG generator trailing spaces, and final blank line in build_tables.py. A cr-at-eol diagnostic narrowed these to formatter/inherited-asset whitespace. Preserved original/hashed assets and frozen source bytes; no failed required repository or CPU check.",
+  "required_checks": "verify_repository PASS; run_cpu_checks PASS (264 CPU engineering tests, not image-quality evidence)",
+  "figure_verifier": "Updated to V3 metrics and V2 unchanged Fig.1/3; executed locally, exact 36 frozen rows and 8 development reconstruction metric rows PASS; 1563 native PPTX shapes,27 connectors,2 pictures."
+}

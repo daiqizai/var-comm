@@ -1,0 +1,31 @@
+{
+  "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-focused-v3-20261029/timing_worker_admission_v2.py\", line 93, in main\n    for grid in ((4,8) if (pos+rep)%2==0 else (8,4)):one('measured',pos,grid,rep)\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-focused-v3-20261029/timing_worker_admission_v2.py\", line 84, in one\n    result=ledger.call('complete_tx',key,tx)\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/common.py\", line 60, in call\n    try:v=fn()\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-focused-v3-20261029/timing_worker_admission_v2.py\", line 81, in tx\n    assert all([valid_tokens,valid_cdf,valid_streams,valid_endpoint,valid_wave]),('QUALIFICATION_IDENTITY_MISMATCH',row)\nAssertionError: ('QUALIFICATION_IDENTITY_MISMATCH', {'key': 'measured/088/4/0', 'phase': 'measured', 'source_position': 88, 'source_id': 'n02123394/ILSVRC2012_val_00013785_n02123394', 'source_index': 114, 'grid': 4, 'repeat': 1, 'tokenizer_ms': 18.297198228538036, 'source_traversal_ms': 261.2450588494539, 'ac_encode_ms': 12.498490512371063, 'endpoint_finish_ms': 1.8752934411168098, 'prior_cdf_context_ms': 246.51171825826168, 'ac_and_finish_ms': 14.373783953487873, 'length_lookup_ms': 0.12704264372587204, 'packing_ldpc_qam_ms': 2.6509100571274757, 'phy_with_ipc_ms': 3.1118514016270638, 'total_tx_ms': 282.80253522098064, 'prior_scale_calls': 10, 'encoded_token_count': 680, 'finish_calls': 25, 'encode_segment_calls': 28, 'actual_prior_scale_calls': 10, 'length_checks': 9, 'endpoint_m': 8, 'endpoint_K': 0, 'payload_bits': 2468, 'tokens_exact': False, 'cdfs_exact': False, 'streams_exact': False, 'endpoint_exact': False, 'wave_exact': False, 'wave_sha256': 'cdbb554777393d524e2b94ae6758bbb3352f65610e5ebe228d005b8b7665f747'})\n",
+  "ledger": {
+    "caps": {
+      "complete_tx": 610,
+      "model_load": 1
+    },
+    "counts": [
+      {
+        "kind": "complete_tx",
+        "status": "COMPLETE",
+        "count": 186
+      },
+      {
+        "kind": "complete_tx",
+        "status": "FAILED",
+        "count": 1
+      },
+      {
+        "kind": "model_load",
+        "status": "COMPLETE",
+        "count": 1
+      }
+    ],
+    "unresolved": 1
+  },
+  "native_counts": {
+    "prior_scale": 1870
+  },
+  "automatic_retry": false
+}

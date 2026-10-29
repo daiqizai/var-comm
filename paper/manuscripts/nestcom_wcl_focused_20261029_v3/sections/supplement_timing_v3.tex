@@ -1,0 +1,24 @@
+\clearpage\subsection*{S5.1. Finite Quarter/Eighth timing: incomplete identity validation}
+\textbf{Status: the planned 100-source, three-repeat benchmark is not complete.} The fixed experiment uses N1024, 10~dB, maximum endpoint $(10,0)$, 16-QAM rate 2/3, batch one, fixed CPU affinity/threads, and one shared PRO6000. The two grids are interleaved. Its cap is 4 qualification, 6 warmup, and 600 measured TX calls, with a two-hour absolute wall limit including load.
+
+The four real-weight qualification calls matched the historical tokens, all candidate streams and CDF hashes, selected endpoint, and full waveform. The first 88 sources then passed both grids in the first measured repetition. At source position 88 (common500 index 114), fresh tokenizer tokens differed from the historical cache; CDF, stream, endpoint/payload, and waveform comparisons consequently failed. The run stopped immediately. The model weights, source archive, and numerical-route identities had passed their checks. These facts do not establish the root cause of the token discrepancy. No numerical tolerance was used to relabel the event as a pass, and no cached-token substitution or retry was made.
+
+The run performed 187 tokenizer calls, 1870 prior-scale calls and 187 complete TX waveform calls: 4 qualification, 6 warmup, 176 validated measurement calls and one invalid measurement call. The latter remains in the ledger and raw timing CSV; 423 planned TX calls were never attempted. Both workers exited, and no RX, quality metric, noise, training, or bootstrap call was made.
+
+\textbf{Partial diagnostic only: 88 sources, one repetition per grid.} The table excludes the invalid call and all warmup/qualification calls. It must not be combined with the full 100-source quality experiment to infer a Quarter/Eighth quality--cost frontier.
+\begin{center}\small\setlength{\tabcolsep}{4pt}\begin{tabular}{lrrrrrr}\toprule
+ & \multicolumn{3}{c}{Quarter (ms)} & \multicolumn{3}{c}{Eighth (ms)}\\
+Component & Mean & Median & p95 & Mean & Median & p95\\\midrule
+Tokenizer & 19.405 & 18.324 & 18.842 & 19.432 & 18.356 & 19.121\\
+Prior/CDF/context & 248.160 & 244.817 & 255.861 & 245.131 & 245.236 & 250.648\\
+Incremental AC & 12.280 & 12.176 & 12.822 & 12.088 & 12.093 & 12.466\\
+Endpoint finalization & 1.904 & 1.914 & 2.022 & 3.561 & 3.593 & 3.809\\
+AC + finalization & 14.184 & 14.073 & 14.790 & 15.649 & 15.682 & 16.190\\
+Length lookup & 0.138 & 0.131 & 0.164 & 0.152 & 0.145 & 0.174\\
+Packing/LDPC/QAM & 6.751 & 2.604 & 59.288 & 6.272 & 2.593 & 30.734\\
+PHY + IPC & 7.201 & 3.055 & 59.791 & 6.713 & 3.022 & 31.199\\
+Complete TX & 289.465 & 280.975 & 346.681 & 287.541 & 283.283 & 331.781\\
+\bottomrule\end{tabular}\end{center}
+Each validated call uses ten prior-scale calls and encodes 680 tokens once. Quarter/Eighth finalize 25/49 streams; mean length checks in this partial subset are 9.534/17.659. The full 100-source quality diagnostic retains its original 9.49/17.58 means. The partial source-paired complete-TX difference (Eighth minus Quarter) is $-1.924$~ms in mean and $+1.683$~ms in median; these shared-server, incomplete measurements support no speed-ranking claim.
+
+Complete TX runs from resident uint8 RGB to the complete host waveform, including preprocessing/H2D, tokenizer, prior/CDF, incremental AC, non-mutating finalization, length lookup, packing/LDPC/QAM, and persistent CPU-worker IPC. Model loading, file I/O, and durable audit writes are outside the timed interval. CUDA is synchronized at the required boundaries; prior/CDF/context is wall-time attribution, not isolated kernel time. Raw calls, means/medians/p95, per-source differences, resource samples, and original failure/exit receipts are preserved in the V3 \texttt{timing/} directory. Earlier resource-gate and moved-checkpoint-path failures occurred before any scientific call and remain separately recorded.

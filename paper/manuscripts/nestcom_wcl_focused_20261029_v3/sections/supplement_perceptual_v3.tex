@@ -1,0 +1,28 @@
+\clearpage\subsection*{S2.4. Perceptual endpoint and receiver evidence}
+The following are existing source-paired bootstrap results, reorganized for the perceptual-reconstruction narrative. No statistic is recomputed. All common500 LPIPS and DreamSim intervals favor NeST/within-scale transmission at both budgets and all three SNRs. This claim does not extend to every dataset or metric; the N1024 common500 pair file does not provide CLIP-I.
+\begin{center}\small\begin{tabular}{rrll}\toprule $N$ & SNR & $\Delta$LPIPS [95\% CI] & $\Delta$DreamSim [95\% CI]\\\midrule
+1024 & 4 & -0.02458 [-0.02621,-0.02300] & -0.02073 [-0.02328,-0.01827]\\
+1024 & 10 & -0.02725 [-0.02962,-0.02491] & -0.02405 [-0.02700,-0.02124]\\
+1024 & 19 & -0.00520 [-0.00563,-0.00478] & -0.00304 [-0.00372,-0.00242]\\
+512 & 4 & -0.02995 [-0.03366,-0.02640] & -0.04280 [-0.04830,-0.03734]\\
+512 & 10 & -0.01548 [-0.01703,-0.01374] & -0.01269 [-0.01496,-0.01041]\\
+512 & 19 & -0.02749 [-0.02883,-0.02616] & -0.02412 [-0.02639,-0.02196]\\
+\bottomrule\end{tabular}\end{center}
+Differences are PARTIAL/NeST minus WHOLE; populations are 500 sources, each with three original channel outcomes. The 13.7\% LPIPS and 18.3\% DreamSim reductions at N1024/10~dB describe relative changes of metric means, not percentages of human perceptual improvement.
+
+\textbf{Controlled granularity at N1024/10~dB, 100 sources.}
+\begin{center}\small\begin{tabular}{lrrrrr}\toprule Grid & Util. (\%) & LPIPS & DreamSim & PSNR & Length checks\\\midrule
+Whole & 78.15 & 0.201821 & 0.131529 & 18.951576 & 3.55\\
+Half & 89.21 & 0.183760 & 0.114775 & 19.395750 & 5.55\\
+Quarter & 95.38 & 0.175170 & 0.107702 & 19.611725 & 9.49\\
+Eighth & 97.39 & 0.172939 & 0.106972 & 19.734671 & 17.58\\
+\bottomrule\end{tabular}\end{center}
+Eighth--Quarter differences are LPIPS $-0.002231\,\allowbreak[-0.003228,-0.001310]$, DreamSim $-0.000730\,\allowbreak[-0.001956,0.000477]$, and PSNR $+0.122946\,\allowbreak[0.078557,0.169317]$~dB. A DreamSim interval crossing zero establishes neither equivalence nor saturation. Quarter remains the predefined main configuration.
+
+\textbf{Ordered receiver intervention at N1024/10~dB.}
+\begin{center}\small\begin{tabular}{lll}\toprule
+Intervention & $\Delta$LPIPS [95\% CI] & $\Delta$DreamSim [95\% CI]\\\midrule
+B0--A0 & $-0.010030\,\allowbreak[-0.012026,-0.008026]$ & $-0.008454\,\allowbreak[-0.011357,-0.005643]$\\
+C0--B0 & $-0.016620\,\allowbreak[-0.020494,-0.012862]$ & $-0.015372\,\allowbreak[-0.019880,-0.011113]$\\
+\bottomrule\end{tabular}\end{center}
+The 100-source intervention order is fixed; these are not order-independent causal percentages. The final-scale C0--B0 effect at 19~dB is zero.

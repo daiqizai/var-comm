@@ -1,0 +1,134 @@
+{
+  "baseline_commit": "e2ed72c95ddeab15cc4ca42b1dd7f2e0e5236c8c",
+  "sources": [
+    {
+      "path": "experiments/baseline-strength-20261011/PROTOCOL.md",
+      "bytes": 26905,
+      "sha256": "b20bf17d2209c2b20ed0a6bfc8f6858518692d6e08e72a6da02ff68165eaa54e"
+    },
+    {
+      "path": "experiments/arpc-external-baseline-20261019/README.md",
+      "bytes": 4744,
+      "sha256": "bc1942056c3b6aef72e20bcf979bcd87400d21129d8e1a1fa8f5dc80971adab2"
+    },
+    {
+      "path": "experiments/arpc-external-baseline-20261019/a2_screen_v1/README.md",
+      "bytes": 1491,
+      "sha256": "33ecf3fd7dad71813129f43c37b2bd2ac81381c874fa7ecd516e4e5b302fb8f2"
+    },
+    {
+      "path": "experiments/arpc-external-baseline-20261019/a2b_metrics_v1/README.md",
+      "bytes": 1817,
+      "sha256": "daba4aed210b6cb5ccddc31f28c69af04d563d972ab9d7b0eb96f3099ec41b42"
+    },
+    {
+      "path": "experiments/adatoken-response-20261026/C_PREDICTED_CLASS_PLAN.md",
+      "bytes": 6449,
+      "sha256": "6f647b29cee073323f70a79aa3e3a4c0799181fb6fbca0f08dd1aa07ac718bb6"
+    },
+    {
+      "path": "results/arpc_external_baseline_20261019_v1/a2b_metrics_v1/frozen_policies.json",
+      "bytes": 1710,
+      "sha256": "d5ffb2399948c0fd571cb5caf9569143537a7adfe00e330e7fda548c21d4e969"
+    },
+    {
+      "path": "results/baseline_strength_20261011/Swin_1to19/selected_checkpoint.json",
+      "bytes": 1592,
+      "sha256": "a2c48d5568f9a72ace241f8df419304c2bdc2573fb283a2ca2b32a14740aab80"
+    },
+    {
+      "path": "results/five_method_timing_20261020_v1/registration.json",
+      "bytes": 313127,
+      "sha256": "d4e7a6bbad058fff98d0c061515c11c562af5d8cc59be5c9e249351363964f31"
+    },
+    {
+      "path": "experiments/five-method-timing-20261020/bpg.py",
+      "bytes": 5306,
+      "sha256": "6fe6d01f115e65e076b81fc4264a993aad85ad32e116ca5ae4aa554562e1cadc"
+    },
+    {
+      "path": "results/nestcom_focused_review_20261029_v2/configuration_audit.json",
+      "bytes": 29757,
+      "sha256": "a45a9d63c128b3c68887ba2dcec1a14d16faf38c291daf4b2c7fd51438809536"
+    },
+    {
+      "path": "results/nestcom_focused_review_20261029_v2/frozen_policies_compact.csv",
+      "bytes": 859,
+      "sha256": "e665bb67b115db641165efc3fdb89c9ebd3abb34ae0bb87072a21b49dedfb3e3"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/five_method_timing_20261020_v1/assets/bpg_original_freeze.json",
+      "bytes": 21281,
+      "sha256": "0e0c130ae1905c38cd287579cfa1b4cc223f1ca8ff2bbf980896fcf8fc341bf3"
+    },
+    {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/five_method_timing_20261020_v1/assets/bpg_original_request.json",
+      "bytes": 428176,
+      "sha256": "6e805840a581160f170c4f4c876a7ba57cb9e57e00825c3a8a2c6a67ec269f67"
+    }
+  ],
+  "bpg": {
+    "calibration_mean_PSNR": {
+      "1": {
+        "3000": 19.31096538708267,
+        "3001": 16.97887844426862,
+        "3002": 12.202677408574687
+      },
+      "10": {
+        "3006": 22.004914805294707,
+        "3007": 22.687405056621646,
+        "3014": 22.004914805294707
+      },
+      "13": {
+        "3008": 22.95337207484668,
+        "3009": 23.21282922017243,
+        "3010": 22.95337207484668
+      },
+      "19": {
+        "3011": 23.66380557725183,
+        "3012": 23.953175653452778,
+        "3013": 24.200028987002028
+      },
+      "4": {
+        "3001": 20.342515952853258,
+        "3002": 21.058170413163392,
+        "3005": 20.861430379131917
+      },
+      "7": {
+        "3003": 21.361280386341317,
+        "3004": 21.589030960839196,
+        "3006": 22.004914805294707
+      }
+    },
+    "calibration_source_count": 100,
+    "holdout_used_for_selection": false,
+    "noise_count": 3,
+    "objective": "maximum all100cal source-mean per-image PSNR over original3noise; tie smallest profile_id",
+    "request_sha256": "6e805840a581160f170c4f4c876a7ba57cb9e57e00825c3a8a2c6a67ec269f67",
+    "selected_profile_ids": {
+      "1": 3000,
+      "10": 3007,
+      "13": 3009,
+      "19": 3013,
+      "4": 3002,
+      "7": 3006
+    }
+  },
+  "bpg_request": {
+    "calibration_objective": "maximum all100cal source-mean per-image PSNR over original3noise; tie smallest profile_id",
+    "calibration_sources": 100,
+    "prescreen_rule": "top3 predicted all-source mean per-image PSNR using32cal source quality and matching actual packet delivery frequency; tie smallest profile_id",
+    "prescreen_scope": "selection proxy only; not reported noisy image quality",
+    "source_rule": {
+      "path": "/home/liulu/projects/VAR_COMM/experiments/paper_supplement_20261008/a1_bpg_adaptive/a1b_materials_v1/source_rule_frozen.json",
+      "sha256": "806984bfcff29630fbf7c0b3350e3fa89b5d1e1335db0129d88bb3b8040fd886"
+    },
+    "source_objective": "minimum MSE to original256 among legal actual source candidates",
+    "native256_rule": "old native256 result remains separate and immutable",
+    "noise_seeds": [
+      2001,
+      2002,
+      2003
+    ]
+  }
+}

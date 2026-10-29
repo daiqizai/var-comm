@@ -1,0 +1,69 @@
+\clearpage\subsection*{S2.3. Quality decomposition by reception status}
+These calculations use only the existing N512 native-array metric scores; no decoder, metric model, channel, or bootstrap is run. Every method/SNR has 500 sources and three repetitions. With frame-equal success and failure means,
+\[Q_{\rm all}=p_{\rm success}Q_{\rm success}+(1-p_{\rm success})Q_{\rm failure}.\]
+Because each source has three outcomes, the original equal-source overall mean equals this frame-equal mean. The maximum numerical residual of the identity over all 36 cells is $1.12\times10^{-16}$. Gray-image scores are taken from each actual failed event; they need not be equal across sources. A dash means no failed frame, with zero weighted failure term.
+\textbf{LPIPS-Alex}\begin{center}\small\begin{tabular}{llrrrr}\toprule Method & SNR & Success/1500 & Overall & Success frames & Failed frames\\\midrule
+ADA & 4 & 1495 & 0.554156 & 0.552943 & 0.916893\\
+ADA & 10 & 1500 & 0.410977 & 0.410977 & --\\
+ADA & 19 & 1500 & 0.214568 & 0.214568 & --\\
+NEST & 4 & 1496 & 0.365175 & 0.363679 & 0.924583\\
+NEST & 10 & 1499 & 0.272596 & 0.272076 & 1.052495\\
+NEST & 19 & 1500 & 0.190053 & 0.190053 & --\\
+WHOLE & 4 & 1493 & 0.395124 & 0.392485 & 0.958144\\
+WHOLE & 10 & 1500 & 0.288079 & 0.288079 & --\\
+WHOLE & 19 & 1500 & 0.217542 & 0.217542 & --\\
+\bottomrule\end{tabular}\end{center}
+\textbf{DreamSim}\begin{center}\small\begin{tabular}{llrrrr}\toprule Method & SNR & Success/1500 & Overall & Success frames & Failed frames\\\midrule
+ADA & 4 & 1495 & 0.384728 & 0.382844 & 0.948163\\
+ADA & 10 & 1500 & 0.258171 & 0.258171 & --\\
+ADA & 19 & 1500 & 0.107753 & 0.107753 & --\\
+NEST & 4 & 1496 & 0.281865 & 0.280131 & 0.930711\\
+NEST & 10 & 1499 & 0.192165 & 0.191687 & 0.909004\\
+NEST & 19 & 1500 & 0.121676 & 0.121676 & --\\
+WHOLE & 4 & 1493 & 0.324663 & 0.321794 & 0.936442\\
+WHOLE & 10 & 1500 & 0.204857 & 0.204857 & --\\
+WHOLE & 19 & 1500 & 0.145797 & 0.145797 & --\\
+\bottomrule\end{tabular}\end{center}
+\clearpage\subsection*{S2.3. Quality decomposition (continued)}
+\textbf{PSNR (dB)}\begin{center}\small\begin{tabular}{llrrrr}\toprule Method & SNR & Success/1500 & Overall & Success frames & Failed frames\\\midrule
+ADA & 4 & 1495 & 11.318311 & 11.314918 & 12.332928\\
+ADA & 10 & 1500 & 13.164679 & 13.164679 & --\\
+ADA & 19 & 1500 & 17.690030 & 17.690030 & --\\
+NEST & 4 & 1496 & 15.498715 & 15.507571 & 12.186599\\
+NEST & 10 & 1499 & 17.219878 & 17.219739 & 17.428954\\
+NEST & 19 & 1500 & 19.429779 & 19.429779 & --\\
+WHOLE & 4 & 1493 & 15.106545 & 15.120288 & 12.175318\\
+WHOLE & 10 & 1500 & 16.821305 & 16.821305 & --\\
+WHOLE & 19 & 1500 & 18.637774 & 18.637774 & --\\
+\bottomrule\end{tabular}\end{center}
+\textbf{CLIP-I}\begin{center}\small\begin{tabular}{llrrrr}\toprule Method & SNR & Success/1500 & Overall & Success frames & Failed frames\\\midrule
+ADA & 4 & 1495 & 0.789210 & 0.790088 & 0.526638\\
+ADA & 10 & 1500 & 0.825748 & 0.825748 & --\\
+ADA & 19 & 1500 & 0.872282 & 0.872282 & --\\
+NEST & 4 & 1496 & 0.765689 & 0.766235 & 0.561732\\
+NEST & 10 & 1499 & 0.814979 & 0.815175 & 0.521134\\
+NEST & 19 & 1500 & 0.864000 & 0.864000 & --\\
+WHOLE & 4 & 1493 & 0.746943 & 0.748068 & 0.507109\\
+WHOLE & 10 & 1500 & 0.807443 & 0.807443 & --\\
+WHOLE & 19 & 1500 & 0.848354 & 0.848354 & --\\
+\bottomrule\end{tabular}\end{center}
+\clearpage\subsection*{S2.3. Joint-success source-paired comparisons}
+For each comparison, events are joined by complete source ID and original repetition identity. Only events where both methods succeed are retained. Differences are averaged over the available joint-success repetitions within each source, then equally over sources. These are descriptive conditional comparisons with no new confidence interval; they do not replace the failure-inclusive primary estimates.
+\begin{center}\small\begin{tabular}{llrrrr}\toprule Comparison & SNR & Joint frames & Sources & Two repeats & Three repeats\\\midrule
+NEST-WHOLE & 4 & 1493 & 500 & 7 & 493\\
+NEST-WHOLE & 10 & 1499 & 500 & 1 & 499\\
+NEST-WHOLE & 19 & 1500 & 500 & 0 & 500\\
+NEST-ADA & 4 & 1491 & 500 & 9 & 491\\
+NEST-ADA & 10 & 1499 & 500 & 1 & 499\\
+NEST-ADA & 19 & 1500 & 500 & 0 & 500\\
+\bottomrule\end{tabular}\end{center}
+Every source retains at least two jointly successful repeats; no source is discarded.
+\begin{center}\small\begin{tabular}{llrrrr}\toprule Comparison & SNR & $\Delta$LPIPS & $\Delta$DreamSim & $\Delta$PSNR & $\Delta$CLIP-I\\\midrule
+NEST-WHOLE & 4 & -0.02894 & -0.04174 & +0.38886 & +0.01825\\
+NEST-WHOLE & 10 & -0.01602 & -0.01315 & +0.39936 & +0.00773\\
+NEST-WHOLE & 19 & -0.02749 & -0.02412 & +0.79200 & +0.01565\\
+NEST-ADA & 4 & -0.18923 & -0.10249 & +4.19030 & -0.02398\\
+NEST-ADA & 10 & -0.13891 & -0.06646 & +4.05598 & -0.01057\\
+NEST-ADA & 19 & -0.02451 & +0.01392 & +1.73975 & -0.00828\\
+\bottomrule\end{tabular}\end{center}
+The LPIPS and DreamSim directions agree with the original all-event contrasts at all reported cells. Thus the observed quality differences persist on joint successes; the comparison still includes the differing models and training of each complete system. Files: \texttt{success\_failure\_quality.csv}, \texttt{joint\_success\_paired\_quality.csv}, and the source-level differences and identity JSON in the V3 \texttt{reception/} directory.

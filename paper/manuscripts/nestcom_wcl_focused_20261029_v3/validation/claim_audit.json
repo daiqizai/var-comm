@@ -1,0 +1,76 @@
+{
+  "status": "PASS_WITH_EXPLICIT_TIMING_LIMITATION",
+  "claims": [
+    {
+      "claim": "LPIPS/DreamSim improve at six common500 budget/SNR points",
+      "evidence": [
+        "inputs/internal_common500_paired.csv",
+        "inputs/paired_deltas.csv"
+      ],
+      "population": "500 sources per budget, three outcomes/source",
+      "scope": "shared models; 12 original paired upper bounds below zero; no 500-source CLIP-I inference for N1024"
+    },
+    {
+      "claim": "13.7% LPIPS / 18.3% DreamSim relative mean reduction at N1024 10 dB",
+      "evidence": [
+        "inputs/internal_common500_paired.csv",
+        "inputs/common500_summary.csv"
+      ],
+      "population": "common500",
+      "scope": "metric-mean percentages, not human preference improvement; original WHOLE means verified in prior evidence"
+    },
+    {
+      "claim": "Residual correction and later conditioning both reduce perceptual distances",
+      "evidence": [
+        "inputs/b_paired.csv"
+      ],
+      "population": "fixed 100-source subset, N1024 10 dB",
+      "scope": "ordered B0-A0/C0-B0; A0 still has generation; final-scale propagation zero"
+    },
+    {
+      "claim": "Eighth adds LPIPS and PSNR gain over Quarter",
+      "evidence": [
+        "inputs/a_paired.csv",
+        "inputs/a_efficiency.csv"
+      ],
+      "population": "fixed 100 sources, 10 dB, fixed maximum endpoint/MCS/model",
+      "scope": "DreamSim interval includes zero; not equivalence, saturation or optimality; timing blocked"
+    },
+    {
+      "claim": "Six-system perceptual and pixel-fidelity tradeoffs",
+      "evidence": [
+        "inputs/common500_summary.csv",
+        "figures/figure2_data.csv",
+        "tables/table_ii.csv"
+      ],
+      "population": "N1024 common500",
+      "scope": "all 72 four-metric means retained; Ada/Latent advantages explicit; no overall SOTA or isolated representation-order causal claim"
+    },
+    {
+      "claim": "N512 joint-success directions retained",
+      "evidence": [
+        "inputs/reception/joint_success_paired_quality.csv"
+      ],
+      "population": "500 retained sources, 1491–1500 actual joint events depending on comparison/SNR",
+      "scope": "24 descriptive source-equal conditional means; no new CI; failure-inclusive main estimates retained"
+    },
+    {
+      "claim": "New TX timing is incomplete",
+      "evidence": [
+        "inputs/timing/actual_compute_and_reuse.json"
+      ],
+      "population": "88 complete source pairs at first repeat only",
+      "scope": "176 validated measured calls; source 89 tokenizer identity mismatch; no full-benchmark or speed-order claim"
+    }
+  ],
+  "forbidden_claims_absent": [
+    "universal communication SOTA",
+    "human preference proven",
+    "Quarter optimal",
+    "500-source N1024 CLIP-I paired significance",
+    "SNR robustness",
+    "NeST faster than Ada",
+    "complete timing benchmark"
+  ],
+  "new_algorithm_or_quality_experiment": false
+}
