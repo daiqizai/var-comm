@@ -1,0 +1,72 @@
+{
+  "status": "reviewed",
+  "review_scope": "original and final figures at exported print-size previews; final Fig1 also checked using PowerPoint PDF output",
+  "figures": [
+    {
+      "figure": 1,
+      "preview": "figures/figure1_print_size.png",
+      "source_preview": "../nestcom_wcl_focused_20261029_v1/figures/figure1_print_size.png",
+      "size_inches": [
+        7.16,
+        3.4
+      ],
+      "native_powerpoint_export": true,
+      "gui_powerpoint_open_and_view_claim": false,
+      "checks": [
+        "bird bitmaps and original Residual VQ/scale grids preserved",
+        "no profile bypass; noisy header input branches after AWGN",
+        "independent candidate AC and body-information-bit capacity constraint visible",
+        "merged boundary residual update and resized finer-scale conditioning form separate causal paths",
+        "no same-scale re-prediction loop",
+        "D_c inside panel with right padding",
+        "no text clipping observed"
+      ]
+    },
+    {
+      "figure": 2,
+      "preview": "figures/figure2_print_size.png",
+      "size_inches": [
+        7.16,
+        2.4
+      ],
+      "all_bytes_unchanged": true,
+      "mean_and_CI_count": 36
+    },
+    {
+      "figure": 3,
+      "preview": "figures/figure3_print_size.png",
+      "size_inches": [
+        7.16,
+        3.35
+      ],
+      "checks": [
+        "two development examples",
+        "five columns in requested order",
+        "complete 256×256 fields, no crop/zoom",
+        "eight printed pairs agree with full precision CSV at three decimals",
+        "no overlapping or clipped titles/values"
+      ]
+    }
+  ],
+  "remaining_automatic_geometry_warnings": [
+    {
+      "connector_id": "1599",
+      "connector_z": 1539,
+      "kind": "connector_over_text",
+      "slide": 1,
+      "text_object_id": "1534",
+      "text_z": 1486
+    }
+  ],
+  "warning_review": "The remaining endpoint-control arrow enters the bottom padding of the Arithmetic decoder text bounding box, ending at the module boundary. It does not cover the visible lettering in the final PowerPoint export. Automatic warnings are retained, not reclassified as zero.",
+  "edit_source": "scripts/edit_figure1.mjs",
+  "finalizer": "scripts/finalize_figure1.mjs",
+  "render_routes": [
+    "scripts/export_figure1_powerpoint.ps1",
+    "scripts/export_figure1_svg.py"
+  ],
+  "reconstruction_or_metric_inference": 0,
+  "intermediate_drafts_location": "C:\\Users\\11946\\Documents\\ChatGPT\\comm\\.research\\nestcom_focused_20261029_v2\\figure_work\\intermediates",
+  "svg_font_note": "Fig1 SVG labels are paths; PPTX remains the editable text/vector source.",
+  "reproducibility_note": "Final authoring command omits optional Artifact Tool bitmap export because that Windows preview route returned exit1 during cleanup. Native PPTX-only authoring, finalizer and PowerPoint exports exited0. No scientific call was involved."
+}

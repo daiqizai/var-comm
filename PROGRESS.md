@@ -1,3 +1,22 @@
+## 2026-10-29 — Focused V2 review resolved with formal frame audit
+
+The [anonymous focused V2 manuscript](paper/manuscripts/nestcom_wcl_focused_20261029_v2/README.md)
+restores the N1024 Pastries/Dog comparison, revises the original native Fig.1,
+and leaves all 36 Fig.2 means and intervals unchanged. Table I defines its
+receiver interventions locally. The five-page main letter, thirteen-page
+double-spaced single-column version, thirteen-page editable Word export and
+thirteen-page supplement were rebuilt and all pages visually reviewed.
+
+Read-only joins verify 22,500 logical / 20,613 unique physical records, including
+actual energy, failure and endpoint evidence. At N512/10 dB both internal policies
+fall back on 99.6% of sources; finer fallback retains more tokens. E2 is limited
+to the fixed adapted receiver, with its training input coverage documented.
+
+A separate N1024 paid-NULL extension passes 18 actual full-frame CPU checks and
+36 packet decodes, retaining the original normal paths and historical results.
+No new training, image inference, quality metrics or bootstrap draws were run.
+Paused branches remain paused; large arrays, checkpoints and logs stay on PFS.
+
 ## 2026-10-29 — Focused WCL narrative and figure revision
 
 The [new anonymous manuscript](paper/manuscripts/nestcom_wcl_focused_20261029_v1/README.md)

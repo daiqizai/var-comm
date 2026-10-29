@@ -1,0 +1,861 @@
+{
+  "schema": "READ_ONLY_CONFIGURATION_AUDIT_V1",
+  "model": {
+    "name": "VAR-d16",
+    "V": 4096,
+    "Cvae": 32,
+    "depth": 16,
+    "patch_nums": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      8,
+      10,
+      13,
+      16
+    ],
+    "flash": false,
+    "fused": false,
+    "cond_drop_rate": 0,
+    "state_hashes": {
+      "vae": "6830fc533a34d52c8f765a7b212782a5b5ef6138992099e8a817ce920fe6fe2b",
+      "var": "b82cb0855b24e1d0d8d0aacebbb2d2d6728c2dcc6509b667dfa697c9330347d5",
+      "decoder": "bf1d64bf8ff7eeda416032daa2ada1654fb37de2553235e85d364211ddfefad1"
+    },
+    "state_hash_basis": "actual closed N512 formal RX receipt, not newly loaded weights"
+  },
+  "actual_formal_native_identity": {
+    "models": {
+      "vae": "6830fc533a34d52c8f765a7b212782a5b5ef6138992099e8a817ce920fe6fe2b",
+      "var": "b82cb0855b24e1d0d8d0aacebbb2d2d6728c2dcc6509b667dfa697c9330347d5",
+      "decoder": "bf1d64bf8ff7eeda416032daa2ada1654fb37de2553235e85d364211ddfefad1"
+    },
+    "runtime": {
+      "python": "3.10.12",
+      "torch": "2.11.0+cu128",
+      "numpy": "2.2.6",
+      "cuda": "12.8",
+      "cudnn": 91900,
+      "threads": 6,
+      "interop_threads": 2
+    },
+    "numeric_flags": {
+      "cudnn_benchmark": false,
+      "cudnn_deterministic": true,
+      "cudnn_tf32": false,
+      "deterministic": true,
+      "interop_threads": 2,
+      "matmul_tf32": false,
+      "precision": "highest",
+      "threads": 6
+    },
+    "GPU_name": "NVIDIA RPBZZZ6",
+    "actual_CUDA_UUID": "967f6750-6a31-e9a6-221c-cbfd3660ddc6",
+    "actual_PCI_bus_id": "0000:61:00.0",
+    "registered_PCI_bus_id": "0000:61:00.0",
+    "visible_GPU": "0",
+    "allocator_cap_bytes": 12884901888,
+    "cpu_affinity": [
+      0,
+      1
+    ],
+    "source_mathematics": "Unchanged SHA-bound original function/class definitions",
+    "sampling": "unconditional_class1000_greedy_no_CFG",
+    "training_updates": 0
+  },
+  "actual_timing_native_identity": {
+    "models": {
+      "vae": "6830fc533a34d52c8f765a7b212782a5b5ef6138992099e8a817ce920fe6fe2b",
+      "var": "b82cb0855b24e1d0d8d0aacebbb2d2d6728c2dcc6509b667dfa697c9330347d5",
+      "decoder": "bf1d64bf8ff7eeda416032daa2ada1654fb37de2553235e85d364211ddfefad1"
+    },
+    "runtime": {
+      "python": "3.10.12",
+      "torch": "2.11.0+cu128",
+      "numpy": "2.2.6",
+      "cuda": "12.8",
+      "cudnn": 91900,
+      "threads": 6,
+      "interop_threads": 2
+    },
+    "numeric_flags": {
+      "cudnn_benchmark": false,
+      "cudnn_deterministic": true,
+      "cudnn_tf32": false,
+      "deterministic": true,
+      "interop_threads": 2,
+      "matmul_tf32": false,
+      "precision": "highest",
+      "threads": 6
+    },
+    "GPU_name": "NVIDIA RPBZZZ6",
+    "actual_CUDA_UUID": "283ed331-a8c4-6556-46b1-49273d684195",
+    "actual_PCI_bus_id": "0000:62:00.0",
+    "registered_PCI_bus_id": "0000:62:00.0",
+    "visible_GPU": "1",
+    "allocator_cap_bytes": 12884901888,
+    "cpu_affinity": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "source_mathematics": "Unchanged SHA-bound original function/class definitions",
+    "sampling": "unconditional_class1000_greedy_no_CFG",
+    "training_updates": 0
+  },
+  "CDF": {
+    "total": 16777216,
+    "integer_interval_bits": 32,
+    "softmax_dtype": "float64",
+    "minimum_frequency": 1,
+    "formula": "floor(p*(2^24 - 4096)) + 1",
+    "remainder": "entire remaining mass added to maximum-probability token",
+    "tie": "numpy argmax, first index",
+    "probability_route": "native FP32 logits to CPU float64 CDF; no CFG in entropy decoding"
+  },
+  "decoder_training": {
+    "branches": {
+      "continuous_F": 0.5,
+      "full_quantized_Fq": 0.25,
+      "interpolation": 0.25
+    },
+    "interpolation": "F_bTX + alpha*(F - F_bTX)",
+    "F_bTX": "VAR-completed latent through all original 10 scales from the first eight source scales",
+    "coarse_only_training_branch": false,
+    "training_completion_condition": "source ImageNet label passed to complete_latent; current formal NeST RX is unconditional class1000"
+  },
+  "scrambling": {
+    "TX": "LDPC/RV0/interleave -> XOR public PCG64 mask -> QAM",
+    "RX": "soft demap -> multiply LLR by (1 - 2*mask) -> LDPC -> CRC/parser",
+    "mask_seed": "SHA256(protocol, scramble, session, frame_counter), first 16 bytes little endian",
+    "power": "constellation average Es=2; no per-frame normalization",
+    "audit": "raw formal transmission energy fields, consistency E_header+E_body=E_frame; no waveform regeneration"
+  },
+  "code": [
+    {
+      "path": "src/var_comm/next_scale_prior.py",
+      "sha256": "568217086c94ee7607abc256415d705a11702ffcaaed9c79ca04d5e9a62da562",
+      "matching_lines": [
+        {
+          "line": 65,
+          "text": "    from models import build_vae_var"
+        },
+        {
+          "line": 72,
+          "text": "        vae, var = build_vae_var("
+        },
+        {
+          "line": 74,
+          "text": "            share_quant_resi=4, num_classes=1000, depth=16, attn_l2_norm=True,"
+        },
+        {
+          "line": 75,
+          "text": "            flash_if_available=False, fused_if_available=False,"
+        },
+        {
+          "line": 82,
+          "text": "    var.cond_drop_rate = 0.0"
+        },
+        {
+          "line": 98,
+          "text": "    if var.training or vae.training or float(var.cond_drop_rate) != 0:"
+        }
+      ]
+    },
+    {
+      "path": "src/var_comm/entropy.py",
+      "sha256": "f3adf956fba05d60e687472fa153e0bf684119ef6c8885a75fe4ea21962b2b2b",
+      "matching_lines": [
+        {
+          "line": 7,
+          "text": "TOTAL = 1 << 24"
+        },
+        {
+          "line": 8,
+          "text": "FULL = 1 << 32"
+        },
+        {
+          "line": 9,
+          "text": "HALF = FULL >> 1"
+        },
+        {
+          "line": 10,
+          "text": "QUARTER = FULL >> 2"
+        },
+        {
+          "line": 56,
+          "text": "    if np.any(values[:, 0] != 0) or np.any(values[:, -1] != TOTAL):"
+        },
+        {
+          "line": 57,
+          "text": "        raise ValueError(\"CDF must start at 0 and end at TOTAL\")"
+        },
+        {
+          "line": 58,
+          "text": "    if np.any(values < 0) or np.any(values > TOTAL) or np.any(np.diff(values, axis=1) <= 0):"
+        },
+        {
+          "line": 59,
+          "text": "        raise ValueError(\"CDF must be strictly increasing within [0, TOTAL]\")"
+        },
+        {
+          "line": 63,
+          "text": "def probability_cdf(log_probs):"
+        },
+        {
+          "line": 70,
+          "text": "    counts = np.floor(mass * (TOTAL - 4096)).astype(np.int64) + 1"
+        },
+        {
+          "line": 71,
+          "text": "    counts[np.arange(len(counts)), np.argmax(mass, axis=1)] += TOTAL - counts.sum(axis=1)"
+        },
+        {
+          "line": 92,
+          "text": "    low, high, pending = 0, FULL - 1, 0"
+        },
+        {
+          "line": 103,
+          "text": "        high = low + interval * int(cumulative[token + 1]) // TOTAL - 1"
+        },
+        {
+          "line": 104,
+          "text": "        low = low + interval * int(cumulative[token]) // TOTAL"
+        },
+        {
+          "line": 136,
+          "text": "    low, high, value = 0, FULL - 1, 0"
+        },
+        {
+          "line": 142,
+          "text": "        scaled = ((value - low + 1) * TOTAL - 1) // interval"
+        },
+        {
+          "line": 147,
+          "text": "        high = low + interval * int(cumulative[token + 1]) // TOTAL - 1"
+        },
+        {
+          "line": 148,
+          "text": "        low = low + interval * int(cumulative[token]) // TOTAL"
+        }
+      ]
+    },
+    {
+      "path": "src/var_comm/whole_entropy.py",
+      "sha256": "5d08d2f8c218f0bdf5b6d2a8ca7b3aa729baa75e274531afbfd8f31c95b24a5b",
+      "matching_lines": [
+        {
+          "line": 10,
+          "text": "from .entropy import FULL, HALF, QUARTER, TOTAL, probability_cdf, validate_cdf, validate_bits"
+        },
+        {
+          "line": 23,
+          "text": "        self.low, self.high, self.pending = 0, FULL - 1, 0"
+        },
+        {
+          "line": 49,
+          "text": "            self.high = self.low + interval * int(cumulative[token + 1]) // TOTAL - 1"
+        },
+        {
+          "line": 50,
+          "text": "            self.low += interval * int(cumulative[token]) // TOTAL"
+        },
+        {
+          "line": 76,
+          "text": "        self.low, self.high, self.value = 0, FULL - 1, 0"
+        },
+        {
+          "line": 90,
+          "text": "            scaled = ((self.value - self.low + 1) * TOTAL - 1) // interval"
+        },
+        {
+          "line": 95,
+          "text": "            self.high = self.low + interval * int(cumulative[token + 1]) // TOTAL - 1"
+        },
+        {
+          "line": 96,
+          "text": "            self.low += interval * int(cumulative[token]) // TOTAL"
+        }
+      ]
+    },
+    {
+      "path": "experiments/content-real-64qam-20261006/h_source_driver.py",
+      "sha256": "b38f8451ca2d94a8ceb4381df3647e327dba38e3d4cf969aa15597bc47c342ce",
+      "matching_lines": [
+        {
+          "line": 46,
+          "text": "class IndependentProvider:"
+        },
+        {
+          "line": 50,
+          "text": "        self.model_seconds=0.; self.cdf_seconds=0."
+        },
+        {
+          "line": 59,
+          "text": "        start=time.monotonic();cdf=self.primitives.cdf_function(lp)"
+        },
+        {
+          "line": 60,
+          "text": "        self.cdf_seconds+=time.monotonic()-start;return cdf"
+        },
+        {
+          "line": 157,
+          "text": "                        p=IndependentProvider(self.native,self.primitives);providers.append(p);return p"
+        }
+      ]
+    },
+    {
+      "path": "experiments/wcl-evidence-closure-20261009/scripts/t1_codec_runtime.py",
+      "sha256": "245f0bc9a67cffbcc08e36d7942c5e555b144f400a860940f04da62a012b1d13",
+      "matching_lines": [
+        {
+          "line": 13,
+          "text": "from t1_entropy_core import OFFSETS,SIZES,load_integer_codec,read,require,sha,source_tokens,verify"
+        },
+        {
+          "line": 15,
+          "text": "MODEL_STATES={'vae':'6830fc533a34d52c8f765a7b212782a5b5ef6138992099e8a817ce920fe6fe2b',"
+        },
+        {
+          "line": 27,
+          "text": "    for key,expected in MODEL_STATES.items():"
+        },
+        {
+          "line": 29,
+          "text": "    for key,expected in {'deterministic':True,'matmul_tf32':False,'cudnn_tf32':False,'precision':'highest'}.items():"
+        },
+        {
+          "line": 55,
+          "text": "        self.root=Path(root);self.entropy,self.Encoder,self.Decoder=load_integer_codec(root)"
+        },
+        {
+          "line": 56,
+          "text": "        self.native=None;self.static_cdf=None;self.static_identity=None"
+        },
+        {
+          "line": 66,
+          "text": "                self.static_cdf=self.entropy.validate_cdf(z['cdf']).copy()"
+        },
+        {
+          "line": 67,
+          "text": "                require(self.static_cdf.shape==(10,4097),'Static table scale count differs')"
+        },
+        {
+          "line": 68,
+          "text": "                require(np.array_equal(self.static_cdf,self.entropy.probability_cdf(np.log(z['counts'].astype(np.float64)+.5))),"
+        },
+        {
+          "line": 79,
+          "text": "        self.provider_factory=lambda:original.IndependentProvider(native,types.SimpleNamespace(cdf_function=self.entropy.probability_cdf))"
+        },
+        {
+          "line": 83,
+          "text": "            require(self.static_cdf is not None,'Static source model not loaded')"
+        },
+        {
+          "line": 86,
+          "text": "        return self.provider_factory()"
+        },
+        {
+          "line": 91,
+          "text": "    def _cdf(self,family,provider,scale):"
+        },
+        {
+          "line": 92,
+          "text": "        cdf=np.broadcast_to(self.static_cdf[scale],(SIZES[scale]**2,4097)) if family=='EC_STATIC_WHOLE' else provider.cdf()"
+        },
+        {
+          "line": 93,
+          "text": "        return self.entropy.validate_cdf(cdf,rows=SIZES[scale]**2)"
+        },
+        {
+          "line": 115,
+          "text": "                cdf=self._cdf(family,provider,scale)"
+        },
+        {
+          "line": 116,
+          "text": "                try: values=decoder.decode(cdf)"
+        },
+        {
+          "line": 119,
+          "text": "                canonical.encode(values,cdf); recovered.append(values.copy())"
+        },
+        {
+          "line": 137,
+          "text": "                values=a[OFFSETS[scale]:OFFSETS[scale+1]];cdf=self._cdf(family,provider,scale)"
+        },
+        {
+          "line": 138,
+          "text": "                encoder.encode(values,cdf)"
+        }
+      ]
+    },
+    {
+      "path": "experiments/wcl-evidence-closure-20261009/scripts/t1_entropy_core.py",
+      "sha256": "7cefad21134ac64c5eab5541afe4e188fdeaf343f374d8ea3eac966ff51901c9",
+      "matching_lines": [
+        {
+          "line": 15,
+          "text": "    'entropy.py': 'f3adf956fba05d60e687472fa153e0bf684119ef6c8885a75fe4ea21962b2b2b',"
+        },
+        {
+          "line": 16,
+          "text": "    'whole_entropy.py': '5d08d2f8c218f0bdf5b6d2a8ca7b3aa729baa75e274531afbfd8f31c95b24a5b',"
+        },
+        {
+          "line": 47,
+          "text": "def load_integer_codec(root):"
+        },
+        {
+          "line": 57,
+          "text": "    spec = importlib.util.spec_from_file_location('_wcl_t1_bound_entropy', source/'entropy.py')"
+        },
+        {
+          "line": 59,
+          "text": "    tree = ast.parse((source/'whole_entropy.py').read_text(encoding='utf-8'))"
+        },
+        {
+          "line": 65,
+          "text": "    exec(compile(ast.Module(body=selected, type_ignores=[]), str(source/'whole_entropy.py'), 'exec'), ns)"
+        }
+      ]
+    },
+    {
+      "path": "experiments/entropy-partial-mismatch-20261010/scripts/ep_source_codec.py",
+      "sha256": "65a9f599bef2205c15f864f40ec07f27d8c9d03ed2d318838706f29dd1b3cb4e",
+      "matching_lines": [
+        {
+          "line": 79,
+          "text": "                    cdf_total=1 << 24, entropy_precision=32, ordering='raster', cfg=False,"
+        },
+        {
+          "line": 81,
+          "text": "                    partial_cdf='next_scale_full_integer_CDF_first_K_rows_given_received_complete_prefix')"
+        },
+        {
+          "line": 85,
+          "text": "class PartialSourceCodec(SourceCodec):"
+        },
+        {
+          "line": 117,
+          "text": "                cdf = self._cdf(WHOLE_FAMILY, provider, scale)"
+        },
+        {
+          "line": 120,
+          "text": "                    encoder.encode(values[start:K], cdf[start:K])"
+        },
+        {
+          "line": 124,
+          "text": "                    encoder.encode(values[start:], cdf[start:])"
+        },
+        {
+          "line": 157,
+          "text": "                table = self._cdf(WHOLE_FAMILY, provider, scale)"
+        },
+        {
+          "line": 158,
+          "text": "                cdf = table if scale < m else table[:K]"
+        },
+        {
+          "line": 160,
+          "text": "                    values = decoder.decode(cdf)"
+        },
+        {
+          "line": 165,
+          "text": "                canonical.encode(values, cdf)"
+        }
+      ]
+    },
+    {
+      "path": "experiments/entropy-partial-mismatch-20261010/scripts/ep_phy.py",
+      "sha256": "12cad3e495fc91d8f6819b895674df08e312da3833291019b8966a2211ec8c75",
+      "matching_lines": [
+        {
+          "line": 27,
+          "text": "MAPPING='original_MAIN_q2_q4_and_q6_Gray_I_then_Q;nominal_Es2;no_frame_normalization'"
+        },
+        {
+          "line": 28,
+          "text": "SCRAMBLING='WCL_T1_public_PCG64_SHA256_protocol_session_counter_after_RV0_v1'"
+        },
+        {
+          "line": 115,
+          "text": "def scramble_mask(n,frame_counter,session):"
+        },
+        {
+          "line": 137,
+          "text": "            scrambling=SCRAMBLING,power_protocol='fixed_constellation_average_Es2_no_per_frame_normalization',"
+        },
+        {
+          "line": 277,
+          "text": "    mask=backend.torch.as_tensor(scramble_mask(profile['n'],frame_counter,session)[None],device='cpu')"
+        },
+        {
+          "line": 278,
+          "text": "    scrambled=(code+mask)%2"
+        },
+        {
+          "line": 326,
+          "text": "        mask=t.as_tensor(scramble_mask(profile['n'],frame_counter,session)[None],device='cpu')"
+        },
+        {
+          "line": 327,
+          "text": "        logits=logits*(1-2*mask.to(logits.dtype))"
+        }
+      ]
+    },
+    {
+      "path": "experiments/nestcom-n512-20261028/n512_phy.py",
+      "sha256": "62105b293c14f23fda5b597497e71d4787a0079b83c12918c19a8fe1b7ffa5f9",
+      "matching_lines": []
+    },
+    {
+      "path": "experiments/nestcom-n512-20261028/rx_worker_v2.py",
+      "sha256": "c10870974eae3ee0a4c5c3a442945cb02e42a3e4a40645bbb584f41bff751192",
+      "matching_lines": [
+        {
+          "line": 27,
+          "text": "   from kn_native import load,receiver_codec"
+        },
+        {
+          "line": 28,
+          "text": "   n,render=ledger.call('model_load','once',lambda:load(routes,ledger,boundary,out,r['pci']));codec=receiver_codec(n)"
+        },
+        {
+          "line": 34,
+          "text": "   from c_arithmetic import load_codec"
+        },
+        {
+          "line": 35,
+          "text": "   from c_predclass_native import load_native"
+        },
+        {
+          "line": 39,
+          "text": "   Encoder,Decoder,cdf,proof=load_codec();save(out/'arithmetic_proof.json',proof);n=load_native(r,out,ledger)"
+        },
+        {
+          "line": 49,
+          "text": "       tokens=v['received_tokens'];assert v['canonical'] and not v['receiver_truth_used'] and not v['transmitter_probability_table_used']"
+        },
+        {
+          "line": 50,
+          "text": "       image=render(n,tokens.copy(),p['m'],p['K']);v=dict(status='ACCEPTED_SOURCE',reason=None,canonical=True)"
+        },
+        {
+          "line": 54,
+          "text": "     assert image.shape==(3,256,256) and image.dtype==np.float32 and np.isfinite(image).all() and 0<=image.min()<=image.max()<=1"
+        }
+      ]
+    },
+    {
+      "path": "experiments/kodak-current-20261026/nest_v1/kn_native.py",
+      "sha256": "d669d835a8a5acc9bdf20bb1c528d53eb822dcafd77932e4be95b4eddedd6c3b",
+      "matching_lines": [
+        {
+          "line": 1,
+          "text": "\"\"\"Original main-paper model loader, tokenizer, encoder and RX functions.\"\"\""
+        },
+        {
+          "line": 4,
+          "text": "def load(routes,ledger,boundary,out,pci):"
+        },
+        {
+          "line": 6,
+          "text": " definitions(R/'experiments/t1b-m10-calibration-20261016/tb_native.py',{'build'},ns)"
+        },
+        {
+          "line": 12,
+          "text": " from t6_source_codec import SourceCodec10"
+        },
+        {
+          "line": 13,
+          "text": " ns=dict(R=R,OFFSETS=OFFSETS,ENDS=ENDS,asha=asha,np=np,PartialSourceCodec=PartialSourceCodec,WHOLE_FAMILY=WHOLE_FAMILY,source_tokens=source_tokens,SourceCodec10=SourceCodec10)"
+        },
+        {
+          "line": 16,
+          "text": "def receiver_codec(native):"
+        },
+        {
+          "line": 18,
+          "text": " from t6_source_codec import SourceCodec10"
+        },
+        {
+          "line": 19,
+          "text": " ns=dict(PartialSourceCodec=PartialSourceCodec,SourceCodec10=SourceCodec10)"
+        },
+        {
+          "line": 20,
+          "text": " definitions(R/'experiments/t1c-m10-test-20261016/tc_receiver.py',{'ReceiverCodec'},ns)"
+        },
+        {
+          "line": 21,
+          "text": " return ns['ReceiverCodec'](R,native=native)"
+        }
+      ]
+    },
+    {
+      "path": "experiments/t1b-m10-calibration-20261016/tb_native.py",
+      "sha256": "6de8addc4cda68248474b83e93d1eecc2e198e65d861eae10fb17042ecc6b37a",
+      "matching_lines": [
+        {
+          "line": 12,
+          "text": " torch.backends.cuda.matmul.allow_tf32=False;torch.backends.cudnn.allow_tf32=False"
+        },
+        {
+          "line": 13,
+          "text": " torch.backends.cudnn.benchmark=False;torch.backends.cudnn.deterministic=True"
+        },
+        {
+          "line": 14,
+          "text": " torch.use_deterministic_algorithms(True);torch.set_float32_matmul_precision('highest');torch.cuda.set_device(0)"
+        },
+        {
+          "line": 27,
+          "text": "  else:paths['decoder_checkpoint']=p['path']"
+        },
+        {
+          "line": 34,
+          "text": " checkpoint=torch.load(paths['decoder_checkpoint'],map_location='cpu',weights_only=True)"
+        },
+        {
+          "line": 35,
+          "text": " decoder=dn['ContinuousDecoder'](vae).to('cuda:0');decoder.load_state_dict(checkpoint['decoder'],strict=True);del checkpoint"
+        },
+        {
+          "line": 36,
+          "text": " models=dict(vae=vae,var=var,decoder=decoder)"
+        },
+        {
+          "line": 38,
+          "text": " states={k:ns['state_sha256'](v) for k,v in models.items()};assert states==MODELS,('BLOCKED_MODEL_STATE',states)"
+        },
+        {
+          "line": 40,
+          "text": " OriginalPrior=pn['_Prior'];counts=dict(prior=0,decoder=0)"
+        },
+        {
+          "line": 47,
+          "text": "   counts['decoder']+=1;return ledger.call('decoder_forward',str(counts['decoder']),lambda:decoder(latent))"
+        },
+        {
+          "line": 48,
+          "text": " flags=dict(deterministic=True,matmul_tf32=False,cudnn_tf32=False,precision='highest')"
+        },
+        {
+          "line": 49,
+          "text": " n=types.SimpleNamespace(torch=torch,receiver=types.SimpleNamespace(_Prior=CountedPrior),loaded=dict(vae=vae,var=var,decoder=CountedDecoder(),device=torch.device('cuda:0'),identity=dict(models=states)),flags=flags)"
+        }
+      ]
+    },
+    {
+      "path": "experiments/var-latent-enhancement-20260917/src/latent_enhancement/training.py",
+      "sha256": "fc3e59b48f7c5dda01d29f7a7f6ab7fddd0b339b4168a93a86badcec9b9012fb",
+      "matching_lines": [
+        {
+          "line": 17,
+          "text": "        parts = {name: [] for name in (\"F\", \"Fq\", \"Fb_TX\")}"
+        },
+        {
+          "line": 81,
+          "text": "    branches = torch.tensor([0] * (batch_size // 2) + [1] * (batch_size // 4) + [2] * (batch_size // 4))"
+        },
+        {
+          "line": 82,
+          "text": "    branches = branches[torch.randperm(batch_size, generator=generator)]"
+        },
+        {
+          "line": 83,
+          "text": "    return branches, torch.rand(batch_size, generator=generator)"
+        },
+        {
+          "line": 86,
+          "text": "def mixed_input(batch, branches, alpha):"
+        },
+        {
+          "line": 88,
+          "text": "    interpolation = batch[\"Fb_TX\"] + alpha.reshape(shape) * (batch[\"F\"] - batch[\"Fb_TX\"])"
+        },
+        {
+          "line": 89,
+          "text": "    return torch.where((branches == 0).reshape(shape), batch[\"F\"],"
+        },
+        {
+          "line": 90,
+          "text": "                       torch.where((branches == 1).reshape(shape), batch[\"Fq\"], interpolation))"
+        },
+        {
+          "line": 95,
+          "text": "    for branch, values in metrics.items():"
+        },
+        {
+          "line": 97,
+          "text": "        summary[branch] = {\"mse\": float(mse.mean()), \"psnr_db\": float((-10 * np.log10(np.maximum(mse, 1e-12))).mean()),"
+        },
+        {
+          "line": 99,
+          "text": "    summary[\"mixture_utility\"] = (0.5 * summary[\"F\"][\"utility\"] + 0.25 * summary[\"Fq\"][\"utility\"]"
+        },
+        {
+          "line": 100,
+          "text": "                                   + 0.25 * summary[\"interpolation\"][\"utility\"])"
+        },
+        {
+          "line": 106,
+          "text": "    for branch in (\"F\", \"Fq\", \"interpolation\", \"Fb_TX\"):"
+        },
+        {
+          "line": 107,
+          "text": "        current[branch + \"_psnr\"] = summary[branch][\"psnr_db\"]"
+        },
+        {
+          "line": 108,
+          "text": "        current[branch + \"_lpips\"] = summary[branch][\"lpips\"]"
+        },
+        {
+          "line": 113,
+          "text": "    for branch in (\"F\", \"Fq\", \"interpolation\", \"Fb_TX\"):"
+        },
+        {
+          "line": 114,
+          "text": "        psnr_key, lpips_key = branch + \"_psnr\", branch + \"_lpips\""
+        }
+      ]
+    },
+    {
+      "path": "experiments/var-latent-enhancement-20260917/src/latent_enhancement/cache.py",
+      "sha256": "9711f43050687a39f04bd3a73aef6d05de03d588ab114c7381ed9e8ddb7d3fbd",
+      "matching_lines": [
+        {
+          "line": 17,
+          "text": "from .latent import complete_latent, quantized_latent"
+        },
+        {
+          "line": 120,
+          "text": "                            base_prefix = (canonical if population == \"train\" else joined[within, :len(canonical)])"
+        },
+        {
+          "line": 121,
+          "text": "                            base = complete_latent(vae, var, split_prefix(base_prefix, 8),"
+        },
+        {
+          "line": 126,
+          "text": "                          \"Fb_TX\": torch.cat(base_values), \"full_tokens\": torch.cat(token_values),"
+        },
+        {
+          "line": 134,
+          "text": "                if not all(torch.isfinite(record[name]).all() for name in (\"F\", \"Fq\", \"Fb_TX\")):"
+        }
+      ]
+    },
+    {
+      "path": "experiments/var-latent-enhancement-20260917/src/latent_enhancement/latent.py",
+      "sha256": "d556732b86cb83499c8912a2412a8858f599e1ddd58f28418a0f1889d2b705a1",
+      "matching_lines": [
+        {
+          "line": 20,
+          "text": "    def forward(self, latent):"
+        },
+        {
+          "line": 21,
+          "text": "        return self.decoder(self.post_quant_conv(latent)).clamp(-1, 1).add(1).mul(0.5)"
+        },
+        {
+          "line": 25,
+          "text": "def original_rgb(vae, latent):"
+        },
+        {
+          "line": 26,
+          "text": "    return vae.fhat_to_img(latent).clamp(-1, 1).add(1).mul(0.5)"
+        },
+        {
+          "line": 30,
+          "text": "def quantized_latent(vae, scales):"
+        },
+        {
+          "line": 31,
+          "text": "    sizes = tuple(vae.quantize.v_patch_nums)"
+        },
+        {
+          "line": 40,
+          "text": "def complete_latent(vae, var, prefix, label, device):"
+        },
+        {
+          "line": 43,
+          "text": "    sizes = tuple(vae.quantize.v_patch_nums)"
+        },
+        {
+          "line": 48,
+          "text": "    latent = condition.new_zeros(1, var.Cvae, sizes[-1], sizes[-1])"
+        },
+        {
+          "line": 59,
+          "text": "            if scale_index < len(prefix):"
+        },
+        {
+          "line": 60,
+          "text": "                chosen = torch.tensor(np.asarray(prefix[scale_index]), device=device, dtype=torch.long)[None]"
+        },
+        {
+          "line": 62,
+          "text": "                chosen = var.get_logits(hidden, condition).float().argmax(dim=-1)"
+        },
+        {
+          "line": 64,
+          "text": "            latent, next_input = vae.quantize.get_next_autoregressive_input(scale_index, len(sizes), latent, embedded)"
+        },
+        {
+          "line": 67,
+          "text": "        return latent"
+        }
+      ]
+    },
+    {
+      "path": "experiments/five-method-timing-20261020/worker.py",
+      "sha256": "eb73327f6c1463f4b5c318d52b8cfcd122505f88960f1d71b7b59d89bfdcbefa",
+      "matching_lines": [
+        {
+          "line": 92,
+          "text": "def nest_tx(pixels, r, snr, ctx, meter):"
+        },
+        {
+          "line": 101,
+          "text": "    attempts = []"
+        },
+        {
+          "line": 104,
+          "text": "        # traversal, separately finished endpoint streams, then actual-length"
+        },
+        {
+          "line": 113,
+          "text": "            fits = len(v['bits']) <= policy['source_capacity_bits']"
+        },
+        {
+          "line": 114,
+          "text": "            attempts.append(dict(m=m, K=K, bits=len(v['bits']), fits=fits))"
+        },
+        {
+          "line": 115,
+          "text": "            if fits:"
+        },
+        {
+          "line": 118,
+          "text": "        raise RuntimeError('No terminated source stream fits; frozen protocol has no invented null')"
+        },
+        {
+          "line": 119,
+          "text": "    result = meter.call('source_and_actual_fallback', source)"
+        },
+        {
+          "line": 120,
+          "text": "    return result, dict(attempts=attempts,"
+        }
+      ]
+    }
+  ]
+}

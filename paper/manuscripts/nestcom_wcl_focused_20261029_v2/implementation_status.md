@@ -1,0 +1,3 @@
+# Implementation status
+
+The historical N512 paid-NULL and N1024 error-on-no-fit behavior remains unchanged in the published experimental versions. This revision separately implements `NESTCOM_N1024_PAID_NULL_20261029_V2` and tests it through the actual CPU LDPC/header/QAM pipeline. Twelve no-fit MCS cases send full 1024-symbol frames and recover the fixed gray result; three existing normal payloads produce identical old/new waveform, profile and RX outputs. The accompanying targeted check has 18 full frames / 36 packet decodes and actual exit 0. No neural replay or quality evaluation was added. See the complete version/registration/receipt under `results/nestcom_focused_review_20261029_v2/nofit/`.
