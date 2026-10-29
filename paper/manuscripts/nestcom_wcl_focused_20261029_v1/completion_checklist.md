@@ -10,5 +10,5 @@
 | done | 5页10pt双栏、13页双倍行距单栏、13页可编辑Word、8页补充，全部实际逐页检查 |
 | done | 无可行端点7项CPU核验，保留实际两协议差异 |
 | done | 来源、claim/data/编译/页面/Word验收记录齐全 |
-| blocked | 仓库必要检查与正常commit/push等待最后发布步骤，实际状态见validation/publication.json |
+| done | 仓库必要检查、264项CPU测试通过；已正常commit/push并核远端SHA，见validation/publication.json |
 | not-run-optional | Swin续训、额外计时/SNR扫描、E1/E2重跑、暂停支线恢复，均不属于本轮 |

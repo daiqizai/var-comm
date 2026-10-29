@@ -12,4 +12,4 @@ Fig2增高至7.16×2.40英寸，NeST线宽突出，图例按指定两行顺序�
 
 主要科学取舍保留：Swin/BPG在N1024较高PSNR，Ada在N1024/10dB感知指标更好，N512的CLIP-I三点及19dB DreamSim仍有利Ada，Eighth部分指标区间跨零，completion在4dB的PSNR区间跨零。统计人口、原噪声和独立预算校准定义未改变。
 
-Git仅远端原仓库main，基准`2c303b615f73edd0a7a971308c0df8bd5bb885d0`；精确发布结果以`validation/publication.json`为准。当前报告不冒称未执行的仓库检查/推送已通过。
+仅在远端原仓库 main 正常提交并推送稿件包：`698fd32267c556547310ee6d08046d12bcde4bd6`，已核验远端 SHA 完全一致。仓库检查通过，264 项 CPU 测试通过。原有未跟踪资产保留，未强推、未合并、未恢复暂停研究；本机未 commit。回执见 `validation/publication.json`。随后仅提交这份发布回执与完成状态。
