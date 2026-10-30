@@ -1,0 +1,554 @@
+{
+  "schema_version": "nestcom_optimization_plan_v1",
+  "document_status": "PLAN_ONLY",
+  "created_date": "2026-10-30",
+  "repository": "daiqizai/var-comm",
+  "evidence_commit": "9d55aacfcd740034ce85014ae65f20a33893b59c",
+  "companion_plan": "NeST_Com_All_Optimization_Plan_20261030_v1.txt",
+  "instructions": {
+    "execute_on": "User server with verified formal repository, PFS assets and GPU",
+    "no_automatic_commit_or_push": true,
+    "no_restart_stopped_historical_jobs": true,
+    "record_head_drift_without_reset": true,
+    "preserve_historical_results": true,
+    "materialize_resolved_protocol_before_scientific_runs": true,
+    "pending_values_are_not_permission_to_invent_assets": true,
+    "stage_failure_does_not_cancel_independent_routes": true
+  },
+  "unresolved_at_plan_delivery": {
+    "current_server_head": null,
+    "actual_gpu_uuids": null,
+    "formal_working_directory": null,
+    "original_model_and_metric_hashes": null,
+    "registered_train_source_manifest": null,
+    "cal1000_manifest": null,
+    "original_channel_event_recipe": null,
+    "exact_frozen_policy_and_target_per_cell": null,
+    "profile_catalog_with_reserved_ids": null,
+    "source_split_manifests": null,
+    "fit_baseline_metric_denominators": null
+  },
+  "scope": {
+    "resolution": [
+      256,
+      256
+    ],
+    "core_cells": [
+      {
+        "N": 1024,
+        "snr_db": 7
+      },
+      {
+        "N": 1024,
+        "snr_db": 10
+      }
+    ],
+    "guard_cells": [
+      {
+        "N": 1024,
+        "snr_db": 4
+      },
+      {
+        "N": 1024,
+        "snr_db": 19
+      },
+      {
+        "N": 512,
+        "snr_db": 4
+      },
+      {
+        "N": 512,
+        "snr_db": 10
+      },
+      {
+        "N": 512,
+        "snr_db": 19
+      }
+    ],
+    "no_new_zero_db": true,
+    "no_new_512_7db": true,
+    "no_fading_or_arq": true,
+    "no_new_mcs_search": true,
+    "primary_metrics": [
+      "LPIPS_Alex",
+      "DreamSim"
+    ],
+    "secondary_metrics": [
+      "PSNR",
+      "CLIP_I"
+    ]
+  },
+  "communication": {
+    "backbone": "VAR-d16",
+    "codebook_size": 4096,
+    "entropy_cdf_total_frequency": 16777216,
+    "profile_bits": 12,
+    "profile_capacity": 4096,
+    "profile_channel_symbols": 68,
+    "body_length_bits": 13,
+    "body_crc_bits": 16,
+    "body_fixed_overhead_bits": 29,
+    "nominal_symbol_energy": 2,
+    "noise_model": "existing AWGN and registered LLR/noise convention",
+    "power_and_scrambling": "preserve and verify original implementation",
+    "position_order": "raster",
+    "failures": "original gray output, retained in every overall denominator",
+    "actual_terminated_length_required": true,
+    "longest_feasible_is_not_rd_optimal": true,
+    "same_mcs_and_target_ceiling_per_cell": true,
+    "rx_source_ground_truth_access": false,
+    "tx_source_ground_truth_access": true,
+    "tx_access_to_future_noise_or_actual_failure": false,
+    "changed_payload_requires_real_phy_unless_full_identity_matches": true
+  },
+  "data": {
+    "canonical_join_keys": [
+      "canonical_source_id",
+      "native_source_array_hash"
+    ],
+    "train": {
+      "source_pool": "registered original approximately 20000 training sources",
+      "count": 10000,
+      "hash_prefix": "nestcom_opt_train_20261030_v1|",
+      "same_sources_for_both_scales": true,
+      "insufficient_sources_action": "BLOCK_C_without_silent_resize"
+    },
+    "fit_confirm": {
+      "source_pool": "cal1000",
+      "exclusions": [
+        "old_decoder_pilot100",
+        "progressive_rd_scaleup_validation200",
+        "new_7db_calibration100",
+        "old_32_source_development_sets",
+        "fixed_display_sources",
+        "all_registered_training_source_overlaps"
+      ],
+      "hash_prefix": "nestcom_opt_split_20261030_v1|",
+      "fit_count": 100,
+      "confirm_count": 100,
+      "allocation": "sort SHA256(prefix + canonical_source_id); first100 FIT, next100 CONFIRM",
+      "insufficient_sources_action": "BLOCK_shared_split_without_silent_resize",
+      "independent_new_test_claim": false
+    },
+    "new_test": {
+      "source_pool": "available ImageNet validation",
+      "count": 200,
+      "exclusions": [
+        "all_project_training_sources",
+        "cal1000",
+        "common500",
+        "all_development_sets",
+        "all_fixed_display_sources"
+      ],
+      "hash_prefix": "nestcom_opt_new200_20261030_v1|",
+      "select_before_reading_new_method_results": true,
+      "run_only_after_final_freeze_and_confirm_pass": true,
+      "run_once": true,
+      "model_pretraining_exclusion_claim": false,
+      "unavailable_action": "complete_common500_and_report_missing_new_test"
+    },
+    "channel_events": {
+      "fit": 1,
+      "confirm": 3,
+      "common500": 3,
+      "new200": 3
+    },
+    "channel_recipe": "resolve registered original scheme in P0; persist exact counters, RNG and noise identities before evaluation",
+    "display": {
+      "source_pool": "NEW200",
+      "count": 8,
+      "hash_prefix": "nestcom_opt_figures_20261030_v1|",
+      "choose_before_outputs": true,
+      "channel_event_index": 0,
+      "generation_repeat_index": 0,
+      "paper_examples": "first2_to4_in_frozen_order",
+      "uniform_roi_and_rendering": true
+    }
+  },
+  "routes": {
+    "A": {
+      "train_new_model": false,
+      "primary_seed": 2026102201,
+      "verification_seed": 2026102202,
+      "anchor_endpoints": [
+        [
+          7,
+          0
+        ],
+        [
+          7,
+          25
+        ]
+      ],
+      "all_other_endpoints": "original_Dc",
+      "apply_same_rule_to_whole_and_partial": true,
+      "conditional_profile": false,
+      "preserve_constant_profile_affine": true,
+      "primary_checkpoint": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/progressive_rd_scaleup_20261022_v1/training_v1/multiprefix_full_anchor_s2026102201/step_010000.pt",
+        "sha256": "ba041d9c5495932f37b78a3f121fa83b7ea4e986790ebac5cfa69f0b24765c77",
+        "size_bytes": 777718661
+      },
+      "verification_checkpoint": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/progressive_rd_scaleup_20261022_v1/training_v1/multiprefix_full_anchor_s2026102202/step_010000.pt",
+        "sha256": "ebf463309d85deb9f3b7f77fb235fbd2ef6cfa09ba6a56f600497a723cbef719",
+        "size_bytes": 777718725
+      },
+      "fit_cells": "all7",
+      "verify_second_seed_cells": "core2_minimum",
+      "decoder_input": "actual latent from currently enabled receiver path; original argmax latent only for A alone"
+    },
+    "B": {
+      "candidates": [
+        "argmax",
+        0.3,
+        0.7
+      ],
+      "top_k": 0,
+      "top_p": 1,
+      "conditioning": "null_class",
+      "cfg_enabled": false,
+      "generation_seeds": [
+        2026103001,
+        2026103002,
+        2026103003
+      ],
+      "generation_seed_recipe": "shared public frame counter if existing; otherwise fixed per-image reset; freeze in P0",
+      "average_metric_values_not_pixels": true,
+      "best_of_selection": false,
+      "sample_only_missing_tokens": true,
+      "preserve_received_tokens": true,
+      "independent_kv_per_generation": true,
+      "fit_cells": "all7",
+      "tune_temperature_after_confirm": false
+    },
+    "C": {
+      "train_new_model": true,
+      "shared_scales": [
+        {
+          "m_complete": 7,
+          "boundary_hw": 10,
+          "length": 100
+        },
+        {
+          "m_complete": 8,
+          "boundary_hw": 13,
+          "length": 169
+        }
+      ],
+      "invoke_when": "supported_scale AND 0<K<L AND successful_valid_parse",
+      "bypass": [
+        "K=0",
+        "full_endpoint",
+        "unsupported_scale",
+        "NULL",
+        "failure"
+      ],
+      "controls": [
+        "content",
+        "no_content_same_capacity"
+      ],
+      "train_seeds": [
+        2026103001,
+        2026103002
+      ],
+      "second_seed_gate": "primary passes downstream FIT rule and shows increment over no_content",
+      "input_features": [
+        {
+          "name": "coarse_spatial_latent_before_boundary_overwrite",
+          "input_channels": 32,
+          "projected_channels": 64
+        },
+        {
+          "name": "log_softmax_of_frozen_base_logits",
+          "input_channels": 4096,
+          "projected_channels": 64
+        },
+        {
+          "name": "received_codebook_embedding_plus_mask",
+          "input_channels": 33,
+          "projected_channels": 64
+        },
+        {
+          "name": "fixed_2d_sincos_plus_scale_embedding_plus_linear_K_over_L",
+          "projected_channels": 64
+        }
+      ],
+      "no_content_control": "zero received embedding branch, retain mask and all other inputs; still overwrite known tokens after prediction",
+      "architecture": {
+        "hidden": 256,
+        "layers": 2,
+        "heads": 8,
+        "ffn": 1024,
+        "pre_ln": true,
+        "activation": "GELU",
+        "dropout": 0,
+        "output_ln": true,
+        "output_classes": 4096,
+        "zero_output_weight_and_bias": true,
+        "estimated_parameters": 2899456
+      },
+      "missing_logit_rule": "base_logits + residual_logits",
+      "train_mask": {
+        "quarter_probability": 0.5,
+        "uniform_integer_probability": 0.5,
+        "quarter_K_m7": [
+          25,
+          50,
+          75
+        ],
+        "quarter_K_m8": [
+          42,
+          84,
+          126
+        ],
+        "uniform_K": "1..L-1",
+        "balanced_scales": true
+      },
+      "loss": {
+        "cross_entropy_missing_weight": 1,
+        "kl_base_to_new_missing_weight": 0.02,
+        "reduction": "mean missing positions per source, then mean sources"
+      },
+      "optimizer": {
+        "name": "AdamW",
+        "lr": 0.0003,
+        "betas": [
+          0.9,
+          0.95
+        ],
+        "weight_decay": 0.01,
+        "warmup_updates": 100,
+        "schedule": "cosine",
+        "final_lr": 0.00003,
+        "effective_batch": 32,
+        "microbatch": 8,
+        "accumulation": 4,
+        "gradient_clip_norm": 1,
+        "max_updates_per_run": 3000,
+        "precision": "FP32",
+        "tf32": false
+      },
+      "training_checkpoint_interval": 500,
+      "fit_image_evaluation_updates": [
+        1000,
+        2000,
+        3000
+      ],
+      "fit_checkpoint_selection_cells": "core2",
+      "guard_evaluation": "selected primary candidate before CONFIRM",
+      "smoke_train_sources": 32,
+      "raw_fp32_logits_cache_bytes": 44072960000,
+      "invariants": [
+        "zero_residual_reproduces_baseline",
+        "received_tokens_unchanged",
+        "unreceived_targets_never_enter_forward",
+        "bypass_output_identical",
+        "no_content_input_has_no_received_content",
+        "single_boundary_VAR_forward",
+        "clean_KV_per_candidate",
+        "frozen_models_unchanged"
+      ],
+      "c_plus_b": "sample corrected unknown logits, then known overwrite; zero C reproduces same-seed B"
+    },
+    "D": {
+      "candidates": [
+        "Quarter",
+        "Eighth",
+        "Tokenwise"
+      ],
+      "initial_fit_cells": "core2",
+      "guards": "selected candidate before CONFIRM",
+      "fixed_mcs_and_target": true,
+      "preserve_target_even_if_off_new_grid": true,
+      "max_canonical_tokenwise_endpoints": 651,
+      "old_profile_ids_preserved": true,
+      "frozen_catalog_for_both_ends": true,
+      "no_per_source_catalog_version": true,
+      "tokenwise_catalog_overflow_action": "BLOCK_D2_keep_D1",
+      "no_header_expansion_this_round": true,
+      "entropy_probabilities_and_incremental_traversal_reusable": true,
+      "independent_non_destructive_finish": true,
+      "actual_length_monotonicity_assumption": false
+    },
+    "E": {
+      "train_new_model": false,
+      "initial_grid": "Quarter",
+      "initial_receiver": "original_Dc_argmax",
+      "max_candidates": 3,
+      "candidate_rule": "longest feasible plus immediately two shorter feasible under same ceiling and grid",
+      "objective": {
+        "MSE_RGB": 1,
+        "LPIPS_Alex": 0.1,
+        "DreamSim": 0,
+        "CLIP_I": 0
+      },
+      "objective_rgb_range": "RGB [0,1]; mean over all channels and pixels; LPIPS keeps the existing frozen input transform",
+      "tie_tolerance": 1e-12,
+      "tie_order": [
+        "e0",
+        "e1",
+        "e2"
+      ],
+      "simulate_successful_deterministic_receiver_only": true,
+      "actual_channel_future_access": false,
+      "first_round_combine_with_random_B": false,
+      "initial_fit_cells": "core2",
+      "guards": "selected candidate before CONFIRM",
+      "additional_gate": {
+        "apply_in": ["FIT100", "CONFIRM100"],
+        "lpips_relative_improvement_min": 0.01,
+        "dreamsim_mean_must_not_worsen": true
+      },
+      "deployment_timing_includes_candidate_reconstruction_and_lpips": true
+    }
+  },
+  "decision": {
+    "fit_score": "mean_core_cells[0.5*(LPIPS/L0_fit + DreamSim/D0_fit)]",
+    "fit_baseline_score": 1,
+    "max_fit_score_to_promote": 0.995,
+    "each_primary_normalized_core_mean_must_not_worsen": true,
+    "max_measured_cell_relative_primary_degradation": 0.01,
+    "max_measured_cell_psnr_drop_db": 0.1,
+    "practical_tie_score_difference": 0.001,
+    "practical_tie_order": [
+      "lower_deployment_compute",
+      "fewer_models",
+      "lower_temperature_or_coarser_grid"
+    ],
+    "c_requires_increment_over_no_content": true,
+    "confirm_estimand": "per source: mean_core_cells[(candidate_metric-old_metric)/frozen_FIT_old_metric_mean]; mean generation, then channel, before source bootstrap",
+    "confirm_ci95_rule": "one primary CI upper<0; other primary CI upper<=0.01; cell guards still apply",
+    "c_confirm_same_rule_against_no_content": true,
+    "c_seed2_required_direction_replication": true,
+    "post_confirm_hyperparameter_tuning": false
+  },
+  "statistics": {
+    "bootstrap_resamples": 10000,
+    "bootstrap_seed": 2026103017,
+    "bootstrap_unit": "source; preserve all paired methods and core cells together",
+    "common500": "reuse registered existing bootstrap bank and source order",
+    "confirm_and_new200": "one frozen bank per dataset, reused by all variants",
+    "ordinary_ci": 0.95,
+    "new200_co_primary_tests": [
+      "normalized_core_LPIPS_difference",
+      "normalized_core_DreamSim_difference"
+    ],
+    "new200_each_coprimary_ci": 0.975,
+    "per_snr_intervals_are_exploratory": true,
+    "never_subtract_marginal_confidence_limits": true
+  },
+  "combinations": {
+    "deterministic_receiver_candidates": [
+      "original",
+      "A_if_passed",
+      "C_if_passed",
+      "A+C_if_both_passed"
+    ],
+    "D_star": "passed D grid else original Quarter",
+    "ordered_extensions": [
+      "R_det+D_star",
+      "R_det+D_star+E_if_passed",
+      "R_det+B_if_passed",
+      "R_det+B+D_star_if_compatible"
+    ],
+    "max_configurations": 8,
+    "selected_on": "FIT100",
+    "accepted_or_rejected_on": "CONFIRM100",
+    "max_leave_one_out_arms": 7,
+    "when_E_active_removing_receiver_component": "rerun TX candidate scoring; changed payload must have real PHY, unless explicitly labeled fixed-prefix RX intervention",
+    "whole_same_receiver_rule": true,
+    "no_automatic_benefit_addition": true
+  },
+  "final_evaluation": {
+    "gated_on": "frozen final candidate passes CONFIRM",
+    "common500": {
+      "cells": "all7",
+      "methods": [
+        "original_NeST",
+        "final_NeST",
+        "WHOLE_final_receiver",
+        "Ada_frozen"
+      ],
+      "channel_events": 3
+    },
+    "new200": {
+      "cells": "core2",
+      "methods": [
+        "original_NeST",
+        "final_NeST",
+        "WHOLE_final_receiver",
+        "Ada_frozen"
+      ],
+      "channel_events": 3,
+      "max_logical_records": 4800
+    },
+    "missing_7db_whole_common500": "generate explicitly and count as new; do not label cached",
+    "no_automatic_retraining_external_baselines": true,
+    "max_newtest_model_reselection": 0
+  },
+  "budgets": {
+    "units": "GPU device-hours; sum actual worker device occupancy including load, cache, training, reconstruction, metrics",
+    "development": {
+      "P0": 1,
+      "A": 2,
+      "B": 6,
+      "D": 4,
+      "E": 3,
+      "C": 24,
+      "combinations_and_confirm": 8
+    },
+    "development_total": 48,
+    "final_if_gate_passed": 24,
+    "total": 72,
+    "max_concurrent_gpu_workers": 2,
+    "gpus_per_C_run": 1,
+    "max_new_large_cache_gib": 80,
+    "no_automatic_stage_budget_borrowing": true,
+    "limit_action": "save checkpoint and BUDGET_STOP; do not report scientific failure or reset counter",
+    "these_are_caps_not_runtime_estimates": true,
+    "benchmarks": {
+      "sources": 16,
+      "warmup_repeats": 2,
+      "measured_repeats": 3,
+      "batch": 1,
+      "same_hardware_and_precision": true,
+      "report": [
+        "mean",
+        "median",
+        "p95",
+        "peak_memory",
+        "model_storage",
+        "termination_attempts"
+      ]
+    }
+  },
+  "outputs": {
+    "new_code_directory": "experiments/nestcom-opt-20261030/",
+    "new_result_directory": "results/nestcom_opt_20261030_v1/",
+    "proposed_pfs_directory": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/",
+    "stage_states": [
+      "PREPARED",
+      "RUNNING",
+      "COMPLETE",
+      "NO_GO",
+      "BUDGET_STOP",
+      "BLOCKED"
+    ],
+    "required_delivery": [
+      "README_zh.txt",
+      "REPORT_zh.txt",
+      "route_summary.csv",
+      "per_source_metrics.csv",
+      "paired_deltas.csv",
+      "endpoint_and_failure_summary.csv",
+      "timing_and_compute.csv",
+      "stage_completion.json",
+      "figure_provenance.json",
+      "figures/"
+    ],
+    "preserve_negative_results": true,
+    "no_claim_scientific_completion_from_code_only": true
+  }
+}
+

@@ -1,0 +1,65 @@
+{
+  "records": [
+    {
+      "role": "C_guard_metric_queue",
+      "failure": {
+        "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-opt-20261030/metric_queue_once.py\", line 35, in main\n    launch_metric(item['role'],item['mode'],item['route'],tuple(item['cache_roles']))\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-opt-20261030/launch_metric_stage.py\", line 15, in main\n    launch(role+'_'+mode,r,E/'metrics.py',RT/'envs/frozen_visual_py310/bin/python'if mode=='three'else Path('/usr/bin/python'),5400,route,required_gpu_uuid=gpu)\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-opt-20261030/launch_registered.py\", line 38, in launch\n    assert eligible,'No eligible GPU at current resource admission; zero registration/launch'\n           ^^^^^^^^\nAssertionError: No eligible GPU at current resource admission; zero registration/launch\n",
+        "completed": [],
+        "automatic_retry": false
+      },
+      "identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/C_guard_metric_queue/failure.json",
+        "bytes": 980,
+        "sha256": "97ff337170b5b3f63baa44320125901b5a20fd84198c9507b000e47919101dc3"
+      }
+    },
+    {
+      "role": "benchmark_tx",
+      "failure": {
+        "status": "BLOCKED",
+        "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-opt-20261030/benchmark_transmitter.py\", line 31, in main\n    assert asha(pixels)==case['source_pixels_sha256'];x=pixels.astype(np.float32)/np.float32(255);key=case['case_id'];es=tuple(sorted({e for e in endpoints(variant['grid'])if nt(e)<=nt(case['target'])}|{tuple(case['target'])},key=nt,reverse=True))\nAssertionError\n",
+        "ledger": {
+          "caps": {
+            "model_load": 1,
+            "load_lpips": 1,
+            "prior_scale": 25600,
+            "decoder_forward": 1920,
+            "timing_trial": 640
+          },
+          "counts": [
+            {
+              "kind": "model_load",
+              "status": "COMPLETE",
+              "count": 1
+            }
+          ],
+          "unresolved": 0
+        },
+        "automatic_retry": false
+      },
+      "identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/benchmark_tx/failure.json",
+        "bytes": 826,
+        "sha256": "399be30ef9eb9eb3fc2bed4672337fce0cfad1427abcebb2c58e0cb2bd2b12c7"
+      }
+    },
+    {
+      "role": "final_successors",
+      "failure": {
+        "status": "BLOCKED",
+        "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-opt-20261030/final_successors.py\", line 26, in main\n    launch_metric('final_new','three','final',('fit_A','confirm_D'))\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-opt-20261030/launch_metric_stage_v2.py\", line 15, in main\n    launch(role+'_'+mode,r,E/'metrics.py',RT/'envs/frozen_visual_py310/bin/python'if mode=='three'else Path('/usr/bin/python'),5400,route,required_gpu_uuid=gpu)\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-opt-20261030/launch_registered.py\", line 38, in launch\n    assert eligible,'No eligible GPU at current resource admission; zero registration/launch'\n           ^^^^^^^^\nAssertionError: No eligible GPU at current resource admission; zero registration/launch\n",
+        "completed": [
+          "final_rx"
+        ],
+        "automatic_retry": false
+      },
+      "identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/final_successors/failure.json",
+        "bytes": 1006,
+        "sha256": "ba5cffc882593724dd208f0abb2e46358f499fd046106ff42b880722cf2624ca"
+      }
+    }
+  ],
+  "read_only_historical_schema_failures": "v1-v4 registrations/code and original transport evidence retained; no outputs overwritten",
+  "engineering_failure_not_quality_rejection": true
+}

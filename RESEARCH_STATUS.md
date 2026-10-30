@@ -1,3 +1,22 @@
+## 2026-10-30 — Five-route optimization and token-wise fitting
+
+The [A–E report](results/nestcom_opt_20261030_v1/delivery/REPORT_zh.txt)
+and [result analysis](results/nestcom_opt_20261030_v1/delivery/ANALYSIS_zh.txt)
+record all candidates, negative outcomes, matched controls, costs and failures.
+Only D (token-wise fitting under the same endpoint ceiling and MCS) passed
+FIT/CONFIRM. Frozen common500 regression improves PSNR by 0.112–0.206 dB
+across seven workpoints; at N1024/7 dB gray receptions increase from 6 to 13
+of 1500, and pointwise perceptual intervals cross zero. A/B/C/E were not adopted;
+C's second seed was not triggered after its guard failure.
+
+The [code and execution index](experiments/nestcom-opt-20261030/README.md)
+and result namespace contain reproducible identities, source-paired results,
+eight reviewed PDF/SVG/PNG figures and a 6.285 GPU-device-hour resource ledger.
+NEW200 remains blocked by the missing auditable unused raw pool; common500 is
+historical regression, not independent new validation. Original V6 remains intact.
+The subsequent user request authorizes normal publication of the review package
+and analysis; previous no-push receipts are preserved as historical snapshots.
+
 ## 2026-10-29 — Focused V2 review resolved with formal frame audit
 
 The [anonymous focused V2 manuscript](paper/manuscripts/nestcom_wcl_focused_20261029_v2/README.md)

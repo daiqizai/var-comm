@@ -1,0 +1,84 @@
+{
+  "status": "COMPLETED_FEASIBLE_SCOPE_WITH_EXPLICIT_BLOCKED_NEW200",
+  "stages": {
+    "P0": {
+      "status": "done",
+      "evidence": "Original/zero-corrector real replay and protocol/data identities passed."
+    },
+    "A": {
+      "status": "done",
+      "decision": "NO_GO",
+      "reason": "A1 DreamSim worsens; A2 verification retained, not a replacement candidate."
+    },
+    "B": {
+      "status": "done",
+      "decision": "NO_GO",
+      "reason": "Both fixed low temperatures fail FIT; all three generation repeats retained."
+    },
+    "C_primary": {
+      "status": "done",
+      "decision": "NO_GO",
+      "reason": "Content and same-capacity control each 3000 updates; selected 1000-step content fails N512/19 DreamSim guard."
+    },
+    "C_second_seed": {
+      "status": "not-run-conditional",
+      "reason": "Primary downstream guard failed; triggering condition not met, not resource failure."
+    },
+    "D": {
+      "status": "done",
+      "decision": "CONFIRM_PASS",
+      "reason": "Token-wise grid selected at FIT; frozen before CONFIRM; all seven guards passed."
+    },
+    "E": {
+      "status": "done",
+      "decision": "NO_GO",
+      "reason": "Only 8/200 shorter selections; all-source metrics fail, including one real rejection."
+    },
+    "combinations": {
+      "status": "done",
+      "reason": "Only D passed. R_det is unchanged; R_det+D is exact standalone D result. No redundant run."
+    },
+    "leave_one_out": {
+      "status": "done",
+      "reason": "Only retained component is D. Removing D exactly gives original baseline; reuse exact CONFIRM and common500 records."
+    },
+    "common500": {
+      "status": "done",
+      "logical_results": 42000,
+      "source_rows": 14000,
+      "role": "Previously examined regression, not new blind validation."
+    },
+    "NEW200": {
+      "status": "blocked",
+      "reason": "No auditable unused raw validation pool: registered root absent on both PRO and main.",
+      "evidence": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/nestcom_opt_20261030_v1/new200_availability.json",
+        "bytes": 683,
+        "sha256": "8a66ffb45a85c95bd134c78e0dfd273c344eb6c9af264c41730ceedf38a43922"
+      }
+    },
+    "NEW200_contact_sheet": {
+      "status": "blocked",
+      "reason": "Depends on unavailable NEW200; no quality-based replacement."
+    },
+    "known_Pastries_Dog_final_contact": {
+      "status": "blocked",
+      "reason": "Exact legacy IDs absent from common500. No join by unrelated integer source_index, no extra receiver restoration registered.",
+      "evidence": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/nestcom_opt_20261030_v1/display_source_rule.json",
+        "bytes": 1811,
+        "sha256": "1c5d80264fbae735337cfa7fb02506c2da328a5f6695f85e4dbee8742a513ca9"
+      }
+    },
+    "deployment_timing": {
+      "status": "done",
+      "reason": "Same GPU, two CPU affinity, 16 fixed sources, 2 warmups/3 measured; actual E scoring included."
+    },
+    "git_publication": {
+      "status": "not-run-user-directed",
+      "reason": "Latest work order explicitly prohibits automatic commit/push. Review package only."
+    }
+  },
+  "not_full_independent_validation": true,
+  "missing_evidence_not_filled_by_historical_test": true
+}

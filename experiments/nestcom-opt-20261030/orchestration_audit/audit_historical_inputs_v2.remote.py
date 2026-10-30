@@ -1,0 +1,8 @@
+import sys,os
+sys.path.insert(0,'/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-opt-20261030')
+from opt_common import *
+from historical_regression_inputs_v2 import main
+os.sched_setaffinity(0,{24,25})
+rp=D/'historical_regression_inputs_v2_registration.json'
+save(rp,dict(sources=pin(B/'nestcom_n512_20261028_v1/qualified_sources/common500.json'),output='historical_regression_inputs',code=pin(E/'historical_regression_inputs_v2.py'),predecessor=pin(D/'historical_regression_inputs_registration.json'),revision='Read-only audit handles registered CRC-reject gray rows that intentionally have no receiver image file; first audit stopped before any output or scientific call. No new reconstruction, metric, or channel execution.'))
+main(rp)

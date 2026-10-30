@@ -1,0 +1,110 @@
+NeST-Com 五路线优化：实际执行与交付报告
+基准 HEAD：9d55aacfcd740034ce85014ae65f20a33893b59c
+
+本轮 A–E 首轮均已完成。只有 D（相同最大端点/MCS 下逐 token 装入）通过预定 FIT 与 CONFIRM，最终配置为原接收器 + D。A/B/C/E 的失败和混合结果完整保留。原暂停研究未恢复；唯一新增训练为本工作单授权的 C 主种子匹配两臂。
+本报告覆盖可执行范围。NEW200 因缺少可审计的未使用原始源池而阻塞；common500 是历史已查看集上的回归，不替代独立留出验证。没有自动提交或推送 Git。
+
+一、身份、协议和统计
+原生 256×256 RGB；N1024 的 4/7/10/19 dB，N512 的 4/10/19 dB；68-symbol header、13-bit length + CRC16、Es=2。D 只细化候选，不扩大原最大端点、不改 MCS；独立终止实际码长判断，不裁切长码流。12-bit 目录合法性已核验，旧 profile 含义保留。
+FIT100/CONFIRM100 从排除指定历史开发集合后的 612 个合格 cal1000 来源按固定 hash 切分；C 为固定 10000 训练源、m7/m8 共 20000 条件。训练、开发、common500 的完整源 ID 与像素 hash 分别核验。
+B 先生成重复、再信道重复、再等权源平均。其他方法先平均信道重复。拒收/NULL 灰图不移除。直接 source-paired bootstrap；CONFIRM 归一化分母固定为 FIT 均值。common500 复用原 10000×500 索引并核对完整源顺序。逐点区间不是多重比较同时覆盖保证。
+原 N1024 历史 H800 原生数组与原数值路由保留，新计算在 PRO6000 FP32/TF32off。跨方法保留各自历史噪声身份，不声称所有方法共享同一噪声。CLIP 新特征只走正式 torch2.10 路由；合法已有标量不重新评分。
+
+二、全部路线筛选（FIT 核心 J；小于 1 有利，不等同统计显著）
+A1: J=1.032759763; LPIPS归一化=0.989127802; DreamSim归一化=1.076391724; 平均PSNR差=+0.176306 dB; NO_GO; 保护线=[{"cell": [1024, 7], "metric": "dreamsim", "relative_degradation": 0.15278344847572223}, {"cell": [512, 19], "metric": "dreamsim", "relative_degradation": 0.018403639855456566}]
+A2: J=1.031490481; LPIPS归一化=0.988975682; DreamSim归一化=1.074005280; 平均PSNR差=+0.170471 dB; VERIFICATION_ONLY_NOT_SELECTABLE; 保护线=[{"cell": [1024, 7], "metric": "dreamsim", "relative_degradation": 0.1480105597843513}, {"cell": [512, 19], "metric": "dreamsim", "relative_degradation": 0.016956873642637094}]
+B_T0.3: J=1.007615678; LPIPS归一化=1.006578931; DreamSim归一化=1.008652424; 平均PSNR差=-0.055099 dB; NO_GO; 保护线=[{"cell": [1024, 10], "metric": "dreamsim", "relative_degradation": 0.014514424900726297}, {"cell": [512, 19], "metric": "lpips_alex", "relative_degradation": 0.012125065797405687}, {"cell": [512, 19], "metric": "dreamsim", "relative_degradation": 0.011056121686097375}]
+B_T0.7: J=1.054914438; LPIPS归一化=1.052912259; DreamSim归一化=1.056916617; 平均PSNR差=-0.362448 dB; NO_GO; 保护线=[{"cell": [1024, 7], "metric": "lpips_alex", "relative_degradation": 0.053105802383622835}, {"cell": [1024, 7], "metric": "dreamsim", "relative_degradation": 0.04705055564175309}, {"cell": [1024, 7], "metric": "psnr_db", "delta_db": -0.35740188701584685}, {"cell": [1024, 10], "metric": "lpips_alex", "relative_degradation": 0.05271871610547141}, {"cell": [1024, 10], "metric": "dreamsim", "relative_degradation": 0.06678267874895583}, {"cell": [1024, 10], "metric": "psnr_db", "delta_db": -0.3674940017349755}, {"cell": [1024, 4], "metric": "lpips_alex", "relative_degradation": 0.040057417366747394}, {"cell": [1024, 4], "metric": "dreamsim", "relative_degradation": 0.022188660216041933}, {"cell": [1024, 4], "metric": "psnr_db", "delta_db": -0.32589758298490423}, {"cell": [1024, 19], "metric": "lpips_alex", "relative_degradation": 0.04104382875218082}, {"cell": [1024, 19], "metric": "dreamsim", "relative_degradation": 0.03662282964877228}, {"cell": [1024, 19], "metric": "psnr_db", "delta_db": -0.18527648056146617}, {"cell": [512, 4], "metric": "psnr_db", "delta_db": -0.2473629811056206}, {"cell": [512, 10], "metric": "lpips_alex", "relative_degradation": 0.04228360797810349}, {"cell": [512, 10], "metric": "dreamsim", "relative_degradation": 0.03444458247372939}, {"cell": [512, 10], "metric": "psnr_db", "delta_db": -0.3489123596549568}, {"cell": [512, 19], "metric": "lpips_alex", "relative_degradation": 0.06136607833575236}, {"cell": [512, 19], "metric": "dreamsim", "relative_degradation": 0.06360505949030237}, {"cell": [512, 19], "metric": "psnr_db", "delta_db": -0.42786065188340316}]
+C_content_1000: J=0.994034822; LPIPS归一化=0.997732761; DreamSim归一化=0.990336884; 平均PSNR差=+0.002896 dB; NO_GO_FROZEN_1000_GUARD_FAILURE; 保护线=[{"cell": [512, 19], "metric": "dreamsim", "relative_degradation": 0.010884274313973652}]
+C_content_2000: J=0.995182382; LPIPS归一化=0.996468401; DreamSim归一化=0.993896363; 平均PSNR差=-0.006821 dB; NOT_SELECTED_CHECKPOINT; 保护线=[]
+C_content_3000: J=0.995172734; LPIPS归一化=0.996856282; DreamSim归一化=0.993489186; 平均PSNR差=-0.010817 dB; NOT_SELECTED_CHECKPOINT; 保护线=[]
+C_no_content_1000: J=0.994778766; LPIPS归一化=0.998246260; DreamSim归一化=0.991311272; 平均PSNR差=-0.000861 dB; CONTROL_NOT_SELECTABLE; 保护线=[{"cell": [512, 19], "metric": "dreamsim", "relative_degradation": 0.011537410128357184}]
+C_no_content_2000: J=0.995917806; LPIPS归一化=0.997221993; DreamSim归一化=0.994613620; 平均PSNR差=-0.005441 dB; CONTROL_NOT_SELECTABLE; 保护线=[]
+C_no_content_3000: J=0.996197503; LPIPS归一化=0.997307242; DreamSim归一化=0.995087765; 平均PSNR差=-0.010101 dB; CONTROL_NOT_SELECTABLE; 保护线=[]
+D_eighth: J=0.983595458; LPIPS归一化=0.984124988; DreamSim归一化=0.983065927; 平均PSNR差=+0.065201 dB; NOT_SELECTED_FINER_GRID_WON_FIT; 保护线=[]
+D_token: J=0.968835341; LPIPS归一化=0.971823104; DreamSim归一化=0.965847579; 平均PSNR差=+0.142944 dB; CONFIRM_PASS_FINAL_FROZEN; 保护线=[]
+E: J=1.018893807; LPIPS归一化=1.016456174; DreamSim归一化=1.021331441; 平均PSNR差=-0.017469 dB; NO_GO; 保护线=[{"cell": [1024, 7], "metric": "lpips_alex", "relative_degradation": 0.03287949688664549}, {"cell": [1024, 7], "metric": "dreamsim", "relative_degradation": 0.04210188310366503}]
+
+A：原锚定 decoder 的复用提高部分 PSNR，却在核心 DreamSim 明显退化。第二训练种子仅作预定验证，未用它替换主候选追胜。
+B：T=0.3 和 0.7 均未通过；低温采样在本冻结系统中没有满足共同感知目标。三次生成结果均参与均值，没有挑最好 seed。
+C：content/no_content 各 3000 updates，独立在 1000/2000/3000 中选择；两者均选择 1000。content 核心 J=0.994034822，control=0.994778766，内容增量很小。冻结后的 N512/19 DreamSim 恶化 1.088427%，超过预定 1% 保护线（control 为 1.153741%）。因此不启动第二种子，不调整 checkpoint 回避保护线。token CE/accuracy 诊断及所有 14 个含 step0 的训练 checkpoint 身份与恢复信息保留；不以训练损失替代图像证据。
+E：200 个核心源×工作点中 8 个选了更短端点。实际重发改变的帧后出现一次拒收；灰图按合同保留。全样本 LPIPS/DreamSim 均未达到推进条件。不得据成功模拟的局部目标下降删除该失败，或事后根据已发生信道换回 e0。
+D：FIT Token 优于 Eighth；两网格均保留原上限。逐 token 配置冻结后，CONFIRM 的固定 FIT 分母 LPIPS 差为 -0.033444165 [-0.057228058, -0.011514610]，DreamSim 差为 -0.031989851 [-0.066229798, +0.001220903]。LPIPS 排除零且另一项上界小于 +0.01，七点保护线通过。DreamSim 的确认区间跨零，不能写成两项均显著改善。
+只有 D 进入组合，故原 receiver+D 与独立 D 完全相同；去掉 D 就是原系统，直接复用同身份记录，无额外组合/消融科学调用。
+
+三、最终 common500：最终 NeST − 原 NeST，全部四指标
+N=1024, SNR=4 dB: psnr_db +0.206011 [+0.175564, +0.237142]; lpips_alex -0.008310 [-0.009353, -0.007275]; dreamsim -0.009599 [-0.011961, -0.007321]; clip_image_cosine +0.006483 [+0.003345, +0.009730]
+N=1024, SNR=7 dB: psnr_db +0.131376 [+0.079166, +0.180926]; lpips_alex -0.002918 [-0.006894, +0.001346]; dreamsim -0.002100 [-0.006680, +0.002739]; clip_image_cosine +0.003177 [-0.000016, +0.006386]
+N=1024, SNR=10 dB: psnr_db +0.180018 [+0.158068, +0.202814]; lpips_alex -0.005672 [-0.006348, -0.005020]; dreamsim -0.002922 [-0.003786, -0.002043]; clip_image_cosine +0.003788 [+0.001783, +0.005808]
+N=1024, SNR=19 dB: psnr_db +0.170333 [+0.156002, +0.185578]; lpips_alex -0.003043 [-0.003323, -0.002775]; dreamsim -0.001270 [-0.001637, -0.000903]; clip_image_cosine +0.001000 [-0.000073, +0.002095]
+N=512, SNR=4 dB: psnr_db +0.112100 [+0.067984, +0.160799]; lpips_alex -0.008633 [-0.011038, -0.006210]; dreamsim -0.007820 [-0.011322, -0.004466]; clip_image_cosine +0.003446 [-0.000435, +0.007380]
+N=512, SNR=10 dB: psnr_db +0.193039 [+0.162240, +0.224893]; lpips_alex -0.007588 [-0.009142, -0.006221]; dreamsim -0.008425 [-0.010614, -0.006300]; clip_image_cosine +0.006112 [+0.003295, +0.008982]
+N=512, SNR=19 dB: psnr_db +0.201907 [+0.175905, +0.228693]; lpips_alex -0.006814 [-0.007706, -0.005954]; dreamsim -0.006688 [-0.008284, -0.005205]; clip_image_cosine +0.004893 [+0.002390, +0.007381]
+核心固定 FIT 分母汇总：
+lpips_alex -0.022343 [-0.031440, -0.012444]
+dreamsim -0.018973 [-0.034312, -0.002858]
+
+四、完整系统取舍：最终 NeST − Ada（固定帧、预测类别适配）
+N=1024, SNR=4: psnr_db +4.322224 [+4.128392, +4.522924]; lpips_alex -0.140255 [-0.145808, -0.134821]; dreamsim -0.068828 [-0.076678, -0.061095]; clip_image_cosine -0.000891 [-0.007127, +0.005238]
+N=1024, SNR=7: psnr_db +3.075755 [+2.880988, +3.273695]; lpips_alex -0.061309 [-0.066958, -0.055714]; dreamsim -0.000931 [-0.007699, +0.005728]; clip_image_cosine -0.005272 [-0.010695, -0.000025]
+N=1024, SNR=10: psnr_db +0.635078 [+0.521119, +0.753468]; lpips_alex -0.001558 [-0.004068, +0.000812]; dreamsim +0.017655 [+0.015325, +0.019936]; clip_image_cosine -0.007214 [-0.011396, -0.003070]
+N=1024, SNR=19: psnr_db +1.396615 [+1.336656, +1.455313]; lpips_alex -0.022423 [-0.023418, -0.021403]; dreamsim +0.000948 [-0.000857, +0.002783]; clip_image_cosine +0.009029 [+0.005207, +0.012904]
+N=512, SNR=4: psnr_db +4.292504 [+4.098164, +4.492082]; lpips_alex -0.197615 [-0.205243, -0.190109]; dreamsim -0.110683 [-0.122102, -0.099639]; clip_image_cosine -0.020075 [-0.028433, -0.011748]
+N=512, SNR=10: psnr_db +4.248238 [+4.070785, +4.427664]; lpips_alex -0.145969 [-0.151495, -0.140584]; dreamsim -0.074431 [-0.082899, -0.065828]; clip_image_cosine -0.004656 [-0.011387, +0.001870]
+N=512, SNR=19: psnr_db +1.941655 [+1.778149, +2.109999]; lpips_alex -0.031329 [-0.034687, -0.028131]; dreamsim +0.007235 [+0.003744, +0.010556]; clip_image_cosine -0.003390 [-0.008156, +0.001323]
+PSNR/CLIP-I 正差有利于 NeST，LPIPS/DreamSim 负差有利。WHOLE 同接收规则对照及 WHOLE−Ada 直接配对值在 CSV。不同 tokenizer/prior/decoder/类别机制意味着完整系统比较，不将所有差距归给端点。没有重新选择 Ada 策略，也没有宣称通信全指标 SOTA。
+
+五、容量、失败与原生数组
+Ada_frozen N512 4dB: 1500逻辑位置，灰图5，源码利用率0.9901952983725136，状态{"ACCEPTED_SOURCE": 1495, "CRC_REJECT": 5}
+Ada_frozen N512 10dB: 1500逻辑位置，灰图0，源码利用率0.9953711790393013，状态{"ACCEPTED_SOURCE": 1500}
+Ada_frozen N512 19dB: 1500逻辑位置，灰图0，源码利用率0.995237047226043，状态{"ACCEPTED_SOURCE": 1500}
+Ada_frozen N1024 4dB: 1500逻辑位置，灰图0，源码利用率，状态{"ACCEPTED_SOURCE": 1500}
+Ada_frozen N1024 7dB: 1500逻辑位置，灰图7，源码利用率，状态{"ACCEPTED_SOURCE": 1493, "PHY_REJECT_GRAY": 7}
+Ada_frozen N1024 10dB: 1500逻辑位置，灰图0，源码利用率，状态{"ACCEPTED_SOURCE": 1500}
+Ada_frozen N1024 19dB: 1500逻辑位置，灰图0，源码利用率，状态{"ACCEPTED_SOURCE": 1500}
+WHOLE_final_receiver N512 4dB: 1500逻辑位置，灰图7，源码利用率0.7598614564831261，状态{"ACCEPTED_SOURCE": 1493, "CRC_REJECT": 7}
+WHOLE_final_receiver N512 10dB: 1500逻辑位置，灰图0，源码利用率0.7929506493506494，状态{"ACCEPTED_SOURCE": 1500}
+WHOLE_final_receiver N512 19dB: 1500逻辑位置，灰图0，源码利用率0.7301268827019626，状态{"ACCEPTED_SOURCE": 1500}
+WHOLE_final_receiver N1024 4dB: 1500逻辑位置，灰图0，源码利用率0.7381333333333334，状态{"PAYLOAD_PARSED": 1500}
+WHOLE_final_receiver N1024 7dB: 1500逻辑位置，灰图7，源码利用率0.8318821030270843，状态{"ACCEPTED_SOURCE": 1493, "FIXED_GRAY": 7}
+WHOLE_final_receiver N1024 10dB: 1500逻辑位置，灰图0，源码利用率0.7770373015873016，状态{"PAYLOAD_PARSED": 1500}
+WHOLE_final_receiver N1024 19dB: 1500逻辑位置，灰图0，源码利用率0.8524091770153651，状态{"PAYLOAD_PARSED": 1500}
+final_NeST N512 4dB: 1500逻辑位置，灰图4，源码利用率0.9915062166962699，状态{"ACCEPTED_SOURCE": 1496, "FIXED_GRAY": 4}
+final_NeST N512 10dB: 1500逻辑位置，灰图0，源码利用率0.9954406926406928，状态{"ACCEPTED_SOURCE": 1500}
+final_NeST N512 19dB: 1500逻辑位置，灰图0，源码利用率0.9976449109995436，状态{"ACCEPTED_SOURCE": 1500}
+final_NeST N1024 4dB: 1500逻辑位置，灰图0，源码利用率0.9956144578313251，状态{"ACCEPTED_SOURCE": 1500}
+final_NeST N1024 7dB: 1500逻辑位置，灰图13，源码利用率0.9975358470525757，状态{"ACCEPTED_SOURCE": 1487, "FIXED_GRAY": 13}
+final_NeST N1024 10dB: 1500逻辑位置，灰图0，源码利用率0.9979373015873015，状态{"ACCEPTED_SOURCE": 1500}
+final_NeST N1024 19dB: 1500逻辑位置，灰图0，源码利用率0.9982862555251525，状态{"ACCEPTED_SOURCE": 1500}
+original_NeST N512 4dB: 1500逻辑位置，灰图4，源码利用率0.9299893428063943，状态{"ACCEPTED_SOURCE": 1496, "CRC_REJECT": 4}
+original_NeST N512 10dB: 1500逻辑位置，灰图1，源码利用率0.9346251082251084，状态{"ACCEPTED_SOURCE": 1499, "CRC_REJECT": 1}
+original_NeST N512 19dB: 1500逻辑位置，灰图0，源码利用率0.9467895937927888，状态{"ACCEPTED_SOURCE": 1500}
+original_NeST N1024 4dB: 1500逻辑位置，灰图0，源码利用率0.9308417670682733，状态{"PAYLOAD_PARSED": 1500}
+original_NeST N1024 7dB: 1500逻辑位置，灰图6，源码利用率0.9379500796601169，状态{"ACCEPTED_SOURCE": 1494, "PHY_REJECT_GRAY": 6}
+original_NeST N1024 10dB: 1500逻辑位置，灰图0，源码利用率0.9520801587301587，状态{"PAYLOAD_PARSED": 1500}
+original_NeST N1024 19dB: 1500逻辑位置，灰图0，源码利用率0.9473230898758156，状态{"PAYLOAD_PARSED": 1500}
+利用率为算术源码 bit /（body 信息容量−29bit），不是总空口效率。端点/回退分布以逐帧 CSV 和 endpoint_and_failure_summary 为准。所有显示图从 hash 核验的原生数组导出，没有美化或质量选图。
+最终 common500 共 42000 逻辑位置、14000 源级行；历史 30000 行合法复用。新 12000 逻辑位置为 D 的 10500 加此前缺失的 7dB WHOLE 1500。物理事件 11223 新执行 + 777 精确复用。历史缺失 CLIP 的 2188 对补单指标；其余历史指标未重跑。实际新接收/指标调用与缓存计数见 actual_compute_and_reuse.json，每个 worker 的 SQLite 账本为准。
+
+六、实测部署成本
+original: TX mean/median/p95=0.520177/0.522852/0.620892s; RX=0.934818/0.922292/1.083506s; 独立终止均值22.500; 额外序列化模型0 bytes
+A: TX mean/median/p95=0.520177/0.522852/0.620892s; RX=0.963115/0.965487/1.064766s; 独立终止均值22.500; 额外序列化模型777718661 bytes
+B03: TX mean/median/p95=0.520177/0.522852/0.620892s; RX=0.907488/0.904799/0.963115s; 独立终止均值22.500; 额外序列化模型0 bytes
+B07: TX mean/median/p95=0.520177/0.522852/0.620892s; RX=0.944106/0.949532/1.007752s; 独立终止均值22.500; 额外序列化模型0 bytes
+C_content_1000: TX mean/median/p95=0.520177/0.522852/0.620892s; RX=0.963400/0.932820/1.183464s; 独立终止均值22.500; 额外序列化模型34849155 bytes
+C_no_content_1000: TX mean/median/p95=0.520177/0.522852/0.620892s; RX=0.982366/0.974683/1.061684s; 独立终止均值22.500; 额外序列化模型34849155 bytes
+D_eighth: TX mean/median/p95=0.530159/0.529695/0.620810s; RX=0.959861/0.954863/1.049028s; 独立终止均值44.000; 额外序列化模型0 bytes
+D_token: TX mean/median/p95=0.594968/0.604178/0.695007s; RX=0.989544/0.982622/1.096086s; 独立终止均值501.500; 额外序列化模型0 bytes
+E: TX mean/median/p95=3.166409/3.139156/3.397026s; RX=0.978582/0.971932/1.110092s; 独立终止均值22.500; 额外序列化模型244414920 bytes
+同一实际 GPU/精度、2 个固定 CPU 核、batch1、固定16源、每源工作点2暖身+3计时；共享负载，非独占硬件。TX/RX 总时间为匹配样本各组件实测时间之和，不是单次端到端秒表。TX 包含新 tokenizer/概率遍历/独立终止，E 包含候选独立解码、生成、Dc 与 LPIPS；没有离线图像缓存隐藏部署成本。A/B/C 复用完全相同原 TX 的计时组件。B 计时为一张输出，质量均值用三个生成重复，分别列示。
+A 同时保存原 decoder 与锚定 decoder；C 额外 2899456 参数/11597824 FP32 state bytes；E 需 AlexNet + LPIPS 标定权重。序列化训练 checkpoint 大小含优化器等，不等于部署参数大小；峰值 allocated/reserved 和 state bytes 完整列于 CSV。加载时间不计稳定部署延迟，但计入资源预算。
+
+七、资源、失败与未完成项
+累计 GPU 设备墙时 6.284973 h；最多同时 2 个本轮 GPU worker。各路线均在原额度内，未重置预算或互借；新 PFS 目录 60316526761 bytes，小于 80 GiB。CPU 进程等待墙时单列，不冒充 CPU 实际计算时间。
+原 C_guard_metric_queue 资源竞态拒绝，退出1且零科学调用，后续缺失评分由独立登记入口首次完成。原 benchmark_tx 在编码前把 raw像素hash 与 dtype+shapehash 混比，退出1、只加载模型、零编码计时；32输入逐项核验后新入口只修正断言，失败和20.906秒加载费用保留。原 final_successors 在 final_rx 正常退出后首次申请指标 GPU 时被拒绝，零指标登记/Popen；独立入口仅首次执行缺失评分，复用已完成计划与接收，并保持原绝对期限。原失败保留。历史只读汇总 v1–v4 的 schema 差异失败保留；修订没有重跑已有接收/评分。
+NEW200 无原始合格源池，独立新留出与其联系表明确 blocked。Pastries95/Dog21 的完整旧 source ID 不在 common500；不能误用另一个集合的相同整数索引。未擅自补开展示重建。C 机制图使用预先固定的 FIT hash顺序前2例，属于开发诊断，不称代表性或独立测试。
+所有运行已实际退出；没有以运行中快照冒充完成。checkpoint/缓存/原生大数组和日志仍在 PFS。恢复清单保留 C 权重、优化器、RNG、源和配置身份，但不会自动恢复未通过保护线的训练。
+
+八、交付与解释边界
+结果支持在本冻结上限/MCS和模型下进一步细化装入；不能推广为逐图单调改善、最优粒度或已证实独立留出优势。A/B/C/E 的 NO_GO 是本配置和预算下的证据，不是方向永久无效。
+本轮不改旧 V6 论文/旧主图，不恢复此前停止支线，不自动 commit/push。代码、配置、全部候选/逐帧/逐源/配对数据、图形、资源账本、工程失败与 blocked 状态提供为可审查轻量包。仓库检查及实际图像审阅另附 validation。

@@ -1,0 +1,16 @@
+{
+  "status": "FROZEN_BEFORE_C_IMAGE_SCORES",
+  "primary_seed": 2026103001,
+  "verification_seed": 2026103002,
+  "checkpoints": [
+    1000,
+    2000,
+    3000
+  ],
+  "content_selection": "Among core FIT candidates passing the predeclared FIT image gate, minimize J; practical ties <0.001 keep the earlier registered checkpoint because deployment graph/model count is equal.",
+  "no_content_reference": "Independently minimize core J across the same three registered checkpoints, with the same practical tie order; never choose a weak control based on content results.",
+  "required_increment": "Selected content J strictly lower than selected no-content J; at least one normalized core primary strictly lower.",
+  "guard_rule": "Freeze primary checkpoint on core before running five guards; a guard failure does not trigger checkpoint reselection.",
+  "seed2_gate": "Primary downstream image gate and content increment, then same selection rule for verification only; cannot replace primary seed.",
+  "no_new_hyperparameters": true
+}

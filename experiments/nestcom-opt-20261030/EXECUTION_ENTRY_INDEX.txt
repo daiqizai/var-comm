@@ -1,0 +1,35 @@
+本轮实际版本与复核入口
+
+先以结果目录中的 registration、actual_wait、calls ledger 为准。源码存在不等于已运行。
+不要批量运行 orchestration_audit，不要重启已经成功的阶段。
+
+接收端：receiver_worker.py（A/B）、c_receiver_v2.py（C）、original_receiver.py（D/原系统）。
+C 新训练：c_train_pair_v2.py。只执行主种子；第二种子因主候选保护线失败未触发。
+真实数字帧：extended_frame_worker_v3.py；协议与冻结目录不因最终结果改变。
+历史回归身份审计：historical_regression_inputs_v5.py。早期只读失败保留，不重放科学任务。
+
+最终评分控制：
+- final_successors.py 原入口在 final_rx 正常退出后申请 GPU 失败。
+- 它仅完成接收等待和指标计划，未创建指标子进程，原 actual_wait=1 原字节保留。
+- final_unlaunched_metrics_v2.py 仅接续此前未启动的 three/clip 和统计，沿用原绝对期限。
+- 三个新增指标与 CLIP 使用各自冻结环境、相同设备缓存身份；不重复旧成功评分。
+- 完成状态必须读取 final_unlaunched_metrics_v2_control/actual_wait.json 和正式统计身份文件。
+
+实测时间：benchmark_receiver.py、benchmark_transmitter_v2.py、benchmark_phy.py。
+原 benchmark_transmitter.py 因 raw 像素 hash / 带 dtype+shape 的数组 hash 比较错误退出。
+原失败只加载一次模型，零编码计时；v2 只修正身份断言，不改变算法和输入。
+
+最终汇总：summarize_timing.py、resource_delivery_v2.py、build_delivery_v3.py、
+supplement_route_diagnostics.py、draw_results.py、validate_delivery.py。
+打包：prepare_review_assets_v2.py、finalize_review.py。仅整理结果和可审查暂存区；没有 commit/push。
+
+存储与复核：
+- 大数组、模型、14个C训练checkpoint、完整日志只留 PFS；恢复身份见 model_storage_and_recovery.json。
+- 超过仓库单文件限制的 CSV 按行切分，JSON 按原字节切分。
+- delivery/large_file_index.json 记录完整原文件 hash、所有部分及恢复规则。
+- 原始文件未更改，仅精确路径被 .gitignore 排除；不是删除结果或截取部分样本。
+- FILE_MANIFEST.json 是下载包内逐文件 SHA256 清单；原生模型/数组由注册信息指向 PFS。
+- NEW200 缺少可审计原始数据，独立新留出仍为 blocked，不以 common500 替代。
+- 现有 V6 论文与旧暂停支线保持原状。
+
+Final reporting-only entries: annotate_delivery_capacity_v2 (v1 never run; v2 caches a file hash), close_delivery_metadata; no new scientific calls. Original final_statistics bytes retained. Artifact review is actual all8PNG/all8PDFpage inspection. prepare_review_assets_v2 and finalize_review handle lossless parts and staged uncommitted review package, never commit/push.

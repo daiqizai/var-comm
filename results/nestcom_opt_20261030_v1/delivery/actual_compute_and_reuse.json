@@ -1,0 +1,3707 @@
+{
+  "status": "ACTUAL_CLOSED_ONLY",
+  "workers": [
+    {
+      "role": "benchmark_phy",
+      "route": "CPU_control",
+      "timing_only": "True",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1396263,
+          "start_ticks": 673894787,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793359380.0962005,
+        "finished_unix": 1793359457.222568,
+        "device_seconds": 0,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "rows": 640,
+        "actual_PHY_calls_purpose": "timing repetitions only, no new quality samples",
+        "warmups": 2,
+        "measured": 3,
+        "ledger": {
+          "caps": {
+            "header": 640,
+            "body": 640
+          },
+          "counts": [
+            {
+              "kind": "body",
+              "status": "COMPLETE",
+              "count": 640
+            },
+            {
+              "kind": "header",
+              "status": "COMPLETE",
+              "count": 640
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 76.06545760203153,
+        "CUDA_initialized": false
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/benchmark_phy/completion.json",
+        "bytes": 524,
+        "sha256": "96d439f15b124301cbc7003b728255570cfb91fca8e686f2629e0871e1fc9901"
+      }
+    },
+    {
+      "role": "benchmark_rx",
+      "route": "final",
+      "timing_only": "True",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1374523,
+          "start_ticks": 673582879,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793356261.0158074,
+        "finished_unix": 1793357618.079885,
+        "device_seconds": 1357.0640783309937,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "rows": 1440,
+        "variants": [
+          "original",
+          "A",
+          "B03",
+          "B07",
+          "C_content_1000",
+          "C_no_content_1000",
+          "D_eighth",
+          "D_token",
+          "E"
+        ],
+        "warmups_per_case": 2,
+        "measured_per_case": 3,
+        "batch": 1,
+        "ledger": {
+          "caps": {
+            "model_load": 1,
+            "anchor_load": 1,
+            "corrector_load": 2,
+            "prior_scale": 28800,
+            "decoder_forward": 1440,
+            "timing_trial": 1440
+          },
+          "counts": [
+            {
+              "kind": "anchor_load",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "corrector_load",
+              "status": "COMPLETE",
+              "count": 2
+            },
+            {
+              "kind": "decoder_forward",
+              "status": "COMPLETE",
+              "count": 1390
+            },
+            {
+              "kind": "model_load",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "prior_scale",
+              "status": "COMPLETE",
+              "count": 26030
+            },
+            {
+              "kind": "timing_trial",
+              "status": "COMPLETE",
+              "count": 1440
+            }
+          ],
+          "unresolved": 0
+        },
+        "source_blind_RX": true,
+        "includes_source_decode_and_actual_uncached_completion": true,
+        "excludes_PHY_to_be_added_from_matched_CPU_measurements": true,
+        "new_quality_scores": 0,
+        "seconds": 1355.6864656414837
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/benchmark_rx/completion.json",
+        "bytes": 1321,
+        "sha256": "b07ef123836b44b5a31decb9f6509547c74b6d7aa9b2cac45c9c04ca3d2f7181"
+      }
+    },
+    {
+      "role": "benchmark_tx_identity_v2",
+      "route": "final",
+      "timing_only": "True",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1392017,
+          "start_ticks": 673804504,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793358477.2673228,
+        "finished_unix": 1793359290.4003618,
+        "device_seconds": 813.1330397129059,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "rows": 640,
+        "warmups_per_case": 2,
+        "measured_per_case": 3,
+        "batch": 1,
+        "ledger": {
+          "caps": {
+            "model_load": 1,
+            "load_lpips": 1,
+            "prior_scale": 25600,
+            "decoder_forward": 1920,
+            "timing_trial": 640
+          },
+          "counts": [
+            {
+              "kind": "decoder_forward",
+              "status": "COMPLETE",
+              "count": 480
+            },
+            {
+              "kind": "load_lpips",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "model_load",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "prior_scale",
+              "status": "COMPLETE",
+              "count": 14600
+            },
+            {
+              "kind": "timing_trial",
+              "status": "COMPLETE",
+              "count": 640
+            }
+          ],
+          "unresolved": 0
+        },
+        "fresh_RGB_tokenizer": true,
+        "no_precomputed_token_or_image_cache": true,
+        "E_includes_source_decoding_completion_Dc_and_LPIPS": true,
+        "excludes_PHY_to_be_added_from_matched_CPU_measurements": true,
+        "seconds": 811.7284823367372
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/benchmark_tx_identity_v2/completion.json",
+        "bytes": 1054,
+        "sha256": "92629954ca503e553138ea86e521568f0ddc6343ebe8a0bc84dd7d8d7e293418"
+      }
+    },
+    {
+      "role": "c_cache",
+      "route": "C",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1315761,
+          "start_ticks": 672266041,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793343092.6286645,
+        "finished_unix": 1793347631.3465786,
+        "device_seconds": 4538.717916250229,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "count": 10000,
+        "source_scale_pairs": 20000,
+        "actual_bytes": 44466010000,
+        "index": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/c_cache/index.json",
+          "bytes": 4804519,
+          "sha256": "d438f62a26d8c49810589fd00dbc85fb96297c284e89bd15ea4829e67659a17d"
+        },
+        "codebook": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/c_cache/codebook.pt",
+          "bytes": 525872,
+          "sha256": "6cb9e8aa755632f31d2a4baf5236841c57ceadb12d104b41e3c683e19ea39760"
+        },
+        "ledger": {
+          "caps": {
+            "model_load": 1,
+            "prior_scale": 90000,
+            "decoder_forward": 0,
+            "source_teacher_cache": 10000
+          },
+          "counts": [
+            {
+              "kind": "model_load",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "prior_scale",
+              "status": "COMPLETE",
+              "count": 90000
+            },
+            {
+              "kind": "source_teacher_cache",
+              "status": "COMPLETE",
+              "count": 10000
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 4537.968106318265
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/c_cache/completion.json",
+        "bytes": 1130,
+        "sha256": "a0988d302d974d9fd96bfdffeb00517649bbf2a5372b2a7207240c1f1b09f7f7"
+      }
+    },
+    {
+      "role": "c_train_primary",
+      "route": "C",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1325389,
+          "start_ticks": 672797471,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793348406.9297647,
+        "finished_unix": 1793350850.3071346,
+        "device_seconds": 2443.3773708343506,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "arms": [
+          "content",
+          "no_content"
+        ],
+        "seed": 2026103001,
+        "updates_per_arm": 3000,
+        "parameter_count": 2899456,
+        "checkpoints": [
+          {
+            "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/c_train_primary/content/step_000000.pt",
+            "bytes": 11622178,
+            "sha256": "9de07a61e2476e024452290aa2de7dbfb7d18e62b9aeb7fbba2d90621c4ec263"
+          },
+          {
+            "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/c_train_primary/content/step_000500.pt",
+            "bytes": 34849155,
+            "sha256": "7ea16b6f7ce6ec4112d6c6cb95611bd3a003bd474f76ec1807b171031fa9936b"
+          },
+          {
+            "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/c_train_primary/content/step_001000.pt",
+            "bytes": 34849155,
+            "sha256": "f2e35f95c127b0585b0130b309e8c8e6dc708bc0662ed7de93c23ef6044ff968"
+          },
+          {
+            "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/c_train_primary/content/step_001500.pt",
+            "bytes": 34849155,
+            "sha256": "43feb7ad17cd9cb8e89801c85eb9e5e5216934381a1a9da831e13750e378458d"
+          },
+          {
+            "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/c_train_primary/content/step_002000.pt",
+            "bytes": 34849155,
+            "sha256": "683cbb2435fb0d47cb06597e1b9bb031759ca6e70e2edef071592f25b784a7f7"
+          },
+          {
+            "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/c_train_primary/content/step_002500.pt",
+            "bytes": 34849155,
+            "sha256": "7071829e8e14a2d4f6cc0a259d7c05a1b08639725f90ca0c1deacd3380534339"
+          },
+          {
+            "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/c_train_primary/content/step_003000.pt",
+            "bytes": 34849155,
+            "sha256": "569497745b93769e8a9da45c449fc5e629d14f544e46156b1216b805e1ba2017"
+          },
+          {
+            "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/c_train_primary/no_content/step_000000.pt",
+            "bytes": 11622178,
+            "sha256": "4b578b8374c98914624585693df9381bf86bab31c716f6046aae4cfcae16b00c"
+          },
+          {
+            "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/c_train_primary/no_content/step_000500.pt",
+            "bytes": 34849155,
+            "sha256": "836ff0788d160f0e22d3e3025456ee6d39e4c3a817b4b6adcf837796458a91f3"
+          },
+          {
+            "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/c_train_primary/no_content/step_001000.pt",
+            "bytes": 34849155,
+            "sha256": "f5b88d9a4fbf89a4ee7bd5b4114b51e5b4c3ed5f58b60bf8ff03403340e72103"
+          },
+          {
+            "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/c_train_primary/no_content/step_001500.pt",
+            "bytes": 34849155,
+            "sha256": "4cb90a50d61d9480de05ef2c1a09e9fb4102aae3b85b17f896e93a8a5f44e050"
+          },
+          {
+            "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/c_train_primary/no_content/step_002000.pt",
+            "bytes": 34849155,
+            "sha256": "49265151c4d36336dbe6b153827187e829db65a012736840dff6d02a9e0e00ce"
+          },
+          {
+            "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/c_train_primary/no_content/step_002500.pt",
+            "bytes": 34849155,
+            "sha256": "ed84cb9e817c62012f9c8ead9dc831b5d6fbd43a9a6b8894e4af439885324c41"
+          },
+          {
+            "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/c_train_primary/no_content/step_003000.pt",
+            "bytes": 34849155,
+            "sha256": "1490200713f45a099f7644c2b9aa7e499d60b9bb03adce27a339d64d7d81d2f4"
+          }
+        ],
+        "ledger": {
+          "caps": {
+            "model_initialization": 2,
+            "smoke_update": 4,
+            "optimizer_update": 6000
+          },
+          "counts": [
+            {
+              "kind": "model_initialization",
+              "status": "COMPLETE",
+              "count": 2
+            },
+            {
+              "kind": "optimizer_update",
+              "status": "COMPLETE",
+              "count": 6000
+            },
+            {
+              "kind": "smoke_update",
+              "status": "COMPLETE",
+              "count": 4
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 2442.313166392036,
+        "peak_cuda_bytes": 394464768,
+        "FIT_evaluation": "NOT_RUN_IN_TRAIN_PROCESS"
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/c_train_primary/completion.json",
+        "bytes": 4487,
+        "sha256": "e1af6a6c3c37ce13776570c7fd1f92a289cb0ef45aef511c401fe0ce5e3dc84c"
+      }
+    },
+    {
+      "role": "confirm_D_clip",
+      "route": "combinations_and_confirm",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1365232,
+          "start_ticks": 673426383,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793354696.0527673,
+        "finished_unix": 1793354879.0235646,
+        "device_seconds": 182.97079825401306,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "identity": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/confirm_D_clip/identity.json",
+          "bytes": 577,
+          "sha256": "d56d310cd4c7d5332867f2f3edf232113ad9ef179db917087ed1ed3bf695ff83"
+        },
+        "scores": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/confirm_D_clip/scores.json",
+          "bytes": 804915,
+          "sha256": "490034d857ea7739a1cb444ec6bacfdd28d3617c825727680cce39e099472acf"
+        },
+        "features": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/confirm_D_clip/features.json",
+          "bytes": 1400185,
+          "sha256": "36086890d73038c07ecb7e0ede41471776d7e0a8ed149e1418202f20be79ef58"
+        },
+        "pairs": 1588,
+        "new_pairs": 1588,
+        "reused_pairs": 0,
+        "ledger": {
+          "caps": {
+            "load_clip": 1,
+            "embedding": 1688,
+            "pair": 1588
+          },
+          "counts": [
+            {
+              "kind": "embedding",
+              "status": "COMPLETE",
+              "count": 1683
+            },
+            {
+              "kind": "load_clip",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "pair",
+              "status": "COMPLETE",
+              "count": 1588
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 182.0917115751654
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/confirm_D_clip/completion.json",
+        "bytes": 1308,
+        "sha256": "a0cb311896231836bee0ef64a1923e3f9e8264d13d4aaa9a00e3b7a8a1401a5f"
+      }
+    },
+    {
+      "role": "confirm_D_phy_1024",
+      "route": "CPU_control",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1352487,
+          "start_ticks": 673248946,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793352921.6816158,
+        "finished_unix": 1793353014.8870704,
+        "device_seconds": 0,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "physical": 1200,
+        "new": 1116,
+        "reused": 84,
+        "ledger": {
+          "caps": {
+            "header": 1200,
+            "body": 1200
+          },
+          "counts": [
+            {
+              "kind": "body",
+              "status": "COMPLETE",
+              "count": 1116
+            },
+            {
+              "kind": "header",
+              "status": "COMPLETE",
+              "count": 1116
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 92.2267533345148,
+        "CUDA_initialized": false
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/confirm_D_phy_1024/completion.json",
+        "bytes": 449,
+        "sha256": "7068566c9e3dfae224779755c3a60e171e6855e8375f55fa9a0e20620d4d0818"
+      }
+    },
+    {
+      "role": "confirm_D_phy_512",
+      "route": "CPU_control",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1352355,
+          "start_ticks": 673248939,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793352921.6132953,
+        "finished_unix": 1793352986.0238285,
+        "device_seconds": 0,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "physical": 900,
+        "new": 819,
+        "reused": 81,
+        "ledger": {
+          "caps": {
+            "header": 900,
+            "body": 900
+          },
+          "counts": [
+            {
+              "kind": "body",
+              "status": "COMPLETE",
+              "count": 819
+            },
+            {
+              "kind": "header",
+              "status": "COMPLETE",
+              "count": 819
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 63.60123143251985,
+        "CUDA_initialized": false
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/confirm_D_phy_512/completion.json",
+        "bytes": 444,
+        "sha256": "e49668bfab957025b820f07e7a9c7d1d161150b20b17c50c275e395a32235f53"
+      }
+    },
+    {
+      "role": "confirm_D_rx",
+      "route": "combinations_and_confirm",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1359896,
+          "start_ticks": 673323186,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793353664.0846443,
+        "finished_unix": 1793354247.956925,
+        "device_seconds": 583.8722820281982,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "unique_inputs": 701,
+        "reused": 55,
+        "gray": 1,
+        "ledger": {
+          "caps": {
+            "model_load": 1,
+            "prior_scale": 12900,
+            "decoder_forward": 645,
+            "source_decode": 645,
+            "completion_forward": 645,
+            "render": 645
+          },
+          "counts": [
+            {
+              "kind": "completion_forward",
+              "status": "COMPLETE",
+              "count": 645
+            },
+            {
+              "kind": "decoder_forward",
+              "status": "COMPLETE",
+              "count": 645
+            },
+            {
+              "kind": "model_load",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "prior_scale",
+              "status": "COMPLETE",
+              "count": 11432
+            },
+            {
+              "kind": "render",
+              "status": "COMPLETE",
+              "count": 645
+            },
+            {
+              "kind": "source_decode",
+              "status": "COMPLETE",
+              "count": 645
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 582.7689569983631,
+        "new_PHY": 0,
+        "TX_truth_used": false
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/confirm_D_rx/completion.json",
+        "bytes": 999,
+        "sha256": "85610d0844527c5dfeaffad57c897610041168bb645bec2348cabb79041ff489"
+      }
+    },
+    {
+      "role": "confirm_D_source",
+      "route": "combinations_and_confirm",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1351689,
+          "start_ticks": 673229898,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793352731.199596,
+        "finished_unix": 1793352826.0978823,
+        "device_seconds": 94.89828753471375,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "sources": 100,
+        "new_source_traversals": 100,
+        "independent_finish_calls": 65100,
+        "original_quarter_streams_exact": true,
+        "ledger": {
+          "caps": {
+            "model_load": 1,
+            "source_traversal": 100,
+            "prior_scale": 1000,
+            "decoder_forward": 0
+          },
+          "counts": [
+            {
+              "kind": "model_load",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "prior_scale",
+              "status": "COMPLETE",
+              "count": 1000
+            },
+            {
+              "kind": "source_traversal",
+              "status": "COMPLETE",
+              "count": 100
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 93.85510263126343,
+        "new_tokenizer": 0,
+        "new_PHY": 0
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/confirm_D_source/completion.json",
+        "bytes": 716,
+        "sha256": "ab4c928f29f0c349ff5c49223e887eab687f06b5b55eb21e179e4d6268fae7de"
+      }
+    },
+    {
+      "role": "confirm_D_three",
+      "route": "combinations_and_confirm",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1364099,
+          "start_ticks": 673388542,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793354317.6414194,
+        "finished_unix": 1793354590.8940327,
+        "device_seconds": 273.25261425971985,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "identity": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/confirm_D_three/identity.json",
+          "bytes": 578,
+          "sha256": "20c3eff5244ba254589e47478d65706b70aa21b032a729a1c16950b231cbbbac"
+        },
+        "scores": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/confirm_D_three/scores.json",
+          "bytes": 908426,
+          "sha256": "5f881ee674db268a189ca45bce21e4993cd9a08abae878fdc4d07faa2b042441"
+        },
+        "features": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/confirm_D_three/features.json",
+          "bytes": 1403964,
+          "sha256": "32b31dac4c255403eb20e0c592337a3022be61d6e3743ed4b78d8c518e033cee"
+        },
+        "pairs": 1588,
+        "new_pairs": 1588,
+        "reused_pairs": 0,
+        "ledger": {
+          "caps": {
+            "load_lpips": 1,
+            "load_dreamsim": 1,
+            "embedding": 1688,
+            "pair": 1588
+          },
+          "counts": [
+            {
+              "kind": "embedding",
+              "status": "COMPLETE",
+              "count": 1683
+            },
+            {
+              "kind": "load_dreamsim",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "load_lpips",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "pair",
+              "status": "COMPLETE",
+              "count": 1588
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 271.9786749454215
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/confirm_D_three/completion.json",
+        "bytes": 1438,
+        "sha256": "65d329e77b54171144d2da93e7384ff2921365cbef1428fe1d374f413c7bf4d8"
+      }
+    },
+    {
+      "role": "confirm_base_phy_1024",
+      "route": "CPU_control",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1351555,
+          "start_ticks": 673229789,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793352730.1133323,
+        "finished_unix": 1793352911.829733,
+        "device_seconds": 0,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "physical": 2118,
+        "new": 2118,
+        "reused": 0,
+        "ledger": {
+          "caps": {
+            "header": 2118,
+            "body": 2118
+          },
+          "counts": [
+            {
+              "kind": "body",
+              "status": "COMPLETE",
+              "count": 2118
+            },
+            {
+              "kind": "header",
+              "status": "COMPLETE",
+              "count": 2118
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 180.61403768323362,
+        "CUDA_initialized": false
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/confirm_base_phy_1024/completion.json",
+        "bytes": 450,
+        "sha256": "2479ba1f5c47b7ccb10140c0b91a60c444b24a4ed243c9b0e75c16d262f63785"
+      }
+    },
+    {
+      "role": "confirm_base_phy_512",
+      "route": "CPU_control",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1351489,
+          "start_ticks": 673229783,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793352730.05046,
+        "finished_unix": 1793352782.8905628,
+        "device_seconds": 0,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "physical": 1608,
+        "new": 0,
+        "reused": 1608,
+        "ledger": {
+          "caps": {
+            "header": 1608,
+            "body": 1608
+          },
+          "counts": [],
+          "unresolved": 0
+        },
+        "seconds": 46.48581231851131,
+        "CUDA_initialized": false
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/confirm_base_phy_512/completion.json",
+        "bytes": 257,
+        "sha256": "8cd4f5bac270473954e0fef6a66edd2886eaeec92b1fe3cfd5d1d45624f91f0f"
+      }
+    },
+    {
+      "role": "confirm_base_rx",
+      "route": "combinations_and_confirm",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1353784,
+          "start_ticks": 673261114,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793353043.3587346,
+        "finished_unix": 1793353443.1648765,
+        "device_seconds": 399.8061435222626,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "unique_inputs": 941,
+        "reused": 537,
+        "gray": 1,
+        "ledger": {
+          "caps": {
+            "model_load": 1,
+            "prior_scale": 8060,
+            "decoder_forward": 403,
+            "source_decode": 403,
+            "completion_forward": 403,
+            "render": 403
+          },
+          "counts": [
+            {
+              "kind": "completion_forward",
+              "status": "COMPLETE",
+              "count": 403
+            },
+            {
+              "kind": "decoder_forward",
+              "status": "COMPLETE",
+              "count": 403
+            },
+            {
+              "kind": "model_load",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "prior_scale",
+              "status": "COMPLETE",
+              "count": 7467
+            },
+            {
+              "kind": "render",
+              "status": "COMPLETE",
+              "count": 403
+            },
+            {
+              "kind": "source_decode",
+              "status": "COMPLETE",
+              "count": 403
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 398.73331354465336,
+        "new_PHY": 0,
+        "TX_truth_used": false
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/confirm_base_rx/completion.json",
+        "bytes": 999,
+        "sha256": "971d84971a3ad200d901a790a2da3eb7c042645b143a26da112ad8a95f57402b"
+      }
+    },
+    {
+      "role": "final_D_source",
+      "route": "final",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1369971,
+          "start_ticks": 673467850,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793355110.7268136,
+        "finished_unix": 1793355571.9718173,
+        "device_seconds": 461.24500465393066,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "sources": 500,
+        "new_source_traversals": 500,
+        "independent_finish_calls": 325500,
+        "original_quarter_streams_exact": true,
+        "ledger": {
+          "caps": {
+            "model_load": 1,
+            "source_traversal": 500,
+            "prior_scale": 5000,
+            "decoder_forward": 0
+          },
+          "counts": [
+            {
+              "kind": "model_load",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "prior_scale",
+              "status": "COMPLETE",
+              "count": 5000
+            },
+            {
+              "kind": "source_traversal",
+              "status": "COMPLETE",
+              "count": 500
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 459.8537749070674,
+        "new_tokenizer": 0,
+        "new_PHY": 0
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/final_D_source/completion.json",
+        "bytes": 717,
+        "sha256": "16d94364816d274859403eaf1d0301d639bbedb15b3e7193f0da789bc3e6e973"
+      }
+    },
+    {
+      "role": "final_historical_missing_clip",
+      "route": "final",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1373651,
+          "start_ticks": 673567596,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793356108.184576,
+        "finished_unix": 1793356336.3134124,
+        "device_seconds": 228.12883758544922,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "identity": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/final_historical_missing_clip/identity.json",
+          "bytes": 577,
+          "sha256": "d56d310cd4c7d5332867f2f3edf232113ad9ef179db917087ed1ed3bf695ff83"
+        },
+        "scores": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/final_historical_missing_clip/scores.json",
+          "bytes": 1108585,
+          "sha256": "facdd4ec734f651b9940b65e18a3b8fbe2ad7714879179d47f8c3cf218f94f08"
+        },
+        "features": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/final_historical_missing_clip/features.json",
+          "bytes": 2435410,
+          "sha256": "a31d8bacf8b7441bc53aeb2d42473545a7204866bb01d53dd2c39371acdb14bb"
+        },
+        "pairs": 2188,
+        "new_pairs": 2188,
+        "reused_pairs": 0,
+        "ledger": {
+          "caps": {
+            "load_clip": 1,
+            "embedding": 2688,
+            "pair": 2188
+          },
+          "counts": [
+            {
+              "kind": "embedding",
+              "status": "COMPLETE",
+              "count": 2675
+            },
+            {
+              "kind": "load_clip",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "pair",
+              "status": "COMPLETE",
+              "count": 2188
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 227.08206539135426
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/final_historical_missing_clip/completion.json",
+        "bytes": 1355,
+        "sha256": "c6426bb9b22f2efcc99d111b5908177bfe2a9243007d5a7836c5f035bbe12b37"
+      }
+    },
+    {
+      "role": "final_new_clip",
+      "route": "final",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1410024,
+          "start_ticks": 674093005,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793361362.2745736,
+        "finished_unix": 1793361711.3263144,
+        "device_seconds": 349.0517416000366,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "identity": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/final_new_clip/identity.json",
+          "bytes": 577,
+          "sha256": "d56d310cd4c7d5332867f2f3edf232113ad9ef179db917087ed1ed3bf695ff83"
+        },
+        "scores": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/final_new_clip/scores.json",
+          "bytes": 2038418,
+          "sha256": "903fce439001938cf153ab150696508e0681149f35126a667f48793b799ea821"
+        },
+        "features": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/final_new_clip/features.json",
+          "bytes": 3869098,
+          "sha256": "dc024494a57d7e0e5002ea6b41befbdd300ba6ccd7925354a6047ce7e608a770"
+        },
+        "pairs": 4023,
+        "new_pairs": 3876,
+        "reused_pairs": 147,
+        "ledger": {
+          "caps": {
+            "load_clip": 1,
+            "embedding": 4523,
+            "pair": 4023
+          },
+          "counts": [
+            {
+              "kind": "embedding",
+              "status": "COMPLETE",
+              "count": 3854
+            },
+            {
+              "kind": "load_clip",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "pair",
+              "status": "COMPLETE",
+              "count": 3876
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 348.17363602947444
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/final_new_clip/completion.json",
+        "bytes": 1312,
+        "sha256": "ccd465c45faa43fbaa674e5e62b2b3ce159c5f7a8a35870f4d461583435d8d54"
+      }
+    },
+    {
+      "role": "final_new_three",
+      "route": "final",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1407605,
+          "start_ticks": 674031491,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793360747.1356354,
+        "finished_unix": 1793361305.9811666,
+        "device_seconds": 558.8455319404602,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "identity": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/final_new_three/identity.json",
+          "bytes": 578,
+          "sha256": "20c3eff5244ba254589e47478d65706b70aa21b032a729a1c16950b231cbbbac"
+        },
+        "scores": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/final_new_three/scores.json",
+          "bytes": 2300378,
+          "sha256": "8697507b645196923b5559dd9a78c8d0334a3df50c139de390f31882592e4df5"
+        },
+        "features": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/final_new_three/features.json",
+          "bytes": 3082091,
+          "sha256": "4ad32df40631d9c6a743cefadede84501fb34cdf80770de596f38f766cadad3f"
+        },
+        "pairs": 4023,
+        "new_pairs": 4023,
+        "reused_pairs": 0,
+        "ledger": {
+          "caps": {
+            "load_lpips": 1,
+            "load_dreamsim": 1,
+            "embedding": 4523,
+            "pair": 4023
+          },
+          "counts": [
+            {
+              "kind": "embedding",
+              "status": "COMPLETE",
+              "count": 4499
+            },
+            {
+              "kind": "load_dreamsim",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "load_lpips",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "pair",
+              "status": "COMPLETE",
+              "count": 4023
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 557.0410080272704
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/final_new_three/completion.json",
+        "bytes": 1439,
+        "sha256": "37cc20944b82d082505549c735c67a6ab1b3506741a540940afbd127918afe9d"
+      }
+    },
+    {
+      "role": "final_phy_1024",
+      "route": "CPU_control",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1373952,
+          "start_ticks": 673569465,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793356126.8748474,
+        "finished_unix": 1793356706.513189,
+        "device_seconds": 0,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "physical": 7500,
+        "new": 7065,
+        "reused": 435,
+        "ledger": {
+          "caps": {
+            "header": 7500,
+            "body": 7500
+          },
+          "counts": [
+            {
+              "kind": "body",
+              "status": "COMPLETE",
+              "count": 7065
+            },
+            {
+              "kind": "header",
+              "status": "COMPLETE",
+              "count": 7065
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 577.3449271712452,
+        "CUDA_initialized": false
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/final_phy_1024/completion.json",
+        "bytes": 451,
+        "sha256": "1a669b5090d8b6173a29078ed86a5e4d1f1c1a60eef6ce48a50c5456ff0fe466"
+      }
+    },
+    {
+      "role": "final_phy_512",
+      "route": "CPU_control",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1373812,
+          "start_ticks": 673568844,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793356120.6582878,
+        "finished_unix": 1793356461.9285994,
+        "device_seconds": 0,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "physical": 4500,
+        "new": 4158,
+        "reused": 342,
+        "ledger": {
+          "caps": {
+            "header": 4500,
+            "body": 4500
+          },
+          "counts": [
+            {
+              "kind": "body",
+              "status": "COMPLETE",
+              "count": 4158
+            },
+            {
+              "kind": "header",
+              "status": "COMPLETE",
+              "count": 4158
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 333.9363380726427,
+        "CUDA_initialized": false
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/final_phy_512/completion.json",
+        "bytes": 451,
+        "sha256": "0ff9e087bfa0c9b5aff8416da5343e28d286ed0d549a4b987762ab3b357a37f3"
+      }
+    },
+    {
+      "role": "final_rx",
+      "route": "final",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1381268,
+          "start_ticks": 673642705,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793356859.2685697,
+        "finished_unix": 1793360247.9819698,
+        "device_seconds": 3388.7134029865265,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "unique_inputs": 4000,
+        "reused": 616,
+        "gray": 1,
+        "ledger": {
+          "caps": {
+            "model_load": 1,
+            "prior_scale": 67660,
+            "decoder_forward": 3383,
+            "source_decode": 3383,
+            "completion_forward": 3383,
+            "render": 3383
+          },
+          "counts": [
+            {
+              "kind": "completion_forward",
+              "status": "COMPLETE",
+              "count": 3383
+            },
+            {
+              "kind": "decoder_forward",
+              "status": "COMPLETE",
+              "count": 3383
+            },
+            {
+              "kind": "model_load",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "prior_scale",
+              "status": "COMPLETE",
+              "count": 60024
+            },
+            {
+              "kind": "render",
+              "status": "COMPLETE",
+              "count": 3383
+            },
+            {
+              "kind": "source_decode",
+              "status": "COMPLETE",
+              "count": 3383
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 3387.1946927933022,
+        "new_PHY": 0,
+        "TX_truth_used": false
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/final_rx/completion.json",
+        "bytes": 1010,
+        "sha256": "9ae3547589b37b3cc9e73841e9755f3efedf14bf4ecca3701b6939b8511b338e"
+      }
+    },
+    {
+      "role": "final_unlaunched_metrics_v2",
+      "route": "CPU_control",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1407533,
+          "start_ticks": 674031305,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793360745.271133,
+        "finished_unix": 1793361716.4806323,
+        "device_seconds": 0,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "completed": [
+          "final_new_three",
+          "final_new_clip"
+        ],
+        "statistics": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/nestcom_opt_20261030_v1/final_common500_delivery/statistics_identity.json",
+          "bytes": 26883,
+          "sha256": "2b2e694891d1c39e34acce022e166d1ec573c6e81b79e1058b465719660ee2e5"
+        },
+        "seconds": 971.0516018960625,
+        "pre_registration_admission_waits": [
+          {
+            "role": "final_new_clip",
+            "unix": 1793361307.4495387,
+            "reason": "No eligible GPU at current resource admission; zero registration/launch",
+            "registration_and_Popen": 0
+          },
+          {
+            "role": "final_new_clip",
+            "unix": 1793361318.2641513,
+            "reason": "No eligible GPU at current resource admission; zero registration/launch",
+            "registration_and_Popen": 0
+          },
+          {
+            "role": "final_new_clip",
+            "unix": 1793361328.8409421,
+            "reason": "No eligible GPU at current resource admission; zero registration/launch",
+            "registration_and_Popen": 0
+          },
+          {
+            "role": "final_new_clip",
+            "unix": 1793361339.578582,
+            "reason": "No eligible GPU at current resource admission; zero registration/launch",
+            "registration_and_Popen": 0
+          },
+          {
+            "role": "final_new_clip",
+            "unix": 1793361351.0719793,
+            "reason": "No eligible GPU at current resource admission; zero registration/launch",
+            "registration_and_Popen": 0
+          }
+        ],
+        "scientific_calls_retried": 0,
+        "original_deadline_preserved": true
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/final_unlaunched_metrics_v2/completion.json",
+        "bytes": 1536,
+        "sha256": "e66e9ba9c7bffcf92e4f8fcda87dda2f4b2400799f2e31a93d87b02e2d7e7333"
+      }
+    },
+    {
+      "role": "fit_A_clip",
+      "route": "A",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1318803,
+          "start_ticks": 672575902,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793346191.2379565,
+        "finished_unix": 1793346305.596999,
+        "device_seconds": 114.35904312133789,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "identity": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_A_clip/identity.json",
+          "bytes": 577,
+          "sha256": "d56d310cd4c7d5332867f2f3edf232113ad9ef179db917087ed1ed3bf695ff83"
+        },
+        "scores": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_A_clip/scores.json",
+          "bytes": 636650,
+          "sha256": "27d9f5ffda1cadd63a79cddfd673f521c5078d1a8bc559eeef0542b36e409232"
+        },
+        "features": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_A_clip/features.json",
+          "bytes": 499011,
+          "sha256": "77b1fbe4d987a85b7e51f4f7817710e5dc327a09c3b4401747438d374cafd728"
+        },
+        "pairs": 1256,
+        "new_pairs": 1256,
+        "reused_pairs": 0,
+        "ledger": {
+          "caps": {
+            "load_clip": 1,
+            "embedding": 1356,
+            "pair": 1256
+          },
+          "counts": [
+            {
+              "kind": "embedding",
+              "status": "COMPLETE",
+              "count": 1356
+            },
+            {
+              "kind": "load_clip",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "pair",
+              "status": "COMPLETE",
+              "count": 1256
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 113.65176123008132
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_A_clip/completion.json",
+        "bytes": 1296,
+        "sha256": "cfed36ccfb0fe495ecd399ae7da5078b804b49d564cc03b15f83734374ae2b5d"
+      }
+    },
+    {
+      "role": "fit_A",
+      "route": "A",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1317553,
+          "start_ticks": 672473102,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793345163.2442706,
+        "finished_unix": 1793345613.8756657,
+        "device_seconds": 450.63139605522156,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "route": "A",
+        "unique_inputs": 928,
+        "rows": 2784,
+        "new_source_decodes": 391,
+        "new_renders": 719,
+        "baseline_reused": 536,
+        "ledger": {
+          "caps": {
+            "model_load": 1,
+            "prior_scale": 18560,
+            "decoder_forward": 928,
+            "source_decode": 392,
+            "completion_forward": 928,
+            "render": 928,
+            "anchor_load": 2,
+            "anchor_render": 1856
+          },
+          "counts": [
+            {
+              "kind": "anchor_load",
+              "status": "COMPLETE",
+              "count": 2
+            },
+            {
+              "kind": "anchor_render",
+              "status": "COMPLETE",
+              "count": 328
+            },
+            {
+              "kind": "completion_forward",
+              "status": "COMPLETE",
+              "count": 497
+            },
+            {
+              "kind": "decoder_forward",
+              "status": "COMPLETE",
+              "count": 391
+            },
+            {
+              "kind": "model_load",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "prior_scale",
+              "status": "COMPLETE",
+              "count": 8284
+            },
+            {
+              "kind": "render",
+              "status": "COMPLETE",
+              "count": 391
+            },
+            {
+              "kind": "source_decode",
+              "status": "COMPLETE",
+              "count": 391
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 449.5683314409107,
+        "new_PHY": 0,
+        "new_training": 0
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_A/completion.json",
+        "bytes": 1324,
+        "sha256": "a7217cbe7b412ad7d5b660c8e4c5999c1cc30e188d8c45a4777bb959328ac6c3"
+      }
+    },
+    {
+      "role": "fit_A_three",
+      "route": "A",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1318025,
+          "start_ticks": 672527041,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793345702.637408,
+        "finished_unix": 1793345888.304023,
+        "device_seconds": 185.66661596298218,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "identity": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_A_three/identity.json",
+          "bytes": 578,
+          "sha256": "20c3eff5244ba254589e47478d65706b70aa21b032a729a1c16950b231cbbbac"
+        },
+        "scores": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_A_three/scores.json",
+          "bytes": 718354,
+          "sha256": "b1f5008139902c9ab5199f6c075e9f1f63e77c9bd0da4222d2cb791881672aaa"
+        },
+        "features": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_A_three/features.json",
+          "bytes": 500367,
+          "sha256": "15e2fb82627dc6e28278aa985c0d09f3cec1552d413b1f5d06fb8ea5850d4f4e"
+        },
+        "pairs": 1256,
+        "new_pairs": 1256,
+        "reused_pairs": 0,
+        "ledger": {
+          "caps": {
+            "load_lpips": 1,
+            "load_dreamsim": 1,
+            "embedding": 1356,
+            "pair": 1256
+          },
+          "counts": [
+            {
+              "kind": "embedding",
+              "status": "COMPLETE",
+              "count": 1356
+            },
+            {
+              "kind": "load_dreamsim",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "load_lpips",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "pair",
+              "status": "COMPLETE",
+              "count": 1256
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 183.80218315403908
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_A_three/completion.json",
+        "bytes": 1426,
+        "sha256": "e902109f7455a20e96eac8a3b3e6caeea9af8fc04e585c24f34052976535ed2c"
+      }
+    },
+    {
+      "role": "fit_B_clip",
+      "route": "B",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1343274,
+          "start_ticks": 673123272,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793351664.9391785,
+        "finished_unix": 1793352133.9015973,
+        "device_seconds": 468.96241998672485,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "identity": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_B_clip/identity.json",
+          "bytes": 577,
+          "sha256": "d56d310cd4c7d5332867f2f3edf232113ad9ef179db917087ed1ed3bf695ff83"
+        },
+        "scores": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_B_clip/scores.json",
+          "bytes": 3284510,
+          "sha256": "1b22cf0c9fcd627287b97fe6d43f40d37d5b72c95aedf0547108faeacb904dcc"
+        },
+        "features": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_B_clip/features.json",
+          "bytes": 2541411,
+          "sha256": "13659c59936f4a540d9d7a735a310e99176d93f3375b26a72e52cad5532393bf"
+        },
+        "pairs": 6478,
+        "new_pairs": 5550,
+        "reused_pairs": 928,
+        "ledger": {
+          "caps": {
+            "load_clip": 1,
+            "embedding": 6578,
+            "pair": 6478
+          },
+          "counts": [
+            {
+              "kind": "embedding",
+              "status": "COMPLETE",
+              "count": 5550
+            },
+            {
+              "kind": "load_clip",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "pair",
+              "status": "COMPLETE",
+              "count": 5550
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 467.980366576463
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_B_clip/completion.json",
+        "bytes": 1298,
+        "sha256": "9f71430104206c6416667bd31fb4fa78ed9e21d99f56e5e15e30b3e11435a993"
+      }
+    },
+    {
+      "role": "fit_B",
+      "route": "B",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1322134,
+          "start_ticks": 672647746,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793346909.6789064,
+        "finished_unix": 1793349870.684778,
+        "device_seconds": 2961.0058727264404,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "route": "B",
+        "unique_inputs": 928,
+        "rows": 6496,
+        "new_source_decodes": 0,
+        "new_renders": 5550,
+        "baseline_reused": 927,
+        "ledger": {
+          "caps": {
+            "model_load": 1,
+            "prior_scale": 55680,
+            "decoder_forward": 5568,
+            "source_decode": 0,
+            "completion_forward": 5568,
+            "render": 5568
+          },
+          "counts": [
+            {
+              "kind": "completion_forward",
+              "status": "COMPLETE",
+              "count": 5550
+            },
+            {
+              "kind": "decoder_forward",
+              "status": "COMPLETE",
+              "count": 5550
+            },
+            {
+              "kind": "model_load",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "prior_scale",
+              "status": "COMPLETE",
+              "count": 55500
+            },
+            {
+              "kind": "render",
+              "status": "COMPLETE",
+              "count": 5550
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 2959.9097162541,
+        "new_PHY": 0,
+        "new_training": 0
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_B/completion.json",
+        "bytes": 974,
+        "sha256": "a3efd35716845001371aa3748c5eca2053c7fe4df14e528a525cc48622b563ed"
+      }
+    },
+    {
+      "role": "fit_B_three",
+      "route": "B",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1339702,
+          "start_ticks": 673056960,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793351001.8224392,
+        "finished_unix": 1793351664.1991334,
+        "device_seconds": 662.3766958713531,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "identity": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_B_three/identity.json",
+          "bytes": 578,
+          "sha256": "20c3eff5244ba254589e47478d65706b70aa21b032a729a1c16950b231cbbbac"
+        },
+        "scores": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_B_three/scores.json",
+          "bytes": 3705974,
+          "sha256": "37b0bf0c4cb3a709627d765674c230df85b35eea555a5df74fd3c5f253e85e13"
+        },
+        "features": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_B_three/features.json",
+          "bytes": 2548317,
+          "sha256": "f46dfcbea4edbf104b61518e348a3c631e0a1d4f2d5a9c0194043c4173ae88ad"
+        },
+        "pairs": 6478,
+        "new_pairs": 5550,
+        "reused_pairs": 928,
+        "ledger": {
+          "caps": {
+            "load_lpips": 1,
+            "load_dreamsim": 1,
+            "embedding": 6578,
+            "pair": 6478
+          },
+          "counts": [
+            {
+              "kind": "embedding",
+              "status": "COMPLETE",
+              "count": 5550
+            },
+            {
+              "kind": "load_dreamsim",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "load_lpips",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "pair",
+              "status": "COMPLETE",
+              "count": 5550
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 661.2739779669791
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_B_three/completion.json",
+        "bytes": 1429,
+        "sha256": "523257a30330a1788dc3230b90bccd538c65e5f4e8752bc2a349990c36891ff6"
+      }
+    },
+    {
+      "role": "fit_C_clip",
+      "route": "C",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1349198,
+          "start_ticks": 673185658,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793352288.802833,
+        "finished_unix": 1793352338.6908262,
+        "device_seconds": 49.887993812561035,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "identity": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_C_clip/identity.json",
+          "bytes": 577,
+          "sha256": "d56d310cd4c7d5332867f2f3edf232113ad9ef179db917087ed1ed3bf695ff83"
+        },
+        "scores": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_C_clip/scores.json",
+          "bytes": 352569,
+          "sha256": "90a748255660139b797afe91c49f2c34e7878dd5983ae48a8d82a62a89a4af59"
+        },
+        "features": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_C_clip/features.json",
+          "bytes": 654675,
+          "sha256": "d79e823bc7d8479d39c6231fc847e2fa3dc632d5dbef2acf95f0de6b3bd110f3"
+        },
+        "pairs": 695,
+        "new_pairs": 423,
+        "reused_pairs": 272,
+        "ledger": {
+          "caps": {
+            "load_clip": 1,
+            "embedding": 795,
+            "pair": 695
+          },
+          "counts": [
+            {
+              "kind": "embedding",
+              "status": "COMPLETE",
+              "count": 423
+            },
+            {
+              "kind": "load_clip",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "pair",
+              "status": "COMPLETE",
+              "count": 423
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 49.03596131503582
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_C_clip/completion.json",
+        "bytes": 1291,
+        "sha256": "a776c14481ee941b2153a1e4a5acdb9605f96a88dcf50800879fbc4141803f6b"
+      }
+    },
+    {
+      "role": "fit_C",
+      "route": "C",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1339946,
+          "start_ticks": 673058112,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793351013.3374128,
+        "finished_unix": 1793351450.4112656,
+        "device_seconds": 437.073853969574,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "unique_inputs": 272,
+        "variants": [
+          "C_content_1000",
+          "C_content_2000",
+          "C_content_3000",
+          "C_no_content_1000",
+          "C_no_content_2000",
+          "C_no_content_3000"
+        ],
+        "ledger": {
+          "caps": {
+            "model_load": 1,
+            "corrector_load": 6,
+            "prior_scale": 7860,
+            "decoder_forward": 786,
+            "completion_forward": 786,
+            "render": 786
+          },
+          "counts": [
+            {
+              "kind": "completion_forward",
+              "status": "COMPLETE",
+              "count": 786
+            },
+            {
+              "kind": "corrector_load",
+              "status": "COMPLETE",
+              "count": 6
+            },
+            {
+              "kind": "decoder_forward",
+              "status": "COMPLETE",
+              "count": 786
+            },
+            {
+              "kind": "model_load",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "prior_scale",
+              "status": "COMPLETE",
+              "count": 7860
+            },
+            {
+              "kind": "render",
+              "status": "COMPLETE",
+              "count": 786
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 436.0028258897364,
+        "new_PHY": 0,
+        "new_training": 0,
+        "source_truth_used": false
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_C/completion.json",
+        "bytes": 1152,
+        "sha256": "1bcd7bf1f1c5f46de7638c7eef05bd16aa0161f697854ce53398ee8c287e4af7"
+      }
+    },
+    {
+      "role": "fit_C_guard_clip",
+      "route": "C",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1360560,
+          "start_ticks": 673336663,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793353798.8494174,
+        "finished_unix": 1793353817.9472806,
+        "device_seconds": 19.097864151000977,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "identity": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_C_guard_clip/identity.json",
+          "bytes": 577,
+          "sha256": "d56d310cd4c7d5332867f2f3edf232113ad9ef179db917087ed1ed3bf695ff83"
+        },
+        "scores": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_C_guard_clip/scores.json",
+          "bytes": 447842,
+          "sha256": "b2c9cce06b27d6e3b9a788404fe4c042105e701997dfb7e60328253fd4ef25a2"
+        },
+        "features": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_C_guard_clip/features.json",
+          "bytes": 701799,
+          "sha256": "8229fdc3f517c131849010afdbfe2bd35f9a4f48cf8678dbd8012c175da1ee2b"
+        },
+        "pairs": 882,
+        "new_pairs": 126,
+        "reused_pairs": 756,
+        "ledger": {
+          "caps": {
+            "load_clip": 1,
+            "embedding": 982,
+            "pair": 882
+          },
+          "counts": [
+            {
+              "kind": "embedding",
+              "status": "COMPLETE",
+              "count": 126
+            },
+            {
+              "kind": "load_clip",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "pair",
+              "status": "COMPLETE",
+              "count": 126
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 18.38761934451759
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_C_guard_clip/completion.json",
+        "bytes": 1309,
+        "sha256": "ebf608911f5b8741368bb240e8288967249a84ad95fdada45a05aeb4d84bda6c"
+      }
+    },
+    {
+      "role": "fit_C_guard",
+      "route": "C",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1350046,
+          "start_ticks": 673201057,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793352442.7973833,
+        "finished_unix": 1793352565.0859761,
+        "device_seconds": 122.28859376907349,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "unique_inputs": 756,
+        "variants": [
+          "C_content_1000",
+          "C_no_content_1000"
+        ],
+        "ledger": {
+          "caps": {
+            "model_load": 1,
+            "corrector_load": 2,
+            "prior_scale": 1960,
+            "decoder_forward": 196,
+            "completion_forward": 196,
+            "render": 196
+          },
+          "counts": [
+            {
+              "kind": "completion_forward",
+              "status": "COMPLETE",
+              "count": 196
+            },
+            {
+              "kind": "corrector_load",
+              "status": "COMPLETE",
+              "count": 2
+            },
+            {
+              "kind": "decoder_forward",
+              "status": "COMPLETE",
+              "count": 196
+            },
+            {
+              "kind": "model_load",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "prior_scale",
+              "status": "COMPLETE",
+              "count": 1960
+            },
+            {
+              "kind": "render",
+              "status": "COMPLETE",
+              "count": 196
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 121.10076362546533,
+        "new_PHY": 0,
+        "new_training": 0,
+        "source_truth_used": false
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_C_guard/completion.json",
+        "bytes": 1059,
+        "sha256": "94a7b185aa33951bc70f0e5333b2542673daf9404aa503858b5aa04b963a576b"
+      }
+    },
+    {
+      "role": "fit_C_guard_three",
+      "route": "C",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1359543,
+          "start_ticks": 673319825,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793353630.4735959,
+        "finished_unix": 1793353668.4519868,
+        "device_seconds": 37.978391885757446,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "identity": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_C_guard_three/identity.json",
+          "bytes": 578,
+          "sha256": "20c3eff5244ba254589e47478d65706b70aa21b032a729a1c16950b231cbbbac"
+        },
+        "scores": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_C_guard_three/scores.json",
+          "bytes": 505206,
+          "sha256": "b035f2675e21fa34b04e65cb26f28e426cc696d736f969e309a91df741aad2f8"
+        },
+        "features": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_C_guard_three/features.json",
+          "bytes": 703704,
+          "sha256": "aca22c8c00cc77cc95f0b2052bc513e4681755d65baf72fed121732934f20406"
+        },
+        "pairs": 882,
+        "new_pairs": 126,
+        "reused_pairs": 756,
+        "ledger": {
+          "caps": {
+            "load_lpips": 1,
+            "load_dreamsim": 1,
+            "embedding": 982,
+            "pair": 882
+          },
+          "counts": [
+            {
+              "kind": "embedding",
+              "status": "COMPLETE",
+              "count": 126
+            },
+            {
+              "kind": "load_dreamsim",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "load_lpips",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "pair",
+              "status": "COMPLETE",
+              "count": 126
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 36.75927742384374
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_C_guard_three/completion.json",
+        "bytes": 1439,
+        "sha256": "38c6cc21c067f6e9259bd2aec4b32501802bc6b90dac814d965056f32e790744"
+      }
+    },
+    {
+      "role": "fit_C_three",
+      "route": "C",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1348768,
+          "start_ticks": 673178027,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793352212.494213,
+        "finished_unix": 1793352287.121534,
+        "device_seconds": 74.62732219696045,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "identity": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_C_three/identity.json",
+          "bytes": 578,
+          "sha256": "20c3eff5244ba254589e47478d65706b70aa21b032a729a1c16950b231cbbbac"
+        },
+        "scores": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_C_three/scores.json",
+          "bytes": 397841,
+          "sha256": "28907ffc1ae075f952ee0dd102fb9f692c0f25d0ba8f39e1bf778b0559bbf58f"
+        },
+        "features": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_C_three/features.json",
+          "bytes": 656454,
+          "sha256": "f7f7450ff0588528f13dc27b50b12b6f6850f6043831b029312c5ac72217bc25"
+        },
+        "pairs": 695,
+        "new_pairs": 423,
+        "reused_pairs": 272,
+        "ledger": {
+          "caps": {
+            "load_lpips": 1,
+            "load_dreamsim": 1,
+            "embedding": 795,
+            "pair": 695
+          },
+          "counts": [
+            {
+              "kind": "embedding",
+              "status": "COMPLETE",
+              "count": 423
+            },
+            {
+              "kind": "load_dreamsim",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "load_lpips",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "pair",
+              "status": "COMPLETE",
+              "count": 423
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 73.58861877210438
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_C_three/completion.json",
+        "bytes": 1421,
+        "sha256": "2e9c2030d66dd600feed8fdd3e0625bb951eb1634311ea11d7cb0f8d571f9702"
+      }
+    },
+    {
+      "role": "fit_D_clip",
+      "route": "D",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1335868,
+          "start_ticks": 672970331,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793350135.5319905,
+        "finished_unix": 1793350172.6531096,
+        "device_seconds": 37.1211199760437,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "identity": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_D_clip/identity.json",
+          "bytes": 577,
+          "sha256": "d56d310cd4c7d5332867f2f3edf232113ad9ef179db917087ed1ed3bf695ff83"
+        },
+        "scores": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_D_clip/scores.json",
+          "bytes": 241987,
+          "sha256": "a92b2d2a84c0462c1759ba671f2aa45b06ae3aeb94a058f8d9305b76cea582a2"
+        },
+        "features": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_D_clip/features.json",
+          "bytes": 600947,
+          "sha256": "50bac9d2c46407817064d0883d837d8cf4706c3d5eb730b6c40aaf5553d00d3c"
+        },
+        "pairs": 477,
+        "new_pairs": 277,
+        "reused_pairs": 200,
+        "ledger": {
+          "caps": {
+            "load_clip": 1,
+            "embedding": 577,
+            "pair": 477
+          },
+          "counts": [
+            {
+              "kind": "embedding",
+              "status": "COMPLETE",
+              "count": 277
+            },
+            {
+              "kind": "load_clip",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "pair",
+              "status": "COMPLETE",
+              "count": 277
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 36.43879499472678
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_D_clip/completion.json",
+        "bytes": 1291,
+        "sha256": "4205847db315d5cfd024648295b8e7610e2aa9244cb2f1bea6c9fc2dafe15d16"
+      }
+    },
+    {
+      "role": "fit_D_guard_clip",
+      "route": "D",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1350338,
+          "start_ticks": 673208511,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793352517.3297172,
+        "finished_unix": 1793352560.9578295,
+        "device_seconds": 43.62811326980591,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "identity": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_D_guard_clip/identity.json",
+          "bytes": 577,
+          "sha256": "d56d310cd4c7d5332867f2f3edf232113ad9ef179db917087ed1ed3bf695ff83"
+        },
+        "scores": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_D_guard_clip/scores.json",
+          "bytes": 464756,
+          "sha256": "aa5fed06061ed3dd03dd612b95378a20ee3d4cd083d3226d706a56b97776d0da"
+        },
+        "features": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_D_guard_clip/features.json",
+          "bytes": 774109,
+          "sha256": "fff6bac94273367ee0f2a00174bfb2e50a73192cd7767a16347197dd2d24bc9d"
+        },
+        "pairs": 916,
+        "new_pairs": 463,
+        "reused_pairs": 453,
+        "ledger": {
+          "caps": {
+            "load_clip": 1,
+            "embedding": 1016,
+            "pair": 916
+          },
+          "counts": [
+            {
+              "kind": "embedding",
+              "status": "COMPLETE",
+              "count": 463
+            },
+            {
+              "kind": "load_clip",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "pair",
+              "status": "COMPLETE",
+              "count": 463
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 42.893731374293566
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_D_guard_clip/completion.json",
+        "bytes": 1311,
+        "sha256": "6e00504c2b7ebdd62cf7ce035adcaa8bb95feb98e4789ed49d17efbe77d0ee1e"
+      }
+    },
+    {
+      "role": "fit_D_guard_phy_1024",
+      "route": "CPU_control",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1337766,
+          "start_ticks": 672992718,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793350359.4008162,
+        "finished_unix": 1793350405.8917623,
+        "device_seconds": 0,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "physical": 385,
+        "new": 185,
+        "reused": 200,
+        "ledger": {
+          "caps": {
+            "header": 385,
+            "body": 385
+          },
+          "counts": [
+            {
+              "kind": "body",
+              "status": "COMPLETE",
+              "count": 185
+            },
+            {
+              "kind": "header",
+              "status": "COMPLETE",
+              "count": 185
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 39.901083069853485,
+        "CUDA_initialized": false
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_D_guard_phy_1024/completion.json",
+        "bytes": 446,
+        "sha256": "cf3c729e7da802b820aa426045315e618c83fc7cf0f15882f305518f2b3a3ea7"
+      }
+    },
+    {
+      "role": "fit_D_guard_phy_512",
+      "route": "CPU_control",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1337765,
+          "start_ticks": 672992715,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793350359.375544,
+        "finished_unix": 1793350405.9119995,
+        "device_seconds": 0,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "physical": 578,
+        "new": 278,
+        "reused": 300,
+        "ledger": {
+          "caps": {
+            "header": 578,
+            "body": 578
+          },
+          "counts": [
+            {
+              "kind": "body",
+              "status": "COMPLETE",
+              "count": 278
+            },
+            {
+              "kind": "header",
+              "status": "COMPLETE",
+              "count": 278
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 44.71354552358389,
+        "CUDA_initialized": false
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_D_guard_phy_512/completion.json",
+        "bytes": 445,
+        "sha256": "b13674cce14fd6f2110c215ff271d1b6712cd356b615f7e2c388cc130918316c"
+      }
+    },
+    {
+      "role": "fit_D_guard_rx",
+      "route": "D",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1341824,
+          "start_ticks": 673108857,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793351520.796202,
+        "finished_unix": 1793351955.0590491,
+        "device_seconds": 434.2628483772278,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "unique_inputs": 916,
+        "reused": 453,
+        "gray": 0,
+        "ledger": {
+          "caps": {
+            "model_load": 1,
+            "prior_scale": 9260,
+            "decoder_forward": 463,
+            "source_decode": 463,
+            "completion_forward": 463,
+            "render": 463
+          },
+          "counts": [
+            {
+              "kind": "completion_forward",
+              "status": "COMPLETE",
+              "count": 463
+            },
+            {
+              "kind": "decoder_forward",
+              "status": "COMPLETE",
+              "count": 463
+            },
+            {
+              "kind": "model_load",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "prior_scale",
+              "status": "COMPLETE",
+              "count": 8113
+            },
+            {
+              "kind": "render",
+              "status": "COMPLETE",
+              "count": 463
+            },
+            {
+              "kind": "source_decode",
+              "status": "COMPLETE",
+              "count": 463
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 433.22473496198654,
+        "new_PHY": 0,
+        "TX_truth_used": false
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_D_guard_rx/completion.json",
+        "bytes": 999,
+        "sha256": "98936cf1a6812d3e5301ebbefb6f3ec5eebbaa303a83748747543404a85b5196"
+      }
+    },
+    {
+      "role": "fit_D_guard_three",
+      "route": "D",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1349513,
+          "start_ticks": 673191262,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793352344.844967,
+        "finished_unix": 1793352425.277232,
+        "device_seconds": 80.43226599693298,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "identity": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_D_guard_three/identity.json",
+          "bytes": 578,
+          "sha256": "20c3eff5244ba254589e47478d65706b70aa21b032a729a1c16950b231cbbbac"
+        },
+        "scores": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_D_guard_three/scores.json",
+          "bytes": 524340,
+          "sha256": "f2de67f85e31bfd46e3bcc00b388cb751f4a18e57e26bab1333474b9169873c0"
+        },
+        "features": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_D_guard_three/features.json",
+          "bytes": 776205,
+          "sha256": "ea5638f6cea1b1c77080e7193087b069b4b0b9b0ab511437fe104ff1ea0cd3e4"
+        },
+        "pairs": 916,
+        "new_pairs": 463,
+        "reused_pairs": 453,
+        "ledger": {
+          "caps": {
+            "load_lpips": 1,
+            "load_dreamsim": 1,
+            "embedding": 1016,
+            "pair": 916
+          },
+          "counts": [
+            {
+              "kind": "embedding",
+              "status": "COMPLETE",
+              "count": 463
+            },
+            {
+              "kind": "load_dreamsim",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "load_lpips",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "pair",
+              "status": "COMPLETE",
+              "count": 463
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 79.28427767939866
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_D_guard_three/completion.json",
+        "bytes": 1440,
+        "sha256": "0c6456b67f295c9d4ad6b218b6d8f99223ee6292fe6eadaf767ba232ed2454d0"
+      }
+    },
+    {
+      "role": "fit_D_phy_1024",
+      "route": "CPU_control",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1322463,
+          "start_ticks": 672667930,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793347111.5223947,
+        "finished_unix": 1793347180.2876966,
+        "device_seconds": 0,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "physical": 477,
+        "new": 277,
+        "reused": 200,
+        "ledger": {
+          "caps": {
+            "header": 477,
+            "body": 477
+          },
+          "counts": [
+            {
+              "kind": "body",
+              "status": "COMPLETE",
+              "count": 277
+            },
+            {
+              "kind": "header",
+              "status": "COMPLETE",
+              "count": 277
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 62.02554237935692,
+        "CUDA_initialized": false
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_D_phy_1024/completion.json",
+        "bytes": 445,
+        "sha256": "d6e6392969b7734963bf37c593365ad4528c8a726795b34d1eff5b3bbed56d92"
+      }
+    },
+    {
+      "role": "fit_D_rx",
+      "route": "D",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1324284,
+          "start_ticks": 672732845,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793347760.6766245,
+        "finished_unix": 1793348015.2715926,
+        "device_seconds": 254.59496927261353,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "unique_inputs": 477,
+        "reused": 200,
+        "gray": 0,
+        "ledger": {
+          "caps": {
+            "model_load": 1,
+            "prior_scale": 5540,
+            "decoder_forward": 277,
+            "source_decode": 277,
+            "completion_forward": 277,
+            "render": 277
+          },
+          "counts": [
+            {
+              "kind": "completion_forward",
+              "status": "COMPLETE",
+              "count": 277
+            },
+            {
+              "kind": "decoder_forward",
+              "status": "COMPLETE",
+              "count": 277
+            },
+            {
+              "kind": "model_load",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "prior_scale",
+              "status": "COMPLETE",
+              "count": 5033
+            },
+            {
+              "kind": "render",
+              "status": "COMPLETE",
+              "count": 277
+            },
+            {
+              "kind": "source_decode",
+              "status": "COMPLETE",
+              "count": 277
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 253.74318386800587,
+        "new_PHY": 0,
+        "TX_truth_used": false
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_D_rx/completion.json",
+        "bytes": 999,
+        "sha256": "928ccd4da3ecdd2cdcbb7322570b1da822eb7b5dea19170a93c66ab654997876"
+      }
+    },
+    {
+      "role": "fit_D_source",
+      "route": "D",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1321811,
+          "start_ticks": 672629883,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793346731.0504994,
+        "finished_unix": 1793346829.4158053,
+        "device_seconds": 98.3653073310852,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "sources": 100,
+        "new_source_traversals": 100,
+        "independent_finish_calls": 65100,
+        "original_quarter_streams_exact": true,
+        "ledger": {
+          "caps": {
+            "model_load": 1,
+            "source_traversal": 100,
+            "prior_scale": 1000,
+            "decoder_forward": 0
+          },
+          "counts": [
+            {
+              "kind": "model_load",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "prior_scale",
+              "status": "COMPLETE",
+              "count": 1000
+            },
+            {
+              "kind": "source_traversal",
+              "status": "COMPLETE",
+              "count": 100
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 97.43593143671751,
+        "new_tokenizer": 0,
+        "new_PHY": 0
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_D_source/completion.json",
+        "bytes": 716,
+        "sha256": "789b74fe343d8bba118ef4edd16c2fe9d62ad312f823f7265d24a14e452ef7e9"
+      }
+    },
+    {
+      "role": "fit_D_three",
+      "route": "D",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1331811,
+          "start_ticks": 672957176,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793350003.9828677,
+        "finished_unix": 1793350096.1309743,
+        "device_seconds": 92.14810824394226,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "identity": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_D_three/identity.json",
+          "bytes": 578,
+          "sha256": "20c3eff5244ba254589e47478d65706b70aa21b032a729a1c16950b231cbbbac"
+        },
+        "scores": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_D_three/scores.json",
+          "bytes": 273082,
+          "sha256": "1edf8c847f9d7a52c04d6d89b37373f3f179c220583fdd5162373ced3a2f5f17"
+        },
+        "features": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_D_three/features.json",
+          "bytes": 602580,
+          "sha256": "ea858661685373ba4cd74d4b45b1ddff3fe19a279e98a0457152e1bb9ba87fc6"
+        },
+        "pairs": 477,
+        "new_pairs": 277,
+        "reused_pairs": 200,
+        "ledger": {
+          "caps": {
+            "load_lpips": 1,
+            "load_dreamsim": 1,
+            "embedding": 577,
+            "pair": 477
+          },
+          "counts": [
+            {
+              "kind": "embedding",
+              "status": "COMPLETE",
+              "count": 277
+            },
+            {
+              "kind": "load_dreamsim",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "load_lpips",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "pair",
+              "status": "COMPLETE",
+              "count": 277
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 90.27578081097454
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_D_three/completion.json",
+        "bytes": 1421,
+        "sha256": "99d528a4e43916f9dea185c023bc88d59d56a61689625dedc7b63dc554fc31af"
+      }
+    },
+    {
+      "role": "fit_E_clip",
+      "route": "E",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1338077,
+          "start_ticks": 672994887,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793350381.0969136,
+        "finished_unix": 1793350391.1325831,
+        "device_seconds": 10.035670757293701,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "identity": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_E_clip/identity.json",
+          "bytes": 577,
+          "sha256": "d56d310cd4c7d5332867f2f3edf232113ad9ef179db917087ed1ed3bf695ff83"
+        },
+        "scores": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_E_clip/scores.json",
+          "bytes": 105644,
+          "sha256": "82337a0bbca8461fe2eb9522534f1faaf7a061fc90a4c341ce9e091edeed9b40"
+        },
+        "features": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_E_clip/features.json",
+          "bytes": 500115,
+          "sha256": "7f2358c2efa63907406b7bf48cf5d0067e303a2db66e38f853ec8ac0a4877d23"
+        },
+        "pairs": 208,
+        "new_pairs": 3,
+        "reused_pairs": 205,
+        "ledger": {
+          "caps": {
+            "load_clip": 1,
+            "embedding": 308,
+            "pair": 208
+          },
+          "counts": [
+            {
+              "kind": "embedding",
+              "status": "COMPLETE",
+              "count": 3
+            },
+            {
+              "kind": "load_clip",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "pair",
+              "status": "COMPLETE",
+              "count": 3
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 9.334489011205733
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_E_clip/completion.json",
+        "bytes": 1285,
+        "sha256": "027ca953c6bfe2f386665356c709cd46750b60d73dbf28a6d5b8e475a8e1e2cb"
+      }
+    },
+    {
+      "role": "fit_E_phy_1024",
+      "route": "CPU_control",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1325659,
+          "start_ticks": 672800990,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793348442.1247246,
+        "finished_unix": 1793348453.4597917,
+        "device_seconds": 0,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "physical": 208,
+        "new": 3,
+        "reused": 205,
+        "ledger": {
+          "caps": {
+            "header": 208,
+            "body": 208
+          },
+          "counts": [
+            {
+              "kind": "body",
+              "status": "COMPLETE",
+              "count": 3
+            },
+            {
+              "kind": "header",
+              "status": "COMPLETE",
+              "count": 3
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 10.626121090725064,
+        "CUDA_initialized": false
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_E_phy_1024/completion.json",
+        "bytes": 440,
+        "sha256": "f1ecef89bf9713d334264fb3e719983cb4147f1a52c03e4aa523dc9e33ebe1df"
+      }
+    },
+    {
+      "role": "fit_E_rx",
+      "route": "E",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1326036,
+          "start_ticks": 672822829,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793348660.5093484,
+        "finished_unix": 1793348661.6824477,
+        "device_seconds": 0,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "unique_inputs": 208,
+        "reused": 207,
+        "gray": 1,
+        "ledger": {
+          "caps": {
+            "model_load": 0,
+            "source_decode": 0,
+            "render": 0
+          },
+          "counts": [],
+          "unresolved": 0
+        },
+        "new_models": 0,
+        "new_PHY": 0,
+        "registration": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/nestcom_opt_20261030_v1/fit_E_rx_registration.json",
+          "bytes": 1669,
+          "sha256": "95175b9a93e71639abcdfc904bdf4f32d094ca321cf5438def312f85a79acdc7"
+        }
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_E_rx/completion.json",
+        "bytes": 515,
+        "sha256": "86c25e227ced7bccd0179f6d942df5bd9653f0720fbf40f9e61a6d1871b586d5"
+      }
+    },
+    {
+      "role": "fit_E_score",
+      "route": "E",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1325071,
+          "start_ticks": 672789977,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793348331.9912379,
+        "finished_unix": 1793348360.998338,
+        "device_seconds": 29.007100820541382,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "source_workpoints": 200,
+        "unique_pairs": 561,
+        "selected_shorter": 8,
+        "selection": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_E_score/selection.json",
+          "bytes": 83515,
+          "sha256": "6adfb55f5e1d6b77bb08c21e5456424e9764d64cf570ec8a96bd3a8996256b94"
+        },
+        "ledger": {
+          "caps": {
+            "load_lpips": 1,
+            "pair": 600
+          },
+          "counts": [
+            {
+              "kind": "load_lpips",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "pair",
+              "status": "COMPLETE",
+              "count": 561
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 28.222411272116005,
+        "new_PHY": 0,
+        "selection_used_actual_channel": false
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_E_score/completion.json",
+        "bytes": 757,
+        "sha256": "ce44401f20518a65b5ccebdab37f1c92e03373ed6af20bb429c81cfa6c5dd136"
+      }
+    },
+    {
+      "role": "fit_E_simulation",
+      "route": "E",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1324774,
+          "start_ticks": 672770887,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793348141.0971482,
+        "finished_unix": 1793348314.7944305,
+        "device_seconds": 173.69728326797485,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "unique_inputs": 561,
+        "reused": 368,
+        "gray": 0,
+        "ledger": {
+          "caps": {
+            "model_load": 1,
+            "prior_scale": 3860,
+            "decoder_forward": 193,
+            "source_decode": 193,
+            "completion_forward": 193,
+            "render": 193
+          },
+          "counts": [
+            {
+              "kind": "completion_forward",
+              "status": "COMPLETE",
+              "count": 193
+            },
+            {
+              "kind": "decoder_forward",
+              "status": "COMPLETE",
+              "count": 193
+            },
+            {
+              "kind": "model_load",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "prior_scale",
+              "status": "COMPLETE",
+              "count": 3355
+            },
+            {
+              "kind": "render",
+              "status": "COMPLETE",
+              "count": 193
+            },
+            {
+              "kind": "source_decode",
+              "status": "COMPLETE",
+              "count": 193
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 172.69928943086416,
+        "new_PHY": 0,
+        "TX_truth_used": false
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_E_simulation/completion.json",
+        "bytes": 999,
+        "sha256": "5078daa0c33d0449dfa5739941a8445fa00ddc9641f52d667e125cc99c23060b"
+      }
+    },
+    {
+      "role": "fit_E_three",
+      "route": "E",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1337278,
+          "start_ticks": 672982495,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793350257.173734,
+        "finished_unix": 1793350276.8292615,
+        "device_seconds": 19.655529260635376,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "identity": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_E_three/identity.json",
+          "bytes": 578,
+          "sha256": "20c3eff5244ba254589e47478d65706b70aa21b032a729a1c16950b231cbbbac"
+        },
+        "scores": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_E_three/scores.json",
+          "bytes": 119204,
+          "sha256": "f4da47a71b994bff37a2b7fdcf56e85e13471e11b516c03a136a0310480ec5c2"
+        },
+        "features": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_E_three/features.json",
+          "bytes": 501474,
+          "sha256": "2ecafb10790e04cf8a9c325a110d504c9cd186c6be08516cb7106890a27376f2"
+        },
+        "pairs": 208,
+        "new_pairs": 3,
+        "reused_pairs": 205,
+        "ledger": {
+          "caps": {
+            "load_lpips": 1,
+            "load_dreamsim": 1,
+            "embedding": 308,
+            "pair": 208
+          },
+          "counts": [
+            {
+              "kind": "embedding",
+              "status": "COMPLETE",
+              "count": 3
+            },
+            {
+              "kind": "load_dreamsim",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "load_lpips",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "pair",
+              "status": "COMPLETE",
+              "count": 3
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 18.665699826553464
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_E_three/completion.json",
+        "bytes": 1416,
+        "sha256": "bd6c6661baa1a13c28ed7204c5c9de225875a02fdb18b8b1b7ccb9c4871e3ffd"
+      }
+    },
+    {
+      "role": "fit_metric_queue",
+      "route": "CPU_control",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1342269,
+          "start_ticks": 673119195,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793351624.1728675,
+        "finished_unix": 1793352562.2071288,
+        "device_seconds": 0,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "stages": [
+          {
+            "role": "fit_B_clip",
+            "completion": {
+              "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_B_clip/completion.json",
+              "bytes": 1298,
+              "sha256": "9f71430104206c6416667bd31fb4fa78ed9e21d99f56e5e15e30b3e11435a993"
+            },
+            "wait": {
+              "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_B_clip_control/actual_wait.json",
+              "bytes": 278,
+              "sha256": "21568edc4fb415f7e0ddd548adb182485ed91560ad2a54725de16dd31931c34c"
+            }
+          },
+          {
+            "role": "fit_C_three",
+            "completion": {
+              "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_C_three/completion.json",
+              "bytes": 1421,
+              "sha256": "2e9c2030d66dd600feed8fdd3e0625bb951eb1634311ea11d7cb0f8d571f9702"
+            },
+            "wait": {
+              "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_C_three_control/actual_wait.json",
+              "bytes": 275,
+              "sha256": "fe354d1998a862ad3506b5586589b191cae5d4f7b694eb4660146ad3fc4381be"
+            }
+          },
+          {
+            "role": "fit_C_clip",
+            "completion": {
+              "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_C_clip/completion.json",
+              "bytes": 1291,
+              "sha256": "a776c14481ee941b2153a1e4a5acdb9605f96a88dcf50800879fbc4141803f6b"
+            },
+            "wait": {
+              "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_C_clip_control/actual_wait.json",
+              "bytes": 277,
+              "sha256": "a323fe5ec448ea9863bf17e19c6132dd90d5f2cdbcabfb34296dcfc1cf5af6ae"
+            }
+          },
+          {
+            "role": "fit_D_guard_three",
+            "completion": {
+              "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_D_guard_three/completion.json",
+              "bytes": 1440,
+              "sha256": "0c6456b67f295c9d4ad6b218b6d8f99223ee6292fe6eadaf767ba232ed2454d0"
+            },
+            "wait": {
+              "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_D_guard_three_control/actual_wait.json",
+              "bytes": 275,
+              "sha256": "3e2b4cc5f4ee411799ad84e59c734018c8f4dffbf8144952f90593c6a9d75784"
+            }
+          },
+          {
+            "role": "fit_D_guard_clip",
+            "completion": {
+              "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_D_guard_clip/completion.json",
+              "bytes": 1311,
+              "sha256": "6e00504c2b7ebdd62cf7ce035adcaa8bb95feb98e4789ed49d17efbe77d0ee1e"
+            },
+            "wait": {
+              "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_D_guard_clip_control/actual_wait.json",
+              "bytes": 277,
+              "sha256": "f42b1983c47366ac84f4952cf522c882e11d70c0732c4933d48c0785e7342e7d"
+            }
+          }
+        ],
+        "science_retries": 0,
+        "seconds": 937.9007352078333
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_metric_queue/completion.json",
+        "bytes": 3073,
+        "sha256": "5fbea8f313f5baa91970403c24b0cdee5a34589301fc694da7f4f5b3f0f446a4"
+      }
+    },
+    {
+      "role": "fit_phy_1024",
+      "route": "CPU_control",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1316587,
+          "start_ticks": 672391238,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793344344.6023943,
+        "finished_unix": 1793344432.5283563,
+        "device_seconds": 0,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "physical": 697,
+        "new": 697,
+        "reused": 0,
+        "ledger": {
+          "caps": {
+            "header": 697,
+            "body": 697
+          },
+          "counts": [
+            {
+              "kind": "body",
+              "status": "COMPLETE",
+              "count": 697
+            },
+            {
+              "kind": "header",
+              "status": "COMPLETE",
+              "count": 697
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 87.13069183938205,
+        "CUDA_initialized": false
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_phy_1024/completion.json",
+        "bytes": 443,
+        "sha256": "6ea6597ca69b599b2185171f36fcba1e5c750cfdd74bc59bb1fab2180f896f0d"
+      }
+    },
+    {
+      "role": "fit_phy_512",
+      "route": "CPU_control",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1316586,
+          "start_ticks": 672391235,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793344344.570791,
+        "finished_unix": 1793344390.2974765,
+        "device_seconds": 0,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "physical": 536,
+        "new": 0,
+        "reused": 536,
+        "ledger": {
+          "caps": {
+            "header": 536,
+            "body": 536
+          },
+          "counts": [],
+          "unresolved": 0
+        },
+        "seconds": 40.46549008321017,
+        "CUDA_initialized": false
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/fit_phy_512/completion.json",
+        "bytes": 253,
+        "sha256": "53846bc9a29dbbfff8de72f924e523fc870c0636f72bf91e2ba10fd3852bc232"
+      }
+    },
+    {
+      "role": "variant_qualification",
+      "route": "P0",
+      "timing_only": "False",
+      "actual_wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1317078,
+          "start_ticks": 672454537,
+          "state": "R"
+        },
+        "final_identity": null,
+        "started_unix": 1793344977.5893352,
+        "finished_unix": 1793345010.1182544,
+        "device_seconds": 32.52891993522644,
+        "automatic_retry": false
+      },
+      "completion": {
+        "status": "COMPLETE",
+        "rows": [
+          {
+            "kind": "whole",
+            "zero_corrector": true,
+            "exact_original": true,
+            "pixel_sha256": "4b9864a2209eb8540c539af58422b1344f829e96d0115c60f17f0900b21cf707",
+            "corrector_forwards": 0,
+            "completed_tokens_sha256": "9dcb64b107f7ac01325dac0a747635f542e5b460b373b3ebd3d29be6cf80cd9c",
+            "received_tokens_unchanged": true
+          },
+          {
+            "kind": "partial",
+            "zero_corrector": true,
+            "exact_original": true,
+            "pixel_sha256": "e1ccb09a9ab57a9c909842258ed33a4b99a19fe65b7cdcfcda8ab0c4e5f961c1",
+            "corrector_forwards": 1,
+            "completed_tokens_sha256": "2d79072db5e5e1ebe6e735b20b7827687ee7a5a3489154c75284b09da15d62ad",
+            "received_tokens_unchanged": true
+          },
+          {
+            "kind": "full",
+            "zero_corrector": true,
+            "exact_original": true,
+            "pixel_sha256": "05bf7faeaed78b406c75dbd3e39c6911037638e44bc1ae3b18555eae232e49fc",
+            "corrector_forwards": 0,
+            "completed_tokens_sha256": "682f0976d4e23d7a0034bec992b3a7176b84f60f572a3bbf0b46ee5cd684ad92",
+            "received_tokens_unchanged": true
+          },
+          {
+            "kind": "B_and_zeroC_B",
+            "exact_latent": true,
+            "known_tokens_preserved": true,
+            "seed": 2026103001,
+            "temperature": 0.3,
+            "corrector_forwards": 1,
+            "completed_tokens_sha256": "a9e462c76b4221b3536811063d4ca4ea8bd2831b8cab9c8cbd7b36931aed0574",
+            "received_tokens_unchanged": true
+          }
+        ],
+        "ledger": {
+          "caps": {
+            "model_load": 1,
+            "prior_scale": 50,
+            "decoder_forward": 3,
+            "qualification_completion": 5
+          },
+          "counts": [
+            {
+              "kind": "decoder_forward",
+              "status": "COMPLETE",
+              "count": 3
+            },
+            {
+              "kind": "model_load",
+              "status": "COMPLETE",
+              "count": 1
+            },
+            {
+              "kind": "prior_scale",
+              "status": "COMPLETE",
+              "count": 50
+            },
+            {
+              "kind": "qualification_completion",
+              "status": "COMPLETE",
+              "count": 5
+            }
+          ],
+          "unresolved": 0
+        },
+        "seconds": 30.299366027116776,
+        "image_quality_evaluation": false
+      },
+      "completion_identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_opt_20261030_v1/variant_qualification/completion.json",
+        "bytes": 2121,
+        "sha256": "5a6106658099baeeeaedc86c0eb330bcca933c93af249f5fa1702ba0ef2f2c64"
+      }
+    }
+  ],
+  "all_waits_and_calls": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/nestcom_opt_20261030_v1/resource_delivery/resource_ledger.json",
+    "bytes": 3596,
+    "sha256": "082a8a0cf286ad0276054351653e96cb6f1f7c39f7b32f38d588eda21c7705e9"
+  },
+  "logical_results_not_model_call_counts": true,
+  "repeated_timing_calls_separate_from_quality": true,
+  "historical_final_rows_reused": 30000,
+  "historical_native_arrays_verified": 9296,
+  "historical_missing_CLIP_only_new_pairs": 2188,
+  "new_final_logical": 12000,
+  "new_final_physical_events": 11223,
+  "exact_reused_final_physical_events": 777,
+  "new_final_RX_expected_unique_decode": 3383,
+  "actual_values_in_per_worker_ledgers": true
+}
