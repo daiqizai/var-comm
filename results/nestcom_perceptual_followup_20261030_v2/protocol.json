@@ -1,0 +1,466 @@
+{
+  "status": "REGISTERED_BEFORE_NEW_SCIENTIFIC_RESULTS",
+  "user_design": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/nestcom_perceptual_followup_20261030_v2/user_package/protocol_defaults.json",
+    "bytes": 11014,
+    "sha256": "56a65800809efe82e79137c13b0945cb07966040cbb220b76935744dfcc81783"
+  },
+  "work_order": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/nestcom_perceptual_followup_20261030_v2/user_package/NeST_Com_Comparison_Fig3_Timing_Codex_Order_20261030_v2.txt",
+    "bytes": 33548,
+    "sha256": "a46fd26e75f241bae9e9330a609edfa3a8da4173f8d03060dbf7ac63a689473e"
+  },
+  "baseline_HEAD": "e38822dce0832dfb4e85ffe5466ae66a7cec300f",
+  "design": {
+    "schema_version": 2,
+    "status": "PLAN_NOT_EXECUTED",
+    "created_date": "2026-10-30",
+    "timezone": "Asia/Shanghai",
+    "repository": "daiqizai/var-comm",
+    "reference_commit": "e38822dce0832dfb4e85ffe5466ae66a7cec300f",
+    "experiment_directory": "experiments/nestcom-perceptual-followup-20261030",
+    "result_directory": "results/nestcom_perceptual_followup_20261030_v2",
+    "manuscript_directory": "paper/manuscripts/nestcom_wcl_tokenwise_20261030_v7",
+    "frozen_configuration": {
+      "configuration": "original_receiver_plus_D_token",
+      "receiver": "original_Dc_argmax",
+      "retained_components": [
+        "D_token"
+      ],
+      "within_scale_order": "raster",
+      "train_new_models": false,
+      "recalibrate_for_DISTS": false,
+      "reopen_optimization_routes": false
+    },
+    "source_sets": {
+      "main": "existing common500 ordered source manifest bound by frozen_final.json",
+      "control100": "first 100 full source_ids in the existing common500 manifest order",
+      "timing32": "first 32 full source_ids in the same manifest",
+      "independent_new200_required_for_this_round": false
+    },
+    "E1_dists": {
+      "core_methods": [
+        "final_NeST",
+        "original_NeST",
+        "WHOLE_final_receiver",
+        "Ada_frozen"
+      ],
+      "cells": [
+        [
+          1024,
+          4
+        ],
+        [
+          1024,
+          7
+        ],
+        [
+          1024,
+          10
+        ],
+        [
+          1024,
+          19
+        ],
+        [
+          512,
+          4
+        ],
+        [
+          512,
+          10
+        ],
+        [
+          512,
+          19
+        ]
+      ],
+      "add_N1024_methods": [
+        "ARPC",
+        "SwinJSCC",
+        "Latent_JSCC",
+        "BPG_LDPC"
+      ],
+      "add_N1024_snr_db": [
+        4,
+        7,
+        10,
+        19
+      ],
+      "n_sources": 500,
+      "original_channel_repeats": 3,
+      "core_logical_pairs": 42000,
+      "additional_logical_pairs": 24000,
+      "total_logical_pairs": 66000,
+      "dists": {
+        "official_git_revision": "1267d8cb626c98706db3697422701c56a85ebf2e",
+        "input": "native 256x256 RGB float32 [0,1]",
+        "resize": false,
+        "crop": false,
+        "png_requantization": false,
+        "geometric_registration": false,
+        "precision": "fp32",
+        "amp": false,
+        "require_grad": false,
+        "batch_average": false,
+        "lower_is_better": true
+      },
+      "reuse_other_metrics": true,
+      "keep_failed_outputs": true,
+      "dedup_key": [
+        "reference_rgb_sha",
+        "reconstruction_rgb_sha",
+        "evaluator_identity",
+        "preprocessing_identity"
+      ],
+      "source_bootstrap": {
+        "replicates": 10000,
+        "bank": "reuse exact ordered common500 source bank"
+      },
+      "partial_asset_failure_blocks_other_cells": false
+    },
+    "E2_information_budget": {
+      "methods": [
+        "WHOLE",
+        "Token_NeST",
+        "Ada"
+      ],
+      "B_bits": [
+        620,
+        1212,
+        1302,
+        1940,
+        2248,
+        2577
+      ],
+      "overhead_bits": {
+        "profile": 12,
+        "header_crc": 16,
+        "length": 13,
+        "body_crc": 16,
+        "Ada_class": 10
+      },
+      "common_overhead_bits": 57,
+      "Ada_total_overhead_bits": 67,
+      "max_endpoint_WHOLE_and_NeST": [
+        10,
+        0
+      ],
+      "NeST_endpoint_count": 651,
+      "Ada_max_tokens": 256,
+      "selection": "longest feasible token prefix by independently terminated actual length; no quality selector; do not assume length monotonicity",
+      "retain_original_snr_target_ceilings": false,
+      "channel": "error-free information transfer; no FEC or modulation",
+      "n_sources": 500,
+      "deterministic_generation_repeats": 1,
+      "Ada_generation_repeats": 3,
+      "Ada_generation_seed_anchors": [
+        2026103001,
+        2026103002,
+        2026103003
+      ],
+      "Ada_generation": {
+        "CFG": 4,
+        "temperature": 1,
+        "top_k": 2000,
+        "top_p": 1
+      },
+      "maximum_logical_outputs_before_dedup": 15000,
+      "source_method_budget_units": 9000,
+      "metric_aggregation": "mean metric across generation repeats, never average images or select best sample",
+      "primary_metrics": [
+        "dists",
+        "dreamsim"
+      ],
+      "other_metrics": [
+        "psnr_db",
+        "lpips_alex",
+        "clip_image_cosine"
+      ],
+      "claim_scope": "frozen complete-system source rate-quality diagnostic, not isolated order causal proof"
+    },
+    "E3_granularity": {
+      "N": 1024,
+      "snr_db": 10,
+      "n_sources": 100,
+      "channel_repeats": 3,
+      "grids": [
+        "whole",
+        "quarter",
+        "eighth",
+        "token"
+      ],
+      "q": 4,
+      "code_rate": "2/3",
+      "shared_max_endpoint": [
+        8,
+        126
+      ],
+      "logical_records": 1200,
+      "waveform_reuse": "only exact matching payload/profile/noise",
+      "common_noise": "use final D registered 10dB events as canonical; verify actual noise identity",
+      "metrics": [
+        "dists",
+        "dreamsim",
+        "psnr_db",
+        "lpips_alex",
+        "clip_image_cosine"
+      ],
+      "reuse_old_table_without_identity_match": false
+    },
+    "E4_receiver_interventions": {
+      "cells": [
+        [
+          1024,
+          7
+        ],
+        [
+          1024,
+          10
+        ]
+      ],
+      "n_sources": 100,
+      "channel_repeats": 3,
+      "arms": [
+        "A0",
+        "B0",
+        "C0"
+      ],
+      "definitions": "inherit original ordered intervention implementation; A0 still uses prior completion",
+      "C0": "reuse exact final D reconstruction",
+      "new_inference_arms": [
+        "A0",
+        "B0"
+      ],
+      "new_PHY": false,
+      "logical_records": 1800,
+      "estimated_max_new_unique_reconstructions_if_one_success_prefix_per_source": 400,
+      "retain_failures": true,
+      "final_scale_check": {
+        "cell": [
+          1024,
+          19
+        ],
+        "scope": "inspect actual D endpoints and verify B0=C0 identity; do not relabel old Quarter means"
+      },
+      "claim_scope": "ordered effects of the entire received boundary prefix under new D; not an independent decomposition of the incremental D-vs-Quarter gain"
+    },
+    "E5_timing": {
+      "methods_primary": [
+        "WHOLE",
+        "Token_NeST",
+        "Ada"
+      ],
+      "cells_primary": [
+        [
+          1024,
+          7
+        ],
+        [
+          1024,
+          10
+        ],
+        [
+          512,
+          10
+        ]
+      ],
+      "extra_methods_at_N1024_10": [
+        "ARPC",
+        "SwinJSCC",
+        "Latent_JSCC",
+        "BPG_LDPC"
+      ],
+      "matched_granularity": {
+        "N": 1024,
+        "snr_db": 10,
+        "max_endpoint": [
+          8,
+          126
+        ],
+        "grids": [
+          "whole",
+          "quarter",
+          "eighth",
+          "token"
+        ]
+      },
+      "maximum_distinct_method_cell_groups": 16,
+      "sources": 32,
+      "warmups_per_source": 2,
+      "measurements_per_source": 3,
+      "batch": 1,
+      "same_physical_gpu": true,
+      "cpu_cores": 2,
+      "tx_boundary": "canonical 256 RGB in memory to actual emitted symbols",
+      "rx_boundary": "actual received symbols in memory to final canonical RGB",
+      "exclude": [
+        "model initial load",
+        "disk IO",
+        "evaluation metric networks",
+        "plotting",
+        "log flush"
+      ],
+      "include_Ada_class_prediction": true,
+      "include_ARPC_caption_generation": true,
+      "include_BPG_actual_online_search": true,
+      "no_token_or_image_output_cache_for_measurement": true,
+      "synchronization": "wall clock with GPU synchronization at boundaries",
+      "statistics": [
+        "equal-source mean",
+        "per-call median",
+        "per-call p95"
+      ],
+      "report_successful_RX_separately": true,
+      "mix_old_6core_and_new_2core_table": false
+    },
+    "E6_threshold": {
+      "N": 1024,
+      "calibrated_snr_db": 10,
+      "actual_snr_db": [
+        8,
+        8.5,
+        9,
+        9.5,
+        10
+      ],
+      "methods": [
+        "WHOLE",
+        "Token_NeST",
+        "Ada"
+      ],
+      "n_sources": 100,
+      "noise_repeats_per_source": 20,
+      "total_real_frames": 30000,
+      "reselection": false,
+      "receiver_knows_actual_noise_variance": true,
+      "generation": "per-source frozen original repeat0 generation identity across all SNR/noise events",
+      "quality": "reuse only actual accepted payload / receiver / generation identities; retain gray outputs",
+      "measurements": [
+        "header rejection",
+        "body/parse rejection",
+        "source decoding rejection",
+        "NULL",
+        "total success",
+        "overall dists",
+        "overall dreamsim",
+        "successful-only quality"
+      ],
+      "scope": "bounded fixed-policy threshold diagnostic",
+      "waveform_reuse": "join control100 full source_id to original repeat0 payload/profile/waveform/public frame_counter/session/scrambler; preserve RX descrambler identity; new noise IDs affect AWGN only"
+    },
+    "F1_fig3": {
+      "prior_authorized_fixed_hash_rule_overridden": true,
+      "selection": "selected illustrative advantage examples from frozen outputs",
+      "candidate_priority": [
+        [
+          1024,
+          7
+        ],
+        [
+          1024,
+          10
+        ]
+      ],
+      "extra_existing_references": [
+        [
+          1024,
+          4
+        ],
+        [
+          1024,
+          19
+        ]
+      ],
+      "fixed_display_repeat_index": 0,
+      "methods_development": [
+        "Source",
+        "WHOLE",
+        "Old_Quarter",
+        "New_Token",
+        "Ada"
+      ],
+      "main_columns": [
+        "Source",
+        "WHOLE",
+        "Ada_fixed_frame",
+        "NeST_Com"
+      ],
+      "main_rows": 2,
+      "inspect_top_candidates_per_primary_cell": 40,
+      "full_candidate_index_sources": 500,
+      "primary_labels": [
+        "dists",
+        "dreamsim"
+      ],
+      "same_ROI_for_all_methods": true,
+      "source_images_must_not_be_edited": true,
+      "require_native_final_D": true,
+      "WHOLE_vs_D_should_have_different_actual_prefix_and_output": true,
+      "new200_dependency": false,
+      "legacy_Pastries_Dog_dependency": false,
+      "allow_mixed_7_and_10_rows_if_clearly_labeled": true,
+      "sampling_seed_search": false,
+      "caption_label": "Selected qualitative examples",
+      "full_population_statistics_unchanged": true
+    },
+    "W1_paper": {
+      "base_version": "nestcom_wcl_focused_20261029_v6",
+      "update_figures": [
+        1,
+        2,
+        3
+      ],
+      "main_figure2_metrics": [
+        "dists",
+        "dreamsim"
+      ],
+      "main_figure2_external_systems": 6,
+      "whole_primary_locations": [
+        "Table I",
+        "Fig.3",
+        "information budget supplement"
+      ],
+      "main_tables": [
+        "WHOLE + granularity + receiver interventions",
+        "external auxiliary quality and representative processing cost",
+        "N512 comparison"
+      ],
+      "retain_full_metric_tables": true,
+      "main_double_column_pages": 5,
+      "outputs": [
+        "double-column PDF",
+        "double-spaced single-column PDF",
+        "Word",
+        "supplement PDF",
+        "LaTeX",
+        "figure source/PDF/SVG/PNG"
+      ],
+      "review_rendered_pages": true
+    },
+    "scheduling": {
+      "max_concurrent_gpu_workers_recommended": 2,
+      "timing_separate_from_other_owned_gpu_work": true,
+      "new_training": false,
+      "existing_resource_permissions_apply": true,
+      "stage_quality_GO_NO_GO": false,
+      "localized_asset_blocks": true
+    },
+    "publication": "follow latest explicit user authorization in executing session; no new submission or sharing authorization"
+  },
+  "execution_limits": {
+    "max_concurrent_GPU_workers": 2,
+    "GPU_device_seconds": 259200,
+    "CPU_process_wall_seconds": 259200,
+    "worker_seconds_max": 43200,
+    "new_PFS_bytes_max": 85899345920,
+    "startup_GPU_free_MiB": 60000,
+    "startup_GPU_utilization_max": 50
+  },
+  "control100_bank_seed": 2026103004,
+  "automatic_retry": false,
+  "no_new_training": true,
+  "prior_paused_experiments_untouched": true,
+  "normal_commit_push_authorized": true,
+  "execution_limits_origin": "Conservative carry-forward ceilings from previous authorized 72 device-hour/80GiB study, independently accounted; finite new scientific counts specified in user design."
+}

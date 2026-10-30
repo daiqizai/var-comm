@@ -1,0 +1,57 @@
+"""E6 DreamSim gap only; exact device/feature identity of the current three-metric route."""
+from followup_common import *
+from metrics import module
+import ctypes,traceback,tempfile
+
+def main(request,expected):
+ assert sha(request)==expected;r=read(request);[checked(v)for v in r['code']];plan=cr(r['plan']);old=cr(r['metric_registration']);cfg=old['config']
+ out=Path(r['output']);out.mkdir(exist_ok=False);(out/'features').mkdir();(out/'pairs').mkdir();(out/'tmp').mkdir();tempfile.tempdir=str(out/'tmp')
+ os.sched_setaffinity(0,set(r['cpu_affinity']));os.environ.update(TMPDIR=str(out/'tmp'),HF_HUB_OFFLINE='1',TRANSFORMERS_OFFLINE='1',CUBLAS_WORKSPACE_CONFIG=':4096:8');beg=time.monotonic();ledger=Ledger(out/'calls.sqlite',r['caps'])
+ try:
+  import torch,torch.nn.functional as F
+  torch.set_num_threads(6);torch.set_num_interop_threads(2);torch.set_float32_matmul_precision('highest');torch.use_deterministic_algorithms(True)
+  torch.backends.cuda.matmul.allow_tf32=False;torch.backends.cudnn.allow_tf32=False;torch.backends.cudnn.deterministic=True;torch.backends.cudnn.benchmark=False;torch.cuda.set_device(0)
+  assert torch.__version__==old['torch'];lib=ctypes.CDLL('libcuda.so.1');dev=ctypes.c_int();assert lib.cuDeviceGet(ctypes.byref(dev),0)==0
+  bus=ctypes.create_string_buffer(32);assert lib.cuDeviceGetPCIBusId(bus,32,dev)==0 and bus.value.decode().lower().lstrip('0')==r['pci'].lower().lstrip('0')
+  props=torch.cuda.get_device_properties(0);torch.cuda.set_per_process_memory_fraction((12<<30)/props.total_memory)
+  base_identity=dict(mode='three',metric_config_sha256=digest(cfg),original_four=old['original_four'],torch=torch.__version__,CUDA=torch.version.cuda,UUID=str(props.uuid),PCI=bus.value.decode().lower(),FP32=True,TF32=False,AMP=False,batch=1)
+  features={};reuse={}
+  for desc in r['caches']:
+   c=cr(desc);assert c['status']=='COMPLETE'and cr(c['identity'])==base_identity;features.update(cr(c['features']));reuse.update(cr(c['scores']))
+  save(out/'identity.json',dict(mode='dreamsim_only',source_three_metric_identity=base_identity,other_metric_calls=0))
+  network=None;met=None
+  def feature(a,h):
+   nonlocal network,met
+   if h not in features:
+    if network is None:
+     met=module(checked(cfg['clip']['loader']),'_E6_DS_FROZEN');sup=cfg['supplement'];overlay=cr(sup['dependency_overlay']);[checked(v)for v in overlay['files']];sys.path.insert(0,cfg['config']['supplemental_overlay_root']);ma=cr(sup['metric_assets']);torch.manual_seed(2026101401)
+     with met.no_network():network=ledger.call('load_dreamsim','once',lambda:met.load_dreamsim(ma['models']['dreamsim'],torch.device('cuda:0')))
+    def embed():
+     x=torch.from_numpy(a[None]).cuda();v=network.embed(met.preprocess_dreamsim(x)).float().cpu().numpy();p=out/'features'/(h+'.npy')
+     with p.open('xb')as f:np.save(f,v,allow_pickle=False)
+     features[h]=pin(p);return v
+    v=ledger.call('embedding',h,embed)
+   else:
+    with checked(features[h]).open('rb')as f:v=np.load(f,allow_pickle=False)
+   return torch.from_numpy(v).cuda()
+  sources={s['source_id']:s for s in plan['sources']};scores={};last=None
+  with torch.inference_mode(),torch.autocast('cuda',enabled=False):
+   for j in sorted(plan['pairs'],key=lambda j:(j['source_index'],j['pair_key'])):
+    if time.monotonic()-beg>=r['seconds']or(L/'STOP').exists():raise BudgetStop('E6 DreamSim cap')
+    key=j['pair_key'];s=sources[j['source_id']]
+    if key in reuse:
+     v=reuse[key];assert(v['reference_sha256'],v['pixel_sha256'])==(s['reference_sha256'],j['pixel_sha256']);scores[key]={k:v[k]for k in ['pair_key','source_id','source_index','reference_sha256','pixel_sha256','dreamsim']};scores[key]['origin']='EXACT_PAIR_REUSE';continue
+    if last!=s['source_id']:
+     with np.load(checked(s['archive']),allow_pickle=False)as z:x=z['pixels'].astype(np.float32)/np.float32(255)
+     assert asha(x)==s['reference_sha256'];fx=feature(x,s['reference_sha256']);last=s['source_id']
+    if j['image']is None:y=np.full((3,256,256),.5,np.float32)
+    else:
+     with np.load(checked(j['image']),allow_pickle=False)as z:y=z['image']
+    assert asha(y)==j['pixel_sha256'];fy=feature(y,j['pixel_sha256'])
+    def score():
+     value=float((1-F.cosine_similarity(fx,fy,dim=-1))[0].item());assert np.isfinite(value)
+     v=dict(pair_key=key,source_id=s['source_id'],source_index=s['source_index'],reference_sha256=s['reference_sha256'],pixel_sha256=j['pixel_sha256'],dreamsim=value,origin='NEW_DREAMSIM_PAIR');save(out/'pairs'/(key+'.json'),v);return v
+    scores[key]=ledger.call('pair',key,score)
+  assert ledger.summary()['unresolved']==0;save(out/'scores.json',scores);save(out/'features.json',features);save(out/'completion.json',dict(status='COMPLETE',pairs=len(scores),new_pairs=sum(v['origin']=='NEW_DREAMSIM_PAIR'for v in scores.values()),identity=pin(out/'identity.json'),scores=pin(out/'scores.json'),ledger=ledger.summary(),seconds=time.monotonic()-beg,LPIPS_calls=0,CLIP_calls=0))
+ except BaseException:save(out/'failure.json',dict(traceback=traceback.format_exc(),ledger=ledger.summary(),automatic_retry=False));raise
+if __name__=='__main__':main(*sys.argv[1:])

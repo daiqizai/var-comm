@@ -1,0 +1,49 @@
+{
+  "parent": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/nestcom_perceptual_followup_20261030_v2/protocol.json",
+    "bytes": 13280,
+    "sha256": "4d77d0c83d39f77beddf22fe0059b89ed95237c584a2aad7b980aa2c7cf7857f"
+  },
+  "design": {
+    "cells": [
+      [
+        1024,
+        7
+      ],
+      [
+        1024,
+        10
+      ]
+    ],
+    "n_sources": 100,
+    "channel_repeats": 3,
+    "arms": [
+      "A0",
+      "B0",
+      "C0"
+    ],
+    "definitions": "inherit original ordered intervention implementation; A0 still uses prior completion",
+    "C0": "reuse exact final D reconstruction",
+    "new_inference_arms": [
+      "A0",
+      "B0"
+    ],
+    "new_PHY": false,
+    "logical_records": 1800,
+    "estimated_max_new_unique_reconstructions_if_one_success_prefix_per_source": 400,
+    "retain_failures": true,
+    "final_scale_check": {
+      "cell": [
+        1024,
+        19
+      ],
+      "scope": "inspect actual D endpoints and verify B0=C0 identity; do not relabel old Quarter means"
+    },
+    "claim_scope": "ordered effects of the entire received boundary prefix under new D; not an independent decomposition of the incremental D-vs-Quarter gain"
+  },
+  "source_sets": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/nestcom_perceptual_followup_20261030_v2/source_sets.json",
+    "bytes": 33293,
+    "sha256": "d9d22110045aefe417195ba35f1147aa16511d6c3518b15520530b8a4e6bcf63"
+  }
+}
