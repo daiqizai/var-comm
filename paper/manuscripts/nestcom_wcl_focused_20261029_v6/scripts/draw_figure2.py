@@ -7,7 +7,12 @@ from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
 from PIL import Image
 P=Path(__file__).resolve().parents[1]
-style=json.loads((P/'style.json').read_text());data=list(csv.DictReader((P/'inputs/common500_summary.csv').open()))
+style=json.loads((P/'style.json').read_text())
+inputs=[P/'inputs/common500_summary.csv',P/'inputs/common500_7db_summary.csv']
+data=[r for path in inputs for r in csv.DictReader(path.open())]
+snrs=(4,7,10,19)
+assert len({(r['method'],r['snr_db'],r['metric'])for r in data})==len(data)
+assert all(r['population']=='common500'and int(r['source_count'])==500 and int(r['logical_frames'])==1500 for r in data)
 aliases={'EC_VAR_PARTIAL':'NEST','NEST_PARTIAL':'NEST','BPG_ADAPTIVE_DOWNSAMPLING_LDPC_N1024':'BPG','BPG_ADAPTIVE':'BPG'}
 for r in data:r['method']=aliases.get(r['method'],r['method'])
 plt.rcParams.update({'font.family':'DejaVu Sans','font.size':8,'axes.labelsize':8.5,'xtick.labelsize':8,'ytick.labelsize':8,'legend.fontsize':8,'axes.linewidth':.6,'pdf.fonttype':42,'ps.fonttype':42,'svg.fonttype':'none'})
@@ -15,8 +20,8 @@ fig,axes=plt.subplots(1,2,figsize=(7.16,2.40));fig.subplots_adjust(left=.065,rig
 all_rows=[];handles={}
 for ax,(metric,title,limits) in zip(axes,[('lpips_alex','(a) LPIPS-Alex ↓',(0,.8)),('dreamsim','(b) DreamSim ↓',(0,.65))]):
  for method,s in style['methods'].items():
-  v=[next(r for r in data if r['method']==method and r['snr_db']==str(n)and r['metric']==metric)for n in(4,10,19)]
-  x=[4,10,19];y=[float(r['mean'])for r in v];lo=[float(r['ci_low'])for r in v];hi=[float(r['ci_high'])for r in v]
+  v=[next(r for r in data if r['method']==method and r['snr_db']==str(n)and r['metric']==metric)for n in snrs]
+  x=list(snrs);y=[float(r['mean'])for r in v];lo=[float(r['ci_low'])for r in v];hi=[float(r['ci_high'])for r in v]
   assert all(l<=m<=h and limits[0]<=l<=h<=limits[1]for l,m,h in zip(lo,y,hi))
   line=s['linestyle'];line=(line[0],tuple(line[1]))if isinstance(line,list)else line
   opt=dict(color=s['color'],marker=s['marker'],linestyle=line,linewidth=s['linewidth'],markersize=s['markersize'],markerfacecolor=s['color']if s['filled']else'white',markeredgewidth=.75)
@@ -24,7 +29,7 @@ for ax,(metric,title,limits) in zip(axes,[('lpips_alex','(a) LPIPS-Alex ↓',(0,
   artist,=ax.plot(x,y,**opt,zorder=3);assert list(artist.get_xdata())==x and list(artist.get_ydata())==y
   if metric=='lpips_alex':handles[method]=Line2D([],[],label=s['label'],**opt)
   all_rows.extend(v)
- ax.set_title(title,loc='left',fontsize=9,pad=5);ax.set_xlim(3,20);ax.set_ylim(*limits);ax.set_xticks([4,10,19]);ax.set_xlabel('SNR (dB)',labelpad=2)
+ ax.set_title(title,loc='left',fontsize=9,pad=5);ax.set_xlim(3,20);ax.set_ylim(*limits);ax.set_xticks(snrs);ax.set_xlabel('SNR (dB)',labelpad=2)
  ax.grid(axis='y',color='#E4E7E9',linewidth=.45);ax.set_axisbelow(True);ax.spines[['top','right']].set_visible(False);ax.tick_params(length=2.5,width=.6,pad=2)
 axes[0].set_yticks([0,.2,.4,.6,.8]);axes[1].set_yticks([0,.2,.4,.6])
 legend_order=['NEST','P100000','ARPC_ADAPTED','Swin200000','ADA_PREDCLASS_FIXEDFRAME','BPG']
@@ -38,4 +43,5 @@ fig.savefig(P/'figures/figure2_print_size.png',dpi=150,facecolor='white')
 Image.open(P/'figures/figure2_print_size.png').convert('L').save(P/'figures/figure2_grayscale.png')
 with(P/'figures/figure2_data.csv').open('w',newline='')as f:
  w=csv.DictWriter(f,fieldnames=list(all_rows[0]));w.writeheader();w.writerows(all_rows)
-(P/'figures/figure2_validation.json').write_text(json.dumps(dict(points=36,confidence_intervals=36,all_artist_coordinates_exact=True,all_intervals_inside_axes=True,size_inches=[7.16,2.40],no_bootstrap=True),indent=2)+'\n')
+assert len(all_rows)==48
+(P/'figures/figure2_validation.json').write_text(json.dumps(dict(points=48,confidence_intervals=48,snr_db=snrs,all_artist_coordinates_exact=True,all_intervals_inside_axes=True,size_inches=[7.16,2.40],no_bootstrap=True,inputs=[dict(path=p.relative_to(P).as_posix(),sha256=hashlib.sha256(p.read_bytes()).hexdigest())for p in inputs],seven_db_calibration='Previously frozen100-source policy; no retuning on common500'),indent=2)+'\n')

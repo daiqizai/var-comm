@@ -1,7 +1,7 @@
 \section{Experimental Results}
 \ifCLASSOPTIONonecolumn\input{sections/figure2_float}\fi
 \subsection{Experimental Setup}
-We use common500 ImageNet validation images~\cite{imagenet}, a disjoint cal1000 set, and Kodak24~\cite{kodak}, with fixed $256\times256$ preprocessing. ImageNet-calibrated policies remain fixed on Kodak. The six-system main study uses $N=1024$; NeST, WHOLE, and Ada also use $N=512$, each calibrated separately at 4/10/19~dB.
+We use common500 ImageNet validation images~\cite{imagenet}, disjoint cal1000, and Kodak24~\cite{kodak}, with fixed $256\times256$ preprocessing and unchanged ImageNet policies on Kodak. Six systems use $N=1024$; NeST, WHOLE, and Ada also use $N=512$, independently calibrated at 4/10/19~dB. The added 7-dB common500 point uses all six systems at $N=1024$, with policies frozen on 100 calibration images (Supplement~S9).
 
 Our convolutional Latent JSCC maps tokenizer latents to symbols and shares $\Dc$, using MSE, LPIPS, and latent-consistency losses with a 100k-update checkpoint. SwinJSCC~\cite{swinjscc} is trained for 200k updates with RGB MSE and selected by minimum mean calibration MSE. Both use 20\,000 training images and are adapted to $256\times256$ and $N=1024$. Digital baselines include adaptive BPG~\cite{bpg} + LDPC. We implement ARPC~\cite{arpc} with LDPC/QAM and adapt Ada-TokenCom~\cite{adatokencom} to fixed frames, counting captions, classes, and protocol overhead within the symbol budget. Ada retains LlamaGen-L/VQ16 and prefix arithmetic coding, with a fixed ConvNeXt predicting a paid 10-bit class. Its sampled tail uses CFG=4, $T=1$, top-$k=2000$, and top-$p=1$ (Supplement~S1.2).
 
@@ -16,22 +16,22 @@ Table~\ref{tab:internal}(A) compares WHOLE and NeST-Com (PARTIAL) with a shared 
 
 Block~B fixes the 100 sources, model, MCS, maximum endpoint, and fitting rule. Whole-to-Eighth refinement raises utilization from 78.15\% to 97.39\% and lowers LPIPS from 0.201821 to 0.172939. Compared with the predefined Quarter grid, Eighth reduces LPIPS by $0.00223\,[0.00131,0.00323]$ and increases PSNR by $0.123\,[0.079,0.169]$~dB. Its DreamSim difference is $-0.00073\,[-0.00196,0.00048]$. Both grids use ten prior-scale calls and one 680-token coding traversal, with 25/49 independent finalizations, respectively (Supplement~S5.1).
 
-Block~C uses identical actual received prefixes to examine how boundary information affects reconstruction. At 10~dB, adding residual correction (B0--A0) reduces LPIPS by 0.01003; then updating finer-scale conditioning (C0--B0) reduces it by a further 0.01662. The corresponding DreamSim differences are $-0.00845\,[-0.01136,-0.00564]$ and $-0.01537\,[-0.01988,-0.01111]$. These ordered interventions show how the additional source tokens constrain perceptual reconstruction. At 19~dB the boundary lies in the final scale, so the conditioning update has zero effect.
+Block~C holds actual received prefixes fixed. At 10~dB, residual correction (B0--A0) reduces LPIPS by 0.01003; subsequent conditioning update (C0--B0) reduces it by 0.01662. Corresponding DreamSim differences are $-0.00845\,[-0.01136,-0.00564]$ and $-0.01537\,[-0.01988,-0.01111]$. At 19~dB the boundary lies in the final scale, so the conditioning update has zero effect.
 
 With the 10-dB WHOLE/PARTIAL policies frozen, both methods reject all 300 receptions at an actual SNR of 8~dB and none at 10/12~dB. Their recovered prefixes and per-source reconstructions coincide between 10 and 12~dB, preserving the within-scale gain after successful delivery (Supplement~S5).
 
 \subsection{Comparison With Existing Methods}
 \ifCLASSOPTIONonecolumn\input{sections/figure3_float}\fi
 \input{tables/table_ii}
-Fig.~\ref{fig:performance} compares the six complete systems at $N=1024$. NeST has lower mean LPIPS and DreamSim than SwinJSCC, BPG, and ARPC at all tested SNRs. Table~\ref{tab:external} shows the associated pixel-fidelity results: SwinJSCC and BPG have higher PSNR throughout. Against Latent JSCC, NeST has lower DreamSim at all three points; at 4~dB Latent JSCC has lower LPIPS and higher PSNR.
+Fig.~\ref{fig:performance} compares six systems at $N=1024$. NeST has lower LPIPS and DreamSim than SwinJSCC, BPG, and ARPC throughout. SwinJSCC and BPG have higher PSNR at 4/10/19~dB (Table~\ref{tab:external}). Against Latent JSCC, NeST has lower DreamSim at all four points; Latent JSCC has lower LPIPS and higher PSNR at 4/7~dB.
 
-At 4~dB, NeST achieves mean LPIPS/DreamSim of 0.263/0.184, compared with 0.395/0.243 for Ada. At 10~dB Ada has lower LPIPS and DreamSim and higher CLIP-I, whereas NeST has higher PSNR. At 19~dB NeST has lower LPIPS, while Ada has slightly lower DreamSim. Ada also has higher CLIP-I at 4~dB. NeST's PSNR gains over Ada are 4.116/0.455/1.226~dB at 4/10/19~dB. All 1500 evaluated transmissions per SNR succeed for NeST, WHOLE, and Ada, so their overall and success-conditioned means coincide (Supplement~S2).
+At 4~dB, NeST's LPIPS/DreamSim are 0.263/0.184 versus Ada's 0.395/0.243. At 7~dB, NeST lowers LPIPS by $0.0584\,[0.0533,0.0637]$ versus Ada; their DreamSim difference is $0.0012\,[-0.0052,0.0074]$, with no clear advantage. Ada has lower LPIPS/DreamSim at 10~dB and higher CLIP-I at 4/10~dB. At 19~dB NeST has lower LPIPS, but Ada has slightly lower DreamSim. NeST has higher PSNR than Ada throughout. NeST/WHOLE/Ada have no failures in 1500 trials per original SNR (Supplement~S2). At 7~dB, NeST/Ada/BPG reject 6/7/11 of 1500 receptions each; gray failures remain in the means (S9).
 
 On the fixed 100-source control set, replacing Ada's sampled tail with argmax increases both LPIPS and DreamSim at $N=512$, 4/10~dB and $N=1024$, 10~dB; all six paired intervals exclude zero (Supplement~S3). Thus sampling gives the stronger perceptual baseline at these tested points.
 
 Fig.~\ref{fig:qualitative} shows fixed 4-dB development cases. WHOLE and NeST retain scene layout but round off croissant shapes. NeST better preserves the dog's dark ear; Ada changes plate contents and coat pattern, while ARPC changes shapes and pose. Supplement~S8 retains all methods and the 10-dB view.
 
-NeST's mean TX/RX times at $N=1024$, 10~dB are 220.89/398.82~ms (RTX PRO 6000, six cores, batch one, 16 sources, three repetitions; Supplement~S5). ARPC averages 268.64 caption bits including mode/length fields; visual tokens occupy 56.80/74.57/84.10\% of its source container at 4/10/19~dB (100-source audit; S1.3).
+NeST's mean TX/RX times at $N=1024$, 10~dB are 220.89/398.82~ms (RTX PRO 6000, six cores, batch one, 16 sources, three repetitions; Supplement~S5). ARPC's 100-source payload audit, including paid caption fields, is in S1.3.
 
 \subsection{Transmission With a Reduced Symbol Budget}
 \input{tables/table_iii}

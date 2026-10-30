@@ -6,7 +6,7 @@ NeST-Com: (a) The protected profile and body share the fixed noisy frame; both t
 
 ## Fig. 2
 
-Source-referenced perceptual distances on common500 at $N=1024$. Points and error bars are equal-source means and pointwise 95\% source-bootstrap intervals after averaging three channel outcomes per source. Lower LPIPS-Alex and DreamSim are favorable. Ada denotes the predicted-class, fixed-frame adaptation.
+Source-referenced perceptual distances on common500 at $N=1024$ and 4/7/10/19~dB. Points and error bars are equal-source means and pointwise 95\% source-bootstrap intervals after averaging three channel outcomes per source. Lower LPIPS-Alex and DreamSim are favorable. Ada denotes the predicted-class, fixed-frame adaptation.
 
 ## Fig. 3
 

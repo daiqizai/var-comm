@@ -1,12 +1,12 @@
-# 本轮 V6 验收
+# common500 7 dB 补点验收
 
-- done — 实际原生4dB输出：七方法×固定两源，共14行；十个历史数组哈希完全匹配。
-- done — 缺失WHOLE/Ada四次真实完整帧与独立RX；保留零模型调用的原失败记录。
-- done — 原生浮点LPIPS/DreamSim评分，逐显示图三位小数，完整精度CSV。
-- done — Fig.3两行五列、完整视野；补充七方法全图；原10dB图与指标完整保留。
-- done — 主稿5页、单栏15页、Word16页、补充25页均实际渲染并逐页检查。
-- done — Word正文/公式/三表可编辑；引用网址换行修复。
-- done — 现有主实验数据、置信区间、Fig.1/2、三表保持原值。
-- not-run-optional — 新训练、扩大common500、旧暂停支线、额外bootstrap。
-- Git发布状态 — 以validation/publication_status.json及仓库实际提交为准；不复制旧包的发布声明。
-- done（独立交付）— 7dB有限校准＋固定两图七方法完成，见results/nestcom_7db_20261030_v1；未混入正式曲线或替换本稿4dB图。
+- done — 六方法、500源、每源三次信道，共9000结果；真实接收与实际退出回执齐全。
+- done — 沿用已冻结7 dB策略，无重新校准、调参或训练；原预检查失败保留。
+- done — 原生浮点PSNR/LPIPS-Alex/DreamSim，18个均值区间、15个直接来源配对区间。
+- done — Fig.2新增12个均值点及CI，原36点不变；四个SNR用数值横坐标。
+- done — 校准规模差异、灰图拒收、方法噪声身份和TableII范围写入正文/补充。
+- done — PDF/PNG/可编辑文本SVG/印刷预览，完整来源映射与数据检查。
+- done — 主稿5页、单栏15页、Word16页、补充26页，全部实际渲染并检查。
+- done — Fig.1、Fig.3、三表和旧主实验原始数据保留。
+- not-run-optional — CLIP-I7 dB、新训练、新超参扫描、WHOLE7 dB总体评测、旧暂停支线。
+- Git — 唯一远端main正常提交推送，最终SHA见独立发布回执；本机不提交。

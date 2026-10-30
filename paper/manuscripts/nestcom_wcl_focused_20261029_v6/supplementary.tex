@@ -16,7 +16,7 @@ This supplement provides model and protocol settings, source-paired statistics, 
 
 \textbf{Ada adaptation.} Ada retains LlamaGen-L/VQ16 and genuine autoregressive prefix arithmetic coding. A fixed ConvNeXt predicts the class at TX; its 10-bit ID travels in the protected body, giving $b+39\leq k_a$. RX uses the recovered class and prefix. All 1--256 independently terminated prefixes are eligible. Main-curve tail generation uses CFG=4, temperature 1, top-$k=2000$, top-$p=1$, FP32 with TF32 off. The fixed single-frame adaptation does not reproduce the original long-term average-budget controller or ARQ. At N1024/19~dB all 256 tokens are sent; remaining source capacity therefore does not indicate fitting failure.
 
-\textbf{NeST/WHOLE calibration.} The 100-image pilot uses one channel realization per source. Final evaluation uses all 1000 calibration images with three realizations per source, including fixed-gray failures. Selection maximizes DINOv2 cosine, first averaging realizations and then equally weighting sources. Exact ties use the frozen candidate order. DINO-based selection is related to feature-based evaluation; the controlled interventions separately examine the mechanism.
+\textbf{NeST/WHOLE calibration at 4/10/19~dB.} The 100-image pilot uses one channel realization per source. Final evaluation uses all 1000 calibration images with three realizations per source, including fixed-gray failures. Selection maximizes DINOv2 cosine, first averaging realizations and then equally weighting sources. Exact ties use the frozen candidate order. DINO-based selection is related to feature-based evaluation; the controlled interventions separately examine the mechanism. The additional 7-dB policies use the smaller calibration procedure specified in S9.
 
 N1024 target screening starts at scales 7--9 and includes full-scale $(10,0)$ candidates in final evaluation. N512 screens all 7 WHOLE and 25 Quarter targets against 12 MCSs: $\log_2 M\in\{2,4,6\}$ and rates $\{1/2,2/3,3/4,5/6\}$. Each method/SNR advances the top three and a maximum-endpoint QPSK rate-1/2 anchor. Ada uses the same N512 MCS pool and up to 256 tokens. Each budget is independently calibrated; its results describe separately selected systems, rather than an isolated causal change in budget or representation order.
 
@@ -73,7 +73,7 @@ The main population is common500; Kodak has 24 sources. The endpoint, receiver, 
 
 N512 methods share the registered source/repeat AWGN identities. N1024 preserves historical noise identities and is not presented as sharing noise across every method or budget. E1/E2 reuse those actual reception states; receiver counterfactuals are not new wireless frames. The 100-source bank is matched by its complete source order, not sliced from the 500-source bank. Both registered banks use seed 2026100701. Full hashes and source orders remain in the statistical identity files.
 
-\textbf{Main matched-SNR failures.} N1024 has no rejected or failed reconstructions in 1500 trials per method/SNR; continuous Latent JSCC has no discrete CRC rejection. N512 failures below are body-CRC rejections, retained as fixed gray in all means. Header, parser, and source-decoder rejection counts are zero. No evaluated N512 source requires a NULL frame.
+\textbf{Main 4/10/19-dB failures.} N1024 has no rejected or failed reconstructions in 1500 trials per method/SNR at these original points; the added 7-dB failures are in S9. N512 failures below are body-CRC rejections, retained as fixed gray in all means. Header, parser, and source-decoder rejection counts are zero. No evaluated N512 source requires a NULL frame.
 \begin{center}\begin{tabular}{lrrrr}\toprule
 Method & 4 dB & 10 dB & 19 dB & Trials per SNR\\\midrule
 NeST & 4 & 1 & 0 & 1500\\
@@ -142,7 +142,7 @@ $(7,0)$ & 2 & 2\\
 
 Both methods fall back from the target on 498/500 sources (99.6\%). NeST retains a within-scale endpoint on 445/500 (89.0\%). The first six scales contain 91 tokens and the seventh contains 64. Mean retained-token counts are 91.256 for WHOLE and 107.896 for NeST, a difference of 16.640. Source-bit utilization rises from 79.30\% to 93.46\%. The finer fallback retains additional information even when a full next scale does not fit; it does not reduce the target-fallback rate at this point.
 
-The N1024 matched-SNR gain occurs with zero rejections in both families at every tested SNR. At N512/19~dB, both have zero rejections and NeST still gains 0.792~dB. At N512/10~dB, NeST has one additional body-CRC rejection yet gains 0.399~dB in the unconditional mean. These observations retain all fixed-gray failures and do not replace the primary population with a success-only subset.
+The N1024 WHOLE/PARTIAL gains at 4/10/19~dB occur with zero rejections in both families. At N512/19~dB, both have zero rejections and NeST still gains 0.792~dB. At N512/10~dB, NeST has one additional body-CRC rejection yet gains 0.399~dB in the unconditional mean. These observations retain all fixed-gray failures and do not replace the primary population with a success-only subset.
 
 Full-precision energies, paired energy differences, padding correlations, failure counts, source/endpoint counts, original-file hashes and the logical-to-physical mapping are in
 \path{results/nestcom_focused_review_20261029_v2/}.
@@ -351,4 +351,5 @@ For these two images, NeST has lower LPIPS and DreamSim than WHOLE. Both next-sc
 \begin{center}\includegraphics[width=6.5in]{supplemental/N1024_10dB_figure3.pdf}\end{center}
 \noindent Preserved original N1024/10-dB Fig.~3, without image or metric changes. Its five columns are Original, NeST-Com, Ada (fixed-frame), Latent JSCC, and ARPC + LDPC. The corresponding metrics remain in \path{supplemental/N1024_10dB_figure3_metrics.csv}. This display uses the historical development identities described in S6 and is not a matched-noise causal comparison with the new 4-dB visualization events.
 
+\input{sections/supplement_7db}
 \end{document}

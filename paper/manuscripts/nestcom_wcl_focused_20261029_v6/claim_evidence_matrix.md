@@ -37,3 +37,14 @@
 | N512 mechanism gain and complete-system comparison are shown together | `inputs/paired_deltas.csv`, `tables/table_iii.csv` | Table III(A): NeST minus WHOLE; III(B): NeST minus Ada; original means and paired intervals, 12 perceptual metric records |
 | Kodak24 endpoint gains under unchanged ImageNet policies | `inputs/internal_kodak_paired.csv`, `tables/supplement_kodak_v4.csv` | Three original N1024 LPIPS rows moved from Table I to Supplement S2.5; 24 sources, all original values preserved |
 | New TX timing is incomplete | `inputs/timing/actual_compute_and_reuse.json` | 88 complete source pairs at first repeat only; 176 validated measured calls; source 89 tokenizer identity mismatch; no full-benchmark or speed-order claim |
+
+
+## 7 dB正式补点
+
+| 主张 | 证据 | 样本与范围 |
+|---|---|---|
+| Fig.2新增7 dB总体点 | `inputs/common500_7db_summary.csv`, `figures/figure2_data.csv` | 同一common500，六方法×500源×三次信道；12个新均值与逐点CI，旧36点保留 |
+| 7 dB策略在测试前冻结 | `inputs/seven_db/protocol.json` | 100图有限校准，与原三个SNR校准规模不同；未用common500重选 |
+| 拒收保留完整分母 | `inputs/seven_db/actual_compute_and_reuse.json`, 正式frame_metrics.csv | 固定灰图计入所有1500次/方法；不以成功独立重建数替代逻辑次数 |
+| 直接逐源配对 | `inputs/common500_7db_paired_deltas.csv`, `inputs/seven_db/statistics_identity.json` | 源内平均三次后直接相减；原10000×500 bank，不相减边际CI |
+| TableII仍限定原三个SNR | `tables/table_ii.csv` | 未生成7 dB CLIP-I；新PSNR完整结果在S9和CSV |

@@ -1,0 +1,20 @@
+\clearpage\section*{S9. Frozen-policy common500 evaluation at 7 dB}
+The additional point in Fig.~2 evaluates six systems on the same 500 common500 images, with three channel realizations per image and $N=1024$: 9000 logical outcomes. It does not use the two development examples as population data. All policies were frozen before common500 evaluation; no model was trained and no policy or generation parameter was selected using these test results.
+
+Unlike the original 4/10/19-dB procedure, the 7-dB NeST, Ada and ARPC policies were selected on 100 disjoint calibration images with one realization per candidate and five predefined MCS choices. They use 16-QAM rate 1/2, 16-QAM rate 1/2 and QPSK rate 3/4, respectively. NeST fits the largest feasible endpoint from its 25-quarter catalogue up to the full representation; Ada fits independently terminated prefixes 1--256 with its paid predicted class, and ARPC fits paid complete source containers. BPG retains its historical 7-dB 16-QAM rate 1/2 policy, selected on 100 calibration images with three realizations and PSNR. Thus the curve extends the operating points of these frozen systems; it is not a comparison with an identical calibration search at every SNR.
+
+\begin{center}\footnotesize\setlength{\tabcolsep}{5pt}
+\begin{tabular}{lccc}\toprule
+Method & LPIPS-Alex$\downarrow$ & DreamSim$\downarrow$ & PSNR$\uparrow$, dB\\\midrule
+NeST-Com & \shortstack{0.2114\\{}[0.2054, 0.2174]} & \shortstack{0.1420\\{}[0.1361, 0.1482]} & \shortstack{18.850\\{}[18.596, 19.116]}\\[3pt]
+Latent JSCC & \shortstack{0.1893\\{}[0.1854, 0.1932]} & \shortstack{0.1912\\{}[0.1855, 0.1969]} & \shortstack{20.369\\{}[20.141, 20.602]}\\[3pt]
+SwinJSCC & \shortstack{0.4933\\{}[0.4808, 0.5059]} & \shortstack{0.3887\\{}[0.3796, 0.3981]} & \shortstack{22.475\\{}[22.214, 22.745]}\\[3pt]
+BPG + LDPC & \shortstack{0.6500\\{}[0.6357, 0.6644]} & \shortstack{0.4788\\{}[0.4681, 0.4896]} & \shortstack{21.717\\{}[21.437, 22.005]}\\[3pt]
+ARPC + LDPC & \shortstack{0.4809\\{}[0.4745, 0.4873]} & \shortstack{0.4751\\{}[0.4650, 0.4851]} & \shortstack{14.759\\{}[14.537, 14.986]}\\[3pt]
+Ada (adapted) & \shortstack{0.2698\\{}[0.2624, 0.2772]} & \shortstack{0.1408\\{}[0.1343, 0.1477]} & \shortstack{15.905\\{}[15.629, 16.192]}\\[3pt]
+\bottomrule\end{tabular}\end{center}
+Values are equal-source means with pointwise 95\% source-bootstrap intervals. Each source first averages all three channel outcomes, including fixed gray failures. The original fixed 10000$\times$500 resampling bank and exact source order are reused. Direct NeST-minus-baseline paired differences are provided with the complete frame and source metrics. LPIPS-Alex, DreamSim and PSNR use the frozen native-float metric definitions; CLIP-I was not recomputed, so Table~II retains its 4/10/19-dB scope.
+
+Method-specific noise identities are retained: NeST/ARPC use seeds 6201--6203 and Ada/Latent/Swin use 2001--2003; BPG uses its explicitly registered \texttt{COMMON500\_7DB} namespace. Equal seed labels do not assert identical noise vectors across methods or SNRs. Exact received-input duplicates share a verified reconstruction without removing any event from the denominator. NeST retains the historical error-on-no-fit route for this evaluation; all 500 sources had a feasible stream.
+
+Of 1500 receptions per digital method, NeST, Ada and BPG reject 6, 7 and 11, respectively; ARPC accepts all 1500. All rejected events retain the fixed gray reconstruction. Detailed receiver statuses are recorded in \path{results/nestcom_7db_common500_20261030_v1/delivery/actual_compute_and_reuse.json}. The complete native-array identities and per-event metrics are retained in the accompanying delivery.

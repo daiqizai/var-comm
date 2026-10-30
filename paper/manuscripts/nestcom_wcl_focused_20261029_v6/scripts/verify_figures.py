@@ -3,6 +3,8 @@ from pathlib import Path
 import csv,hashlib,json,zipfile,xml.etree.ElementTree as ET
 import pymupdf
 P=Path(__file__).resolve().parents[1];old=P.parent/'nestcom_wcl_focused_20261029_v2'
+if (P/'inputs/common500_7db_summary.csv').exists():
+ raise RuntimeError('Historical figure verifier is inapplicable; use verify_figures_7db.py for the current revision.')
 V=P/'validation/figures';V.mkdir(parents=True,exist_ok=True)
 sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
 ref='e2ed72c95ddeab15cc4ca42b1dd7f2e0e5236c8c'

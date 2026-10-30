@@ -1,0 +1,331 @@
+{
+  "source_tex_sha256": "10af7562f21221261b5ba2e92b409409ebb412d4d74a99c5b2ddf8f6a65f1e69",
+  "word_sha256": "5f959df060c7302975c40c50127117bebfbd417798d6911a1695313f63d28a54",
+  "reference_keys": [
+    "deepjscc",
+    "swinjscc",
+    "chande",
+    "adatokencom",
+    "tonic",
+    "arpc",
+    "var",
+    "arithmetic",
+    "nr",
+    "dinov2",
+    "imagenet",
+    "kodak",
+    "bpg",
+    "lpips",
+    "dreamsim",
+    "clip"
+  ],
+  "display_equation_count": 6,
+  "expected_display_equations": 6,
+  "editable_omml_count": 68,
+  "numeric_ci_text_count": 6,
+  "delimiter_properties_reordered": 34,
+  "inline_punctuation_attached": 34,
+  "native_tables": 3,
+  "native_table_sources": [
+    {
+      "number": 1,
+      "source_csv": "tables/table_i.csv",
+      "source_sha256": "8643bbe15c27dee941d28cf212372e88c75181ecb1d8e999d930ba0a59163004",
+      "source_records": 11,
+      "word_rows": 15,
+      "word_columns": 3,
+      "width_inches": 6.5,
+      "caption": "Table I. Within-scale endpoint and receiver evidence. (A) Main common500 policies, PARTIAL minus WHOLE. (B) Fixed 100-source model/MCS/maximum-endpoint control. (C) Ordered interventions on the same 100 sources and actual prefixes. Brackets give source-paired 95% CIs.",
+      "note": "Boundary tokens: A0, unused; B0, residual correction only; C0, residual correction and conditioning update. All three use the received complete coarse scales.",
+      "cells": [
+        {
+          "kind": "group",
+          "text": [
+            "(A) Main policies at N = 1024"
+          ]
+        },
+        {
+          "kind": "header",
+          "text": [
+            "SNR",
+            "Util. W\u2192P (%)",
+            "\u0394LPIPS [95% CI]"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "4",
+            "73.81 \u2192 93.08",
+            "-0.0246 [-0.0262, -0.0230]"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "10",
+            "77.70 \u2192 95.21",
+            "-0.0273 [-0.0296, -0.0249]"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "19",
+            "85.24 \u2192 94.73",
+            "-0.0052 [-0.0056, -0.0048]"
+          ]
+        },
+        {
+          "kind": "group",
+          "text": [
+            "(B) Fixed-granularity diagnostic, 10 dB"
+          ]
+        },
+        {
+          "kind": "header",
+          "text": [
+            "Grid (candidates)",
+            "Utilization (%)",
+            "LPIPS"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "Whole (7)",
+            "78.15",
+            "0.2018"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "Half (13)",
+            "89.21",
+            "0.1838"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "Quarter (25)",
+            "95.38",
+            "0.1752"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "Eighth (49)",
+            "97.39",
+            "0.1729"
+          ]
+        },
+        {
+          "kind": "group",
+          "text": [
+            "(C) Receiver interventions: \u0394LPIPS [95% CI]"
+          ]
+        },
+        {
+          "kind": "header",
+          "text": [
+            "SNR",
+            "B0\u2212A0",
+            "C0\u2212B0"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "10",
+            "-0.0100\n[-0.0120, -0.0080]",
+            "-0.0166\n[-0.0205, -0.0129]"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "19",
+            "-0.0051\n[-0.0060, -0.0043]",
+            "+0.0000\n[0.0000, 0.0000]"
+          ]
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "source_csv": "tables/table_ii.csv",
+      "source_sha256": "26f8d9593b3d153dff0753115289b25e75262dc27d9a1b90fbc8a6d32bf3c6bf",
+      "source_records": 18,
+      "word_rows": 7,
+      "word_columns": 4,
+      "width_inches": 6.5,
+      "caption": "Table II. Pixel fidelity and image-feature similarity on common500 at N=1024. Each cell is PSNR (dB)\u2191 / CLIP-I\u2191. Ada denotes the fixed-frame adaptation. Values are source means.",
+      "note": "",
+      "cells": [
+        {
+          "kind": "header",
+          "text": [
+            "Method",
+            "4 dB",
+            "10 dB",
+            "19 dB"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "NeST-Com",
+            "17.448 / 0.821",
+            "20.014 / 0.873",
+            "22.164 / 0.900"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "Latent JSCC",
+            "19.658 / 0.741",
+            "20.803 / 0.789",
+            "21.245 / 0.804"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "SwinJSCC",
+            "21.671 / 0.627",
+            "23.026 / 0.669",
+            "23.698 / 0.697"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "BPG + LDPC",
+            "20.743 / 0.586",
+            "22.543 / 0.635",
+            "24.230 / 0.684"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "ARPC + LDPC",
+            "14.184 / 0.644",
+            "16.471 / 0.713",
+            "18.199 / 0.788"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "Ada (adapted)",
+            "13.332 / 0.828",
+            "19.559 / 0.884",
+            "20.938 / 0.892"
+          ]
+        }
+      ]
+    },
+    {
+      "number": 3,
+      "source_csv": "tables/table_iii.csv",
+      "source_sha256": "02e19e3a332509ce6a64aa2a4fa309455d3f36d0187c23fd1a5e776c3dd636b8",
+      "source_records": 12,
+      "word_rows": 9,
+      "word_columns": 3,
+      "width_inches": 6.5,
+      "caption": "Table III. Reduced-budget perceptual differences on common500 at N=512. (A) NeST-Com minus WHOLE with shared models. (B) NeST-Com minus the fixed-frame Ada-TokenCom adaptation. Brackets give direct source-paired 95% CIs; negative values favor NeST-Com.",
+      "note": "Successful receptions (4/10/19 dB), each out of 1500: NeST 1496/1499/1500; WHOLE 1493/1500/1500; Ada 1495/1500/1500. All failures are body-CRC rejections retained as gray.",
+      "cells": [
+        {
+          "kind": "header",
+          "text": [
+            "SNR",
+            "\u0394LPIPS",
+            "\u0394DreamSim"
+          ]
+        },
+        {
+          "kind": "group",
+          "text": [
+            "(A) NeST-Com minus WHOLE"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "4",
+            "-0.0299\n[-0.0337, -0.0264]",
+            "-0.0428\n[-0.0483, -0.0373]"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "10",
+            "-0.0155\n[-0.0170, -0.0137]",
+            "-0.0127\n[-0.0150, -0.0104]"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "19",
+            "-0.0275\n[-0.0288, -0.0262]",
+            "-0.0241\n[-0.0264, -0.0220]"
+          ]
+        },
+        {
+          "kind": "group",
+          "text": [
+            "(B) NeST-Com minus Ada (adapted)"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "4",
+            "-0.1890\n[-0.1966, -0.1814]",
+            "-0.1029\n[-0.1142, -0.0917]"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "10",
+            "-0.1384\n[-0.1440, -0.1328]",
+            "-0.0660\n[-0.0747, -0.0573]"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "19",
+            "-0.0245\n[-0.0280, -0.0212]",
+            "+0.0139\n[0.0103, 0.0173]"
+          ]
+        }
+      ]
+    }
+  ],
+  "figures": 3,
+  "body_double_line_spacing": true,
+  "figures_unchanged": true,
+  "unchanged_figures": [
+    1,
+    2,
+    3
+  ],
+  "revised_figures": [],
+  "figure_pdf_hashes": {
+    "1": "dcbb343cf9d1bbbed98faf723db2da30662944c12dad31558bc71a77f4a8309d",
+    "2": "1ba1f34042eacba2848723fdc68c86179cfade168ca8fee0c2f698e79606f45e",
+    "3": "6d2d1eb6c11b610fe00951d6269cc24b2aa1cd91a7fbe6e6c917e36ed0d55e3b"
+  },
+  "render_review_pending": false,
+  "visual_review": "validation/word_visual_QA.json"
+}

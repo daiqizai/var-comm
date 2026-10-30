@@ -1,8 +1,10 @@
-"""Fresh checks for the executed 4-dB V6 revision; never import parent PASS labels."""
+"""Historical 4-dB finalizer. Current revision uses finalize_7db_metadata.py."""
 from pathlib import Path
 import json,hashlib,csv,re,argparse
 from pypdf import PdfReader
 P=Path(__file__).resolve().parents[1];W=P.parents[2]
+if (P/'inputs/common500_7db_summary.csv').exists():
+ raise RuntimeError('Historical4dB finalizer is inapplicable; use finalize_7db_metadata.py with current actual review records.')
 a=argparse.ArgumentParser();a.add_argument('--review-root',type=Path,default=W/'.research/nestcom_fig3_4db_20261029_v1');args=a.parse_args();H=args.review_root
 
 def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
