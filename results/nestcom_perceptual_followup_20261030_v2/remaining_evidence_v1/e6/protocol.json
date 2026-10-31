@@ -1,0 +1,47 @@
+{
+  "parent": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/nestcom_perceptual_followup_20261030_v2/protocol.json",
+    "bytes": 13280,
+    "sha256": "4d77d0c83d39f77beddf22fe0059b89ed95237c584a2aad7b980aa2c7cf7857f"
+  },
+  "design": {
+    "N": 1024,
+    "calibrated_snr_db": 10,
+    "actual_snr_db": [
+      8,
+      8.5,
+      9,
+      9.5,
+      10
+    ],
+    "methods": [
+      "WHOLE",
+      "Token_NeST",
+      "Ada"
+    ],
+    "n_sources": 100,
+    "noise_repeats_per_source": 20,
+    "total_real_frames": 30000,
+    "reselection": false,
+    "receiver_knows_actual_noise_variance": true,
+    "generation": "per-source frozen original repeat0 generation identity across all SNR/noise events",
+    "quality": "reuse only actual accepted payload / receiver / generation identities; retain gray outputs",
+    "measurements": [
+      "header rejection",
+      "body/parse rejection",
+      "source decoding rejection",
+      "NULL",
+      "total success",
+      "overall dists",
+      "overall dreamsim",
+      "successful-only quality"
+    ],
+    "scope": "bounded fixed-policy threshold diagnostic",
+    "waveform_reuse": "join control100 full source_id to original repeat0 payload/profile/waveform/public frame_counter/session/scrambler; preserve RX descrambler identity; new noise IDs affect AWGN only"
+  },
+  "source_sets": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/nestcom_perceptual_followup_20261030_v2/source_sets.json",
+    "bytes": 33293,
+    "sha256": "d9d22110045aefe417195ba35f1147aa16511d6c3518b15520530b8a4e6bcf63"
+  }
+}
