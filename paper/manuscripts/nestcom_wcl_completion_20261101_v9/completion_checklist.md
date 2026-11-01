@@ -8,4 +8,4 @@
 - **P6: done** — 5-page main, 15-page double-spaced single, 14-page native Word, 27-page supplement; 61 pages reviewed. Evidence: `validation/artifact_review.json`.
 - **optional: not-run-optional** — Perceptual-Swin training, ResARC wireless baseline, extra data/SNR/parameter searches. Evidence: `Outside this work order`.
 
-No scientific task is blocked. Git publication is recorded separately after the required repository checks and normal push. Private adapted weights remain in PFS with file identities and training recipes; they are not represented as public downloads.
+No scientific task is blocked. Both required repository checks passed and normal main publication was verified at artifact commit `c4e85c4d984e12b8c6e337f8cf97fd5cf8872b94`; see validation/publication_receipt.json. Private adapted weights remain in PFS with file identities and training recipes; they are not represented as public downloads.
