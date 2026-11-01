@@ -16,4 +16,4 @@ Use the existing figure exports for document-only builds. Run `pdflatex -interac
 
 `scripts/audit_v8_claims.py` checks the sealed CSVs and their V7 counterparts; it never calls models or resamples statistics. `scripts/build_source_index.py` creates the exact source map and captions. Figure editing/export scripts and supplemental builders are included; rerendering a figure may change PDF metadata without changing its data.
 
-The repository is the PFS worktree on `main`; this Windows directory is a delivery mirror, not a second Git worktree. Publication and repository checks are recorded in `validation/publication_receipt.json` and `validation/repository_checks.json` when completed.
+The repository is the PFS worktree on `main`; this Windows directory is a delivery mirror, not a second Git worktree. Both required repository checks passed. Normal main publication is verified at artifact commit `0ea9ec48743abf818c2e9795b615f87684cdef79`; see `validation/publication_receipt.json` and `validation/repository_checks.json`. A later metadata-only commit records this receipt without changing the rendered artifacts.

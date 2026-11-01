@@ -12,4 +12,4 @@ Fig.1 保留原生 PPTX，仅精简示意标签；Fig.2 未改；Fig.3 保留 N1
 
 范围仍限于冻结模型、既定数据/预算/链路。共享模型35个配对区间、外部32个距离区间、Ada高预算占优与若干跨零区间全部按对应对象保留；逐点区间不替代多重比较校正或人类主观评价。
 
-工程检查和发布状态将在 `validation/repository_checks.json`、`validation/publication_receipt.json` 记录。完整主张、图表和验收映射见同目录对应文件。大数组、权重、环境和日志不进入 Git，也未因本轮迁移。
+仓库核验与 CPU 工程检查均实际通过；正常推送 main 的稿件提交为 `0ea9ec48743abf818c2e9795b615f87684cdef79`，已通过 `git ls-remote` 核验远端 SHA。发布凭据见 `validation/repository_checks.json`、`validation/publication_receipt.json`。本条随后以仅元数据提交保存，不改变论文、图表或结果。完整主张、图表和验收映射见同目录对应文件。大数组、权重、环境和日志不进入 Git，也未因本轮迁移。

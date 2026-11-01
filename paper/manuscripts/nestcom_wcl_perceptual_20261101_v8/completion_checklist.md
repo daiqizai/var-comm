@@ -12,6 +12,6 @@
 |实际编译与全部50页视觉验收|done|validation/artifact_review.json、compilation_*.json|
 |新增训练/推理/PHY/计时/重采样|not-run-optional|本轮明确不执行，全部0|
 |暂停支线/新测试集/新超参|not-run-optional|未恢复或新增|
-|工程检查与正常提交推送|pending-publication|执行后以 validation/repository_checks.json、publication_receipt.json 为准|
+|工程检查与正常提交推送|done|两项检查实际退出0；正常 main 推送 0ea9ec48743abf818c2e9795b615f87684cdef79 已核远端 SHA；validation/publication_receipt.json|
 
 没有科学证据缺口被改写成完成；本轮交付为编辑修订，不是新实验成果。
