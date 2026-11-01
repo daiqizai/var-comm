@@ -1,3 +1,20 @@
+## 2026-11-01 — V8 perceptual reconstruction revision
+
+The [V8 manuscript and report](paper/manuscripts/nestcom_wcl_perceptual_20261101_v8/final_report_zh.md)
+reorganize the closed E1–E6 evidence around source-referenced perceptual
+reconstruction. The shared-model gains, four-baseline distance comparisons,
+Ada budget-dependent crossovers, equal-information-budget plateau and complete
+processing costs are kept distinct. No scientific computation was rerun.
+
+The anonymous main paper is 5 pages at 10 pt with a 99-word abstract; the
+double-spaced PDF is 15 pages, editable Word 14 pages and supplement 16 pages.
+All 50 final pages were rendered and visually inspected. Fig.1 retains native
+PPTX with a simplified schematic label; Fig.2 is unchanged; Fig.3 retains the
+same 7-dB images and bolds the best displayed distances. V7 and all frozen CSVs
+are preserved. Validation, source mappings and normal-publication receipts are
+included in the V8 directory. Training, stopped branches and scheduling remain
+unchanged.
+
 ## 2026-11-01 — V7 comparison, figures, and timing complete
 
 The [V7 manuscript and complete report](paper/manuscripts/nestcom_wcl_tokenwise_20261030_v7/final_report_zh.md)

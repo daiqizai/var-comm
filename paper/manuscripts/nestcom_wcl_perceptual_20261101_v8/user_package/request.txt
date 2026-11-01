@@ -1,0 +1,536 @@
+NeST-Com V8：给 Codex 的完整改稿指令（感知重建定位整合版）
+日期：2026-11-01（北京时间）
+核验提交：231c3e4b5b8a975330a4baf6fd3ad6116c6d7623
+仓库：https://github.com/daiqizai/var-comm
+审阅稿：paper/manuscripts/nestcom_wcl_tokenwise_20261030_v7/
+交付用途：将本文件完整发给 Codex，直接执行 V8 的正文、图表与补充材料修改。
+本文件整合已完成实验的证据、最终大纲、图表安排、英文替换段落和执行验收要求，无需再拼接上一版分析或聊天补充。
+证据基础：前轮已读取原始均值/配对CSV、实际查看五页主稿和图1/2/3及重要补充图；本次是在此基础上整合写作定位。
+交付状态：这是完整执行指令及英文写作草案；尚未代替 Codex 修改、编译或推送仓库中的 V8。
+
+零、执行目标：请先读这一节，再按全文落实
+========================================
+
+请在当前仓库中完成实质改稿，交付可审阅的 V8 全套论文文件，不要只回复方案。
+主要定位统一为：面向逐图硬符号预算的源参考感知重建（source-referenced perceptual reconstruction）。重点考察相对源图的结构与感知相似性，以 DISTS、DreamSim 为主要展示指标，PSNR 继续量化像素保真度，LPIPS、CLIP-I 保留在完整结果中。
+
+全稿的解释必须对应具体比较对象：
+1. 对共享模型 WHOLE：逐token端点同时改善 PSNR 与源参考感知指标。这是本文新增方法的证据，不应写成本文改进必然牺牲 PSNR。
+2. 对 SwinJSCC/BPG：在已核验的 N1024 四个SNR点，NeST 的 DISTS/DreamSim 更低，而这两种基线的 PSNR 更高。将它写成相同预算下观察到的像素保真与感知相似性的取舍。
+3. 对 Ada：NeST 在七个预算/SNR点的 PSNR 更高；感知排名随信息预算变化。紧预算优势是 next-scale 路线的实用理由，高预算下的 Ada 优势仍按实际结果保留。
+
+“感知重建优先”是本稿的研究与评价重点。真实训练和校准保持原口径：D_c 使用 MSE + 0.1 LPIPS，离线策略选择使用 DINOv2 源图—重建相似性；DISTS/DreamSim 用于冻结系统的评价。不要把改写定位写成重新训练、直接优化 DISTS/DreamSim，或普遍的人类主观偏好结论。
+
+本次执行以已完成的 E1--E6 为依据。优先改主线、正文取舍、图表说明与证据呈现；保留已完成的统一计时和门限结果。无需再次默认安排新训练、0dB、新测试集或重复整套实验。
+沿用三图三表；Fig.3 保留当前 N1024/7dB 的两例。更具体的排版、文本和数字见下文。
+
+一、当前判断
+========================================
+
+V7已经补齐上轮安排的E1至E6。现在可以进入围绕证据的实质改写；不再默认开启一轮新训练、新SNR或重复计时。
+最强的论文主线是：
+
+面向固定数字帧中的源参考感知重建，利用next-scale的完整粗描述和逐级残差组织源图信息，通过逐token的可独立解码端点与实际码长装入，把剩余容量转换成额外源信息；接收的边界token既修正残差，又更新后续尺度的生成条件。共享模型实验表明，该设计同时改善像素保真和感知相似性；完整系统实验显示紧信息预算下的感知重建优势，以及相对所比较next-token实现更短的处理时间。
+
+两层问题分别论证：
+1. 为什么选择next-scale路线？
+   结构特点、E2低信息预算表现、E5实际处理时间。
+2. 本文新增设计有何价值？
+   WHOLE同模型比较、E3匹配粒度、E4同前缀干预、E5匹配粒度成本。
+
+不把“VAR原文生成SOTA”作为本文最主要的理由。
+不把完整系统之间的差异全部归因于顺序；也不必每段重复解释这条限制。
+
+本文当前可以主张一个有实际价值、证据完整的固定预算系统与方法改进。
+录用仍取决于审稿人对增量贡献的评价，但之前的计时、信息预算、粒度和可靠性分解缺口已获得实际结果，不能继续把它们列成尚未完成的默认任务。
+
+二、已核验的主要结果
+========================================
+
+2.1 共享模型WHOLE比较：现在不是只挑一个感知指标
+
+common500、每源三个既有信道实现、失败保留、直接来源配对区间：
+7个预算/SNR点×5项指标，35个区间全部方向有利于新NeST。
+
+N512：
+4 dB：WHOLE 15.1065，NeST 15.6108，PSNR +0.5043 dB。
+10 dB：16.8213 -> 17.4129，+0.5916 dB。
+19 dB：18.6378 -> 19.6317，+0.9939 dB。
+
+N1024：
+4 dB：16.8323 -> 17.6543，+0.8220 dB。
+7 dB：18.5281 -> 18.9812，+0.4531 dB。
+10 dB：19.3129 -> 20.1940，+0.8812 dB。
+19 dB：21.8444 -> 22.3341，+0.4897 dB。
+
+N1024、10 dB：
+源码容量利用率：77.70% -> 99.79%，增加22.09个百分点。
+DISTS：0.1621236 -> 0.1480616，相对下降约8.7%。
+DreamSim：0.1317276 -> 0.1047586，相对下降约20.5%。
+LPIPS：0.1987178 -> 0.1657923，相对下降约16.6%。
+
+主系统WHOLE和NeST有各自冻结目标策略；这组结果属于共享模型系统比较。
+真正只改变端点网格的控制由E3承担，不把两组数据混成同一个实验。
+
+2.2 外部比较：当前正文漏写了清楚的正面结论
+
+N1024四个SNR（4、7、10、19 dB）下：
+NeST的DISTS与DreamSim都优于ARPC、SwinJSCC、Latent JSCC和BPG。
+对应四方法×四点×两指标的32个来源配对区间均支持NeST。
+
+当前正文却主要逐点叙述与Ada的取舍，容易让读者忽略这一完整结果。
+应先把对上述四种基线的共同优势说清楚，再比较最接近的Ada。
+
+与Ada的真实关系（低值更好）：
+
+N/SNR       NeST DISTS   Ada DISTS   NeST DreamSim   Ada DreamSim
+512/4       0.2363       0.2996      0.2740          0.3847
+512/10      0.1922       0.2367      0.1837          0.2582
+512/19      0.1554       0.1496      0.1150          0.1078
+1024/4      0.1882       0.2300      0.1743          0.2431
+1024/7      0.1696       0.1766      0.1399          0.1408
+1024/10     0.1481       0.1275      0.1048          0.0871
+1024/19     0.1226       0.1136      0.0772          0.0762
+
+配对解释：
+- 512/4、512/10、1024/4：两距离支持NeST。
+- 1024/7：DISTS支持NeST；DreamSim区间跨零。
+- 512/19、1024/10：两距离支持Ada。
+- 1024/19：DISTS支持Ada；DreamSim区间跨零。
+
+所有七点NeST PSNR均高于Ada。
+LPIPS均值七点更低，但1024/10配对区间跨零。
+CLIP-I的胜负更混合，因此当前主线用DISTS与DreamSim更合适，其他三项保留。
+
+SwinJSCC和BPG的PSNR在四个N1024点都更高。
+V7写成“original 4/10/19-dB points”是历史修补式表达，7 dB同样成立，改成“all four tested SNRs”即可。
+
+这正是正文应明确报告的指标取舍：相同符号预算下，NeST相对这两种系统取得更好的DISTS/DreamSim，而其PSNR更低。不同系统同时存在模型、训练与表示差异，这组结果描述完整系统的表现，不构成调一个参数即可得到的率失真—感知曲线。
+“牺牲PSNR换感知”不作为全文总括。它不符合NeST相对WHOLE及Ada的PSNR结果，也不能代替对各指标真实排名的说明。
+
+2.3 E2等信息预算：最值得前移的新结果
+
+条件：
+共同common500；总信息预算包括57bit公共信息开销，Ada再付10bit类别；
+无无线误码与MCS；WHOLE/NeST共同最大位置(10,0)；
+Ada三个固定生成重复，源内平均指标；不选最优图像。
+
+B(bits)  NeST DISTS  Ada DISTS  NeST DreamSim  Ada DreamSim
+620      0.2350      0.2967     0.2724         0.3810
+1212     0.1921      0.2397     0.1837         0.2610
+1302     0.1882      0.2305     0.1743         0.2423
+1940     0.1642      0.1733     0.1330         0.1366
+2248     0.1554      0.1488     0.1149         0.1071
+2577     0.1480      0.1279     0.1047         0.0870
+
+DISTS：前四个已测预算支持NeST，最后两个支持Ada。
+DreamSim：前三个支持NeST，1940bit区间跨零，最后两个支持Ada。
+相对WHOLE：六预算×五指标，30个配对区间全部支持NeST。
+
+这说明外部优势与“可传源信息较少”的工作区间有关。
+它不是更强的无线抗噪证据；相同信息预算去掉PHY后仍存在相同方向的低预算优势。
+它提供采用next-scale系统的实用理由，完整模型差异仍存在，因此不写成顺序单变量因果证明。
+
+最直观的机制例子：
+B从1212增加到1302 bits，增加90bit。
+WHOLE平均源比特915.858 -> 918.954，只增加3.096bit；
+NeST 1150.046 -> 1239.950，增加89.904bit。
+WHOLE DreamSim 0.204857 -> 0.204600，几乎停滞；
+NeST 0.183663 -> 0.174254，继续改善。
+
+这直接说明整尺度端点形成容量平台，而细端点把额外预算转为实际源描述。
+“89.9 of the additional 90 bits on average”可以在主文使用；不能解释成每图精确保证。
+
+2.4 E3匹配粒度：新增方法的控制证据
+
+control100、N1024/10、16QAM rate2/3、共同最大(8,126)、共同实际噪声：
+
+Grid       Utilization    PSNR       DISTS       DreamSim
+Whole      78.1329%       19.5433    0.165002    0.138738
+Quarter    95.1944%       20.1950    0.153468    0.114271
+Eighth     97.4417%       20.3006    0.151583    0.113687
+Token      99.8480%       20.3667    0.150466    0.111489
+
+Token-Quarter：
+PSNR +0.17168 [0.12500,0.22129] dB；
+DISTS -0.003002 [-0.004108,-0.001954]；
+DreamSim -0.002782 [-0.005011,-0.000593]。
+五指标均有有利的直接配对区间。
+
+Token-Eighth增益更小，但仍有配对支持。
+现主配置已经是Token，因此不需要继续为“为什么主配置停在Quarter”辩护。
+
+2.5 E4接收端：收到的token如何产生收益
+
+10dB，同一实际接收前缀：
+A0：保留先验补全，不用收到边界的额外残差/条件更新；
+B0：增加残差修正；
+C0：再加入后续尺度条件更新。
+
+Arm   PSNR       DISTS       DreamSim
+A0    19.5433    0.165002    0.138738
+B0    19.8301    0.158792    0.127426
+C0    20.3667    0.150466    0.111489
+
+B0-A0：PSNR +0.2868，DISTS -0.006210，DreamSim -0.011312。
+C0-B0：PSNR +0.5366，DISTS -0.008326，DreamSim -0.015937。
+以上三项指标各自区间均排除零；7dB同方向成立。
+不要把它扩写成每阶段全部五指标都有显著提升：B0-A0的CLIP-I跨零。
+
+这说明只修正当前残差未用尽收到边界前缀的价值；
+进一步更新更细尺度条件提供了额外收益。
+这是当前顺序下、整个边界前缀的干预，不是Token相对Quarter新增那段token的独立贡献分解。
+末尺度没有更细尺度，因此条件传播项消失；新19dB端点核验支持这一机制。
+
+2.6 E5统一计时：next-scale路线的第二个实用理由
+
+已完成16组、32个TX/RX阶段，所有实际退出成功。
+同一实际RTX PRO6000、2CPU核、batch1、32源、每源2预热+3测量。
+计时包含真实在线源码/链路/生成/图像解码，模型加载、磁盘和评价网络除外。
+所有正式计时RX均成功，无灰图快速退出导致的速度假象。
+
+N1024/10（ms）：
+
+System         TX         RX         TX+RX
+WHOLE          213.829    369.898    583.726
+NeST           248.382    411.641    660.023
+Ada            7795.613   7626.107   15421.720
+ARPC+LDPC      661.723    797.034    1458.757
+SwinJSCC       20.527     17.615     38.141
+Latent JSCC    15.416     24.096     39.512
+BPG+LDPC       2441.978   31.709     2473.687
+
+NeST处理时间之和约为Ada的1/23.37。
+1024/7：NeST 0.75295s，Ada15.42041s，20.48倍比值。
+512/10：NeST0.51222s，Ada15.16793s，29.61倍比值。
+
+这些是完整系统实现比较；不能把全部速度差归因于本文新增端点模块或仅改变顺序。
+NeST相对WHOLE在1024/10的总处理反而增加13.1%。
+因此稿件不能宣称逐token优化“同时提高速度”，也不能泛称比JSCC更低延迟。
+
+匹配粒度、同ceiling的TX：
+Whole183.496ms，Quarter214.094ms，Eighth217.249ms，Token248.382ms。
+Quarter->Token TX增加16.0%，总处理599.305->660.023ms，增加10.1%。
+质量是control100，计时是timing32；若同表展示，在表注明确各自来源。
+
+重要实现口径：
+E3的125.96是缓存长度的降序比较数/选中位置；
+计时Token10dB实际检查352个候选，做一次新的概率遍历、9个尺度CDF步骤。
+候选数增加不等于网络完整调用352次。
+方法写“在可行端点中选token数最多者”；不把实际计时实现描述成所有工作都早停。
+
+2.7 E6门限：给工作区间一个具体解释
+
+固定10dB策略、control100×20噪声×5真实SNR×3方法，共30000帧。
+
+actualSNR   WHOLE reject   NeST reject   Ada reject
+8           100%           100%          100%
+8.5         93.05%         94.00%        93.50%
+9           15.75%         14.95%        13.50%
+9.5         0.20%          0.10%         0.10%
+10          0/2000         0/2000        0/2000
+
+低信息预算优势不等于固定MCS能承受任意低SNR。
+E2识别源重建工作区间，E6识别数字链路门限；两者不是矛盾。
+
+正文用一小段解释可靠区间即可。
+完整拒收分解、总体和成功条件质量留补充。
+没有理由再为同一目的默认增加0dB或另一轮门限扫描。
+
+三、Fig.1、Fig.2、Fig.3的判断
+========================================
+
+Fig.1：
+现有系统图实际看过，可以保留。
+(a)收发流程、(b)端点装入、(c)残差/后续条件两条路径已形成完整说明。
+不重新画一张更复杂的大图。
+只精简“651 endpoints; schematic”等实现性字句；651总目录数与10dB限制下352候选不得混用。
+图b保持明确“schematic”；如果标77.70%/99.79%，标为common500均值，不把每根示意条当逐帧精确比例。
+核心视觉重点应是独立终止的实际长度和接收边界的双重作用。
+
+Fig.2：
+目前六系统、DISTS/DreamSim两面板已经比旧版本清楚。
+保持全部4/7/10/19dB，不删对Ada不利点。
+WHOLE不必强塞成第七条曲线，TableI与Fig3已承担内部对照。
+本轮默认仍用两面板，不扩成拥挤的四至六面板。
+E2完整图放补充，但主文用独立段落明确结论与90bit例子，不能继续埋在杂项中。
+
+Fig.3：
+当前两行四列：
+Source / WHOLE / Ada(adapted) / NeST-Com。
+N1024/7dB；Television source84、Patterned leather source143；
+固定各法原repeat0。
+
+实际视觉判断：
+电视：
+WHOLE遗漏/改变天线结构；Ada保留一些细线但改变柜体并在左下加入源图没有的内容；
+NeST整体柜体、对象配置更接近源图。
+皮革：
+WHOLE把原方形扣饰变为圆形；NeST恢复较接近矩形的扣饰；
+Ada添加源图没有的文字和带状结构。
+NeST的扣饰大小、花纹仍不完全等同源图，不描述成完美复原。
+
+图内值（DISTS / DreamSim）：
+Television：WHOLE .159/.184，Ada .159/.120，NeST .131/.080。
+Leather：WHOLE .165/.130，Ada .193/.235，NeST .142/.097。
+
+这版可以保留，不需要再回4dB或搬回旧10dB糕点/狗。
+建议把NeST的最优数值加粗；保留统一全图视野。
+如果缩到印刷尺寸后扣饰不清楚，只加全方法一致ROI的小放大框，不裁掉不利内容。
+不为下一轮选图再换模型、参数或种子。
+图注保留“Selected qualitative examples”即可，把冗长的“not random”句改为简洁的选例说明，完整选择协议在补充。
+
+当前主图有WHOLE，因此它同时展示本文增量和外部系统差异。
+完整补充图还显示Quarter、ARPC、JSCC和BPG；不要把这些结果丢掉。
+
+四、最终建议的大纲与图表职责
+========================================
+
+Title
+NeST-Com: Fixed-Budget Next-Scale Token Communication
+
+I. Introduction（四段）
+1. 开门见山说明目标是硬符号预算下的源参考感知重建；以DISTS/DreamSim为主要展示指标，保留PSNR描述像素保真。随后引出源信息的保留与使用。
+2. next-scale提供全幅粗表示、残差细化、按尺度补全；相关工作建立位置。
+3. 整尺度边界、实际熵码长与固定帧不匹配；收到半个边界还需要一致重建。
+4. 方法、受控收益、低信息预算工作区间和实测处理代价。
+
+II. Proposed Framework（维持三个小节）
+A. Next-Scale Representation and Digital Frame
+B. Token-Wise Endpoints and Actual-Length Fitting
+C. Prefix-Constrained Reconstruction
+
+III. Experimental Results（五小节）
+A. Experimental Setup
+B. Effect of Token-Wise Frame Fitting
+   TableI的WHOLE、粒度、同前缀干预。
+C. Reconstruction Quality and Processing Cost
+   先讲对四外部基线一致的DISTS/DreamSim优势，并具体说明与SwinJSCC/BPG的PSNR取舍；
+   再讲最近的Ada和实际低/高预算交叉，保持NeST相对Ada的PSNR优势与感知排名分别陈述；
+   E2前移到此处，放90bit例子并指向SupplementS4；
+   Fig3解释源结构保留；
+   TableII直接解释0.660s vs15.422s及WHOLE代价。
+D. Transmission With a Reduced Symbol Budget
+   TableIII的N512，明确与C的紧预算结果一致；
+   保留19dB的Ada优势，句子写具体、不重复泛泛免责。
+E. Operation Near the Channel Threshold
+   一个短段落，E6完整图留补充。
+
+IV. Conclusion
+收回到源参考感知重建的目标、信息保留、双路径使用、内部像素/感知共同改善、紧预算表现与处理成本。
+一句说明可靠工作区间即可，不把结论最后一句写成连续的自我否定。
+
+三图三表：
+Fig1 方法结构；
+Fig2 N1024六系统两感知指标；
+Fig3 7dB两个新案例；
+TableI 新方法的受控证据；
+TableII N1024/10辅助质量+TX/RX；
+TableIII N512三方法三点。
+无需新增主图。SupplementS1信息预算图的关键结论前移正文，图本身保留补充。
+五页能否保持，需要实际重排、编译和渲染；不以缩小字体为优先手段。
+
+五、可直接替换的英文文段
+========================================
+
+以下是写作草案，事实已按V7核验。原引用键沿用当前references.tex。
+在实际排版中可压缩句子，但不改变实验对象、均值和配对结论。
+
+5.1 Abstract（按空白分词99词）
+----------------------------------------
+Next-scale residual tokens support source-referenced perceptual reconstruction from coarse descriptions, but whole-scale transmission can underfill fixed digital frames. NeST-Com fits independently terminated token-wise prefixes to the available capacity and uses received boundary tokens for residual correction and finer-scale conditioning. At 1024 symbols and 10 dB, source-bit utilization rises from 77.70% to 99.79%, reducing DISTS and DreamSim by 8.7% and 20.5% relative to shared-model whole-scale transmission. Equal-information-budget tests favor NeST-Com over adapted Ada-TokenCom on both distances at the three smallest tested budgets. At the same symbol/SNR setting, transmitter-plus-receiver processing takes 0.66 s versus 15.42 s for Ada on matched hardware.
+
+这版首句明确源参考感知重建，以感知收益、预算利用和处理时间为核心；PSNR完整范围留正文：
+N1024同模型+0.45--0.88dB，N512+0.50--0.99dB。
+摘要的“smallest tested budgets”明确指E2的620/1212/1302三个点。
+高预算交叉保留在正文；摘要没有全面优越的主张。
+
+5.2 Introduction（四段草案）
+----------------------------------------
+A hard per-image channel-symbol budget must accommodate source information, signaling, and protection. This work focuses on preserving source-image structure and perceptual similarity under this constraint. We primarily evaluate reconstruction using DISTS and DreamSim, while retaining PSNR to quantify pixelwise fidelity. In generative image communication, the transmitted description constrains reconstruction to the source, while a learned prior predicts untransmitted content. Both the organization of this description and its use of the available payload capacity therefore affect reconstruction quality.
+
+Next-scale tokenization organizes an image into complete coarse maps followed by residual refinements \cite{var}. The coarse maps describe the full latent grid, and finer maps progressively refine it. Token probabilities within a scale share the completed coarse-scale context, enabling scale-wise probability evaluation and completion. ARPC applies next-scale entropy coding and generation to progressive image compression \cite{arpc}, while Ada-TokenCom combines next-token prefix coding, tail generation, and wireless resource adaptation \cite{adatokencom}. These developments motivate examining next-scale representations under a hard per-image digital-frame budget.
+
+Progressive source transmission has long considered the matching of source descriptions to channel resources \cite{chande}. For next-scale tokens, a complete residual map can exceed the remaining frame capacity even when a substantial part of that map would fit. Image-dependent entropy lengths further prevent a fixed token count from specifying the actual bit requirement. Exploiting the remaining capacity therefore requires independently decodable within-scale endpoints and actual terminated-length fitting. The delivered boundary tokens must also update the residual representation and the conditioning of finer-scale predictions.
+
+NeST-Com combines token-wise endpoints, independently terminated arithmetic coding, and prefix-constrained reconstruction in a fixed digital frame. Shared-model comparisons and matched controls show improvements in both pixelwise fidelity and source-referenced perceptual similarity from retaining and using boundary-scale information. At 1024 symbols and 10 dB, source-bit utilization increases from 77.70\% to 99.79\%. Equal-information-budget comparisons identify a favorable low-budget regime for source-referenced perceptual reconstruction, and measurements on matched hardware show a substantially shorter processing time than the fixed-frame Ada-TokenCom implementation. Together, these results establish the practical value of the next-scale system and the contribution of its frame-fitting design.
+
+备注：
+- “generation SOTA”可以作为VAR背景一句，但不承担选型证明；以上草案已不需要它。
+- TONIC可按最终文献取舍在第二段补一句，不能为了塞名字打断主线。
+- ARPC明确是压缩技术先例，不把本文为其补链路包装成本文全部创新。
+- 末段没有把跨系统差异等同于纯顺序效果。
+
+5.3 Method：端点选择和实际执行一致的替换句
+----------------------------------------
+With the MCS fixed, the transmitter evaluates the independently terminated lengths of the allowed endpoints up to the calibrated target and selects the feasible endpoint with the largest retained-token count. Scale-wise probabilities and the incremental arithmetic-coding traversal are reused across candidate terminations. The length test uses the actual terminated stream, without assuming monotonicity of code length in token count.
+
+可用公式表达：
+e*(x,a) = argmax_{e in E, T(e)<=T(e_target), b(x,e)+29<=k_a} T(e).
+
+T(e)定义为保留token总数。
+实际计时实现对可用候选进行完整扫描；如果正文仍描述“降序首个可行”，必须把它写成选择规则，不暗示计时执行提前停止。
+
+保留接收端关键句：
+Received boundary tokens correct the residual representation and, through the merged boundary map, condition the prediction of finer scales.
+
+更具体一句：
+Unreceived positions in the boundary map retain their coarse-conditioned predictions, while the merged map provides the context for subsequent scales.
+
+N1024 paid-NULL：
+当前冻结质量运行保留原no-fit报错行为，评估未触发。历史已有单独的paid-NULL扩展验证。
+若最终投稿定义要统一fallback，先核实并正式采用该扩展身份，只闭合相关协议路径；
+不能删掉旧行为描述后假装主配置早已统一，也不因此重跑整套图像质量实验。
+
+5.3a III.A 实验设置：训练、校准与评价各自写清
+----------------------------------------
+Decoder adaptation uses MSE plus 0.1 LPIPS, and offline policy selection uses DINOv2 source--reconstruction similarity. DISTS and DreamSim are the primary metrics for evaluating source-referenced perceptual reconstruction; PSNR quantifies pixelwise fidelity, with LPIPS and CLIP-I also reported. All evaluation metrics are computed on the frozen systems.
+
+用当前代码和冻结配置核实这句中的训练与选择口径后放入设置段，保留相关指标的原引用。
+“primarily evaluate”不等于以DISTS/DreamSim为训练损失。全文不将距离指标改善自动解释为无条件画质更好、语义正确率更高或人类偏好实验结论。
+设置写一次即可，结果节直接围绕实际指标与机制展开，无需每段重复解释边界。
+
+5.4 III.B 机制结果草案
+----------------------------------------
+Table~\ref{tab:internal}(A) compares NeST-Com with whole-scale transmission using shared model components. Across all seven budget/SNR settings, NeST-Com improves both pixelwise fidelity and source-referenced perceptual similarity: all five reconstruction metrics favor it in the source-paired intervals. At \(N=1024\) and 10 dB, source-bit utilization increases from 77.70\% to 99.79\%, while DISTS decreases from 0.1621 to 0.1481 and DreamSim from 0.1317 to 0.1048. The PSNR gain ranges from 0.45 to 0.88 dB across the four \(N=1024\) points.
+
+Table~\ref{tab:internal}(B) isolates endpoint granularity under the same model, 16-QAM rate-2/3 link, maximum position \((8,126)\), and channel realizations. Refining Whole, Quarter, Eighth, and Token endpoints raises utilization from 78.13\% through 95.19\% and 97.44\% to 99.85\%. Relative to Quarter, Token improves PSNR by \(0.172\,[0.125,0.221]\) dB and reduces DISTS by \(0.0030\,[0.0020,0.0041]\) and DreamSim by \(0.0028\,[0.0006,0.0050]\). Thus, finer legal endpoints convert otherwise unused capacity into improved reconstruction.
+
+Table~\ref{tab:internal}(C) uses the same actually received prefixes to examine their successive reconstruction effects. A0 retains prior completion, B0 adds the received boundary residual, and C0 also updates finer-scale conditioning. At 10 dB, residual correction increases PSNR by 0.287 dB and reduces DreamSim by 0.0113. Updating the subsequent context provides a further 0.537 dB PSNR gain and a 0.0159 DreamSim reduction. Both stages have favorable source-paired intervals. These results show that boundary information contributes through both the current residual and subsequent prediction.
+
+注意：
+上述“reduces ... by”用正值减少量，因此CI也已翻为正值范围；
+如果沿用CSV负号写法，保持mean_delta和区间同方向，不能交叉混写。
+10dB干预仅说PSNR/DISTS/DreamSim等已支持指标，不说所有阶段五项都显著。
+
+5.5 III.C 外部质量、预算及成本草案
+----------------------------------------
+Across the four tested SNRs at \(N=1024\), NeST-Com achieves lower DISTS and DreamSim than ARPC, SwinJSCC, Latent JSCC, and BPG, with all corresponding source-paired intervals excluding zero. SwinJSCC and BPG achieve higher PSNR at all four points. This comparison shows a tradeoff between pixelwise fidelity and source-referenced perceptual similarity under the same symbol budget.
+
+The closest perceptual competitor is the fixed-frame Ada-TokenCom adaptation. NeST-Com improves both distances at 4 dB and DISTS at 7 dB; the 7-dB DreamSim interval overlaps zero. Ada yields lower values on both distances at 10 dB and lower DISTS at 19 dB, where the DreamSim interval again overlaps zero. NeST-Com has higher PSNR than Ada at all four points. These are complete-system comparisons under the common symbol budget.
+
+An error-free diagnostic separates source-information budget effects from wireless decoding and MCS choices. At six total information budgets from 620 to 2577 bits, NeST-Com improves all five metrics over WHOLE with favorable source-paired intervals. Against adapted Ada, DISTS favors NeST-Com at 620, 1212, 1302, and 1940 bits, and DreamSim favors it at the first three points. Ada is better on both distances at 2248 and 2577 bits. This identifies a favorable low-budget regime for the next-scale system; the full curves are provided in Supplement~S4.
+
+The same diagnostic also exposes the capacity plateaus caused by whole-scale endpoints. Increasing the budget from 1212 to 1302 bits adds only 3.1 source bits on average to WHOLE. Token-wise fitting uses 89.9 of the additional 90 bits, with DreamSim decreasing from 0.1837 to 0.1743, while WHOLE remains near 0.2047. This connects finer endpoint granularity directly to the effective use of additional source capacity.
+
+The selected examples in Fig.~\ref{fig:qualitative} illustrate source-structure preservation at 7 dB. NeST-Com retains the television-cabinet layout and antenna arrangement, and recovers a more rectangular buckle in the patterned-leather example. WHOLE rounds the buckle, while Ada introduces cabinet details or lettering absent from the source. The full same-source comparisons are available in Supplement~S6.
+
+Table~\ref{tab:external} reports complete transmitter and receiver processing on matched hardware. At \(N=1024\) and 10 dB, NeST-Com takes 248.4 ms at TX and 411.6 ms at RX, giving 0.660 s in total, compared with 15.422 s for the fixed-frame Ada implementation. The processing-time ratio is 23.4. Relative to WHOLE, NeST-Com increases total processing from 583.7 to 660.0 ms. Under the matched endpoint ceiling, Quarter-to-Token refinement raises TX time from 214.1 to 248.4 ms alongside the improvement in source-capacity utilization from 95.19\% to 99.85\%. SwinJSCC and Latent JSCC require substantially less processing, illustrating the quality--computation tradeoff among the evaluated systems.
+
+篇幅取舍：
+这组完整替换段可按五页实际布局收紧；优先保留：
+(1)四外部基线一致优势；
+(2)Ada工作区间；
+(3)E2结论与90bit机制例子；
+(4)0.660/15.422及WHOLE代价。
+Fig3内容描述保留2句即可，避免重复图注。
+严禁为节省篇幅删掉Ada高预算更好而留下普遍胜出印象。
+
+5.6 III.D N512草案
+----------------------------------------
+At \(N=512\), NeST-Com improves all five metrics over WHOLE at each tested SNR, with every source-paired interval excluding zero. At 10 dB, both systems use target \((7,0)\) and 16-QAM rate 2/3; token-wise fitting raises source-bit utilization from 79.30\% to 99.54\%. Compared with adapted Ada, NeST-Com achieves higher PSNR and lower LPIPS throughout, and lower DISTS and DreamSim at 4 and 10 dB. Ada gives lower values on the latter two distances at 19 dB. The reduced-symbol-budget results therefore agree with the low-information-budget operating region identified above.
+
+如果保留CLIP-I表述：
+Ada的均值三点更高，10/19dB区间跨零；可在完整补充中给出，不必为每指标另写一段。
+
+5.7 III.E 门限草案
+----------------------------------------
+With the 10-dB policies fixed, 100 sources and 20 noise realizations per point yield 30,000 receptions across actual SNRs of 8--10 dB. All three methods reject every frame at 8 dB. At 9 dB, rejection rates are 15.75\%, 14.95\%, and 13.50\% for WHOLE, NeST-Com, and Ada, respectively; these fall to 0.10--0.20\% at 9.5 dB, with no observed rejection at 10 dB. Overall quality includes rejected-frame gray outputs, and successful-only quality is reported in Supplement~S5. The gains from source reconstruction are thus realized within the reliable operating range of the selected digital-link policy.
+
+5.8 Fig.3 caption草案
+----------------------------------------
+Selected qualitative comparisons at \(N=1024\) and 7 dB. Columns show the source, WHOLE, fixed-frame Ada, and NeST-Com. Values are full-image DISTS\(\downarrow\) / DreamSim\(\downarrow\). Each displayed output uses the fixed first channel realization for its method; source identities and the selection protocol are provided in Supplement~S6.
+
+5.9 Conclusion草案
+----------------------------------------
+NeST-Com uses next-scale residual descriptions for source-referenced perceptual reconstruction under fixed digital-frame budgets. Token-wise endpoints, actual terminated-length fitting, and prefix-constrained reconstruction retain and use additional source information. Shared-model and matched controls show improvements in both pixelwise fidelity and perceptual similarity, with boundary tokens contributing through residual correction and finer-scale conditioning. Equal-information-budget comparisons identify favorable perceptual reconstruction at tight budgets, while matched-hardware measurements show substantially shorter processing time than the tested Ada adaptation. These findings support next-scale communication as a practical design for resource-limited perceptual image reconstruction.
+
+六、现稿应压缩的句子与必须保留的信息
+========================================
+
+压缩成正面定义：
+1. “η不是总空口效率” -> 在定义和表头写source-bit capacity utilization。
+2. “不是顺序单变量因果” -> 在系统比较开头交代完整系统及其主要差别一次。
+3. “不是随机样本” -> 图注Selected qualitative comparisons，补充给选择协议。
+4. “不是无线时延/不是优化硬件界” -> 表头明确TX/RX processing time，设置给边界。
+5. “DINO和feature评价并不独立” -> 设置写清校准与评价器；细节置补充。
+6. “干预不是Token-Quarter完整分解” -> 正文准确写same-prefix successive interventions。
+7. “没有证明SNR鲁棒” -> 直接报告固定策略门限及适用区间。
+
+必须保留：
+实际N和功率合同、开销计费；
+基线实际训练/条件/生成设置；
+总体包含灰图；
+关键配对区间跨零；
+Ada高预算两距离占优；
+时间实际硬件与在线计算边界；
+选择图片的性质；
+模型与策略身份不混用。
+删去反复否定句，不删除这些真实条件。
+
+七、交给Codex的编辑任务
+========================================
+
+这是基于已完成结果的正文/图表编辑任务。按照第零节统一定位，把改写落实到整份论文，不只在摘要里补一句“perceptual”。
+引言讲目标与方法问题；WHOLE和匹配控制讲新增设计；外部比较讲完整系统的感知指标、像素保真和计算成本；结论回到上述证据。
+
+1. 核对远端HEAD是否仍为本文件记录提交。若已变化，先读新的主稿与输入差异。
+2. 从V7创建独立V8编辑目录，保留旧V7和所有冻结CSV，不覆盖历史。
+3. 将主线与结果顺序改成本文第零、第四节；使用第五节草案作为文本基础。把源参考感知重建目标写进引言与结论，DISTS/DreamSim优先展示，PSNR及另外两项指标继续保留。
+4. 摘要改成源参考感知重建目标、同模型感知收益、预算利用与处理成本。核实75--100词；本建议版99词。比较对象写明确，避免泛化为全部系统领先。
+5. III.C先写四基线四SNR两距离优势，明确相对SwinJSCC/BPG的PSNR取舍，再写Ada交叉；把E2前移并使用90bit例子。
+6. 明确0.660s vs15.422s的系统处理对比；同时报告WHOLE代价，不称新token模块提速。
+7. II.B用“可行端点中选最多token”的规则，与实际全候选计时一致。
+8. Fig1小修逻辑标签，不重构大图；Fig2保持两面板；Fig3保留当前7dB两例，数值最优加粗，可作一致ROI局部放大。
+9. TableI保留WHOLE/粒度/干预；TableII保留辅助质量和统一时间；TableIII保留N512。
+10. 正文只留短的E6门限段；完整失效分解、成本分解和E2曲线继续放补充。
+11. N1024 paid-NULL如果需要统一协议，只核查既有扩展并正式记录采用状态；未采用前不写成已统一。
+12. 更新claim_evidence_matrix、figure_table_sources和变更说明。所有新相对百分比由冻结原CSV计算。核实设置中D_c=MSE+0.1LPIPS、策略=DINOv2、评价=DISTS/DreamSim等的真实关系，并同步主文和补充。
+13. 同步双栏、单栏、Word和补充；实际编译与逐页查看，保持五页、字号可读。
+14. 不因改稿重跑E1--E6，不启动新训练、0dB、NEW200或额外参数选择。
+15. 交付V8双栏PDF、单栏PDF、Word、补充PDF、LaTeX源文件及简短中文变更说明；附最终主稿/补充页数、摘要词数和所用提交。Git同步沿用执行会话已有授权；用户自行上传时提供完整文件包。
+
+完成标准：
+- 引言明确源参考感知重建目标；不笼统写“本方法牺牲PSNR”；
+- 内部改进、对SwinJSCC/BPG的指标取舍、对Ada的预算相关排名分别由对应数据支撑；
+- 真实训练、策略选择和评价指标明确，无DISTS/DreamSim直接优化的虚构；
+- 每项新写入结论有对应已完成证据；
+- 35项共享模型改善、32项外部两距离改善、E2交叉均无夸大；
+- 图内指标等于显示那次输出；
+- 125.96与352含义不混淆；
+- 0.660s/15.422s明确是处理时间之和；
+- PDF/Word实际页数、渲染和数值核查通过；
+- 不把编辑完成报告成新实验成果。
+
+八、固定来源索引
+========================================
+
+以下均固定于本次核验提交。
+
+https://github.com/daiqizai/var-comm/blob/231c3e4b5b8a975330a4baf6fd3ad6116c6d7623/paper/manuscripts/nestcom_wcl_tokenwise_20261030_v7/sections/abstract.tex
+https://github.com/daiqizai/var-comm/blob/231c3e4b5b8a975330a4baf6fd3ad6116c6d7623/paper/manuscripts/nestcom_wcl_tokenwise_20261030_v7/sections/introduction.tex
+https://github.com/daiqizai/var-comm/blob/231c3e4b5b8a975330a4baf6fd3ad6116c6d7623/paper/manuscripts/nestcom_wcl_tokenwise_20261030_v7/sections/method.tex
+https://github.com/daiqizai/var-comm/blob/231c3e4b5b8a975330a4baf6fd3ad6116c6d7623/paper/manuscripts/nestcom_wcl_tokenwise_20261030_v7/sections/results.tex
+https://github.com/daiqizai/var-comm/blob/231c3e4b5b8a975330a4baf6fd3ad6116c6d7623/paper/manuscripts/nestcom_wcl_tokenwise_20261030_v7/sections/pending_results.tex
+https://github.com/daiqizai/var-comm/blob/231c3e4b5b8a975330a4baf6fd3ad6116c6d7623/paper/manuscripts/nestcom_wcl_tokenwise_20261030_v7/sections/conclusion.tex
+https://github.com/daiqizai/var-comm/blob/231c3e4b5b8a975330a4baf6fd3ad6116c6d7623/paper/manuscripts/nestcom_wcl_tokenwise_20261030_v7/inputs/e1/summary.csv
+https://github.com/daiqizai/var-comm/blob/231c3e4b5b8a975330a4baf6fd3ad6116c6d7623/paper/manuscripts/nestcom_wcl_tokenwise_20261030_v7/inputs/e1/paired_deltas.csv
+https://github.com/daiqizai/var-comm/blob/231c3e4b5b8a975330a4baf6fd3ad6116c6d7623/paper/manuscripts/nestcom_wcl_tokenwise_20261030_v7/inputs/e2/summary.csv
+https://github.com/daiqizai/var-comm/blob/231c3e4b5b8a975330a4baf6fd3ad6116c6d7623/paper/manuscripts/nestcom_wcl_tokenwise_20261030_v7/inputs/e2/paired_deltas.csv
+https://github.com/daiqizai/var-comm/blob/231c3e4b5b8a975330a4baf6fd3ad6116c6d7623/paper/manuscripts/nestcom_wcl_tokenwise_20261030_v7/inputs/e2/representation_and_capacity.csv
+https://github.com/daiqizai/var-comm/blob/231c3e4b5b8a975330a4baf6fd3ad6116c6d7623/paper/manuscripts/nestcom_wcl_tokenwise_20261030_v7/inputs/e3/summary.csv
+https://github.com/daiqizai/var-comm/blob/231c3e4b5b8a975330a4baf6fd3ad6116c6d7623/paper/manuscripts/nestcom_wcl_tokenwise_20261030_v7/inputs/e3/paired_deltas.csv
+https://github.com/daiqizai/var-comm/blob/231c3e4b5b8a975330a4baf6fd3ad6116c6d7623/paper/manuscripts/nestcom_wcl_tokenwise_20261030_v7/inputs/e4/paired_deltas.csv
+https://github.com/daiqizai/var-comm/blob/231c3e4b5b8a975330a4baf6fd3ad6116c6d7623/paper/manuscripts/nestcom_wcl_tokenwise_20261030_v7/inputs/e5/timing_summary.csv
+https://github.com/daiqizai/var-comm/blob/231c3e4b5b8a975330a4baf6fd3ad6116c6d7623/paper/manuscripts/nestcom_wcl_tokenwise_20261030_v7/inputs/f1/fig3_metrics.csv
+https://github.com/daiqizai/var-comm/blob/231c3e4b5b8a975330a4baf6fd3ad6116c6d7623/paper/manuscripts/nestcom_wcl_tokenwise_20261030_v7/inputs/e6/summary.csv
+
+原始已封存结果目录：
+https://github.com/daiqizai/var-comm/tree/231c3e4b5b8a975330a4baf6fd3ad6116c6d7623/results/nestcom_perceptual_followup_20261030_v2
+https://github.com/daiqizai/var-comm/blob/231c3e4b5b8a975330a4baf6fd3ad6116c6d7623/paper/manuscripts/nestcom_wcl_tokenwise_20261030_v7/final_report_zh.md
+
+主要文献：
+https://arxiv.org/html/2404.02905v2
+https://proceedings.iclr.cc/paper_files/paper/2026/hash/a255ea760cfedf42a988d9de6ec902cf-Abstract-Conference.html
+
+——完整Codex执行指令结束——

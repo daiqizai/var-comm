@@ -1,0 +1,182 @@
+{
+  "base_commit": "231c3e4b5b8a975330a4baf6fd3ad6116c6d7623",
+  "mode": "READ_ONLY_SOURCE_AUDIT",
+  "sources": [
+    {
+      "path": "experiments/var-latent-enhancement-20260917/configs/experiment.json",
+      "sha256": "6921186881ad124549df04bf0be9f0ee660063d00f0107c67ca4f966240d2412",
+      "lines": [
+        {
+          "line": 41,
+          "text": "    \"interpolation_alpha\": \"independent_uniform_0_1\","
+        },
+        {
+          "line": 42,
+          "text": "    \"MSE_weight\": 1,"
+        },
+        {
+          "line": 43,
+          "text": "    \"LPIPS_weight\": 0.1,"
+        },
+        {
+          "line": 55,
+          "text": "    \"selection\": \"minimum_full_calibration_50_25_25_mixture_image_loss;report_all_branch_PSNR_LPIPS\","
+        },
+        {
+          "line": 56,
+          "text": "    \"usefulness\": \"Dc(F) improves fixed image utility over D0(Fq), with source-paired PSNR or LPIPS improvement;other_metric_tradeoff_explicit\","
+        },
+        {
+          "line": 59,
+          "text": "    \"mixture_seed\": 2026091702,"
+        },
+        {
+          "line": 60,
+          "text": "    \"calibration_alpha_seed\": 2026091703"
+        },
+        {
+          "line": 69,
+          "text": "    \"MSE_weight\": 1,"
+        },
+        {
+          "line": 70,
+          "text": "    \"LPIPS_weight\": 0.1,"
+        },
+        {
+          "line": 72,
+          "text": "    \"latent_loss_on_header_failure\": \"zero;all_failures_still_in_image_loss_and_quality\","
+        },
+        {
+          "line": 84,
+          "text": "    \"selection\": \"minimum_full_calibration_image_plus_0.01_latent_loss;retain_actual_PSNR_LPIPS_workpoints\","
+        },
+        {
+          "line": 94,
+          "text": "    \"LPIPS_improvement\": 0.0001,"
+        },
+        {
+          "line": 113,
+          "text": "                \"DINO_training_or_selection\": false, \"new_architecture_search\": false}"
+        }
+      ]
+    },
+    {
+      "path": "experiments/var-latent-enhancement-20260917/src/latent_enhancement/training.py",
+      "sha256": "fc3e59b48f7c5dda01d29f7a7f6ab7fddd0b339b4168a93a86badcec9b9012fb",
+      "lines": [
+        {
+          "line": 78,
+          "text": "def draw_mixture(batch_size, generator):"
+        },
+        {
+          "line": 80,
+          "text": "        raise ValueError(\"logical batch must support exact 50/25/25 mixture\")"
+        },
+        {
+          "line": 81,
+          "text": "    branches = torch.tensor([0] * (batch_size // 2) + [1] * (batch_size // 4) + [2] * (batch_size // 4))"
+        },
+        {
+          "line": 82,
+          "text": "    branches = branches[torch.randperm(batch_size, generator=generator)]"
+        },
+        {
+          "line": 83,
+          "text": "    return branches, torch.rand(batch_size, generator=generator)"
+        },
+        {
+          "line": 86,
+          "text": "def mixed_input(batch, branches, alpha):"
+        },
+        {
+          "line": 88,
+          "text": "    interpolation = batch[\"Fb_TX\"] + alpha.reshape(shape) * (batch[\"F\"] - batch[\"Fb_TX\"])"
+        },
+        {
+          "line": 89,
+          "text": "    return torch.where((branches == 0).reshape(shape), batch[\"F\"],"
+        },
+        {
+          "line": 90,
+          "text": "                       torch.where((branches == 1).reshape(shape), batch[\"Fq\"], interpolation))"
+        },
+        {
+          "line": 96,
+          "text": "        mse, lpips = values[:, 0], values[:, 1]"
+        },
+        {
+          "line": 97,
+          "text": "        summary[branch] = {\"mse\": float(mse.mean()), \"psnr_db\": float((-10 * np.log10(np.maximum(mse, 1e-12))).mean()),"
+        },
+        {
+          "line": 98,
+          "text": "                           \"lpips\": float(lpips.mean()), \"utility\": float((mse + 0.1 * lpips).mean())}"
+        },
+        {
+          "line": 99,
+          "text": "    summary[\"mixture_utility\"] = (0.5 * summary[\"F\"][\"utility\"] + 0.25 * summary[\"Fq\"][\"utility\"]"
+        },
+        {
+          "line": 105,
+          "text": "    current = {\"mixture_utility\": float(summary[\"mixture_utility\"])}"
+        },
+        {
+          "line": 108,
+          "text": "        current[branch + \"_lpips\"] = summary[branch][\"lpips\"]"
+        },
+        {
+          "line": 111,
+          "text": "    improved = previous[\"mixture_utility\"] - current[\"mixture_utility\"] > abs(previous[\"mixture_utility\"]) * tolerances[\"relative_utility_improvement\"]"
+        },
+        {
+          "line": 112,
+          "text": "    best = {\"mixture_utility\": min(previous[\"mixture_utility\"], current[\"mixture_utility\"])}"
+        },
+        {
+          "line": 114,
+          "text": "        psnr_key, lpips_key = branch + \"_psnr\", branch + \"_lpips\""
+        },
+        {
+          "line": 116,
+          "text": "        improved = improved or previous[lpips_key] - current[lpips_key] > tolerances[\"LPIPS_improvement\"]"
+        },
+        {
+          "line": 118,
+          "text": "        best[lpips_key] = min(previous[lpips_key], current[lpips_key])"
+        }
+      ]
+    },
+    {
+      "path": "experiments/nestcom-n512-20261028/select_calibration.py",
+      "sha256": "387d47d5a805fdd027cc6e53fad7b23ab83c63e128902ddf52205335d1e2a1d8",
+      "lines": [
+        {
+          "line": 1,
+          "text": "\"\"\"Prespecified DINO selection; pilot one realization, full three per source.\"\"\""
+        },
+        {
+          "line": 17,
+          "text": "  rows.append(dict(method=method,snr_db=snr,candidate_id=candidate,source_count=len(means),logical_count=len(means)*len(seeds),mean_dino_cosine=float(np.mean(means,dtype=np.float64))))"
+        },
+        {
+          "line": 20,
+          "text": " assert stage in ('pilot','full');closed(stage+'_dino');protocol=read(O/'protocol.json');pid=sha(O/'protocol.json');plan=read(L/(stage+'_plan')/'completion.json');pairs=read(L/(stage+'_metric_plan')/'completion.json');scores=read(L/(stage+'_dino')/'scores.json')"
+        },
+        {
+          "line": 27,
+          "text": "   pool=sorted((x for x in rows if x['method']==method and x['snr_db']==snr),key=lambda x:(-x['mean_dino_cosine'],x['candidate_id']));assert pool"
+        },
+        {
+          "line": 33,
+          "text": " result=dict(status='PILOT_FINALISTS_FROZEN'if stage=='pilot'else'N512_POLICIES_FROZEN_BEFORE_COMMON500',protocol_sha256=pid,candidate_summary=pin(out/'candidate_summary.csv'),selection=details,source_count=len(ids),noise_seeds=protocol['pilot_noise'if stage=='pilot'else'full_noise'],metric='DINOv2-L cosine',common500_used=False,new_bootstrap=False,actual_wait=closed(stage+'_dino'))"
+        }
+      ]
+    }
+  ],
+  "interpretation": {
+    "decoder": "MSE + 0.1 LPIPS; unchanged frozen decoder",
+    "policy": "DINOv2 source-reconstruction cosine on disjoint calibration",
+    "evaluation": "Frozen five-metric evaluation; no DISTS/DreamSim optimization"
+  },
+  "new_scientific_calls": 0
+}

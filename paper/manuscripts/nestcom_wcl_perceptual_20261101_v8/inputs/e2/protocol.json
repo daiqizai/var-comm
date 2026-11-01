@@ -1,0 +1,72 @@
+{
+  "parent": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/nestcom_perceptual_followup_20261030_v2/protocol.json",
+    "bytes": 13280,
+    "sha256": "4d77d0c83d39f77beddf22fe0059b89ed95237c584a2aad7b980aa2c7cf7857f"
+  },
+  "design": {
+    "methods": [
+      "WHOLE",
+      "Token_NeST",
+      "Ada"
+    ],
+    "B_bits": [
+      620,
+      1212,
+      1302,
+      1940,
+      2248,
+      2577
+    ],
+    "overhead_bits": {
+      "profile": 12,
+      "header_crc": 16,
+      "length": 13,
+      "body_crc": 16,
+      "Ada_class": 10
+    },
+    "common_overhead_bits": 57,
+    "Ada_total_overhead_bits": 67,
+    "max_endpoint_WHOLE_and_NeST": [
+      10,
+      0
+    ],
+    "NeST_endpoint_count": 651,
+    "Ada_max_tokens": 256,
+    "selection": "longest feasible token prefix by independently terminated actual length; no quality selector; do not assume length monotonicity",
+    "retain_original_snr_target_ceilings": false,
+    "channel": "error-free information transfer; no FEC or modulation",
+    "n_sources": 500,
+    "deterministic_generation_repeats": 1,
+    "Ada_generation_repeats": 3,
+    "Ada_generation_seed_anchors": [
+      2026103001,
+      2026103002,
+      2026103003
+    ],
+    "Ada_generation": {
+      "CFG": 4,
+      "temperature": 1,
+      "top_k": 2000,
+      "top_p": 1
+    },
+    "maximum_logical_outputs_before_dedup": 15000,
+    "source_method_budget_units": 9000,
+    "metric_aggregation": "mean metric across generation repeats, never average images or select best sample",
+    "primary_metrics": [
+      "dists",
+      "dreamsim"
+    ],
+    "other_metrics": [
+      "psnr_db",
+      "lpips_alex",
+      "clip_image_cosine"
+    ],
+    "claim_scope": "frozen complete-system source rate-quality diagnostic, not isolated order causal proof"
+  },
+  "source_sets": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/results/nestcom_perceptual_followup_20261030_v2/source_sets.json",
+    "bytes": 33293,
+    "sha256": "d9d22110045aefe417195ba35f1147aa16511d6c3518b15520530b8a4e6bcf63"
+  }
+}

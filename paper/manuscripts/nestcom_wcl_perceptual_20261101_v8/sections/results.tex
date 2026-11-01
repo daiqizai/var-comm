@@ -1,0 +1,40 @@
+\section{Experimental Results}
+\ifCLASSOPTIONonecolumn\input{sections/figure2_float}\fi
+\subsection{Experimental Setup}
+The 500 ImageNet validation sources~\cite{imagenet} are disjoint from cal1000 and use fixed $256\times256$ preprocessing. We evaluate $N=1024$ at 4/7/10/19 dB and $N=512$ at 4/10/19 dB. Each point averages three channel realizations per source, retaining gray failures, before equal-source means and direct paired 95\% source-bootstrap intervals (10\,000 resamples). Controls use the first 100 full manifest IDs. Historical noise identities remain method/budget-specific; the matched-grid control shares noise.
+
+Latent JSCC maps tokenizer latents to symbols with convolutional layers and shares $\Dc$, using MSE, LPIPS, and latent-consistency losses (100k updates). SwinJSCC~\cite{swinjscc} uses RGB MSE (200k updates, minimum calibration MSE selection). Both train on 20\,000 images for $256\times256$ and $N=1024$. Digital baselines include BPG~\cite{bpg} and ARPC~\cite{arpc} with LDPC/QAM. The predicted-class, fixed-frame Ada-TokenCom adaptation~\cite{adatokencom} retains LlamaGen-L/VQ16, prefix arithmetic coding, and sampled completion (CFG=4, $T=1$, top-$k=2000$, top-$p=1$). ConvNeXt predicts its transmitted 10-bit class; ARPC captions and all required fields are likewise paid. This comparison does not reproduce Ada's long-term budget controller or ARQ.
+
+Decoder training and DINOv2 calibration are distinct from evaluation. DISTS~\cite{dists} and DreamSim~\cite{dreamsim} are the primary measures of source-referenced perceptual reconstruction. PSNR quantifies pixelwise fidelity; LPIPS-Alex~\cite{lpips} and CLIP-I~\cite{clip} are also reported. All metrics evaluate frozen systems on native float RGB. DISTS uses $256\times256$; DreamSim/CLIP use the frozen $224\times224$ bicubic-antialias preprocessing. Model, numerical-route and calibration details appear in Supplement~S1.
+
+Processing uses 32 sources, two warmups and three measurements per source, batch one, one RTX PRO 6000 and two CPU cores. TX spans in-memory RGB to symbols; RX spans received symbols to RGB. Fresh probability evaluation, source coding, link processing and generation are included; loading, disk I/O and scoring are excluded. Original precision routes are retained; BPG is CPU-only on the same host/quota.
+
+\input{tables/table_i}
+\ifCLASSOPTIONonecolumn\else\input{sections/figure3_float}\fi
+\subsection{Effect of Token-Wise Frame Fitting}
+Table~\ref{tab:internal}(A) compares NeST-Com with WHOLE using shared tokenizer, prior, coder and receiver under frozen family policies. Across seven budget/SNR settings, all five metrics favor NeST in the source-paired intervals, improving both pixelwise fidelity and perceptual similarity. At $N=1024$, 10 dB, source-bit utilization rises from 77.70\% to 99.79\%, DISTS falls from 0.1621 to 0.1481, and DreamSim from 0.1317 to 0.1048. PSNR gains range from 0.45 to 0.88 dB over the four $N=1024$ points.
+
+Block B isolates granularity on 100 sources with fixed model, 16-QAM rate 2/3, maximum position $(8,126)$ and shared noise. Whole/Quarter/Eighth/Token utilization is 78.13/95.19/97.44/99.85\%. Token--Quarter improves PSNR by $0.172\,[0.125,0.221]$ dB, with DISTS and DreamSim differences $-0.0030\,[-0.0041,-0.0020]$ and $-0.0028\,[-0.0050,-0.0006]$. Thus finer legal endpoints convert unused capacity into better reconstruction. Block A uses family-specific frozen policies.
+
+Block C uses the same actual NeST prefixes for successive interventions. A0 retains prior completion; B0 adds the received boundary residual while retaining A0's future conditioning; C0 also updates that conditioning. At 10 dB, B0--A0 improves PSNR by 0.287 dB and reduces DreamSim by 0.0113. C0--B0 adds 0.537 dB and a 0.0159 reduction, respectively. Both stages have favorable paired intervals for these metrics and DISTS. Boundary information therefore contributes through both residual correction and subsequent prediction. Supplement~S3 reports 7 dB and the final-scale case, where no finer-scale propagation remains.
+
+\subsection{Reconstruction Quality and Processing Cost}
+\ifCLASSOPTIONonecolumn\input{sections/figure3_float}\fi
+\input{tables/table_ii}
+Fig.~\ref{fig:performance} compares six complete systems with differing tokenizers, priors, decoders and conditioning. At all four $N=1024$ SNRs, NeST has lower DISTS and DreamSim than ARPC, SwinJSCC, Latent JSCC and BPG: all 32 corresponding paired intervals exclude zero. SwinJSCC and BPG have higher PSNR at all four points, showing an observed pixel-fidelity/perceptual-similarity tradeoff under the same symbol budget.
+
+The closest perceptual competitor is adapted Ada. NeST improves both distances at 4 dB and DISTS at 7 dB; the latter DreamSim interval crosses zero. Ada yields lower distances at 10 dB and lower DISTS at 19 dB, where the DreamSim interval again crosses zero. NeST has higher PSNR than Ada at all four points. Table~\ref{tab:external} and Supplement~S2 retain the auxiliary metrics. At 7 dB, NeST/WHOLE/Ada/BPG have 13/7/7/11 gray outcomes in 1500 trials each, under their historical noise identities; NeST/WHOLE/Ada have none at 4/10/19 dB.
+
+An error-free diagnostic separates information-budget effects from wireless decoding and MCS choices. It uses common500, six total budgets from 620 to 2577 bits, 57 shared overhead bits plus Ada's 10-bit class, and independent source decoding. WHOLE/NeST share maximum $(10,0)$; Ada permits 256 tokens and averages three fixed generation repeats within source. NeST improves all five metrics over WHOLE at every budget with favorable paired intervals. Against Ada, DISTS favors NeST at 620/1212/1302/1940 bits and DreamSim at the first three; its 1940-bit DreamSim interval crosses zero. Ada is better on both at 2248/2577 bits. Full curves appear in Supplement~S4.
+
+Increasing the budget from 1212 to 1302 bits adds only 3.1 source bits on average to WHOLE. Token-wise fitting uses 89.9 of the additional 90 bits: DreamSim falls from 0.1837 to 0.1743, while WHOLE stays near 0.2047.
+
+The selected Fig.~\ref{fig:qualitative} examples show NeST retaining the television-cabinet layout and antenna arrangement, and a more rectangular leather buckle. WHOLE rounds the buckle, whereas Ada introduces cabinet details or lettering absent from the source; Supplement~S6 gives all systems on these sources.
+
+At $N=1024$, 10 dB, NeST takes 248.4 ms at TX and 411.6 ms at RX, totaling 0.660 s versus Ada's 15.422 s, a processing-time ratio of 23.4 (Table~\ref{tab:external}). Relative to WHOLE, NeST raises total processing from 583.7 to 660.0 ms (+13.1\%). Under the matched endpoint ceiling, Quarter-to-Token refinement raises TX time from 214.1 to 248.4 ms (+16.0\%). Timed Token scans all 352 allowed endpoints using one fresh probability traversal and nine scale-CDF steps; the quality diagnostic's 125.96 cached-length comparisons measure descending selection rank. SwinJSCC and Latent JSCC require much less processing. Supplement~S7 reports complete costs and operation counts.
+
+\subsection{Transmission With a Reduced Symbol Budget}
+\input{tables/table_iii}
+At $N=512$, all five NeST--WHOLE paired intervals favor NeST at each SNR, with PSNR gains of 0.50--0.99 dB. At 10 dB both use target $(7,0)$ and 16-QAM rate 2/3; token-wise fitting raises utilization from 79.30\% to 99.54\%. Against Ada, NeST has higher PSNR and lower LPIPS throughout, and lower DISTS/DreamSim at 4/10 dB. Ada is better on both distances at 19 dB, with NeST--Ada differences $0.0058\,[0.0036,0.0079]$ and $0.0072\,[0.0037,0.0106]$. This agrees with the favorable tight-information-budget region above. Ada's mean CLIP-I is higher at all three points, with intervals crossing zero at 10/19 dB. Gray counts are 4/7/5 at 4 dB and zero at 10/19 dB, respectively. Each symbol budget uses independently calibrated policies and candidate pools.
+
+\input{sections/threshold}
