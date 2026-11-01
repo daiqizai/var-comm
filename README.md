@@ -1,3 +1,25 @@
+## 2026-11-01 — V7 comparison, figures, and timing complete
+
+The [V7 manuscript and complete report](paper/manuscripts/nestcom_wcl_tokenwise_20261030_v7/final_report_zh.md)
+close E1–E6 under `original_receiver_plus_D_token`. The anonymous letter is
+5 pages; the double-spaced single-column PDF and editable Word are 14 pages,
+with a 16-page supplement. All 49 final pages were actually rendered and viewed.
+Three figures, three native tables, original editable PPTX and all source mappings
+are delivered. Existing E1/E3/E4 and E2/E6 scalar evidence stays in its sealed
+published namespaces; [E5 timing](results/nestcom_perceptual_followup_20261030_v2/e5/REPORT_zh.md)
+adds all 16 groups, 32 actual zero-exit stages and 5120 timing records.
+
+The authorized two-hour extension completed only ARPC/BPG, reusing all 14
+completed groups. All failures, original deadlines and exact corrective source
+identities remain recorded. Conservative registered totals are 21.370267 GPU
+reservation hours and 31.614986 CPU-process hours, below the original 72-hour
+caps. No new training or stopped research branch was resumed; no owned worker
+remains live. E5 distinguishes actual full candidate scans from endpoint ranks.
+The report retains Ada-favored perceptual cells, 7-dB intervals crossing zero,
+and complete rejection at 8 dB under frozen 10-dB policies. It claims neither
+universal quality superiority nor SNR robustness. New200 and new parameter
+searches remain outside this package.
+
 ## 2026-10-30 — Five-route optimization and token-wise fitting
 
 The [A–E report](results/nestcom_opt_20261030_v1/delivery/REPORT_zh.txt)

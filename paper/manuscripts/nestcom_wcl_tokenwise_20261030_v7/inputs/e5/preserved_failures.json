@@ -1,0 +1,414 @@
+{
+  "failures": [
+    {
+      "role": "E2_ada_remaining_queue",
+      "identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_perceptual_followup_20261030_v2/E2_ada_remaining_queue/failure.json",
+        "bytes": 674,
+        "sha256": "758a1d9978558edba6f95fa1d98b7af6167c920ea9386ad6582ec5c6ba71f90b"
+      },
+      "failure": {
+        "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/ada_remaining_queue.py\", line 35, in main\n    launch(spec['role'],req,E/'ada_information_receiver.py',RT/'envs/frozen_visual_py310/bin/python',43200,gpu=True)\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/launch.py\", line 15, in launch\n    assert len(active)<2 and(not timing or not active)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+        "dispatched": [
+          "E2_ada_01"
+        ],
+        "automatic_retry": false
+      }
+    },
+    {
+      "role": "E2_prepare",
+      "identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_perceptual_followup_20261030_v2/E2_prepare/failure.json",
+        "bytes": 478,
+        "sha256": "1f8f42d085b7de5d1e6e740204df71c2fd950893b68a3c1712516fc4ed90a5e4"
+      },
+      "failure": {
+        "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/prepare_e2.py\", line 26, in main\n    a=ads[f'p{i:03d}'];assert len(a)==s['ada_lengths'][f'p{i:03d}']and asha(a)==s['ada_payload_hashes'][f'p{i}']\n                                                                                ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^\nKeyError: 'p1'\n",
+        "automatic_retry": false
+      }
+    },
+    {
+      "role": "E5_ARPC_IPC_preflight_v1",
+      "identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_perceptual_followup_20261030_v2/E5_ARPC_IPC_preflight_v1/failure.json",
+        "bytes": 1009,
+        "sha256": "84f0c225bbcf9e3b18213634d8363b0a9654c10f22f25f3970fcab4305a839fd"
+      },
+      "failure": {
+        "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_arpc_ipc_preflight_v1.py\", line 14, in main\n    rt=RuntimeProxy(r['sionna_package'],out); calls=MemoryCalls()\n       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_arpc_phy_ipc_v1.py\", line 105, in __init__\n    assert answer['ok'], answer.get('traceback')\n           ~~~~~~^^^^^^\nAssertionError: Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_arpc_phy_ipc_v1.py\", line 56, in service\n    assert rt.backend.identity['torch'] == '2.11.0+cu128'\n           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^\nKeyError: 'torch'\n\n",
+        "completed_checks": [],
+        "model_calls": 0,
+        "quality_calls": 0,
+        "automatic_retry": false
+      }
+    },
+    {
+      "role": "E5_ARPC_IPC_queue_v2",
+      "identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_perceptual_followup_20261030_v2/E5_ARPC_IPC_queue_v2/failure.json",
+        "bytes": 978,
+        "sha256": "264080435900785b6fd2ac0e5bf05a707248dde035bc9a4455fa8a8b584c83dc"
+      },
+      "failure": {
+        "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_arpc_queue_v2.py\", line 53, in main\n    earlier=wait_external('E5_timing_recovery_v6')\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_arpc_queue_v2.py\", line 28, in wait_external\n    done=closed(role)\n         ^^^^^^^^^^^^\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/followup_common.py\", line 24, in closed\n    w=read(L/(role+'_control')/'actual_wait.json');assert w['returncode']==0 and ident(w['child']['pid'])is None\n                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+        "launched": [],
+        "automatic_retry": false
+      }
+    },
+    {
+      "role": "E5_BPG_queue_v2",
+      "identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_perceptual_followup_20261030_v2/E5_BPG_queue_v2/failure.json",
+        "bytes": 617,
+        "sha256": "8c8a9408554bb17fd92ff14ad4527eda80bd656beaa02b72dc26bb7c1d9c0009"
+      },
+      "failure": {
+        "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_bpg_queue_v2.py\", line 38, in main\n    prior=wait('E5_unlaunched_v7',False);assert prior['groups']==[13,14,15,9]\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_bpg_queue_v2.py\", line 32, in wait\n    assert w['returncode']==0\n           ^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+        "launched": [],
+        "automatic_retry": false
+      }
+    },
+    {
+      "role": "E5_BPG_two_core_preflight_v1",
+      "identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_perceptual_followup_20261030_v2/E5_BPG_two_core_preflight_v1/failure.json",
+        "bytes": 531,
+        "sha256": "7fd5cf105560fc33bf88682b429f7ea7f679b5b3b05a7b5b27b3a2fc654ad616"
+      },
+      "failure": {
+        "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/bpg_two_core_preflight_v1.py\", line 15, in main\n    assert strip(source.read_text())==strip(old.read_text()).replace('CPU_COUNT(&set) != 6','CPU_COUNT(&set) != 2')\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+        "calls": [],
+        "results": [],
+        "automatic_retry": false
+      }
+    },
+    {
+      "role": "E5_BPG_two_core_preflight_v2",
+      "identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_perceptual_followup_20261030_v2/E5_BPG_two_core_preflight_v2/failure.json",
+        "bytes": 1346,
+        "sha256": "676d148639bb4489cc5aa29fbe0011785f9c074a193c4af0a639d15158f4761d"
+      },
+      "failure": {
+        "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/bpg_two_core_preflight_v2.py\", line 33, in main\n    save(out/'calls.json',calls);(out/f'encode{side}.stderr').write_bytes(p.stderr);assert p.returncode==0\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-opt-20261030/opt_common.py\", line 27, in save\n    with p.open('x',encoding='utf8')as f:json.dump(v,f,indent=2,allow_nan=False);f.write('\\n');f.flush();os.fsync(f.fileno())\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_python_base_v1/lib/python3.11/pathlib.py\", line 1044, in open\n    return io.open(self, mode, buffering, encoding, errors, newline)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nFileExistsError: [Errno 17] File exists: '/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_perceptual_followup_20261030_v2/E5_BPG_two_core_preflight_v2/calls.json'\n",
+        "calls": [
+          {
+            "kind": "encode",
+            "side": 32,
+            "status": "COMPLETE",
+            "returncode": 0,
+            "seconds": 0.009312121197581291
+          }
+        ],
+        "results": [],
+        "automatic_retry": false
+      }
+    },
+    {
+      "role": "E5_arpc3_g09_rx",
+      "identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_perceptual_followup_20261030_v2/E5_arpc3_g09_rx/failure.json",
+        "bytes": 8979,
+        "sha256": "7e85979d950dd0d6ab4066154e8511f883b7681572e06b62e364bf1a4c5b5a6f"
+      },
+      "failure": {
+        "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_end_to_end_arpc_ipc_v2.py\", line 237, in main\n    value,elapsed=ledger.call('timing_trial',event,trial)\n                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-opt-20261030/opt_common.py\", line 43, in call\n    try:v=fn()\n          ^^^^\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_end_to_end_arpc_ipc_v2.py\", line 234, in trial\n    value=tx(pixels,s['source_id'],s['source_index'],ctx)if role=='tx'else rx(observed,inp['metadata'],ctx,event)\n                                                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_end_to_end_arpc_ipc_v2.py\", line 192, in rx\n    image,status=ctx['worker'].native_rx(projected,ctx['cfg'],'ARPC',n,meter)\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/five-method-timing-20261020/worker.py\", line 197, in native_rx\n    return meter.call('ARPC_completion_decoder', render), 'ARPC_DECODED'\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/five-method-timing-20261020/worker.py\", line 37, in call\n    return fn()\n           ^^^^\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/five-method-timing-20261020/worker.py\", line 194, in render\n    out = c.receiver.decompress_cfg(c.prior, c.vae, c.schedule, caption,\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-external-baseline-20261019/upstream/compression/reciever.py\", line 90, in decompress_cfg\n    logits_BlV = infinity.get_logits(last_stage, cond_BD).mul(1/tau_list[si])\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-external-baseline-20261019/upstream/infinity/models/infinity.py\", line 342, in get_logits\n    return self.head(self.head_nm(h.float(), cond_BD.float()))\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/dist-packages/torch/nn/modules/module.py\", line 1776, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/dist-packages/torch/nn/modules/module.py\", line 1787, in _call_impl\n    return forward_call(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-external-baseline-20261019/upstream/infinity/models/basic.py\", line 540, in forward\n    return self.fused_norm_func(C=self.C, eps=self.norm_eps, x=x_BLC, scale=scale, shift=shift)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/dist-packages/torch/_dynamo/eval_frame.py\", line 967, in compile_wrapper\n    raise e.remove_dynamo_frames() from None  # see TORCHDYNAMO_VERBOSE=1\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/dist-packages/torch/_inductor/compile_fx.py\", line 1019, in _compile_fx_inner\n    raise InductorError(e, currentframe()).with_traceback(\n  File \"/usr/local/lib/python3.12/dist-packages/torch/_inductor/compile_fx.py\", line 1003, in _compile_fx_inner\n    mb_compiled_graph = fx_codegen_and_compile(\n                        ^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/dist-packages/torch/_inductor/compile_fx.py\", line 1766, in fx_codegen_and_compile\n    return scheme.codegen_and_compile(gm, example_inputs, inputs_to_check, graph_kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/dist-packages/torch/_inductor/compile_fx.py\", line 1537, in codegen_and_compile\n    compiled_module = graph.compile_to_module()\n                      ^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/dist-packages/torch/_inductor/graph.py\", line 2416, in compile_to_module\n    return self._compile_to_module()\n           ^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/dist-packages/torch/_inductor/graph.py\", line 2426, in _compile_to_module\n    mod = self._compile_to_module_lines(wrapper_code)\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/dist-packages/torch/_inductor/graph.py\", line 2501, in _compile_to_module_lines\n    mod = PyCodeCache.load_by_key_path(\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/dist-packages/torch/_inductor/codecache.py\", line 3674, in load_by_key_path\n    mod = _reload_python_module(key, path, set_sys_modules=in_toplevel)\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/dist-packages/torch/_inductor/runtime/compile_tasks.py\", line 35, in _reload_python_module\n    exec(code, mod.__dict__, mod.__dict__)\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_perceptual_followup_20261030_v2/E5_arpc3_g09_rx/inductor/vv/cvvztxxxt73hgbeios6id5uzkt5yl3bkfuxnt5sy2waubsob3t4c.py\", line 131, in <module>\n    async_compile.wait(globals())\n  File \"/usr/local/lib/python3.12/dist-packages/torch/_inductor/async_compile.py\", line 649, in wait\n    self._wait_futures(scope)\n  File \"/usr/local/lib/python3.12/dist-packages/torch/_inductor/async_compile.py\", line 669, in _wait_futures\n    kernel = result.result()\n             ^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/dist-packages/torch/_inductor/codecache.py\", line 4417, in result\n    return self.result_fn()\n           ^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/dist-packages/torch/_inductor/async_compile.py\", line 438, in get_result\n    raise e.with_name(kernel_name) from e\ntorch._inductor.exc.InductorError: SubprocException: An exception occurred in a subprocess:\n\nName=triton_red_fused_add_mul_native_layer_norm_0\nTraceback (most recent call last):\n  File \"/usr/local/lib/python3.12/dist-packages/torch/_inductor/compile_worker/subproc_pool.py\", line 457, in do_job\n    result = job()\n             ^^^^^\n  File \"/usr/local/lib/python3.12/dist-packages/torch/_inductor/runtime/compile_tasks.py\", line 67, in _worker_compile_triton\n    kernel = load_kernel()\n             ^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/dist-packages/torch/_inductor/codecache.py\", line 3742, in _load_triton_kernel_from_source\n    return getattr(PyCodeCache.load(source_code), kernel_name)\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/dist-packages/torch/_inductor/codecache.py\", line 3656, in load\n    return cls.load_by_key_path(key, path)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/dist-packages/torch/_inductor/codecache.py\", line 3674, in load_by_key_path\n    mod = _reload_python_module(key, path, set_sys_modules=in_toplevel)\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/dist-packages/torch/_inductor/runtime/compile_tasks.py\", line 35, in _reload_python_module\n    exec(code, mod.__dict__, mod.__dict__)\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_perceptual_followup_20261030_v2/E5_arpc3_g09_rx/inductor/5j/c5jlbvyjwj4imxokmctedyd5ostfok4d45bh2rbxx6vpivpwxchw.py\", line 5, in <module>\n    from torch._inductor.runtime import triton_helpers, triton_heuristics\n  File \"/usr/local/lib/python3.12/dist-packages/torch/_inductor/runtime/triton_heuristics.py\", line 34, in <module>\n    from .benchmarking import benchmarker\n  File \"/usr/local/lib/python3.12/dist-packages/torch/_inductor/runtime/benchmarking.py\", line 7, in <module>\n    from statistics import median\nImportError: cannot import name 'median' from 'statistics' (/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/baseline-delivery-20261012/statistics.py)\n\n\nSet TORCHDYNAMO_VERBOSE=1 for the internal stack trace (please do this especially if you're reporting a bug to PyTorch). For even more developer context, set TORCH_LOGS=\"+dynamo\"\n\n",
+        "ledger": {
+          "caps": {
+            "timing_trial": 160
+          },
+          "counts": [
+            {
+              "kind": "timing_trial",
+              "status": "FAILED",
+              "count": 1
+            }
+          ],
+          "unresolved": 1
+        },
+        "completed_rows": 0,
+        "automatic_retry": false
+      }
+    },
+    {
+      "role": "E5_dep4_g00_tx",
+      "identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_perceptual_followup_20261030_v2/E5_dep4_g00_tx/failure.json",
+        "bytes": 479,
+        "sha256": "963beaaab05e585d76237c84e4bd7c18d189f29e323543d5bc3e693f7c1b513b"
+      },
+      "failure": {
+        "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_end_to_end_namespace_v2.py\", line 215, in main\n    if uses_gpu:assert str(t.cuda.get_device_properties(0).uuid)==r['gpu_uuid']\nAssertionError\n",
+        "ledger": {
+          "caps": {
+            "timing_trial": 160
+          },
+          "counts": [],
+          "unresolved": 0
+        },
+        "completed_rows": 0,
+        "automatic_retry": false
+      }
+    },
+    {
+      "role": "E5_dep5_g09_tx",
+      "identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_perceptual_followup_20261030_v2/E5_dep5_g09_tx/failure.json",
+        "bytes": 6057,
+        "sha256": "1e9db2e4ecbfd38ce587f3b9242545364071c597e186fd10b76b0cf0257b77e2"
+      },
+      "failure": {
+        "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_end_to_end_arpc_ipc_v2.py\", line 237, in main\n    value,elapsed=ledger.call('timing_trial',event,trial)\n                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-opt-20261030/opt_common.py\", line 43, in call\n    try:v=fn()\n          ^^^^\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_end_to_end_arpc_ipc_v2.py\", line 234, in trial\n    value=tx(pixels,s['source_id'],s['source_index'],ctx)if role=='tx'else rx(observed,inp['metadata'],ctx,event)\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_end_to_end_arpc_ipc_v2.py\", line 141, in tx\n    result,proof=worker.arpc_tx(pixels,cfg,g['snr_db'],n,meter);p=rt.profile(result['endpoint'],result['q'],result['nominal_rate']);wave,wire=rt.transmit(base64.b64decode(result['payload_b64']),p['profile_id'],counter)\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/five-method-timing-20261020/worker.py\", line 150, in arpc_tx\n    result, lengths = meter.call('source_probability_container_fallback', encode)\n                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/five-method-timing-20261020/worker.py\", line 37, in call\n    return fn()\n           ^^^^\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/five-method-timing-20261020/worker.py\", line 143, in encode\n    trans, modes, _ = c.sender.encoding(c.args, c.prior, c.vae, c.schedule,\n                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-external-baseline-20261019/upstream/compression/sender.py\", line 81, in encoding\n    prob_list = get_prob(infinity, vae, scale_schedule, text, text_tokenizer, text_encoder, gt_ms_idx_Bl)\n                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-external-baseline-20261019/upstream/compression/sender.py\", line 51, in get_prob\n    last_stage = m(x=last_stage, cond_BD=cond_BD_or_gss, ca_kv=ca_kv, attn_bias_or_two_vector=None, attn_fn=attn_fn, scale_schedule=vae_scale_schedule, rope2d_freqs_grid=infinity.rope2d_freqs_grid, scale_ind=si)\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/dist-packages/torch/nn/modules/module.py\", line 1776, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/dist-packages/torch/nn/modules/module.py\", line 1787, in _call_impl\n    return forward_call(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/arpc-external-baseline-20261019/upstream/infinity/models/basic.py\", line 511, in forward\n    x_sa = self.fused_norm_func(C=self.C, eps=self.norm_eps, x=x, scale=scale1, shift=shift1)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/dist-packages/torch/_dynamo/eval_frame.py\", line 967, in compile_wrapper\n    raise e.remove_dynamo_frames() from None  # see TORCHDYNAMO_VERBOSE=1\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/dist-packages/torch/_dynamo/output_graph.py\", line 2437, in _call_user_compiler\n    raise BackendCompilerFailed(\n  File \"/usr/local/lib/python3.12/dist-packages/torch/_dynamo/output_graph.py\", line 2412, in _call_user_compiler\n    compiled_fn = compiler_fn(gm, example_inputs)\n                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/dist-packages/torch/_dynamo/repro/after_dynamo.py\", line 156, in __call__\n    compiled_gm = compiler_fn(gm, example_inputs)\n                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/dist-packages/torch/__init__.py\", line 2433, in __call__\n    from torch._inductor.compile_fx import compile_fx\n  File \"/usr/local/lib/python3.12/dist-packages/torch/_inductor/compile_fx.py\", line 69, in <module>\n    from torch._inductor.debug import (\n  File \"/usr/local/lib/python3.12/dist-packages/torch/_inductor/debug.py\", line 36, in <module>\n    from . import config, ir  # noqa: F811, this is needed\n    ^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/dist-packages/torch/_inductor/ir.py\", line 87, in <module>\n    from .runtime.benchmarking import benchmarker\n  File \"/usr/local/lib/python3.12/dist-packages/torch/_inductor/runtime/benchmarking.py\", line 7, in <module>\n    from statistics import median\ntorch._dynamo.exc.BackendCompilerFailed: backend='inductor' raised:\nImportError: cannot import name 'median' from 'statistics' (/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/baseline-delivery-20261012/statistics.py)\n\nSet TORCHDYNAMO_VERBOSE=1 for the internal stack trace (please do this especially if you're reporting a bug to PyTorch). For even more developer context, set TORCH_LOGS=\"+dynamo\"\n\n",
+        "ledger": {
+          "caps": {
+            "timing_trial": 160
+          },
+          "counts": [
+            {
+              "kind": "timing_trial",
+              "status": "FAILED",
+              "count": 1
+            }
+          ],
+          "unresolved": 1
+        },
+        "completed_rows": 0,
+        "automatic_retry": false
+      }
+    },
+    {
+      "role": "E5_dep5_g12_tx",
+      "identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_perceptual_followup_20261030_v2/E5_dep5_g12_tx/failure.json",
+        "bytes": 3024,
+        "sha256": "197091e321da6e0eafc57dc172a80b34274cae5fc04d50415edd8dd1d095b5bf"
+      },
+      "failure": {
+        "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_end_to_end_identity_v5.py\", line 237, in main\n    value,elapsed=ledger.call('timing_trial',event,trial)\n                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-opt-20261030/opt_common.py\", line 43, in call\n    try:v=fn()\n          ^^^^\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_end_to_end_identity_v5.py\", line 234, in trial\n    value=tx(pixels,s['source_id'],s['source_index'],ctx)if role=='tx'else rx(observed,inp['metadata'],ctx,event)\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_end_to_end_identity_v5.py\", line 143, in tx\n    p=next(p for p in cfg['bpg_config']['catalogue']if p['profile_id']==cfg['bpg_policies'][str(g['snr_db'])]);payload,proof=n.encode(pixels,cfg['bpg_config'],p['capacity_bytes'],cfg['_tmpfs']);assert payload is not None,'BPG no feasible packet';wave=rt.transmit(payload,p,counter)\n                                                                                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/five-method-timing-20261020/bpg.py\", line 92, in encode\n    measured = {q: candidate(q) for q in COARSE}\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/five-method-timing-20261020/bpg.py\", line 92, in <dictcomp>\n    measured = {q: candidate(q) for q in COARSE}\n                   ^^^^^^^^^^^^\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/five-method-timing-20261020/bpg.py\", line 85, in candidate\n    run([cfg['bpgenc']['path'], *OPTIONS, '-q', str(qp), '-o', str(target), str(src)])\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/five-method-timing-20261020/bpg.py\", line 54, in run\n    assert p.returncode == 0, (argv, p.returncode, p.stderr.decode(errors='replace'))\n           ^^^^^^^^^^^^^^^^^\nAssertionError: (['/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/five_method_timing_20261020_v1/assets/bpgenc', '-e', 'x265', '-m', '8', '-f', '420', '-c', 'ycbcr', '-b', '8', '-q', '0', '-o', '/dev/shm/nest_followup_E5_dep5_g12_tx/tmpcmz73ecz/r256q0.bpg', '/dev/shm/nest_followup_E5_dep5_g12_tx/tmpcmz73ecz/r256.png'], 88, '')\n",
+        "ledger": {
+          "caps": {
+            "timing_trial": 160
+          },
+          "counts": [
+            {
+              "kind": "timing_trial",
+              "status": "FAILED",
+              "count": 1
+            }
+          ],
+          "unresolved": 1
+        },
+        "completed_rows": 0,
+        "automatic_retry": false
+      }
+    },
+    {
+      "role": "E5_dependency_preflight_v3",
+      "identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_perceptual_followup_20261030_v2/E5_dependency_preflight_v3/failure.json",
+        "bytes": 3869,
+        "sha256": "4cd5ed23ff98fdc1c915563b1e0337bac3fadc04d9ff43e3d6c7f64e790e21a0"
+      },
+      "failure": {
+        "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_dependency_preflight_v3.py\", line 51, in main\n    assert q.returncode == 0, (route, q.stderr[-4000:])\n           ^^^^^^^^^^^^^^^^^\nAssertionError: ('visual', 'Traceback (most recent call last):\\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_dependency_preflight_v3.py\", line 63, in <module>\\n    if sys.argv[1] == \\'--probe\\': probe(*sys.argv[2:])\\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_dependency_preflight_v3.py\", line 22, in probe\\n    runtime = phy.create_runtime(R, str(checked(cfg[\\'phy_qualification\\'])), configure_threads=False)\\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/ep_phy.py\", line 259, in create_runtime\\n    rt=Runtime(root,reference_qualification,configure_threads);rt.use_catalogue(r[\\'catalogue\\'])\\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/ep_phy.py\", line 202, in __init__\\n    old=oldmodule.SionnaBackend(\\'cpu\\',str(reference));self.backend=Backend(old);self.torch=old.torch\\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/prior-aware-grouped-mcs-v1/ldpc_backend.py\", line 21, in __init__\\n    from sionna.phy.fec.ldpc import LDPC5GEncoder,LDPC5GDecoder\\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/VAR_COMM/outputs/PRIOR-AWARE-UEP-20261004-V1/ldpc_environment/lib/python3.11/site-packages/sionna/phy/__init__.py\", line 14, in <module>\\n    from . import channel\\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/VAR_COMM/outputs/PRIOR-AWARE-UEP-20261004-V1/ldpc_environment/lib/python3.11/site-packages/sionna/phy/channel/__init__.py\", line 23, in <module>\\n    from .ofdm_channel import OFDMChannel\\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/VAR_COMM/outputs/PRIOR-AWARE-UEP-20261004-V1/ldpc_environment/lib/python3.11/site-packages/sionna/phy/channel/ofdm_channel.py\", line 13, in <module>\\n    from sionna.phy.ofdm import ResourceGrid\\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/VAR_COMM/outputs/PRIOR-AWARE-UEP-20261004-V1/ldpc_environment/lib/python3.11/site-packages/sionna/phy/ofdm/__init__.py\", line 34, in <module>\\n    from .channel_estimation import (\\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/VAR_COMM/outputs/PRIOR-AWARE-UEP-20261004-V1/ldpc_environment/lib/python3.11/site-packages/sionna/phy/ofdm/channel_estimation.py\", line 16, in <module>\\n    from sionna.phy.channel.tr38901 import models\\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/VAR_COMM/outputs/PRIOR-AWARE-UEP-20261004-V1/ldpc_environment/lib/python3.11/site-packages/sionna/phy/channel/tr38901/__init__.py\", line 7, in <module>\\n    from . import models\\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/VAR_COMM/outputs/PRIOR-AWARE-UEP-20261004-V1/ldpc_environment/lib/python3.11/site-packages/sionna/phy/channel/tr38901/models/__init__.py\", line 8, in <module>\\n    from importlib_resources import files\\nModuleNotFoundError: No module named \\'importlib_resources\\'\\n')\n",
+        "completed_routes": [],
+        "model_calls": 0,
+        "packet_calls": 0,
+        "timing_calls": 0,
+        "automatic_retry": false
+      }
+    },
+    {
+      "role": "E5_g00_tx",
+      "identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_perceptual_followup_20261030_v2/E5_g00_tx/failure.json",
+        "bytes": 1072,
+        "sha256": "99dc0b6ba2d2ed0cfcba5413be68da31a2f6f75cf300bac1ca9f7a81f637ff2a"
+      },
+      "failure": {
+        "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_end_to_end.py\", line 212, in main\n    ctx=setup(cfg,g,out,role,r['pci']);t=ctx['t'];uses_gpu=g['method']!='BPG_LDPC';sync=t.cuda.synchronize if uses_gpu else lambda:None\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_end_to_end.py\", line 85, in setup\n    phy=cp.isolated_engine();ns=phy.pack_body.__globals__;ns['FAMILIES']=(*ns['FAMILIES'][:-2],cp.FAMILY,cp.NULL)\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/adatoken-response-20261026/fixed_frame.py\", line 8, in isolated_engine\n    p=R/'experiments/entropy-partial-mismatch-20261010/scripts/ep_phy.py';sys.path.insert(0,str(p.parent))\nNameError: name 'sys' is not defined\n",
+        "ledger": {
+          "caps": {
+            "timing_trial": 160
+          },
+          "counts": [],
+          "unresolved": 0
+        },
+        "completed_rows": 0,
+        "automatic_retry": false
+      }
+    },
+    {
+      "role": "E5_last_two_v1",
+      "identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_perceptual_followup_20261030_v2/E5_last_two_v1/failure.json",
+        "bytes": 1039,
+        "sha256": "780fa66d38770bfc6b9390d7a9c7a20a224bc5582bec2f035d6c550f5a5a2390"
+      },
+      "failure": {
+        "groups_finished": [
+          12
+        ],
+        "failures": [
+          {
+            "group_index": 9,
+            "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_last_two_v1.py\", line 77, in main\n    done=wait(role,True);assert done['rows']==160 and done['ledger']['unresolved']==0\n         ^^^^^^^^^^^^^^^\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_last_two_v1.py\", line 32, in wait\n    assert w['returncode']==0,('Stage failed; no retry',role)\n           ^^^^^^^^^^^^^^^^^^\nAssertionError: ('Stage failed; no retry', 'E5_arpc3_g09_rx')\n",
+            "launched": [
+              "E5_bpg2_g12_tx",
+              "E5_bpg2_g12_rx",
+              "E5_arpc3_g09_tx",
+              "E5_arpc3_g09_rx"
+            ],
+            "automatic_retry": false
+          }
+        ],
+        "launched": [
+          "E5_bpg2_g12_tx",
+          "E5_bpg2_g12_rx",
+          "E5_arpc3_g09_tx",
+          "E5_arpc3_g09_rx"
+        ],
+        "automatic_retry": false
+      }
+    },
+    {
+      "role": "E5_ns2_g00_tx",
+      "identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_perceptual_followup_20261030_v2/E5_ns2_g00_tx/failure.json",
+        "bytes": 1510,
+        "sha256": "6802eddbb95d33e31e232d1156a72866fe81fd11b903b56b44349a17ba9528e7"
+      },
+      "failure": {
+        "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_end_to_end_namespace_v2.py\", line 213, in main\n    ctx=setup(cfg,g,out,role,r['pci']);t=ctx['t'];uses_gpu=g['method']!='BPG_LDPC';sync=t.cuda.synchronize if uses_gpu else lambda:None\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_end_to_end_namespace_v2.py\", line 87, in setup\n    rt=phy.create_runtime(R,str(checked(cfg['phy_qualification'])),configure_threads=False)\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/ep_phy.py\", line 259, in create_runtime\n    rt=Runtime(root,reference_qualification,configure_threads);rt.use_catalogue(r['catalogue'])\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/ep_phy.py\", line 202, in __init__\n    old=oldmodule.SionnaBackend('cpu',str(reference));self.backend=Backend(old);self.torch=old.torch\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/prior-aware-grouped-mcs-v1/ldpc_backend.py\", line 20, in __init__\n    import sionna,torch\nModuleNotFoundError: No module named 'sionna'\n",
+        "ledger": {
+          "caps": {
+            "timing_trial": 160
+          },
+          "counts": [],
+          "unresolved": 0
+        },
+        "completed_rows": 0,
+        "automatic_retry": false
+      }
+    },
+    {
+      "role": "E5_timing_queue",
+      "identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_perceptual_followup_20261030_v2/E5_timing_queue/failure.json",
+        "bytes": 1158,
+        "sha256": "f7ca69365826531b034001b748e7674a3773e506878e4bbb78bb17063ad9cc3e"
+      },
+      "failure": {
+        "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_queue.py\", line 46, in main\n    launch(role,req,E/'timing_end_to_end.py',python,min(43200,remaining),gpu=True,required_uuid=cfg['GPU_UUID'],timing=True);launched.append(role);wait(role)\n                                                                                                                                                   ^^^^^^^^^^\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_queue.py\", line 22, in wait\n    closed(role)\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/followup_common.py\", line 24, in closed\n    w=read(L/(role+'_control')/'actual_wait.json');assert w['returncode']==0 and ident(w['child']['pid'])is None\n                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+        "launched": [
+          "E5_g00_tx"
+        ],
+        "automatic_retry": false
+      }
+    },
+    {
+      "role": "E5_timing_recovery_v2",
+      "identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_perceptual_followup_20261030_v2/E5_timing_recovery_v2/failure.json",
+        "bytes": 873,
+        "sha256": "61cac7543ebe609bc509511ebe6b45f1138c04584a34322d70f30bb5e8f54e22"
+      },
+      "failure": {
+        "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_recovery_v2.py\", line 106, in main\n    wait(role)\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_recovery_v2.py\", line 54, in wait\n    closed(role)\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/followup_common.py\", line 24, in closed\n    w=read(L/(role+'_control')/'actual_wait.json');assert w['returncode']==0 and ident(w['child']['pid'])is None\n                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+        "launched": [
+          "E5_ns2_g00_tx"
+        ],
+        "automatic_retry": false
+      }
+    },
+    {
+      "role": "E5_timing_recovery_v4",
+      "identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_perceptual_followup_20261030_v2/E5_timing_recovery_v4/failure.json",
+        "bytes": 874,
+        "sha256": "9ca150495eeda70cb3242a43f0c602fb4daf761836a666da671bc3ec5cf0fa7f"
+      },
+      "failure": {
+        "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_recovery_v4.py\", line 119, in main\n    wait(role)\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_recovery_v4.py\", line 63, in wait\n    closed(role)\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/followup_common.py\", line 24, in closed\n    w=read(L/(role+'_control')/'actual_wait.json');assert w['returncode']==0 and ident(w['child']['pid'])is None\n                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+        "launched": [
+          "E5_dep4_g00_tx"
+        ],
+        "automatic_retry": false
+      }
+    },
+    {
+      "role": "E5_timing_recovery_v5",
+      "identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_perceptual_followup_20261030_v2/E5_timing_recovery_v5/failure.json",
+        "bytes": 563,
+        "sha256": "81afc2e8056736f655674ea9fdf90355f951403e1e1787eff3cbdf387aeef2a9"
+      },
+      "failure": {
+        "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_recovery_v5.py\", line 128, in main\n    wait(role)\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_recovery_v5.py\", line 79, in wait\n    assert ident(o['owner']['pid']) is None\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+        "launched": [
+          "E5_dep5_g00_tx"
+        ],
+        "automatic_retry": false
+      }
+    },
+    {
+      "role": "E5_timing_recovery_v6",
+      "identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_perceptual_followup_20261030_v2/E5_timing_recovery_v6/failure.json",
+        "bytes": 1336,
+        "sha256": "7e34c0ab13b15c0323220c29870ce78ddd3613792a9872e4c75283b57eab0396"
+      },
+      "failure": {
+        "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_recovery_v6.py\", line 159, in main\n    wait(role)\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_recovery_v6.py\", line 78, in wait\n    closed(role)\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/followup_common.py\", line 24, in closed\n    w=read(L/(role+'_control')/'actual_wait.json');assert w['returncode']==0 and ident(w['child']['pid'])is None\n                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+        "launched": [
+          "E5_dep5_g00_rx",
+          "E5_dep5_g01_tx",
+          "E5_dep5_g01_rx",
+          "E5_dep5_g02_tx",
+          "E5_dep5_g02_rx",
+          "E5_dep5_g03_tx",
+          "E5_dep5_g03_rx",
+          "E5_dep5_g04_tx",
+          "E5_dep5_g04_rx",
+          "E5_dep5_g05_tx",
+          "E5_dep5_g05_rx",
+          "E5_dep5_g06_tx",
+          "E5_dep5_g06_rx",
+          "E5_dep5_g07_tx",
+          "E5_dep5_g07_rx",
+          "E5_dep5_g08_tx",
+          "E5_dep5_g08_rx",
+          "E5_dep5_g10_tx",
+          "E5_dep5_g10_rx",
+          "E5_dep5_g11_tx",
+          "E5_dep5_g11_rx",
+          "E5_dep5_g12_tx"
+        ],
+        "automatic_retry": false
+      }
+    },
+    {
+      "role": "E5_unlaunched_v7",
+      "identity": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_perceptual_followup_20261030_v2/E5_unlaunched_v7/failure.json",
+        "bytes": 757,
+        "sha256": "aa41a52061fcce101bff39b9edbe3d8c0d512d2400c14cb18829396bdcf27f9a"
+      },
+      "failure": {
+        "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_unlaunched_v7.py\", line 96, in main\n    wait(role)\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-perceptual-followup-20261030/timing_unlaunched_v7.py\", line 54, in wait\n    assert w['returncode']==0, ('New stage failed, no retry',role)\n           ^^^^^^^^^^^^^^^^^^\nAssertionError: ('New stage failed, no retry', 'E5_dep5_g09_tx')\n",
+        "launched": [
+          "E5_dep5_g13_tx",
+          "E5_dep5_g13_rx",
+          "E5_dep5_g14_tx",
+          "E5_dep5_g14_rx",
+          "E5_dep5_g15_tx",
+          "E5_dep5_g15_rx",
+          "E5_dep5_g09_tx"
+        ],
+        "automatic_retry": false
+      }
+    }
+  ],
+  "original_files_unchanged": true,
+  "note": "Failed trial/setup records are not completed latency samples. No zero-time imputation. Successful groups/trials are reused, not rerun."
+}

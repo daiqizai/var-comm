@@ -1,3 +1,36 @@
+# Perceptual follow-up v2 — final E1–E6 delivery
+
+All scientific work is complete. Do not relaunch any controller, worker, summary,
+or successful scientific call. The historical execution notes below describe an
+earlier snapshot, not live tasks or remaining work. No owned process remains live.
+
+- E1: 66,000 logical outcomes; 220 means and 220 direct source-paired intervals.
+- E2: 15,000 error-free independent reconstructions; 90 means and 90 paired intervals.
+- E3: 1,200 matched-grid outcomes; E4: 1,800 actual-prefix interventions.
+- E5: all 16 timing groups and 32 actual TX/RX stages closed; 5120 records
+  (2048 warmups, 3072 measured), 48 summaries. Final map is E5_timing_role_map_v9.
+  Only summarize_e5_lineage_v5 ran successfully, once. V4 summary and BPG queue v1
+  were prepared but never executed. Failed preflights/controllers remain failures.
+- E6: 30,000 real receptions; 17,497 accepted and 12,503 rejected.
+
+The final E5 continuation preserved fourteen completed groups and all successful
+calls. The ARPC repair changes Python standard-library resolution in the original
+model/Inductor subprocesses, not numerical computation; the qualified CPU PHY
+remains connected by measured memory-only IPC. BPG's CPU-count adapter matches
+the registered two-core affinity. Neither repair changes model/codec mathematics.
+The old length_checks field is selected endpoint rank, not full-scan test count;
+source_fitting_accounting.csv records the actual candidate tests separately.
+
+Final documents: ../../paper/manuscripts/nestcom_wcl_tokenwise_20261030_v7/.
+Existing compact evidence: closed_evidence_v1 (E1/E3/E4), remaining_evidence_v1
+(E6), remaining_evidence_status_v2 (E2), and e5, under
+../../results/nestcom_perceptual_followup_20261030_v2/.
+Full arrays, large raw CSVs, models and logs stay on PFS. The final resource
+ledger charges 21.370267 GPU reservation hours and 31.614986 conservative CPU
+process hours. Document builds and repository checks have separate receipts.
+
+## Historical execution snapshot — superseded, not launch instructions
+
 # Token-wise perceptual comparison follow-up — execution in progress
 
 This experiment implements the authorized `NeST_Com_Comparison_Fig3_Timing_Execution_Pack_20261030_v2.zip`. Its frozen main configuration is `original_receiver_plus_D_token`: existing tokenizer, VAR, adapted decoder and argmax receiver; token-wise independently terminated endpoint fitting. No training or previously stopped research route is resumed.
