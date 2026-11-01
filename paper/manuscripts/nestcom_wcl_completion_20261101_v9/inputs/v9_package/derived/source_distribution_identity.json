@@ -1,0 +1,17 @@
+{
+  "definition": "Gain = NeST minus reference for PSNR/CLIP-I; reference minus NeST for all distances. Positive is better.",
+  "population": "500 matched source IDs per cell. E1 source values already average three channel events retaining failures; E2 uses the frozen per-source values including the Ada generation-repeat average.",
+  "tie_tolerance": 1e-10,
+  "quantiles": "numpy linear",
+  "inputs": [
+    {
+      "path": "results/nestcom_perceptual_followup_20261030_v2/closed_evidence_v1/e1/dists_source_means.csv",
+      "sha256": "decfe88aacc4d1de2369a88240cac75216958be371452196e7495157273e62d4"
+    },
+    {
+      "path": "paper/manuscripts/nestcom_wcl_perceptual_20261101_v8/inputs/e2/source_means.csv",
+      "sha256": "31ead28866e7256b365401c17478592fbd61ce390378d2bde59f8ae088078969"
+    }
+  ],
+  "scope": "Offline descriptive recomputation only; no new model execution, channel simulation or significance claims."
+}

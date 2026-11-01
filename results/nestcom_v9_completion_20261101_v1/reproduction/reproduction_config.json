@@ -1,0 +1,275 @@
+{
+  "schema": "NESTCOM_V9_REPRODUCTION",
+  "repository_commit": "dde679637b30f1166bc540d4c7b6fa91fe457e8c",
+  "asset_root_environment": "NESTCOM_ASSET_ROOT",
+  "asset_override_json": "NESTCOM_ASSETS_JSON",
+  "N": [
+    512,
+    1024
+  ],
+  "header_symbols": 68,
+  "nominal_Es": 2,
+  "header": {
+    "profile_bits": 12,
+    "crc_poly": "0x1021",
+    "crc_init": "0xffff",
+    "crc_order": "MSB first",
+    "convolutional_octal": [
+      "171",
+      "133"
+    ],
+    "constraint_length": 7,
+    "tail_bits": 6,
+    "terminated_viterbi": true,
+    "rate_matching": "68 mother bits repeated to 136 bits",
+    "modulation": "68 complex rotated BPSK symbols +/- (1+j)"
+  },
+  "body": {
+    "length_bits": 13,
+    "crc_bits": 16,
+    "crc_covers": "length+source+known zero pad",
+    "rate_matching": "RV0 one block; filler shortening; first2Z and tail puncturing; no repetition",
+    "scramble": "PCG64 seeded from SHA256 canonical [protocol,scramble,session,counter], first16 bytes little endian; RX inverse LLR signs",
+    "decoder": "{\"cn_schedule\": \"flooding\", \"cn_update\": \"boxplus-phi\", \"early_stop\": false, \"hard_out\": true, \"harq_mode\": false, \"llr_max\": 20.0, \"num_iter\": 20, \"precision\": \"single\", \"prune_pcm\": true, \"return_infobits\": true, \"vn_update\": \"sum\"}",
+    "mapping": "{\"bit_mapping\": \"original_MAIN_q2_q4_and_q6_Gray_I_then_Q;nominal_Es2;no_frame_normalization\", \"decoder\": {\"cn_schedule\": \"flooding\", \"cn_update\": \"boxplus-phi\", \"early_stop\": false, \"hard_out\": true, \"harq_mode\": false, \"llr_max\": 20.0, \"num_iter\": 20, \"precision\": \"single\", \"prune_pcm\": true, \"return_infobits\": true, \"vn_update\": \"sum\"}, \"device\": \"cpu\", \"implementation\": \"Sionna_5G_LDPC_WCL_T1_ADAPTER_V1\", \"original_backend_identity\": {\"bit_mapping\": \"component_Gray_00_-3_01_-1_10_3_11_1_over_sqrt5;QPSK_0_plus1_1_minus1\", \"cuda\": \"12.8\", \"decoder\": {\"cn_schedule\": \"flooding\", \"cn_update\": \"boxplus-phi\", \"early_stop\": false, \"hard_out\": true, \"harq_mode\": false, \"llr_max\": 20.0, \"num_iter\": 20, \"precision\": \"single\", \"prune_pcm\": true, \"return_infobits\": true, \"vn_update\": \"sum\"}, \"decoder_source_sha256\": \"44d84b92b749e2970f94d92cd348a11648e2286b4d851faa0af8b21d08f0da23\", \"encoder_source_sha256\": \"34d8db6660b2e84708a8fb534f63c194f6f2b964e3693fcffc9dcaf21532ccfd\", \"implementation\": \"Sionna_5G_LDPC\", \"power_protocol\": \"fixed_constellation_average_Es2\", \"precision\": \"float32\", \"rate_matching\": \"Sionna RV0; filler removal, first2Z and tail puncturing; supported n only\", \"scrambling\": \"public_PCG64_SHA256_protocol_session_frame_group_counter_after_rate_matching_v1\", \"torch\": \"2.11.0+cu128\", \"version\": \"2.2.0\"}, \"power_protocol\": \"fixed_constellation_average_Es2_no_per_frame_normalization\", \"precision\": \"float32\", \"rate_matching\": \"Sionna RV0; filler removal, first2Z and tail puncturing; supported n only\", \"scrambling\": \"WCL_T1_public_PCG64_SHA256_protocol_session_counter_after_RV0_v1\"}"
+  },
+  "cdf": {
+    "V": 4096,
+    "total": 16777216,
+    "logp": "FP32 torch.log_softmax to NumPy float64 stable exp normalization",
+    "frequency": "floor(p*(M-V))+1; remainder to first argmax",
+    "dtype": "int64",
+    "same_scale_truth": false
+  },
+  "arithmetic": {
+    "interval_bits": 32,
+    "initial_low": 0,
+    "initial_high": 4294967295,
+    "termination": "b=(low<2^30?0:1) followed by pending+1 inverse bits; non-mutating finish",
+    "zero_extension": 30,
+    "canonical_bit_equality": true
+  },
+  "policies": "candidate_pool.csv lists actual family pools; Token inherits selected target/MCS and refines fallback only",
+  "controls": {
+    "E2": "WHOLE/Token max(10,0), six total bit budgets; no PHY",
+    "E3": "WHOLE/Quarter/Eighth/Token max(8,126), q4 r2/3 shared noise"
+  },
+  "paid_null": {
+    "protocol": "NESTCOM_CURRENT_N1024_PAID_NULL_V9_20261101",
+    "validation": {
+      "status": "PASS",
+      "checks": [
+        "old_records_exact",
+        "unique_ids_reserved_BPG",
+        "nofit_paid_null_q2_1/2",
+        "nofit_paid_null_q2_2/3",
+        "nofit_paid_null_q2_3/4",
+        "nofit_paid_null_q2_5/6",
+        "nofit_paid_null_q4_1/2",
+        "nofit_paid_null_q4_2/3",
+        "nofit_paid_null_q4_3/4",
+        "nofit_paid_null_q4_5/6",
+        "nofit_paid_null_q6_1/2",
+        "nofit_paid_null_q6_2/3",
+        "nofit_paid_null_q6_3/4",
+        "nofit_paid_null_q6_5/6",
+        "exact_capacity",
+        "same_scale_fallback",
+        "cross_scale_fallback",
+        "missing_source_is_error",
+        "invalid_source_is_error",
+        "normal_whole_byte_wave_exact",
+        "normal_whole_actual_decode",
+        "normal_quarter_byte_wave_exact",
+        "normal_quarter_actual_decode",
+        "normal_token_byte_wave_exact",
+        "normal_token_actual_decode",
+        "normal_ada_byte_wave_exact",
+        "normal_ada_actual_decode",
+        "invalid_NULL_reject",
+        "body_crc_reject",
+        "length_reject",
+        "padding_reject",
+        "header_crc_reject",
+        "all_counts"
+      ],
+      "frames": 21,
+      "ledger": {
+        "caps": {
+          "header": 21,
+          "body": 20
+        },
+        "counts": [
+          {
+            "kind": "body",
+            "status": "COMPLETE",
+            "count": 20
+          },
+          {
+            "kind": "header",
+            "status": "COMPLETE",
+            "count": 21
+          }
+        ],
+        "unresolved": 0
+      },
+      "seconds": 12.966624561697245,
+      "catalogue": {
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_v9_completion_20261101_v1/paid_null_regression/catalogue.json",
+        "bytes": 14005201,
+        "sha256": "1e712673115f4ef0942cb4376e9a89d2d9095026f0d1f5fe0a8caf55cc04d79d"
+      },
+      "CUDA_initialized": false,
+      "new_model_calls": 0,
+      "old_18_frames_not_relabelled": true
+    },
+    "extension": {
+      "appended_ids": [
+        3390,
+        3391,
+        3392,
+        3393,
+        3394,
+        3395,
+        3396
+      ],
+      "reused_ids": [
+        628,
+        885,
+        1142,
+        1399,
+        1656
+      ],
+      "reserved_ids": [
+        3000,
+        3001,
+        3002,
+        3003,
+        3004,
+        3005,
+        3006,
+        3007,
+        3008,
+        3009,
+        3010,
+        3011
+      ],
+      "old_records_unchanged": true
+    }
+  },
+  "native_identity": {
+    "models": {
+      "vae": "6830fc533a34d52c8f765a7b212782a5b5ef6138992099e8a817ce920fe6fe2b",
+      "var": "b82cb0855b24e1d0d8d0aacebbb2d2d6728c2dcc6509b667dfa697c9330347d5",
+      "decoder": "bf1d64bf8ff7eeda416032daa2ada1654fb37de2553235e85d364211ddfefad1"
+    },
+    "runtime": {
+      "python": "3.10.12",
+      "torch": "2.11.0+cu128",
+      "numpy": "2.2.6",
+      "cuda": "12.8",
+      "cudnn": 91900,
+      "threads": 6,
+      "interop_threads": 2
+    },
+    "numeric_flags": {
+      "cudnn_benchmark": false,
+      "cudnn_deterministic": true,
+      "cudnn_tf32": false,
+      "deterministic": true,
+      "interop_threads": 2,
+      "matmul_tf32": false,
+      "precision": "highest",
+      "threads": 6
+    },
+    "GPU_name": "NVIDIA RPBZZZ6",
+    "actual_CUDA_UUID": "967f6750-6a31-e9a6-221c-cbfd3660ddc6",
+    "actual_PCI_bus_id": "0000:61:00.0",
+    "registered_PCI_bus_id": "0000:61:00.0",
+    "visible_GPU": "0",
+    "allocator_cap_bytes": 12884901888,
+    "cpu_affinity": [
+      0,
+      1
+    ],
+    "source_mathematics": "Unchanged SHA-bound original function/class definitions",
+    "sampling": "unconditional_class1000_greedy_no_CFG",
+    "training_updates": 0
+  },
+  "metric_identities": {
+    "token_three": {
+      "mode": "three",
+      "metric_config_sha256": "879679a3bd5c40249493316e63af67a508cb35d0bc2cd29a5b19e30288fe4a81",
+      "original_four": {
+        "bytes": 17475,
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_pilot_metrics_v1.py",
+        "sha256": "6bde19df620a7dbf391f5d406daa3b4c1de2a66d051c990c26ae9a2474c1ec8d"
+      },
+      "torch": "2.11.0+cu128",
+      "CUDA": "12.8",
+      "UUID": "283ed331-a8c4-6556-46b1-49273d684195",
+      "PCI": "0000:62:00.0",
+      "FP32": true,
+      "TF32": false,
+      "AMP": false,
+      "batch": 1
+    },
+    "token_clip": {
+      "mode": "clip",
+      "metric_config_sha256": "879679a3bd5c40249493316e63af67a508cb35d0bc2cd29a5b19e30288fe4a81",
+      "original_four": {
+        "bytes": 17475,
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/entropy-partial-mismatch-20261010/scripts/h800_ep_pilot_metrics_v1.py",
+        "sha256": "6bde19df620a7dbf391f5d406daa3b4c1de2a66d051c990c26ae9a2474c1ec8d"
+      },
+      "torch": "2.10.0+cu130",
+      "CUDA": "13.0",
+      "UUID": "6007e8bd-a688-1038-2643-21472a083d58",
+      "PCI": "0000:63:00.0",
+      "FP32": true,
+      "TF32": false,
+      "AMP": false,
+      "batch": 1
+    },
+    "kodak_dists": {
+      "loader": {
+        "bytes": 30518,
+        "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/unified-metrics-20261002/metric_models.py",
+        "sha256": "dbc6f6c78c92ffd8a6e914d79008bbee8fc8b485a776884de45c6bdce1703066"
+      },
+      "assets": {
+        "implementation": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/quality_metrics_supplement_20261014_v1/metric_assets/VAR_COMM/outputs/UNIFIED-METRICS-20261002/assets/sources/dists",
+          "revision": "1267d8cb626c98706db3697422701c56a85ebf2e",
+          "files": {
+            "DISTS_pytorch/DISTS_pt.py": "69b63ebd4e1aece0f79a3b922ba803b5f6fec127babee94869e9eceaa42b4612",
+            "DISTS_pytorch/__init__.py": "1658d7c1dd681c43badde30e9081ee1dedb5f0550f9c8d3837ae9afed5902323",
+            "DISTS_tensorflow/DISTS_tf.py": "df75418c470b4c91e4037f53c233757b574ca4e0377a174b267ceff80c3a9dde",
+            "setup.py": "b3543f623a4d1d8ad85c208a9732d3bca87fe8064ba0655ca6bc4011a76963b1"
+          }
+        },
+        "weights": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/quality_metrics_supplement_20261014_v1/metric_assets/VAR_COMM/outputs/UNIFIED-METRICS-20261002/assets/sources/dists/DISTS_pytorch/weights.pt",
+          "sha256": "f5e65c96230b7f6ca995691647d482237e4cab8a50c5c4a5784f219ef0748218"
+        },
+        "vgg16_weights": {
+          "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/baseline_strength_20261011/quality_metrics_supplement_20261014_v1/metric_assets/external/home/liulu/.cache/torch/hub/checkpoints/vgg16-397923af.pth",
+          "sha256": "397923af8e79cdbb6a7127f12361acd7a2f83e06b05044ddf496e83de57a5bf0"
+        }
+      },
+      "torch": "2.11.0+cu128",
+      "torchvision": "0.26.0+cu128",
+      "GPU_UUID": "86cd121e-54a3-4512-eb3d-12b63167ad09",
+      "PCI": "0000:64:00.0",
+      "FP32": true,
+      "TF32": false,
+      "AMP": false,
+      "batch": 1,
+      "resize": false,
+      "crop": false,
+      "requantize": false,
+      "require_grad": false,
+      "batch_average": false
+    }
+  }
+}

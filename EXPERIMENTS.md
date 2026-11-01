@@ -1,3 +1,22 @@
+## 2026-11-02 — V9 completion: reproducibility, paid NULL and Kodak
+
+The [V9 report](paper/manuscripts/nestcom_wcl_completion_20261101_v9/final_report_zh.md)
+delivers P1–P6: current-directory paid-NULL with 33 actual CPU checks, exact
+CDF/AC and real TX/RX reference vectors, candidate/model/PHY configurations,
+216 Token Kodak logical events and complete four-system five-metric results.
+Kodak paired gains over WHOLE and Ada's higher-SNR DISTS advantages are both
+reported. Closed Ada argmax controls and all 165 source-distribution rows are
+restored, with fixed median-rank and degradation examples. No training,
+calibration replay, new timing or stopped research branch was launched.
+
+The anonymous manuscript has 5 pages at 10 pt and a 99-word abstract; the
+double-spaced PDF has 15 pages, native Word 14, and supplement 27. All 61 pages
+were actually reviewed. Fig.2 contains the WHOLE and equal-bit curves; Fig.3
+uses the existing 7-dB television example. Matched grid quality and TX costs
+are presented together. Weights, native arrays and large logs remain in PFS.
+Prior versions and unrelated work are preserved. See the V9 validation and
+scientific closure records for actual processes, hashes, checks and limits.
+
 ## 2026-11-01 — V8 perceptual reconstruction revision
 
 The [V8 manuscript and report](paper/manuscripts/nestcom_wcl_perceptual_20261101_v8/final_report_zh.md)

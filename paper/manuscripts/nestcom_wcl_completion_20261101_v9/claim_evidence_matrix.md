@@ -1,0 +1,14 @@
+# Claim–evidence matrix
+
+| Claim | Population | Scope | Evidence |
+|---|---|---|---|
+| Token versus WHOLE, all five paired metrics at seven budget/SNR points | common500; 3 events/source | shared components, independently calibrated budget policies | inputs/e1/ |
+| 83.4% DISTS, 83.0% DreamSim, 72.2% both improved | common500 N1024/10, source means | descriptive; numerical tie tolerance 1e-10; includes failures | inputs/v9_package/derived/e1_per_source_improvement.csv |
+| Eighth ~92% of Whole-to-Token gain; Token +31.1ms TX | control100 quality, timing32 cost | PSNR/DISTS/DreamSim only; shared ceiling (8,126); no universal optimality | inputs/v9_package/derived/granularity_quality_cost.csv |
+| Ordered direct-residual and future-conditioning gains | control100 received Token prefixes | A0 retains prior completion; ordered, not universal additive attribution | inputs/e4/ |
+| Ada has better distances at high equal-bit budgets | common500, six bit budgets | full-system differences; retains tokenizer/prior/decoder/class differences | inputs/e2/ |
+| Argmax worsens Ada DreamSim at 512/4,512/10,1024/10 | fixed100, original three events | closed sensitivity, original sampling curve retained; no DISTS invented | inputs/v9_package/inputs/ada_generation_sensitivity.csv |
+| Kodak Token improves PSNR/DISTS/DreamSim over WHOLE; Ada better DISTS at 10/19 | 24 center crops,3 SNR,3 original events | no recalibration; 24 independent sources, all864 events included | inputs/kodak_v9/paired_deltas.csv |
+| 0.660s vs 15.422s; JSCC faster | timing32, matched hardware/quota | software TX+RX processing, excludes loading/I/O/scoring | inputs/e5/timing_summary.csv |
+| Finite fixed-policy rejection transition | 100 sources×20 events per point | 8–10dB fixed-policy scan; no broad channel-robustness claim | inputs/e6/ |
+| Paid NULL current catalogue works without altering normal outputs | 33 CPU checks / all12 MCS | protocol regression, not new quality or reliability result | ../../../../results/nestcom_v9_completion_20261101_v1/execution_receipts/paid_null/worker_completion.json |

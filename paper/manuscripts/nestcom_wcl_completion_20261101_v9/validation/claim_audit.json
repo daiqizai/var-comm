@@ -1,0 +1,73 @@
+{
+  "status": "PASS",
+  "claims": [
+    {
+      "claim": "Token versus WHOLE, all five paired metrics at seven budget/SNR points",
+      "population": "common500; 3 events/source",
+      "source": "inputs/e1/",
+      "scope": "shared components, independently calibrated budget policies"
+    },
+    {
+      "claim": "83.4% DISTS, 83.0% DreamSim, 72.2% both improved",
+      "population": "common500 N1024/10, source means",
+      "source": "inputs/v9_package/derived/e1_per_source_improvement.csv",
+      "scope": "descriptive; numerical tie tolerance 1e-10; includes failures"
+    },
+    {
+      "claim": "Eighth ~92% of Whole-to-Token gain; Token +31.1ms TX",
+      "population": "control100 quality, timing32 cost",
+      "source": "inputs/v9_package/derived/granularity_quality_cost.csv",
+      "scope": "PSNR/DISTS/DreamSim only; shared ceiling (8,126); no universal optimality"
+    },
+    {
+      "claim": "Ordered direct-residual and future-conditioning gains",
+      "population": "control100 received Token prefixes",
+      "source": "inputs/e4/",
+      "scope": "A0 retains prior completion; ordered, not universal additive attribution"
+    },
+    {
+      "claim": "Ada has better distances at high equal-bit budgets",
+      "population": "common500, six bit budgets",
+      "source": "inputs/e2/",
+      "scope": "full-system differences; retains tokenizer/prior/decoder/class differences"
+    },
+    {
+      "claim": "Argmax worsens Ada DreamSim at 512/4,512/10,1024/10",
+      "population": "fixed100, original three events",
+      "source": "inputs/v9_package/inputs/ada_generation_sensitivity.csv",
+      "scope": "closed sensitivity, original sampling curve retained; no DISTS invented"
+    },
+    {
+      "claim": "Kodak Token improves PSNR/DISTS/DreamSim over WHOLE; Ada better DISTS at 10/19",
+      "population": "24 center crops,3 SNR,3 original events",
+      "source": "inputs/kodak_v9/paired_deltas.csv",
+      "scope": "no recalibration; 24 independent sources, all864 events included"
+    },
+    {
+      "claim": "0.660s vs 15.422s; JSCC faster",
+      "population": "timing32, matched hardware/quota",
+      "source": "inputs/e5/timing_summary.csv",
+      "scope": "software TX+RX processing, excludes loading/I/O/scoring"
+    },
+    {
+      "claim": "Finite fixed-policy rejection transition",
+      "population": "100 sources×20 events per point",
+      "source": "inputs/e6/",
+      "scope": "8–10dB fixed-policy scan; no broad channel-robustness claim"
+    },
+    {
+      "claim": "Paid NULL current catalogue works without altering normal outputs",
+      "population": "33 CPU checks / all12 MCS",
+      "source": "../../../../results/nestcom_v9_completion_20261101_v1/execution_receipts/paid_null/worker_completion.json",
+      "scope": "protocol regression, not new quality or reliability result"
+    }
+  ],
+  "manual_review": "Read complete main, tables, supplement narrative; checked favorable, adverse and interval-crossing-zero cases",
+  "excluded_claims": [
+    "universal SOTA",
+    "per-image monotone gain",
+    "Quarter/Token universally optimal",
+    "general fading robustness",
+    "independent causal cross-budget effect"
+  ]
+}
