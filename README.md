@@ -1,3 +1,7 @@
+## Latest manuscript layout — 2026-11-02
+
+The active [V9 manuscript](paper/manuscripts/nestcom_wcl_completion_20261101_v9/README.md) now uses a full-width 1×4 Figure 2 (181.353259 × 64 mm). Fixed-symbol and equal-information-budget panels retain all 92 frozen means and 92 intervals; only layout and the right-hand x unit change. Double-column/single-column/Word outputs are 5/15/14 pages, all 34 revised pages actually inspected. Figure 1/3, tables, the 27-page supplement and scientific results are unchanged; no new inference, PHY, scoring, statistics, training or scheduling. [Changes and provenance](paper/manuscripts/nestcom_wcl_completion_20261101_v9/FIG2_1X4_REVISION_20261102.md). Historical entries below retain their original scope and status.
+
 ## 2026-11-02 — V9 completion: reproducibility, paid NULL and Kodak
 
 The [V9 report](paper/manuscripts/nestcom_wcl_completion_20261101_v9/final_report_zh.md)

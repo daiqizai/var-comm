@@ -1,3 +1,7 @@
+## 2026-11-02 图版接续
+
+本轮 Fig. 2 横排与全格式交付已完成实际编译和 34 页目视检查（5/15/14 页）。详细变更与来源见 [修订说明](FIG2_1X4_REVISION_20261102.md)。以下保留原 V9 科学交付记录；本轮未重跑实验。
+
 # V9 completion checklist
 
 - **P1: done** — Integer CDF/AC/PHY recipe, 1241 candidate rows, 24 LDPC layouts, model files/recipes/relocatable verification, 6 CPU cases and 2 actual TX/RX vectors. Evidence: `inputs/reproduction/; ../../../../experiments/nestcom-v9-completion-20261101/README.md`.

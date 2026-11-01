@@ -1,3 +1,7 @@
+## Current figure revision — 2026-11-02
+
+Fig. 2 is now a 181.353259 × 64 mm four-panel horizontal figure, integrated in all three main manuscript exports. All 92 means and 92 confidence intervals are unchanged. Actual output: 5-page double-column, 15-page single-column, 14-page editable Word; all 34 revised pages inspected. Build the figure with `python scripts/draw_figure2_1x4.py`. See [revision and provenance](FIG2_1X4_REVISION_20261102.md). The historical publication paragraph below describes the preceding V9 delivery; this revision has its own outer publication receipt.
+
 # NeST-Com V9
 
 Anonymous manuscript: **NeST-Com: Fixed-Budget Next-Scale Token Communication**.

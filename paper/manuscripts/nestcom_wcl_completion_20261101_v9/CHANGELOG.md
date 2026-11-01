@@ -1,3 +1,7 @@
+## 2026-11-02 — Fig. 2 at final print size
+
+Reflow the frozen 92 records into a 1×4 vector figure; synchronize caption, argumentation, Word image mapping and exports. Validate 5/15/14 pages, embedded fonts, all 92 CI segments, grayscale and physical dimensions. Figures 1/3, tables and all scientific results are unchanged.
+
 # V8 → V9
 
 补齐当前目录 paid-NULL 与 33 项实际协议回归；导出可复现 CDF/算术编码/PHY 配置、1241 行候选、24 个 LDPC 布局及真实 TX/RX 参考。

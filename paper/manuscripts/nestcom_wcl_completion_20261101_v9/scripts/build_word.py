@@ -14,8 +14,9 @@ P=Path(__file__).resolve().parents[1];W=P.parents[2]
 QA=Path(os.environ.get('NEST_DOC_WORK',str(Path(tempfile.gettempdir())/'nestcom_wcl_word_export')));QA.mkdir(parents=True,exist_ok=True)
 PANDOC=Path(os.environ.get('PANDOC',shutil.which('pandoc') or str(W/'.research/kodak_current_20261026_v1/document_tools/pandoc.exe')))
 POPPLER=Path(os.environ.get('PDFTOPPM',shutil.which('pdftoppm') or 'C:/Users/11946/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/poppler/Library/bin/pdftoppm.exe'))
+FIGURE_FILES={1:'figure1.pdf',2:'figure2_1x4.pdf',3:'figure3.pdf'}
 for i in range(1,4):
-    p=P/f'figures/figure{i}.pdf';stem=QA/f'figure{i}'
+    p=P/'figures'/FIGURE_FILES[i];stem=QA/f'figure{i}'
     if True:  # Render from current PDFs on every document-only build.
         subprocess.run([str(POPPLER),'-png','-singlefile','-r','300',str(p),str(stem)],check=True,capture_output=True)
 
@@ -90,7 +91,7 @@ t=t.replace(r'\begin{IEEEkeywords}',r'\paragraph{Index terms}').replace(r'\end{I
 t=t.replace(r'\begin{figure*}[t]',r'\begin{figure}').replace(r'\end{figure*}',r'\end{figure}')
 t=t.replace(r'width=\textwidth','width=6.5in')
 t=t.replace(r'width=\linewidth','width=6.5in')
-for i in range(1,4):t=t.replace('{figure'+str(i)+'.pdf}','{'+(QA/f'figure{i}.png').as_posix()+'}')
+for i in range(1,4):t=t.replace('{'+FIGURE_FILES[i]+'}','{'+(QA/f'figure{i}.png').as_posix()+'}')
 t=re.sub(r'\\CI\{([^}]+)\}\{([^}]+)\}\{([^}]+)\}',lambda m:'$'+m[1]+'$ [$'+m[2]+', '+m[3]+'$]',t)
 t=re.sub(r'\\begin\{minipage\}\{[^}]+\}',r'\n',t).replace(r'\end{minipage}','')
 t=t.replace(r'\begingroup','').replace(r'\endgroup','').replace(r'\footnotesize','')
@@ -182,7 +183,7 @@ for p in d.paragraphs:
 d.save(target)
 import zipfile
 with zipfile.ZipFile(target)as z:xml=z.read('word/document.xml')
-record=dict(source_tex_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),word_sha256=hashlib.sha256(target.read_bytes()).hexdigest(),reference_keys=keys,display_equation_count=eqn[0],expected_display_equations=expected_display_equations,editable_omml_count=xml.count(b'<m:oMath>'),numeric_ci_text_count=numeric_ci_text_count,delimiter_properties_reordered=delimiter_properties_reordered,inline_punctuation_attached=inline_punctuation_attached,native_tables=len(d.tables),native_table_sources=native_table_records,figures=3,body_double_line_spacing=True,figures_unchanged=False, unchanged_figures=[1], revised_figures=[2,3],revision_base_commit='dde679637b30f1166bc540d4c7b6fa91fe457e8c',figure_pdf_hashes={str(i):hashlib.sha256((P/f'figures/figure{i}.pdf').read_bytes()).hexdigest() for i in range(1,4)},render_review_pending=True)
+record=dict(source_tex_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),word_sha256=hashlib.sha256(target.read_bytes()).hexdigest(),reference_keys=keys,display_equation_count=eqn[0],expected_display_equations=expected_display_equations,editable_omml_count=xml.count(b'<m:oMath>'),numeric_ci_text_count=numeric_ci_text_count,delimiter_properties_reordered=delimiter_properties_reordered,inline_punctuation_attached=inline_punctuation_attached,native_tables=len(d.tables),native_table_sources=native_table_records,figures=3,body_double_line_spacing=True,figures_unchanged=False, unchanged_figures=[1,3], revised_figures=[2],revision_base_commit='63881bdd38bb82f3c4b0a9c5b2c2de01b9a4c4ea',figure_pdf_hashes={str(i):hashlib.sha256((P/'figures'/FIGURE_FILES[i]).read_bytes()).hexdigest() for i in range(1,4)},render_review_pending=True)
 (QA/'conversion_check.json').write_text(json.dumps(record,indent=2)+'\n',newline='\n')
 assert record['display_equation_count']==expected_display_equations and record['editable_omml_count']>=expected_display_equations and record['native_tables']==3
 print(json.dumps(record))
