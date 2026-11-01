@@ -14,5 +14,5 @@
 |PDF / single-column / Word / supplement|done|All final pages actually viewed|
 |Claims / five metrics / unfavorable results|done|claim_audit.json and complete CSVs|
 |Compute / reuse / failures|done|resource_ledger.json and preserved_failures.json|
-|Repository checks and publication|pending-final-publication-receipt|Normal remote-only checks/commit/push; exact result in final receipt|
+|Repository checks and publication|done|Normal remote main push verified for artifact commit cdfdfab8bb78552d25205f1d31700b843627378d; validation/publication.json and repository_checks.json|
 |New training / new200 / parameter scan|not-run-optional|Outside this execution package|

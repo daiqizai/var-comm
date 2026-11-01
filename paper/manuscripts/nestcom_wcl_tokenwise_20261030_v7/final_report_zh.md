@@ -30,3 +30,5 @@ E5已有14组4480条成功计时原样保留；经用户明确续开最多两小
 入口：`main.tex`、`main_singlecolumn.tex`、`manuscript_doublecolumn.pdf`、`manuscript_singlecolumn.pdf`、`manuscript_review.docx`、`supplementary.pdf`。数据和代码在本稿`inputs/`、`scripts/`及`results/nestcom_perceptual_followup_20261030_v2/`、`experiments/nestcom-perceptual-followup-20261030/`。大数组、模型、日志仍只在PFS。主张、来源和验收对应`claim_evidence_matrix.md`、`figure_table_sources.json`、`validation/`。
 
 全部科学结果与文档验收已完成；正常远端提交/推送及独立remote SHA以最终publication receipt为准，本文件不预填未来提交SHA。本机不commit，不强推。没有需要另开科学实验才能完成的默认项目；新训练、新200或参数扫描均not-run-optional。
+
+正常远端提交与推送已完成并核验：`cdfdfab8bb78552d25205f1d31700b843627378d`，分支 `main`。仓库完整性、CPU 工程检查和 E5 七项聚合检查均通过。正式提交包含全部科学结果与已实际检查的最终文件；本条发布回执随后以仅元数据提交保存，不改变结果、源码或已渲染文件。

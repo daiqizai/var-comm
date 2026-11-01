@@ -13,3 +13,5 @@ Use the frozen delivered input CSVs. Run `scripts/build_evidence_tables.py`, `sc
 Figure sources are in `scripts/` and native Fig.1 in `figures/figure1.pptx`. The fixed scientific figures need no model calls to redraw. Source/data conditions and hashes are in `figure_table_sources.json`; claim populations and limitations are in `claim_evidence_matrix.md`.
 
 Experiment entry points are separately registered. Do not run launchers as part of manuscript compilation, and do not repeat completed timing or statistical stages. Final normal remote-only Git publication is verified in the external publication receipt and final user delivery; no local commit or force push.
+
+Publication verified: artifact commit `cdfdfab8bb78552d25205f1d31700b843627378d` on remote `main`; see `validation/publication.json`. The later receipt-only commit does not change scientific results or rendered documents.
