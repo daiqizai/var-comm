@@ -2,7 +2,7 @@
 
 ## Figure 1
 
-NeST-Com. (a) The protected profile specifies the endpoint and MCS; both terminals reconstruct coding probabilities from the shared frozen VAR and known coarse tokens. (b) Independently terminated token-wise prefixes fit the body capacity; bars are schematic. (c) Received boundary tokens overwrite predicted positions. The merged map updates the residual latent and finer-scale context. Unreceived boundary positions retain their coarse-conditioned predictions.
+NeST-Com. (a) The selected endpoint and fixed MCS determine the protected profile, combined with the coded body before the channel. Both terminals reconstruct coding probabilities from shared VAR and known coarse tokens. (b) Independently terminated prefixes undergo actual-length fitting up to the calibrated target; bars are schematic. (c) Received tokens overwrite boundary predictions. Each remaining scale recursively updates the accumulated state and constructs the next context before final decoding. Unreceived boundary positions retain their coarse-conditioned predictions.
 
 ## Figure 2
 
