@@ -9,6 +9,6 @@
 | Complete unfavorable results and failures retained | done | reports, paired CSVs, schema/import/preparation revision records |
 | New main prose, TableIV, Fig2/3, native Word | done | current V9, same data/text sources; Fig1 bytes preserved |
 | Actual compilation and all-page inspection | done |5/15/16/35pages;71opened; current validation directory |
-| Required repository checks / normal main publication | pending-publication | publication.json records actual outcome; no old PASS reused |
+| Required repository checks / normal main publication | done | Normal main artifact push verified; current publication.json records actual SHA; no old PASS reused |
 | Extra N1024/4 matched control, optimized scan/timing, compiled500 | not-run-optional | Outside this bounded completed scope |
 | New training / stopped branches | not-run-optional | Not authorized in this study; remain stopped |
