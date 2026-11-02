@@ -1,0 +1,67 @@
+{
+  "original_source_SHA": {
+    "entropy.py": "f3adf956fba05d60e687472fa153e0bf684119ef6c8885a75fe4ea21962b2b2b",
+    "whole_entropy.py": "5d08d2f8c218f0bdf5b6d2a8ca7b3aa729baa75e274531afbfd8f31c95b24a5b"
+  },
+  "tests": [
+    {
+      "case": 0,
+      "prefixes": 128,
+      "E_plus_P_plus_2": true,
+      "nonmutating_finish": true,
+      "nondecreasing": true,
+      "canonical_roundtrip": true,
+      "tied_steps": 0,
+      "pending_seen": false,
+      "max_pending": 0
+    },
+    {
+      "case": 1,
+      "prefixes": 128,
+      "E_plus_P_plus_2": true,
+      "nonmutating_finish": true,
+      "nondecreasing": true,
+      "canonical_roundtrip": true,
+      "tied_steps": 128,
+      "pending_seen": false,
+      "max_pending": 0
+    },
+    {
+      "case": 2,
+      "prefixes": 128,
+      "E_plus_P_plus_2": true,
+      "nonmutating_finish": true,
+      "nondecreasing": true,
+      "canonical_roundtrip": true,
+      "tied_steps": 4,
+      "pending_seen": true,
+      "max_pending": 11
+    },
+    {
+      "case": 3,
+      "prefixes": 128,
+      "E_plus_P_plus_2": true,
+      "nonmutating_finish": true,
+      "nondecreasing": true,
+      "canonical_roundtrip": true,
+      "tied_steps": 1,
+      "pending_seen": true,
+      "max_pending": 10
+    }
+  ],
+  "counterexample": {
+    "case": 0,
+    "previous_tokens": 0,
+    "next_tokens": 1,
+    "previous_bits": [
+      0,
+      1
+    ],
+    "next_head": [
+      0,
+      0
+    ],
+    "reason": "Independently terminated stream is not generally a truncation of the longer terminated stream"
+  },
+  "synthetic_CPU_tests_not_quality_evidence": true
+}

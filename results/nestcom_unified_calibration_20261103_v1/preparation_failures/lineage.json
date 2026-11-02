@@ -1,0 +1,20 @@
+{
+  "cases": [
+    {
+      "original": "calibration_plan.py",
+      "error": "Removed legacy static family before original Runtime constructor",
+      "boundary": "CPU directory construction, no source/model/PHY call",
+      "independent_revision": "calibration_plan_v2.py + cal_phy_worker_v2.py + qualify_directories_v2.py",
+      "scope_changed": false
+    },
+    {
+      "original": "calibration_stages.py + calibration_plan_v2.py pilot plan",
+      "error": "Frozen pilot100 was not a subset of the reused Token200 cache",
+      "boundary": "Source coverage assertion before plan creation or stage launch",
+      "independent_revision": "calibration_plan_v3.py + calibration_stages_v2.py; wait for source800 closure",
+      "sample_changed": false
+    }
+  ],
+  "original_error_bytes_preserved": true,
+  "successful_scientific_calls_repeated": 0
+}

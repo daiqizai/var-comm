@@ -42,19 +42,23 @@
     "validation": "validation/fig1_final_review_20261102"
   },
   "Figure2": {
+    "revision_base": "64577982715bfbbf0d5020f65c7c5bb5d08fa9df",
     "inputs": [
-      "inputs/v9_package/inputs/e1_summary.csv",
+      "inputs/unified_calibration_20261103/formal/summary.csv",
+      "inputs/unified_calibration_20261103/external_join/summary.csv",
       "inputs/v9_package/inputs/e2_summary.csv",
       "figures/figure2_data.csv"
     ],
-    "filters": "N1024 4/7/10/19, six methods (ARPC adaptation in Supplement); DISTS/DreamSim; all six equal-bit budgets for three systems",
-    "points": 84,
-    "CI": "pointwise 95% source bootstrap; events/generation repeats averaged within source",
     "pins": [
       {
-        "path": "inputs/v9_package/inputs/e1_summary.csv",
-        "sha256": "5b2762a6f8540c35cd3f1029df443183686e37dd653dea660d863ffcbf8a6529",
-        "bytes": 21552
+        "path": "inputs/unified_calibration_20261103/formal/summary.csv",
+        "sha256": "5236163abfc93df32d4b8eea4bee01fca58a4275205df03a6faa51957d4a1250",
+        "bytes": 5336
+      },
+      {
+        "path": "inputs/unified_calibration_20261103/external_join/summary.csv",
+        "sha256": "48bb32ccd875c56c65eade82938f1f36665f5e2212734d7801fa56ce56c5aa88",
+        "bytes": 16785
       },
       {
         "path": "inputs/v9_package/inputs/e2_summary.csv",
@@ -63,47 +67,11 @@
       },
       {
         "path": "figures/figure2_data.csv",
-        "sha256": "a2122c6568f2f4cf2211ed9a303d9370a9b376d634194e22839750ba2687435a",
-        "bytes": 9826
+        "sha256": "044367995c975f33da3c46645bb285e76b62b09008ef55a1d841de3103b683f5",
+        "bytes": 9829
       }
     ],
-    "inherited_source_commit": "dde679637b30f1166bc540d4c7b6fa91fe457e8c",
-    "layout": "1x4, exact manuscript textwidth",
-    "redraw_base": "99015482bafb11a3a65d9ab4a72a22a6210da3eb",
-    "script": "scripts/draw_figure2_1x4.py",
-    "script_sha256": "0c4665c65d275b46a863bed0794b7d8ec443dd2dba3e15c347b65bc407db08b1",
-    "size_mm": [
-      181.35325861353257,
-      64
-    ],
-    "display_transform": "equal-information x bits / 1000 only",
-    "outputs": [
-      {
-        "path": "figures/figure2_1x4.pdf",
-        "sha256": "c259de2ee0d3ddcc643ae7a3c612432b90a005a330ab496265e3bde6b3ac4f99",
-        "bytes": 30136
-      },
-      {
-        "path": "figures/figure2_1x4.svg",
-        "sha256": "e3473866fc8c0aaaaf8525bebf7120a009389e04f27b1d8b5711586e31d8ba57",
-        "bytes": 86104
-      },
-      {
-        "path": "figures/figure2_1x4.png",
-        "sha256": "276425897a7fb313703f6a27917995845cb842fd231427eb4738f6db9427603a",
-        "bytes": 370458
-      },
-      {
-        "path": "figures/figure2_1x4_print_size.png",
-        "sha256": "62ad4534672a6f6465e80194b1f4af45f1ebb4879f7eeba9a16807f7a17a32fb",
-        "bytes": 77573
-      },
-      {
-        "path": "figures/figure2_1x4_grayscale.png",
-        "sha256": "0bf825e1ca0608424938fe271edd60e421feb88147ce7d8b35da13e55e21c598",
-        "bytes": 33511
-      }
-    ],
+    "points": 84,
     "CI_count": 84,
     "panel_counts": {
       "a": 24,
@@ -112,73 +80,118 @@
       "d": 18
     },
     "full_input_rows_retained": 92,
-    "validation": "validation/positioning_20261102"
+    "unchanged_equal_bit_rows": 36,
+    "CI": "Pointwise95%source bootstrap after within-source averaging; existing authorized statistics only.",
+    "script": "scripts/draw_figure2_1x4.py",
+    "script_sha256": "0c4665c65d275b46a863bed0794b7d8ec443dd2dba3e15c347b65bc407db08b1",
+    "size_mm": [
+      181.35325861353257,
+      64
+    ],
+    "outputs": [
+      {
+        "path": "figures/figure2_1x4.pdf",
+        "sha256": "0df40deaa6158855415288ab7a1467e6bd47e192892dbe53de8492739e9b706f",
+        "bytes": 30570
+      },
+      {
+        "path": "figures/figure2_1x4.svg",
+        "sha256": "15be63111cadc814d3793a69451c3fb2e591435e3435e0b4635714c40b0d9783",
+        "bytes": 86080
+      },
+      {
+        "path": "figures/figure2_1x4.png",
+        "sha256": "fe63d27ae95a7c32d55fca6d8842314c57606f410d1b2dffd1c264e23055ebe0",
+        "bytes": 401482
+      },
+      {
+        "path": "figures/figure2_1x4_print_size.png",
+        "sha256": "8056a19de5089ffe8b9fdd2c6ae41285313710bc27fadd6af5164025567951ca",
+        "bytes": 86334
+      },
+      {
+        "path": "figures/figure2_1x4_grayscale.png",
+        "sha256": "db593db2588b6b7b85af443e7e5d31dece322be9c5c16710eed3d24fba43addc",
+        "bytes": 38823
+      }
+    ],
+    "validation": "validation/unified_calibration_20261103",
+    "display_transform": "Equal-information x bits/1000 only; numerical spacing retained.",
+    "scope": "Main six systems; ARPC adaptation in complete supplementary plot.",
+    "refreshed_rows": 24,
+    "actual_changed_rows": 16,
+    "total_identical_rows": 76,
+    "untouched_rows": 68
   },
   "Figure3": {
+    "revision_base": "64577982715bfbbf0d5020f65c7c5bb5d08fa9df",
     "inputs": [
-      "inputs/fig3_selected_20261102/selection.json",
-      "inputs/fig3_selected_20261102/native_mapping.json",
-      "inputs/fig3_selected_20261102/all_five_metrics.csv"
+      "inputs/fig3_unified_20261103/selection.json",
+      "inputs/fig3_unified_20261103/native_mapping.json",
+      "inputs/fig3_unified_20261103/display_metrics.csv"
     ],
     "pins": [
       {
-        "path": "inputs/fig3_selected_20261102/selection.json",
-        "sha256": "dacb8f5cc844a17b8402f86477645a1603097bbf3037c7ebf5b49a6d80583281",
-        "bytes": 1166
+        "path": "inputs/fig3_unified_20261103/selection.json",
+        "sha256": "81477e53f3b5ec34a278c92a8af45b08a5ff630db1463b7234f78cd993281df2",
+        "bytes": 1296
       },
       {
-        "path": "inputs/fig3_selected_20261102/native_mapping.json",
-        "sha256": "bf73c03188bb64753fe2f07cb3f477b8203f2c2e0ff5d0ddb1ea54b2730fc4ee",
-        "bytes": 20455
+        "path": "inputs/fig3_unified_20261103/native_mapping.json",
+        "sha256": "d9ab3933de021d5f8186e7f4c52021b6f9972b2c690fe0b87490ba1ffe535ce6",
+        "bytes": 19509
       },
       {
-        "path": "inputs/fig3_selected_20261102/all_five_metrics.csv",
-        "sha256": "3acae6a18b77d175375c4615326a42bca31f789b395982f2da2cbdf798dcebde",
-        "bytes": 1436
+        "path": "inputs/fig3_unified_20261103/display_metrics.csv",
+        "sha256": "86662303afb87bc0f5dabeba19e3a6341cc250c4775a3c31253fb2d048a26b97",
+        "bytes": 1569
       }
     ],
-    "base_commit": "7c7f04f31eae24561a898961434da158662bbe10",
-    "filters": "N1024, 10 dB; source_index 135/201; each method original repeat 0",
-    "methods": [
-      "Source",
-      "WHOLE",
-      "SwinJSCC",
-      "Ada-TokenCom",
-      "NeST-Com"
+    "source_ids": [
+      "n04461696/ILSVRC2012_val_00026517_n04461696",
+      "n06596364/ILSVRC2012_val_00001019_n06596364"
     ],
+    "selection": "User choices C10-016/C10-017 retained before new calibration; no quality-based reselection.",
+    "filters": "N1024/10; source135/201; first registered repeat: WHOLE/NeST/Ada6201, Swin2001.",
+    "CI": "Not applicable to individual displayed events",
     "metrics": [
       "DISTS",
       "DreamSim"
     ],
-    "CI": "Not applicable to individual displayed realizations",
-    "selection": "User chose illustrative perceptual advantages after inspecting the complete existing candidate gallery; not random or representative.",
     "size_inches": [
       6,
       2.77
     ],
+    "script": "scripts/draw_figure3.py",
     "outputs": [
       {
         "path": "figures/figure3.pdf",
-        "sha256": "7064655f6895a930d3ffb193ac3b59c57b13e40457561f98aacb54e847179cdf",
-        "bytes": 1079617
+        "sha256": "ae5536e79573106cc9dfcf276dbb0efac1d4be70b0f011307bd6eed64aef2539",
+        "bytes": 1079992
       },
       {
         "path": "figures/figure3.svg",
-        "sha256": "056322e4856e7ec8d872ff3a3fef8ab8538c114df368b4d9c065c0a4ea9b8c02",
-        "bytes": 1628780
+        "sha256": "cab3e0cc6acf6def799b3d48b8562ed15434d0fad38d4f88d6767701b43fd08b",
+        "bytes": 1628784
       },
       {
         "path": "figures/figure3.png",
-        "sha256": "4e4af24bd6b9f9a378f7bbaa0b3fb0f6b627ddc1921df3055878405d05a18599",
-        "bytes": 1849310
+        "sha256": "1b5f7e75c08097ea0a9d8c10a904d5eda105091e7085a3e5f3c0df1d0cceeeed",
+        "bytes": 1833237
+      },
+      {
+        "path": "figures/figure3_print_size.png",
+        "sha256": "3a07b355506e794754900c953313a6af9db3f9e8f08e464a135c38fb544d7e10",
+        "bytes": 606969
+      },
+      {
+        "path": "figures/figure3_grayscale.png",
+        "sha256": "daabb633e4daced93174c8404e5ba68a81643a0153aafc92e3b04cb81f74dd9a",
+        "bytes": 189319
       }
     ],
-    "native_scientific_source": {
-      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_perceptual_followup_20261030_v2/E1_join/frames.json",
-      "bytes": 123997901,
-      "sha256": "1ae10ed3b825328be021a9509a98bfd1a392d33941132da51f0adde3ca6be280"
-    },
-    "full_native_details": "inputs/fig3_selected_20261102/native_mapping.json"
+    "native_arrays": "PFS; exact paths, hashes, wire identity and all-five metrics in native_mapping.json",
+    "new_scientific_calls_for_display": 0
   },
   "Supplement_examples": {
     "inputs": [
@@ -199,20 +212,39 @@
         "bytes": 5250
       }
     ],
-    "inherited_source_commit": "dde679637b30f1166bc540d4c7b6fa91fe457e8c"
+    "inherited_source_commit": "dde679637b30f1166bc540d4c7b6fa91fe457e8c",
+    "policy_scope": "Historical N1024 policies, unchanged; not regenerated for unified calibration."
   },
   "TableI": {
+    "revision_base": "64577982715bfbbf0d5020f65c7c5bb5d08fa9df",
     "inputs": [
       "tables/table_i.csv",
+      "tables/table_i.tex",
+      "inputs/unified_calibration_20261103/formal/capacity_summary.csv",
+      "inputs/unified_calibration_20261103/formal/paired_deltas.csv",
       "inputs/v9_package/derived/granularity_quality_cost.csv",
       "inputs/timing_fairness_20261102/granularity_summary.csv"
     ],
-    "population": "A common500; B control100 quality/timing32 cost; C control100 same prefixes",
     "pins": [
       {
         "path": "tables/table_i.csv",
-        "sha256": "46740be26f06bc8283d15c7174e9a7c59ad5c8ff7b0e1dbbdcce88cc418dddc0",
-        "bytes": 2157
+        "sha256": "d805e64ec99caad4e79967f28d0e02c293a9df2f91a0bcfa741fb8a884d79f91",
+        "bytes": 2151
+      },
+      {
+        "path": "tables/table_i.tex",
+        "sha256": "e9fb7263a48735a247c710d65e6e89f57c9b357facb3aefcfceb137f677165da",
+        "bytes": 2228
+      },
+      {
+        "path": "inputs/unified_calibration_20261103/formal/capacity_summary.csv",
+        "sha256": "1381af57bb304d4b2296a6f3dc9b326e4c49b048754aafe0e0707969b2a79f10",
+        "bytes": 886
+      },
+      {
+        "path": "inputs/unified_calibration_20261103/formal/paired_deltas.csv",
+        "sha256": "2eb605aa64d46fb27bb4e0dce69d6ea7d509a3108ab4c6a2db66a545249a3622",
+        "bytes": 5918
       },
       {
         "path": "inputs/v9_package/derived/granularity_quality_cost.csv",
@@ -225,49 +257,33 @@
         "bytes": 467
       }
     ],
-    "inherited_source_commit": "dde679637b30f1166bc540d4c7b6fa91fe457e8c",
-    "historical_inputs": [
-      "tables/table_i.csv",
-      "inputs/v9_package/derived/granularity_quality_cost.csv"
-    ],
-    "timing_revision_base": "4c6c9b74ec4720b1d978342f2278c2c63eba9c45",
-    "timing_population": "32 fixed sources;2warm+3measured;N1024/10dB",
-    "timing_resources": "Same GPU6; distinct physical CPU cores38,40;2intra/2interop",
-    "old_quality_inputs_unchanged": true,
-    "Ada_main_timing": "WITHHELD; serial implementation not author-aligned; raw audit retained in S7"
+    "population": "A newcommon500 unifiedpolicy; B historicalcontrol100 quality/timing32; C historicalcontrol100 receiverintervention"
   },
   "TableII": {
+    "revision_base": "64577982715bfbbf0d5020f65c7c5bb5d08fa9df",
     "inputs": [
       "tables/table_ii.csv",
-      "inputs/timing_fairness_20261102/timing_summary.csv"
+      "tables/table_ii.tex",
+      "inputs/unified_calibration_20261103/external_join/summary.csv"
     ],
-    "population": "common500 N1024/10 quality and timing32 processing",
     "pins": [
       {
         "path": "tables/table_ii.csv",
-        "sha256": "d5565f86bbe6cb115f131033e21c37fbfc30ced84ac42a5da464723ea3dce3d5",
-        "bytes": 1043
+        "sha256": "24be72e6801b3b6a18fced1a4b09687ec4dd61810a6c1c7900fbe083a1a73124",
+        "bytes": 594
       },
       {
-        "path": "inputs/timing_fairness_20261102/timing_summary.csv",
-        "sha256": "dd46510dd2224e84025739cf1191b147f2bb14bee96705bb433f3a3729f5299a",
-        "bytes": 2333
+        "path": "tables/table_ii.tex",
+        "sha256": "8727c942a612d1214872eb8a9b6e28c823ba0fb75e5e020131ca2232ba9a026d",
+        "bytes": 643
+      },
+      {
+        "path": "inputs/unified_calibration_20261103/external_join/summary.csv",
+        "sha256": "48bb32ccd875c56c65eade82938f1f36665f5e2212734d7801fa56ce56c5aa88",
+        "bytes": 16785
       }
     ],
-    "inherited_source_commit": "dde679637b30f1166bc540d4c7b6fa91fe457e8c",
-    "source_records": 7,
-    "displayed_records": 6,
-    "display_filter": "Exclude ARPC row from main table only; full quality and timing results remain in Supplement S2/S7.",
-    "revision_base": "99015482bafb11a3a65d9ab4a72a22a6210da3eb",
-    "historical_inputs": [
-      "tables/table_ii.csv",
-      "inputs/e5/timing_summary.csv"
-    ],
-    "timing_revision_base": "4c6c9b74ec4720b1d978342f2278c2c63eba9c45",
-    "timing_population": "32 fixed sources;2warm+3measured;N1024/10dB",
-    "timing_resources": "Same GPU6; distinct physical CPU cores38,40;2intra/2interop",
-    "old_quality_inputs_unchanged": true,
-    "Ada_main_timing": "REPORTED_SEPARATELY_S7; compiled numerical route differs from the quality-evaluation route"
+    "population": "common500 N1024/10 five-metric quality; six main rows; no mixed-policy timing cells"
   },
   "TableIII": {
     "inputs": [
@@ -562,6 +578,365 @@
     ]
   },
   "FigureS1_complete_comparison": {
+    "revision_base": "64577982715bfbbf0d5020f65c7c5bb5d08fa9df",
+    "inputs": [
+      "inputs/unified_calibration_20261103/formal/summary.csv",
+      "inputs/unified_calibration_20261103/external_join/summary.csv",
+      "inputs/v9_package/inputs/e2_summary.csv",
+      "figures/figure2_data.csv"
+    ],
+    "pins": [
+      {
+        "path": "inputs/unified_calibration_20261103/formal/summary.csv",
+        "sha256": "5236163abfc93df32d4b8eea4bee01fca58a4275205df03a6faa51957d4a1250",
+        "bytes": 5336
+      },
+      {
+        "path": "inputs/unified_calibration_20261103/external_join/summary.csv",
+        "sha256": "48bb32ccd875c56c65eade82938f1f36665f5e2212734d7801fa56ce56c5aa88",
+        "bytes": 16785
+      },
+      {
+        "path": "inputs/v9_package/inputs/e2_summary.csv",
+        "sha256": "54775623f63a0743b74bfb4b6dbfc8071d48f67f1e61d0dc353efdaa32a2081f",
+        "bytes": 8096
+      },
+      {
+        "path": "figures/figure2_data.csv",
+        "sha256": "044367995c975f33da3c46645bb285e76b62b09008ef55a1d841de3103b683f5",
+        "bytes": 9829
+      }
+    ],
+    "points": 92,
+    "CI_count": 92,
+    "panel_counts": {
+      "a": 28,
+      "b": 28,
+      "c": 18,
+      "d": 18
+    },
+    "full_input_rows_retained": 92,
+    "unchanged_equal_bit_rows": 36,
+    "CI": "Pointwise95%source bootstrap after within-source averaging; existing authorized statistics only.",
+    "script": "scripts/draw_figure2_1x4.py",
+    "script_sha256": "0c4665c65d275b46a863bed0794b7d8ec443dd2dba3e15c347b65bc407db08b1",
+    "size_mm": [
+      181.35325861353257,
+      64
+    ],
+    "outputs": [
+      {
+        "path": "figures/figure2_complete_with_arpc.pdf",
+        "sha256": "5695ae1c313de1b8b3adb6e9b9132302d78c668fd0e159f8ef3b2c9d17c86ad0",
+        "bytes": 31558
+      },
+      {
+        "path": "figures/figure2_complete_with_arpc.svg",
+        "sha256": "843d5347b154fb115ec2aab60b025ada7d1806d1c30b57d79890e9219d7b7206",
+        "bytes": 92475
+      },
+      {
+        "path": "figures/figure2_complete_with_arpc.png",
+        "sha256": "3b99799baf24623bf10266fc8c4259faba09e897b11e50a6181cde53a3ff7dbc",
+        "bytes": 432510
+      },
+      {
+        "path": "figures/figure2_complete_with_arpc_print_size.png",
+        "sha256": "a12df0058a450dddbdabc57e27e6336f1043c38c8842918047b3670bf21678de",
+        "bytes": 92517
+      },
+      {
+        "path": "figures/figure2_complete_with_arpc_grayscale.png",
+        "sha256": "cb05a48b40144c1e4858e59855839f608eed1adcc8aa51ebc0339a339413f9d4",
+        "bytes": 41402
+      }
+    ],
+    "validation": "validation/unified_calibration_20261103",
+    "display_transform": "Equal-information x bits/1000 only; numerical spacing retained.",
+    "scope": "Complete supplementary seven-system plot.",
+    "refreshed_rows": 24,
+    "actual_changed_rows": 16,
+    "total_identical_rows": 76,
+    "untouched_rows": 68
+  },
+  "TableI_before_timing_fairness_20261102": {
+    "inputs": [
+      "tables/table_i.csv",
+      "inputs/v9_package/derived/granularity_quality_cost.csv"
+    ],
+    "population": "A common500; B control100 quality/timing32 cost; C control100 same prefixes",
+    "pins": [
+      {
+        "path": "tables/table_i.csv",
+        "sha256": "87f2ab38f3a18fa20e6d2a0b677e259931856b0849ca6978d23db0afbe88f263",
+        "bytes": 2115
+      },
+      {
+        "path": "inputs/v9_package/derived/granularity_quality_cost.csv",
+        "sha256": "4d2c4ae80380397c9f8a7379475186a636bb6f623c2308b09890a19d0aa77d12",
+        "bytes": 1026
+      }
+    ],
+    "inherited_source_commit": "dde679637b30f1166bc540d4c7b6fa91fe457e8c"
+  },
+  "TableII_before_timing_fairness_20261102": {
+    "inputs": [
+      "tables/table_ii.csv",
+      "inputs/e5/timing_summary.csv"
+    ],
+    "population": "common500 N1024/10 quality and timing32 processing",
+    "pins": [
+      {
+        "path": "tables/table_ii.csv",
+        "sha256": "2d732c70ff8555972f3b20ec0a62b6924294cfe55e295d932ac3deda0de1514b",
+        "bytes": 989
+      },
+      {
+        "path": "inputs/e5/timing_summary.csv",
+        "sha256": "10143d3e13a8536f8a2c8f15bf2e63d8f1d994d1258ee301bfb4f19f13ff65d1",
+        "bytes": 6251
+      }
+    ],
+    "inherited_source_commit": "dde679637b30f1166bc540d4c7b6fa91fe457e8c",
+    "source_records": 7,
+    "displayed_records": 6,
+    "display_filter": "Exclude ARPC row from main table only; full quality and timing results remain in Supplement S2/S7.",
+    "revision_base": "99015482bafb11a3a65d9ab4a72a22a6210da3eb"
+  },
+  "Ada_compiled_prefill_timing": {
+    "inputs": [
+      "inputs/unified_calibration_20261103/compiled32/quality_latency.csv",
+      "inputs/unified_calibration_20261103/compiled32/paired_deltas.csv",
+      "inputs/unified_calibration_20261103/compiled32/pixel_identity_audit.json"
+    ],
+    "population": "32fixedsources, saved actual timing events; same-seed control separately counted",
+    "scope": "Own quality and own3.0643s total; no common500 substitution; no new timing",
+    "pins": [
+      {
+        "path": "inputs/unified_calibration_20261103/compiled32/quality_latency.csv",
+        "sha256": "44ad99cb8a382916782186a39697d0b7b066325c364b687db3cfee2e9cce1c2f",
+        "bytes": 365
+      },
+      {
+        "path": "inputs/unified_calibration_20261103/compiled32/paired_deltas.csv",
+        "sha256": "671de6471d1737827a95489a4b4b49e3c13b2e3bc120a03258ed825060be4346",
+        "bytes": 1584
+      },
+      {
+        "path": "inputs/unified_calibration_20261103/compiled32/pixel_identity_audit.json",
+        "sha256": "6cb37d3b6a94a59a2765b514eb6d50563f0cd8acf93685ad8b4e2e2e6ee6c02e",
+        "bytes": 225
+      }
+    ]
+  },
+  "Figure2_before_unified_20261103": {
+    "inputs": [
+      "inputs/v9_package/inputs/e1_summary.csv",
+      "inputs/v9_package/inputs/e2_summary.csv",
+      "figures/figure2_data.csv"
+    ],
+    "filters": "N1024 4/7/10/19, six methods (ARPC adaptation in Supplement); DISTS/DreamSim; all six equal-bit budgets for three systems",
+    "points": 84,
+    "CI": "pointwise 95% source bootstrap; events/generation repeats averaged within source",
+    "pins": [
+      {
+        "path": "inputs/v9_package/inputs/e1_summary.csv",
+        "sha256": "5b2762a6f8540c35cd3f1029df443183686e37dd653dea660d863ffcbf8a6529",
+        "bytes": 21552
+      },
+      {
+        "path": "inputs/v9_package/inputs/e2_summary.csv",
+        "sha256": "54775623f63a0743b74bfb4b6dbfc8071d48f67f1e61d0dc353efdaa32a2081f",
+        "bytes": 8096
+      },
+      {
+        "path": "figures/figure2_data.csv",
+        "sha256": "a2122c6568f2f4cf2211ed9a303d9370a9b376d634194e22839750ba2687435a",
+        "bytes": 9826
+      }
+    ],
+    "inherited_source_commit": "dde679637b30f1166bc540d4c7b6fa91fe457e8c",
+    "layout": "1x4, exact manuscript textwidth",
+    "redraw_base": "99015482bafb11a3a65d9ab4a72a22a6210da3eb",
+    "script": "scripts/draw_figure2_1x4.py",
+    "script_sha256": "0c4665c65d275b46a863bed0794b7d8ec443dd2dba3e15c347b65bc407db08b1",
+    "size_mm": [
+      181.35325861353257,
+      64
+    ],
+    "display_transform": "equal-information x bits / 1000 only",
+    "outputs": [
+      {
+        "path": "figures/figure2_1x4.pdf",
+        "sha256": "c259de2ee0d3ddcc643ae7a3c612432b90a005a330ab496265e3bde6b3ac4f99",
+        "bytes": 30136
+      },
+      {
+        "path": "figures/figure2_1x4.svg",
+        "sha256": "e3473866fc8c0aaaaf8525bebf7120a009389e04f27b1d8b5711586e31d8ba57",
+        "bytes": 86104
+      },
+      {
+        "path": "figures/figure2_1x4.png",
+        "sha256": "276425897a7fb313703f6a27917995845cb842fd231427eb4738f6db9427603a",
+        "bytes": 370458
+      },
+      {
+        "path": "figures/figure2_1x4_print_size.png",
+        "sha256": "62ad4534672a6f6465e80194b1f4af45f1ebb4879f7eeba9a16807f7a17a32fb",
+        "bytes": 77573
+      },
+      {
+        "path": "figures/figure2_1x4_grayscale.png",
+        "sha256": "0bf825e1ca0608424938fe271edd60e421feb88147ce7d8b35da13e55e21c598",
+        "bytes": 33511
+      }
+    ],
+    "CI_count": 84,
+    "panel_counts": {
+      "a": 24,
+      "b": 24,
+      "c": 18,
+      "d": 18
+    },
+    "full_input_rows_retained": 92,
+    "validation": "validation/positioning_20261102"
+  },
+  "Figure3_before_unified_20261103": {
+    "inputs": [
+      "inputs/fig3_selected_20261102/selection.json",
+      "inputs/fig3_selected_20261102/native_mapping.json",
+      "inputs/fig3_selected_20261102/all_five_metrics.csv"
+    ],
+    "pins": [
+      {
+        "path": "inputs/fig3_selected_20261102/selection.json",
+        "sha256": "dacb8f5cc844a17b8402f86477645a1603097bbf3037c7ebf5b49a6d80583281",
+        "bytes": 1166
+      },
+      {
+        "path": "inputs/fig3_selected_20261102/native_mapping.json",
+        "sha256": "bf73c03188bb64753fe2f07cb3f477b8203f2c2e0ff5d0ddb1ea54b2730fc4ee",
+        "bytes": 20455
+      },
+      {
+        "path": "inputs/fig3_selected_20261102/all_five_metrics.csv",
+        "sha256": "3acae6a18b77d175375c4615326a42bca31f789b395982f2da2cbdf798dcebde",
+        "bytes": 1436
+      }
+    ],
+    "base_commit": "7c7f04f31eae24561a898961434da158662bbe10",
+    "filters": "N1024, 10 dB; source_index 135/201; each method original repeat 0",
+    "methods": [
+      "Source",
+      "WHOLE",
+      "SwinJSCC",
+      "Ada-TokenCom",
+      "NeST-Com"
+    ],
+    "metrics": [
+      "DISTS",
+      "DreamSim"
+    ],
+    "CI": "Not applicable to individual displayed realizations",
+    "selection": "User chose illustrative perceptual advantages after inspecting the complete existing candidate gallery; not random or representative.",
+    "size_inches": [
+      6,
+      2.77
+    ],
+    "outputs": [
+      {
+        "path": "figures/figure3.pdf",
+        "sha256": "7064655f6895a930d3ffb193ac3b59c57b13e40457561f98aacb54e847179cdf",
+        "bytes": 1079617
+      },
+      {
+        "path": "figures/figure3.svg",
+        "sha256": "056322e4856e7ec8d872ff3a3fef8ab8538c114df368b4d9c065c0a4ea9b8c02",
+        "bytes": 1628780
+      },
+      {
+        "path": "figures/figure3.png",
+        "sha256": "4e4af24bd6b9f9a378f7bbaa0b3fb0f6b627ddc1921df3055878405d05a18599",
+        "bytes": 1849310
+      }
+    ],
+    "native_scientific_source": {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_perceptual_followup_20261030_v2/E1_join/frames.json",
+      "bytes": 123997901,
+      "sha256": "1ae10ed3b825328be021a9509a98bfd1a392d33941132da51f0adde3ca6be280"
+    },
+    "full_native_details": "inputs/fig3_selected_20261102/native_mapping.json"
+  },
+  "TableI_before_unified_20261103": {
+    "inputs": [
+      "tables/table_i.csv",
+      "inputs/v9_package/derived/granularity_quality_cost.csv",
+      "inputs/timing_fairness_20261102/granularity_summary.csv"
+    ],
+    "population": "A common500; B control100 quality/timing32 cost; C control100 same prefixes",
+    "pins": [
+      {
+        "path": "tables/table_i.csv",
+        "sha256": "46740be26f06bc8283d15c7174e9a7c59ad5c8ff7b0e1dbbdcce88cc418dddc0",
+        "bytes": 2157
+      },
+      {
+        "path": "inputs/v9_package/derived/granularity_quality_cost.csv",
+        "sha256": "4d2c4ae80380397c9f8a7379475186a636bb6f623c2308b09890a19d0aa77d12",
+        "bytes": 1026
+      },
+      {
+        "path": "inputs/timing_fairness_20261102/granularity_summary.csv",
+        "sha256": "488aa05ac93685571e81cd18c67fe6618937bd6d58cc15988f14c68c9b8cf086",
+        "bytes": 467
+      }
+    ],
+    "inherited_source_commit": "dde679637b30f1166bc540d4c7b6fa91fe457e8c",
+    "historical_inputs": [
+      "tables/table_i.csv",
+      "inputs/v9_package/derived/granularity_quality_cost.csv"
+    ],
+    "timing_revision_base": "4c6c9b74ec4720b1d978342f2278c2c63eba9c45",
+    "timing_population": "32 fixed sources;2warm+3measured;N1024/10dB",
+    "timing_resources": "Same GPU6; distinct physical CPU cores38,40;2intra/2interop",
+    "old_quality_inputs_unchanged": true,
+    "Ada_main_timing": "WITHHELD; serial implementation not author-aligned; raw audit retained in S7"
+  },
+  "TableII_before_unified_20261103": {
+    "inputs": [
+      "tables/table_ii.csv",
+      "inputs/timing_fairness_20261102/timing_summary.csv"
+    ],
+    "population": "common500 N1024/10 quality and timing32 processing",
+    "pins": [
+      {
+        "path": "tables/table_ii.csv",
+        "sha256": "d5565f86bbe6cb115f131033e21c37fbfc30ced84ac42a5da464723ea3dce3d5",
+        "bytes": 1043
+      },
+      {
+        "path": "inputs/timing_fairness_20261102/timing_summary.csv",
+        "sha256": "dd46510dd2224e84025739cf1191b147f2bb14bee96705bb433f3a3729f5299a",
+        "bytes": 2333
+      }
+    ],
+    "inherited_source_commit": "dde679637b30f1166bc540d4c7b6fa91fe457e8c",
+    "source_records": 7,
+    "displayed_records": 6,
+    "display_filter": "Exclude ARPC row from main table only; full quality and timing results remain in Supplement S2/S7.",
+    "revision_base": "99015482bafb11a3a65d9ab4a72a22a6210da3eb",
+    "historical_inputs": [
+      "tables/table_ii.csv",
+      "inputs/e5/timing_summary.csv"
+    ],
+    "timing_revision_base": "4c6c9b74ec4720b1d978342f2278c2c63eba9c45",
+    "timing_population": "32 fixed sources;2warm+3measured;N1024/10dB",
+    "timing_resources": "Same GPU6; distinct physical CPU cores38,40;2intra/2interop",
+    "old_quality_inputs_unchanged": true,
+    "Ada_main_timing": "REPORTED_SEPARATELY_S7; compiled numerical route differs from the quality-evaluation route"
+  },
+  "FigureS1_complete_comparison_before_unified_20261103": {
     "inputs": [
       "inputs/v9_package/inputs/e1_summary.csv",
       "inputs/v9_package/inputs/e2_summary.csv",
@@ -636,51 +1011,7 @@
     "command": "python scripts/draw_figure2_1x4.py --include-arpc --stem figure2_complete_with_arpc --no-aliases",
     "placement": "Supplement S2, Figure S1"
   },
-  "TableI_before_timing_fairness_20261102": {
-    "inputs": [
-      "tables/table_i.csv",
-      "inputs/v9_package/derived/granularity_quality_cost.csv"
-    ],
-    "population": "A common500; B control100 quality/timing32 cost; C control100 same prefixes",
-    "pins": [
-      {
-        "path": "tables/table_i.csv",
-        "sha256": "87f2ab38f3a18fa20e6d2a0b677e259931856b0849ca6978d23db0afbe88f263",
-        "bytes": 2115
-      },
-      {
-        "path": "inputs/v9_package/derived/granularity_quality_cost.csv",
-        "sha256": "4d2c4ae80380397c9f8a7379475186a636bb6f623c2308b09890a19d0aa77d12",
-        "bytes": 1026
-      }
-    ],
-    "inherited_source_commit": "dde679637b30f1166bc540d4c7b6fa91fe457e8c"
-  },
-  "TableII_before_timing_fairness_20261102": {
-    "inputs": [
-      "tables/table_ii.csv",
-      "inputs/e5/timing_summary.csv"
-    ],
-    "population": "common500 N1024/10 quality and timing32 processing",
-    "pins": [
-      {
-        "path": "tables/table_ii.csv",
-        "sha256": "2d732c70ff8555972f3b20ec0a62b6924294cfe55e295d932ac3deda0de1514b",
-        "bytes": 989
-      },
-      {
-        "path": "inputs/e5/timing_summary.csv",
-        "sha256": "10143d3e13a8536f8a2c8f15bf2e63d8f1d994d1258ee301bfb4f19f13ff65d1",
-        "bytes": 6251
-      }
-    ],
-    "inherited_source_commit": "dde679637b30f1166bc540d4c7b6fa91fe457e8c",
-    "source_records": 7,
-    "displayed_records": 6,
-    "display_filter": "Exclude ARPC row from main table only; full quality and timing results remain in Supplement S2/S7.",
-    "revision_base": "99015482bafb11a3a65d9ab4a72a22a6210da3eb"
-  },
-  "Ada_compiled_prefill_timing": {
+  "Ada_compiled_prefill_timing_before_unified_20261103": {
     "inputs": [
       "inputs/ada_compiled_prefill_20261103/summary.csv",
       "inputs/ada_compiled_prefill_20261103/actual_compute_and_reuse.json"
@@ -689,5 +1020,37 @@
     "location": "Main processing paragraph and SupplementS7",
     "main_quality_table_cells": "WITHHELD; this separately qualified numerical route differs from quality-evaluation route",
     "source_bank": "inputs/ada_compiled_prefill_20261103/statistics_identity.json"
+  },
+  "TableIV": {
+    "revision_base": "64577982715bfbbf0d5020f65c7c5bb5d08fa9df",
+    "inputs": [
+      "tables/table_iv.csv",
+      "tables/table_iv.tex",
+      "inputs/unified_calibration_20261103/frozen_policies.json",
+      "inputs/unified_calibration_20261103/historical_n512_policies.json"
+    ],
+    "pins": [
+      {
+        "path": "tables/table_iv.csv",
+        "sha256": "c0c20e1786477f3e186988ae8df221bedc7c1d7f8969a019b1330598584e9674",
+        "bytes": 391
+      },
+      {
+        "path": "tables/table_iv.tex",
+        "sha256": "c00b0521aa408b31776544a781e6b01c77ddc5704f6dc736251bf80c31ce60db",
+        "bytes": 867
+      },
+      {
+        "path": "inputs/unified_calibration_20261103/frozen_policies.json",
+        "sha256": "e3cdc5a975104be3945c2f42d992f135c8b0fc2453b3f54a4962bbf08af60c14",
+        "bytes": 7042
+      },
+      {
+        "path": "inputs/unified_calibration_20261103/historical_n512_policies.json",
+        "sha256": "dac20e371b1086be105d9c8234bcbc9a97416bc5d4cae954600c9efa310f7605",
+        "bytes": 5313
+      }
+    ],
+    "population": "NewN1024fourSNR and unchangedN512threeSNR; MCS and target ceilings"
   }
 }

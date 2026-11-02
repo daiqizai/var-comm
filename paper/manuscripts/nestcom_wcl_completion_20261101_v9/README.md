@@ -1,3 +1,11 @@
+# 当前交付：统一校准与补证据（2026-11-03）
+
+统一N1024校准与18,000正式帧、N512严格匹配粒度、快速Ada32源质量、算术码长检查均实际闭合。新主结果、全部不利发现、完整候选表及紧凑策略表已接入。当前双栏/单栏/Word/补充为 **5/15/16/35页**，摘要91词；71页已逐页渲染并打开检查。
+
+[双栏PDF](manuscript_doublecolumn.pdf) · [单栏PDF](manuscript_singlecolumn.pdf) · [可编辑Word](manuscript_review.docx) · [补充材料](supplementary.pdf) · [本轮结果与边界](UNIFIED_CALIBRATION_20261103.md) · [验收入口](validation/current_revision.json)。Fig.1用户原字节不变；Fig.2主84/补92点，Fig.3固定两源并更新相同第一重复。下方全部为历史修订记录，其页数、策略、数字与PASS不适用于本轮。
+
+--- Historical record / 历史记录 ---
+
 # 当前：Ada合理实现计时与V9交付
 
 32源新编译收发已实际闭合，TX 114.55 ms、RX 2949.76 ms。旧串行开销不作Ada方法成本；新数值实现与旧质量分开报告。双栏/单栏/Word/补充 **5/15/15/30** 页，当前页面验收已完成。[修订说明](TIMING_PREFILL_20261103.md)。以下为历史状态。

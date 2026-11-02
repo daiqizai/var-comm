@@ -51,7 +51,7 @@ def plain_caption(text):
 
 
 def table_spec(tex, number):
-    marker = 'NESTNATIVETABLE' + ('ONE', 'TWO', 'THREE')[number - 1]
+    marker = 'NESTNATIVETABLE' + ('ONE', 'TWO', 'THREE','FOUR')[number - 1]
     cap_start = tex.index(r'\caption') + len(r'\caption')
     caption, _ = braced_argument(tex, cap_start)
     note = ''
@@ -91,7 +91,7 @@ def data_rows(number, rows):
     labels={'final_NeST':'NeST-Com','WHOLE_final_receiver':'WHOLE','Ada_frozen':'Ada-TokenCom','Latent_JSCC':'Latent JSCC','SwinJSCC':'SwinJSCC','BPG_LDPC':'BPG + LDPC','ARPC':'ARPC + LDPC'}
     if number==1:
         assert len(rows)==10
-        yield 'group',['(A) 500 sources, N = 1024, family-specific policies']
+        yield 'group',['(A) 500 sources, N = 1024, uniformly calibrated policies']
         yield 'header',['SNR','Util. W→N (%)','ΔDISTS [95% CI]','ΔDreamSim [95% CI]']
         for s in [4,7,10,19]:
             r=unique(rows,block='A',snr_db=s)
@@ -108,12 +108,12 @@ def data_rows(number, rows):
             yield 'data',[c+'−'+b]+[pair(r[m+'_mean_delta'],r[m+'_ci95_low'],r[m+'_ci95_high'],3 if m=='psnr_db'else 4)for m in ['psnr_db','dists','dreamsim']]
     elif number==2:
         assert len(rows)==7
-        yield 'header',['Method','PSNR↑ (dB)','LPIPS↓','CLIP-I↑','TX (ms)','RX (ms)']
+        yield 'header',['Method','PSNR↑ (dB)','LPIPS↓','CLIP-I↑']
         for r in rows:
             # Preserve the seven-row input; report the ARPC adaptation in the supplement.
             if r['method']=='ARPC':
                 continue
-            yield 'data',[labels[r['method']],f"{float(r['psnr_db']):.2f}",f"{float(r['lpips_alex']):.3f}",f"{float(r['clip_image_cosine']):.3f}"]+[f"{float(r[k]):.1f}"if r[k]else'—'for k in ['tx_ms','rx_ms']]
+            yield 'data',[labels[r['method']],f"{float(r['psnr_db']):.2f}",f"{float(r['lpips_alex']):.3f}",f"{float(r['clip_image_cosine']):.3f}"]
     elif number==3:
         assert len(rows)==9
         yield 'header',['SNR / method','PSNR↑ (dB)','DISTS↓','DreamSim↓']
@@ -124,6 +124,13 @@ def data_rows(number, rows):
             # Same direct paired source as the TeX row, not a marginal subtraction.
             q=unique(read_csv(Path(__file__).resolve().parents[1]/'inputs/e1/paired_deltas.csv'),N=512,snr_db=s,candidate='final_NeST',reference='WHOLE_final_receiver',metric='psnr_db')
             yield 'group',[f"NeST−WHOLE ΔPSNR: {float(q['mean_delta']):+.3f} [{float(q['ci95_low']):.3f}, {float(q['ci95_high']):.3f}] dB"]
+    elif number==4:
+        assert len(rows)==7
+        yield 'header',['N / SNR','WHOLE MCS','WHOLE ceiling','NeST MCS','NeST ceiling','Ada MCS']
+        for r in rows:
+            a=lambda k:r[k+'_q']+','+r[k+'_rate']
+            e=lambda k:'('+r[k+'_m']+','+r[k+'_K']+')'
+            yield 'data',[r['N']+'/'+r['snr_db'],a('whole'),e('whole'),a('nest'),e('nest'),a('ada')]
     else:raise ValueError(number)
 
 
@@ -165,11 +172,11 @@ def fill_cell(cell, text, *, kind, left=False):
 
 def insert_csv_tables(document, manuscript, specs):
     records = []
-    widths_by_number = {1: [0.85, 1.35, 1.6, 1.7, 1.0], 2: [1.5, 1, 1, 1, 1, 1], 3: [1.9, 1.3, 1.65, 1.65]}
-    assert len(specs) == 3
+    widths_by_number = {1: [0.85, 1.35, 1.6, 1.7, 1.0], 2: [1.9, 1.55, 1.5, 1.55], 3: [1.9, 1.3, 1.65, 1.65],4:[0.8,1.0,1.1,1.0,1.1,1.5]}
+    assert len(specs) == 4
     for spec in specs:
         number = spec['number']
-        source = Path(manuscript) / 'tables' / ('table_' + ('i', 'ii', 'iii')[number - 1] + '.csv')
+        source = Path(manuscript) / 'tables' / ('table_' + ('i', 'ii', 'iii','iv')[number - 1] + '.csv')
         values = read_csv(source)
         content = list(data_rows(number, values))
         if number==1: content=[(kind, texts+['']*(5-len(texts)) if kind!='group' else texts) for kind,texts in content]
@@ -184,7 +191,7 @@ def insert_csv_tables(document, manuscript, specs):
         anchor.addprevious(caption._p)
 
         widths = widths_by_number[number]
-        assert sum(widths) == 6.5
+        assert abs(sum(widths)-6.5)<1e-9
         table = document.add_table(rows=0, cols=len(widths))
         table.alignment = WD_TABLE_ALIGNMENT.CENTER
         table.autofit = False
@@ -206,6 +213,8 @@ def insert_csv_tables(document, manuscript, specs):
             row = table.add_row()
             row_props = row._tr.get_or_add_trPr()
             row_props.append(OxmlElement('w:cantSplit'))
+            if kind == 'header' and number in (2, 3, 4):
+                row_props.append(OxmlElement('w:tblHeader'))
             for cell, width in zip(row.cells, widths):
                 cell.width = Inches(width)
             if kind == 'group':
@@ -252,5 +261,5 @@ def insert_csv_tables(document, manuscript, specs):
                             word_columns=len(table.columns), width_inches=sum(widths),
                             caption=spec['caption'], note=spec['note'],
                             cells=[dict(kind=kind, text=texts) for kind, texts in content]))
-    assert len(document.tables) == 3
+    assert len(document.tables) == 4
     return records

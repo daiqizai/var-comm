@@ -1,0 +1,25 @@
+# Complete: unified calibration and bounded evidence, 2026-11-03
+
+All scientific workers and both continuation controllers have real final waits; no stage remains runnable in this completed study. See `results/nestcom_unified_calibration_20261103_v1/FINAL_REPORT_zh.md`, `resource_ledger.json` and `scientific_closure_audit.json`. Main formal18,000frames, low-budget1200logical positions, compiled32quality and encoder audit are closed. **Do not rerun the launchers**: the registrations, caches and successful calls are immutable provenance.
+
+Reproduction entry points are `study_common.py` for protocol/model/cache identity, `calibration_plan_v3.py`/`calibration_chain.py` for finite candidate flow, `cal_phy_worker_v2.py` and `calibration_receivers.py` for independent PHY/RX, `calibration_scoring.py`/`calibration_finish.py` for frozen objective and source-paired statistics, and the named low/compiled/audit scripts for their separate controls. A new reproduction needs a separate authorized output root and registration; existing completion paths must never be reset. Public predeclared method/MCS directories preserve the12-bit header. `final_audit.py` is the preserved failed20-row schema; `final_audit_v2.py` validates20quality+12capacity rows without new science.
+
+Figures/Word/TeX can be rebuilt from the current V9 pinned small inputs with `scripts/update_unified_inputs.py`, `scripts/audit_unified_inputs.py`, `scripts/draw_figure2_1x4.py`, `scripts/draw_figure3.py`, `scripts/build_supplement_v9.py`, `scripts/build_word.py`, and the existing latexmk workflow. Rendering dependencies are separate from registered scientific environments. All raw arrays, native receiver outputs and logs stay in PFS. Normal repository verification and publication are recorded in the V9 current revision. Historical launch-time description follows.
+
+---
+
+# Unified calibration and bounded evidence update, 2026-11-03
+
+This study follows the user's four requested gaps: common N1024 calibration, a strictly matched N512/10 granularity control, quality for the qualified compiled Ada implementation, and an arithmetic-fitting/scan-cost audit. The baseline repository is main commit `64577982715bfbbf0d5020f65c7c5bb5d08fa9df`. No model training or stopped research branch is resumed.
+
+The immutable protocol lives at `results/nestcom_unified_calibration_20261103_v1/protocol.json`. The authorized profile resolution keeps the 68-symbol, 12-bit protected header: public method/MCS-specific endpoint directories are frozen before evaluation and constant across source images. Final policies select those already declared directories. The receiver still recovers the actual endpoint from the received profile, with no hidden source-specific directory.
+
+WHOLE, Token NeST and original sequential Ada share 12 MCS candidates, calibration images, DINO objective, gray-failure inclusion, pilot100 one-noise screening, and top-three plus a fixed robust anchor followed by cal1000 three-noise confirmation. The finite NeST target-ceiling search has 25 predeclared Quarter ceilings, with all 651 Token fallback positions underneath. WHOLE has seven complete-scale ceilings; Ada has a 256-token ceiling with all individual token endpoints. This does not claim exhaustive optimization over 651 target ceilings. Common500 is evaluated only after policy freezing; changed wire identities require actual new frames even when source coding is reused.
+
+The current first-only continuation is `calibration_chain.py`. It attaches to the already launched pilot PHY and owns all subsequent stages through formal five-metric source-paired statistics. Each scientific worker has its own immutable registration, PID/start identity, actual child wait, failure and ledger. Never launch a second chain or repeat a completed call. The original failed preparation/import variants remain available as provenance; they are not current entry points.
+
+The N512 control is complete in `results/nestcom_unified_calibration_20261103_v1/low_budget/`. The 32-source compiled Ada diagnostic is complete in `compiled32/`: it includes the exact timed output and a fixed-old-seed control, since changed bitstreams also change the deterministic generation seed. The main calibration implementation was fixed before this diagnostic and remains the original quality route. No new timing is performed.
+
+`encoder_audit.py` checks the SHA-bound original integer coder and existing native stream arrays. It separates independent termination, incremental source traversal and final length comparison. Optimizing the search and new timing are optional and not run in this study.
+
+Logs, arrays, checkpoint paths and caches remain in the shared PFS study root; only code, configuration and lightweight deliverables belong in Git. Idle controllers are accounted separately from scientific worker CPU/device time. All resource caps and the absolute deadline are inherited from the immutable new-study protocol, never reset at a stage boundary. Manuscript delivery and normal main publication are pending until actual scientific closure and review.

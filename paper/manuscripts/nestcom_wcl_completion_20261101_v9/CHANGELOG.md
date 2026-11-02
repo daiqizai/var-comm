@@ -1,3 +1,9 @@
+# 2026-11-03 — unified calibration and bounded evidence
+
+Replaced the three N1024 token-system policies/results after common12-MCS two-stage calibration; updated24Fig.2 rows,6Fig.3 display images and TableI(A)/II. Added TableIV, explicit fitting pseudocode/rounding/scan costs, N512matched-grid five-metric evidence, compiled32quality paired to its own timing, and encoder termination/monotonicity audit. Preserved Fig.1 bytes, selected source identities, historical N512/equal-bit/Kodak/mechanism/threshold/timing evidence and all failed variants. Final artifacts5/15/16/35pages;71pages actually inspected. No training, optional search optimization or new timing.
+
+--- Historical record / 历史记录 ---
+
 ## 2026-11-03：合理Ada实现完成
 
 单次条件prefill TX及匹配因果prefill RX经独立算术恢复验证并完成32源正式计时。成功资格复用，环境失败保留；正文/S7同步新时间，旧质量/图源不变，重新编译与实际页面验收。

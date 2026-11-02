@@ -12,7 +12,7 @@
 Implementation recipe, complete results, paired statistics and source examples. Numerical tables use the same frozen CSV sources as the main manuscript.
 
 \section{Reproduction configuration}
-NeST-Com transmits source-token prefixes from a shared, frozen next-scale representation. The complete machine-readable configuration, candidate pools, PHY layouts, model manifest and reference vectors are supplied in \path{inputs/reproduction/}. The repository entry \path{experiments/nestcom-v9-completion-20261101/verify_cdf_ac.py} replays the integer coding checks on CPU; \texttt{verify\_assets.py} resolves an external asset directory and checks file identities. No private server path is required for those verification commands.
+NeST-Com transmits source-token prefixes from a shared, frozen next-scale representation. The historical frame layouts, model manifest and reference vectors are supplied in \path{inputs/reproduction/}. The repository entry \path{experiments/nestcom-v9-completion-20261101/verify_cdf_ac.py} replays the integer coding checks on CPU; \texttt{verify\_assets.py} resolves an external asset directory and checks file identities. No private server path is required for those verification commands.
 
 \subsection{Representation, models and numerical route}
 The tokenizer has a 4096-entry codebook and ten maps of side lengths $(1,2,3,4,5,6,8,10,13,16)$. The VAR-d16 prior uses null class 1000 and greedy prediction, without CFG. Complete coarse maps determine every position's probability in the next map. Both terminals use those known maps; no unreceived same-scale token enters the receiver's entropy context.
@@ -69,25 +69,84 @@ $N$ & $q$ & $r$ & $k$ & $n$ & BG & $Z$ & Filler & Punctured\\\midrule\endhead
 1024 & 6 & 5/6 & 4780 & 5736 & bg1 & 224 & 148 & 9348\\
 \bottomrule\end{longtable}
 
-Profile CRC/catalogue, body CRC, invalid length, known padding or arithmetic canonical failures produce fixed gray RGB 0.5. A valid paid-NULL also produces gray, while preserving its full transmitted header/body and statistical denominator. The current N1024 directory retains all 3378 original profiles and reuses five existing NULL IDs; seven missing MCS-specific NULLs occupy free IDs 3390--3396. Each carries payload [0,0]. The 33-check CPU regression performed 21 real header decodes and 20 body decodes, including every MCS no-fit path, exact capacity, one-bit excess, legal fallbacks, normal-path bit/wave equality and malformed packets. No no-fit event occurred in the reported quality evaluations.
+Profile CRC/catalogue, body CRC, invalid length, known padding or arithmetic canonical failures produce fixed gray RGB 0.5. A valid paid-NULL also produces gray, while preserving its full transmitted header/body and statistical denominator. For the current N1024 calibration, each method/MCS uses a public directory fixed before the pilot and shared across all target ceilings and source images. WHOLE has seven source profiles, NeST 651 and Ada 256, plus one paid-NULL profile in each directory. Thus every ID fits in 12 bits without changing the 68-symbol header. The method and frozen policy directory are common protocol context; neither depends on the source. The receiver obtains the actual endpoint from the received profile, not from a transmitter witness. Directory qualification performs two real complete-frame checks per directory (source and NULL), totaling 72 frames and 144 header/body decodes. The original 3378-profile directory and its added NULL entries remain the identified context of historical controls.
 
 \subsection{Candidate pools and calibration}
-The requested MCS grid is $q\in\{2,4,6\}$, $r\in\{1/2,2/3,3/4,5/6\}$. The \texttt{candidate\_pool.csv} records the NeST-family pools, all N512 families and the N1024 7-dB candidates, including target, MCS, capacity, admitted status, screening/final qualification, winner, objective, tie rule and registration source. N512 screens 396 candidates: 25 Quarter targets$\times12$, seven WHOLE targets$\times12$ and Ada's maximum 256$\times12$. Each candidate uses 100 calibration sources and one channel event. Per family/SNR, the top three plus the predefined maximum-endpoint $q2,r1/2$ anchor enter cal1000 with three events per source. Selection maximizes equal-source DINOv2-L cosine including gray failures; ties use lexical candidate ID.
+At N1024, all three token families use the same 12 MCSs, $q\in\{2,4,6\}$ and $r\in\{1/2,2/3,3/4,5/6\}$. WHOLE has seven complete-scale target ceilings. NeST searches the 25 Quarter target ceilings and permits every integer endpoint up to each target. Ada has the maximum target of 256 and permits every shorter positive prefix. This gives 84/300/12 candidates for WHOLE/NeST/Ada, respectively. Equal MCS and selection rules do not mean identical endpoint grammars. NeST's search is finite over 25 ceilings, not an exhaustive search over all 651 possible ceilings.
 
-The NeST-family N1024 policies at 4/10/19 dB use the actual inherited finalists plus the prescribed full-$m=10$ candidates; ties prefer legacy candidates and then lexical ID. At 7 dB the five MCSs are $(2,2/3),\allowbreak(2,3/4),\allowbreak(2,5/6),\allowbreak(4,1/2),\allowbreak(4,2/3)$, on 100 calibration sources with one event; ties follow declaration order. Token retains the selected family target/MCS and enlarges fallback endpoints only. Equal-bit controls instead share ceiling $(10,0)$; the matched-granularity control shares $(8,126)$. These are separate comparisons.
+Each candidate uses the same fixed 100 calibration sources with one channel realization (seed 4101) at 4/7/10/19 dB. Per family/SNR, the top three plus the predetermined maximum-ceiling QPSK rate-1/2 anchor advance, with duplicate candidate IDs removed. Final confirmation uses all 1000 calibration sources and three realizations (4101/4102/4103). Source-level means of DINOv2-L cosine include every gray failure and paid NULL; their equal-weight mean is maximized. Ties use a fixed lexical candidate-ID order. Identical actual streams or receiver inputs may be reused after full identity checks while all candidate logical positions remain in the denominator. The original serial Ada quality implementation, FP32/TF32-off configuration, CFG 4, T1, top-k 2000 and top-p 1 are fixed before evaluation.
 
-For Ada at $N=1024$, the two $(q,r)$ candidates at 4/10/19 dB are $\{(2,1/2),(2,2/3)\}$, $\{(4,2/3),(4,3/4)\}$ and $\{(4,2/3),(6,5/6)\}$, respectively. Selection on cal1000 with three events per source freezes $(2,2/3)$, $(4,2/3)$ and $(6,5/6)$; it maximizes equal-source DINOv2-L cosine with lexical candidate-ID ties. The six scores and frozen policies are copied unchanged to \path{inputs/reproduction/ada_n1024_calibration/} as \texttt{candidate\_summary.csv} and \texttt{frozen\_policies.json}.
-\begin{longtable}{@{}lrrrrrr@{}}\toprule
-$N$ & SNR & NeST target & WHOLE target & Modulation & Rate & Source cap.\\\midrule\endhead
-1024 & 4 & (7,25) & (7,0) & 4-QAM & 2/3 & 1245\\
-1024 & 7 & (10,0) & (10,0) & 16-QAM & 1/2 & 1883\\
-1024 & 10 & (8,126) & (9,0) & 16-QAM & 2/3 & 2520\\
-1024 & 19 & (10,0) & (10,0) & 64-QAM & 5/6 & 4751\\
-512 & 4 & (5,27) & (6,0) & 4-QAM & 2/3 & 563\\
-512 & 10 & (7,0) & (7,0) & 16-QAM & 2/3 & 1155\\
-512 & 19 & (8,84) & (8,0) & 64-QAM & 5/6 & 2191\\
+The complete 1584 pilot candidate/SNR scores and all confirmation scores, with the public directory and policy hashes, are in \path{inputs/unified_calibration_20261103/}. No common500 result participates in policy selection. Frozen policies are then evaluated on 500 sources, three actual channel realizations per source (6201/6202/6203), yielding 18000 logical events. The original N512 calibration and its inherited Token refinement remain unchanged; the new matched N512 diagnostic below instead holds every factor except the termination grid fixed. Kodak, threshold and historical receiver diagnostics retain their specifically identified earlier policies.
+
+The pilot contributes 158400 logical positions; confirmation contributes 141000. The confirmation candidate scores are:
+
+\begin{longtable}{@{}lrrlrr@{}}\toprule
+Method & SNR & $(q,r)$ & Ceiling & DINO cosine & Reject/NULL\\\midrule\endhead
+Ada & 4 & 2,1/2 & (256, 0) & 0.634400 & 0\\
+Ada & 4 & 2,2/3 & (256, 0) & 0.692317 & 0\\
+Ada & 4 & 2,3/4 & (256, 0) & 0.370409 & 1419\\
+Ada & 7 & 2,1/2 & (256, 0) & 0.634400 & 0\\
+Ada & 7 & 2,3/4 & (256, 0) & 0.714878 & 0\\
+Ada & 7 & 2,5/6 & (256, 0) & 0.733142 & 0\\
+Ada & 7 & 4,1/2 & (256, 0) & 0.769299 & 19\\
+Ada & 10 & 2,1/2 & (256, 0) & 0.634400 & 0\\
+Ada & 10 & 2,5/6 & (256, 0) & 0.733142 & 0\\
+Ada & 10 & 4,1/2 & (256, 0) & 0.774469 & 0\\
+Ada & 10 & 4,2/3 & (256, 0) & 0.821026 & 0\\
+Ada & 19 & 2,1/2 & (256, 0) & 0.634400 & 0\\
+Ada & 19 & 4,3/4 & (256, 0) & 0.831706 & 0\\
+Ada & 19 & 4,5/6 & (256, 0) & 0.833040 & 0\\
+Ada & 19 & 6,1/2 & (256, 0) & 0.831706 & 0\\
+NeST & 4 & 2,1/2 & (10, 0) & 0.519671 & 0\\
+NeST & 4 & 2,2/3 & (7, 0) & 0.586780 & 1\\
+NeST & 4 & 2,2/3 & (7, 25) & 0.586834 & 1\\
+NeST & 4 & 2,2/3 & (7, 50) & 0.586762 & 1\\
+NeST & 7 & 2,1/2 & (10, 0) & 0.519671 & 0\\
+NeST & 7 & 4,1/2 & (8, 0) & 0.681640 & 11\\
+NeST & 7 & 4,1/2 & (8, 42) & 0.681628 & 11\\
+NeST & 7 & 4,1/2 & (8, 84) & 0.681593 & 11\\
+NeST & 10 & 2,1/2 & (10, 0) & 0.519671 & 0\\
+NeST & 10 & 4,2/3 & (8, 126) & 0.754650 & 0\\
+NeST & 10 & 4,2/3 & (9, 0) & 0.754644 & 0\\
+NeST & 10 & 4,2/3 & (9, 64) & 0.754644 & 0\\
+NeST & 19 & 2,1/2 & (10, 0) & 0.519671 & 0\\
+NeST & 19 & 6,5/6 & (9, 128) & 0.829878 & 0\\
+NeST & 19 & 6,5/6 & (9, 192) & 0.830402 & 0\\
+NeST & 19 & 6,5/6 & (10, 0) & 0.830665 & 0\\
+WHOLE & 4 & 2,1/2 & (10, 0) & 0.456579 & 0\\
+WHOLE & 4 & 2,2/3 & (7, 0) & 0.518464 & 3\\
+WHOLE & 4 & 2,2/3 & (8, 0) & 0.518464 & 3\\
+WHOLE & 4 & 2,2/3 & (9, 0) & 0.518464 & 3\\
+WHOLE & 7 & 2,1/2 & (10, 0) & 0.456579 & 0\\
+WHOLE & 7 & 4,1/2 & (8, 0) & 0.648546 & 20\\
+WHOLE & 7 & 4,1/2 & (9, 0) & 0.648546 & 20\\
+WHOLE & 7 & 4,1/2 & (10, 0) & 0.648546 & 20\\
+WHOLE & 10 & 2,1/2 & (10, 0) & 0.456579 & 0\\
+WHOLE & 10 & 4,2/3 & (8, 0) & 0.690426 & 0\\
+WHOLE & 10 & 4,2/3 & (9, 0) & 0.690438 & 0\\
+WHOLE & 10 & 4,2/3 & (10, 0) & 0.690438 & 0\\
+WHOLE & 19 & 2,1/2 & (10, 0) & 0.456579 & 0\\
+WHOLE & 19 & 6,3/4 & (9, 0) & 0.804964 & 0\\
+WHOLE & 19 & 6,5/6 & (9, 0) & 0.819002 & 0\\
+WHOLE & 19 & 6,5/6 & (10, 0) & 0.819316 & 0\\
 \bottomrule\end{longtable}
-Source capacity excludes the body length/CRC but is not total air-interface efficiency. Ada can saturate its full 256-token representation and leave capacity unused. Budgets have independently calibrated pools. DINOv2 is the policy objective; DISTS/DreamSim are source-reference evaluation measures, not human judgments. DISTS uses the official revision \texttt{1267d8cb626c98706db3697422701c56a85ebf2e}, learned alpha/beta and VGG16 weights, FP32 evaluation on native 256 RGB. DreamSim/CLIP use 224 bicubic-antialias; metric identities pin exact weights and dependencies. CLIP2.10 features are not mixed with 2.11 caches.
+DINOv2 is the policy objective. DISTS, DreamSim and CLIP-I are feature-based source-reference measures; their agreement is not independent human perceptual validation. Source-capacity utilization excludes paid body fields and is not total air-interface efficiency. Ada may transmit all 256 tokens and leave capacity unused. N512 and N1024 are separately calibrated systems, not a budget-only causal intervention.
+
+\subsection{Actual-length fitting and scan accounting}
+For each complete scale, the prior evaluates the probability map from known coarser maps. Raster tokens enter one shared incremental arithmetic encoder. At every allowed endpoint, a non-mutating finish produces a separate terminated stream. The current measured path is:
+\begin{enumerate}
+\item Fix MCS, public directory, legal endpoint grid and calibrated ceiling. Order endpoints by retained token count.
+\item Traverse source tokens once, sharing probability evaluation and incremental coding. At each allowed endpoint copy its independently terminated bits without changing encoder state.
+\item Compare every allowed candidate's actual length with the source capacity. For NeST/WHOLE require $b+29\le k$; Ada additionally pays its 10-bit class.
+\item Select the most-token feasible endpoint below the ceiling. Transmit its entire terminated stream and paid profile; if none fits, transmit the paid NULL frame.
+\item Recover the profile and then independently decode the corresponding body. Rejected/NULL images remain gray in every metric denominator.
+\end{enumerate}
+For Quarter/Eighth, boundary counts are $\lfloor jL/d\rfloor$, $j=1,\ldots,d-1$, $d=4/8$, with duplicates removed and complete boundaries included. Token includes every integer boundary count. No partial stream is obtained by cutting a longer finalized stream.
+
+Let $E$ be emitted bits and $P$ pending underflow bits. The original coder's finalization yields $b=E+P+2$. Every E1/E2 renormalization emits $P+1$ bits and clears $P$, and every E3 increments $P$; each raises $E+P$ by one. A token's interval update alone leaves it unchanged. Thus independently terminated lengths along this shared path are nondecreasing, with possible ties. We checked the exact original integer coder on 512 synthetic prefixes, and 976500 existing streams from cal1000/common500 with all 975000 adjacent length relations. Array hashes, non-mutating finish and canonical roundtrips pass; no image or PHY was rerun for this audit.
+
+The timed code still generates and scans all allowed candidates. Its historical \texttt{length\_checks} field is the first feasible rank, not the list comprehension's full comparison count. Candidate comparisons are not extra prior forwards. Monotonic lookup or early stopping could reduce work but is not implemented or retimed here; no such speedup is attributed to the reported timings.
+
 
 \subsection{Reference vectors and verification}
 Six deterministic CPU probability cases and six independently terminated prefixes verify positive integer frequencies, total frequency, first-index ties, non-mutating finalization, independent decoding, exact 30-bit extension and rejection of noncanonical appended bits. Run from the repository root:
@@ -108,376 +167,488 @@ The whole reference uses one explicitly counted receiver diagnostic without a ne
 Common500 uses its original 10\,000$\times500$ source-bootstrap bank; controls use a separately ordered 10\,000$\times100$ bank. Kodak uses the existing 10\,000$\times24$ bank. Each source first averages its three events, then receives equal weight; paired differences precede resampling. Full source IDs, pixel hashes and native receiver identities control reuse. No simultaneous multiplicity-adjusted interval claim is made.
 
 \section{Complete quality results}
-ARPC + LDPC applies our common digital frame to the ARPC progressive source
-codec. Its transmitted caption and other required fields are charged to the
-frame budget. Fig.~\ref{fig:complete_comparison} reports this additional comparison
-alongside the methods in the main Fig.~2. This section gives the complete
-quality results; S7 reports processing costs for the same adaptation.
-\begin{figure}[htbp]
-\centering\includegraphics[width=\linewidth]{figures/figure2_complete_with_arpc.pdf}
-\caption{Complete comparison, including the digital-link adaptation of the ARPC
-source codec. Panels (a,b) retain all seven methods at $N=1024$ and 4/7/10/19 dB;
-panels (c,d) retain all six equal-information budgets for NeST-Com, WHOLE and Ada.
-The 92 points and error bars are equal-source means and pointwise 95\%
-source-bootstrap intervals after within-source averaging. Ada is the
-predicted-class, fixed-frame adaptation.}
-\label{fig:complete_comparison}
-\end{figure}
-
-\subsection{Five-metric source means}
-All means retain failures. Pointwise intervals and direct paired intervals are provided in the full-precision CSVs; the compact table reports means.
-
-\begin{longtable}{@{}lrrrrrrr@{}}\toprule
-$N$ & SNR & Method & PSNR$\uparrow$ & LPIPS$\downarrow$ & DreamSim$\downarrow$ & CLIP-I$\uparrow$ & DISTS$\downarrow$\\\midrule\endhead
-512 & 4 & Ada & 11.318 & 0.5542 & 0.3847 & 0.7892 & 0.2996\\
-512 & 4 & WHOLE & 15.107 & 0.3951 & 0.3247 & 0.7469 & 0.2580\\
-512 & 4 & NeST & 15.611 & 0.3565 & 0.2740 & 0.7691 & 0.2363\\
-512 & 4 & Quarter & 15.499 & 0.3652 & 0.2819 & 0.7657 & 0.2406\\
-512 & 10 & Ada & 13.165 & 0.4110 & 0.2582 & 0.8257 & 0.2367\\
-512 & 10 & WHOLE & 16.821 & 0.2881 & 0.2049 & 0.8074 & 0.2030\\
-512 & 10 & NeST & 17.413 & 0.2650 & 0.1837 & 0.8211 & 0.1922\\
-512 & 10 & Quarter & 17.220 & 0.2726 & 0.1922 & 0.8150 & 0.1958\\
-512 & 19 & Ada & 17.690 & 0.2146 & 0.1078 & 0.8723 & 0.1496\\
-512 & 19 & WHOLE & 18.638 & 0.2175 & 0.1458 & 0.8484 & 0.1718\\
-512 & 19 & NeST & 19.632 & 0.1832 & 0.1150 & 0.8689 & 0.1554\\
-512 & 19 & Quarter & 19.430 & 0.1901 & 0.1217 & 0.8640 & 0.1587\\
-1024 & 4 & ARPC & 14.184 & 0.5124 & 0.5010 & 0.6442 & 0.3436\\
-1024 & 4 & Ada & 13.332 & 0.3952 & 0.2431 & 0.8280 & 0.2300\\
-1024 & 4 & BPG & 20.743 & 0.7255 & 0.5737 & 0.5859 & 0.4022\\
-1024 & 4 & Latent & 19.658 & 0.2188 & 0.2317 & 0.7408 & 0.2218\\
-1024 & 4 & Swin & 21.671 & 0.5297 & 0.4359 & 0.6267 & 0.3488\\
-1024 & 4 & WHOLE & 16.832 & 0.2878 & 0.2046 & 0.8077 & 0.2028\\
-1024 & 4 & NeST & 17.654 & 0.2549 & 0.1743 & 0.8271 & 0.1882\\
-1024 & 4 & Quarter & 17.448 & 0.2633 & 0.1839 & 0.8206 & 0.1916\\
-1024 & 7 & ARPC & 14.759 & 0.4809 & 0.4751 & 0.6508 & 0.3287\\
-1024 & 7 & Ada & 15.905 & 0.2698 & 0.1408 & 0.8592 & 0.1766\\
-1024 & 7 & BPG & 21.717 & 0.6500 & 0.4788 & 0.6150 & 0.3676\\
-1024 & 7 & Latent & 20.369 & 0.1893 & 0.1912 & 0.7717 & 0.2070\\
-1024 & 7 & Swin & 22.475 & 0.4933 & 0.3887 & 0.6505 & 0.3336\\
-1024 & 7 & WHOLE & 18.528 & 0.2228 & 0.1507 & 0.8460 & 0.1756\\
-1024 & 7 & NeST & 18.981 & 0.2085 & 0.1399 & 0.8539 & 0.1696\\
-1024 & 7 & Quarter & 18.850 & 0.2114 & 0.1420 & 0.8507 & 0.1699\\
-1024 & 10 & ARPC & 16.471 & 0.3413 & 0.3062 & 0.7134 & 0.2278\\
-1024 & 10 & Ada & 19.559 & 0.1674 & 0.0871 & 0.8841 & 0.1275\\
-1024 & 10 & BPG & 22.543 & 0.5894 & 0.4165 & 0.6350 & 0.3409\\
-1024 & 10 & Latent & 20.803 & 0.1733 & 0.1712 & 0.7892 & 0.1986\\
-1024 & 10 & Swin & 23.026 & 0.4687 & 0.3564 & 0.6691 & 0.3224\\
-1024 & 10 & WHOLE & 19.313 & 0.1987 & 0.1317 & 0.8577 & 0.1621\\
-1024 & 10 & NeST & 20.194 & 0.1658 & 0.1048 & 0.8769 & 0.1481\\
-1024 & 10 & Quarter & 20.014 & 0.1715 & 0.1077 & 0.8731 & 0.1504\\
-1024 & 19 & ARPC & 18.199 & 0.2503 & 0.1952 & 0.7880 & 0.1812\\
-1024 & 19 & Ada & 20.938 & 0.1376 & 0.0762 & 0.8925 & 0.1136\\
-1024 & 19 & BPG & 24.230 & 0.4584 & 0.2964 & 0.6843 & 0.2920\\
-1024 & 19 & Latent & 21.245 & 0.1585 & 0.1546 & 0.8041 & 0.1911\\
-1024 & 19 & Swin & 23.698 & 0.4400 & 0.3179 & 0.6966 & 0.3081\\
-1024 & 19 & WHOLE & 21.844 & 0.1234 & 0.0815 & 0.8969 & 0.1274\\
-1024 & 19 & NeST & 22.334 & 0.1151 & 0.0772 & 0.9015 & 0.1226\\
-1024 & 19 & Quarter & 22.164 & 0.1182 & 0.0785 & 0.9005 & 0.1243\\
-\bottomrule\end{longtable}
-
-\subsection{Direct paired differences}
-NeST minus the stated reference. Positive PSNR/CLIP-I and negative distance differences favor NeST. A confidence interval spanning zero does not establish a direction.
+The N1024 WHOLE/NeST/Ada rows below use the new uniformly calibrated policies. Latent JSCC, SwinJSCC, BPG and the supplementary ARPC digital adaptation reuse their exact original native outputs after source-ID, preprocessing, pixel-reference and metric checks. The three newly calibrated token methods share the source/repetition noise vector. Reused external methods retain their original independent noise identities; cross-method pairing is by source, not a claim of shared noise across all systems. N512 rows retain the independently calibrated study. Every source averages three events before equal-source means or direct paired differences. Intervals use the same fixed 10000-by-500 source bank, with no simultaneous-coverage claim.
+\begin{figure}[htbp]\centering\includegraphics[width=\linewidth]{figures/figure2_complete_with_arpc.pdf}
+\caption{Complete comparison including our digital-link adaptation of the ARPC source codec. The 92 means and pointwise source-bootstrap intervals retain all operating points. ARPC is the closest progressive source-coding precedent; this supplementary curve is its specified digital adaptation.}\end{figure}
 
 \begin{longtable}{@{}rrlll@{}}\toprule
-$N$ & SNR & Reference & Metric & Difference [95\% CI]\\\midrule\endhead
-512 & 4 & Quarter & PSNR & +0.11210 [0.06798, 0.16080]\\
-512 & 4 & Quarter & LPIPS & -0.00863 [-0.01104, -0.00621]\\
-512 & 4 & Quarter & DreamSim & -0.00782 [-0.01132, -0.00447]\\
-512 & 4 & Quarter & CLIP-I & +0.00345 [-0.00043, 0.00738]\\
-512 & 4 & Quarter & DISTS & -0.00433 [-0.00627, -0.00247]\\
-512 & 10 & Quarter & PSNR & +0.19304 [0.16224, 0.22489]\\
-512 & 10 & Quarter & LPIPS & -0.00759 [-0.00914, -0.00622]\\
-512 & 10 & Quarter & DreamSim & -0.00842 [-0.01061, -0.00630]\\
-512 & 10 & Quarter & CLIP-I & +0.00611 [0.00330, 0.00898]\\
-512 & 10 & Quarter & DISTS & -0.00367 [-0.00476, -0.00270]\\
-512 & 19 & Quarter & PSNR & +0.20191 [0.17590, 0.22869]\\
-512 & 19 & Quarter & LPIPS & -0.00681 [-0.00771, -0.00595]\\
-512 & 19 & Quarter & DreamSim & -0.00669 [-0.00828, -0.00521]\\
-512 & 19 & Quarter & CLIP-I & +0.00489 [0.00239, 0.00738]\\
-512 & 19 & Quarter & DISTS & -0.00326 [-0.00391, -0.00263]\\
-1024 & 4 & Quarter & PSNR & +0.20601 [0.17556, 0.23714]\\
-1024 & 4 & Quarter & LPIPS & -0.00831 [-0.00935, -0.00728]\\
-1024 & 4 & Quarter & DreamSim & -0.00960 [-0.01196, -0.00732]\\
-1024 & 4 & Quarter & CLIP-I & +0.00648 [0.00334, 0.00973]\\
-1024 & 4 & Quarter & DISTS & -0.00343 [-0.00420, -0.00268]\\
-1024 & 7 & Quarter & PSNR & +0.13138 [0.07917, 0.18093]\\
-1024 & 7 & Quarter & LPIPS & -0.00292 [-0.00689, 0.00135]\\
-1024 & 7 & Quarter & DreamSim & -0.00210 [-0.00668, 0.00274]\\
-1024 & 7 & Quarter & CLIP-I & +0.00318 [-0.00002, 0.00639]\\
-1024 & 7 & Quarter & DISTS & -0.00024 [-0.00368, 0.00344]\\
-1024 & 10 & Quarter & PSNR & +0.18002 [0.15807, 0.20281]\\
-1024 & 10 & Quarter & LPIPS & -0.00567 [-0.00635, -0.00502]\\
-1024 & 10 & Quarter & DreamSim & -0.00292 [-0.00379, -0.00204]\\
-1024 & 10 & Quarter & CLIP-I & +0.00379 [0.00178, 0.00581]\\
-1024 & 10 & Quarter & DISTS & -0.00235 [-0.00286, -0.00185]\\
-1024 & 19 & Quarter & PSNR & +0.17033 [0.15600, 0.18558]\\
-1024 & 19 & Quarter & LPIPS & -0.00304 [-0.00332, -0.00277]\\
-1024 & 19 & Quarter & DreamSim & -0.00127 [-0.00164, -0.00090]\\
-1024 & 19 & Quarter & CLIP-I & +0.00100 [-0.00007, 0.00209]\\
-1024 & 19 & Quarter & DISTS & -0.00166 [-0.00194, -0.00138]\\
-512 & 4 & WHOLE & PSNR & +0.50427 [0.43976, 0.57335]\\
-512 & 4 & WHOLE & LPIPS & -0.03858 [-0.04275, -0.03445]\\
-512 & 4 & WHOLE & DreamSim & -0.05062 [-0.05665, -0.04454]\\
-512 & 4 & WHOLE & CLIP-I & +0.02219 [0.01714, 0.02740]\\
-512 & 4 & WHOLE & DISTS & -0.02171 [-0.02449, -0.01904]\\
-512 & 10 & WHOLE & PSNR & +0.59161 [0.54369, 0.64265]\\
-512 & 10 & WHOLE & LPIPS & -0.02307 [-0.02452, -0.02161]\\
-512 & 10 & WHOLE & DreamSim & -0.02112 [-0.02363, -0.01865]\\
-512 & 10 & WHOLE & CLIP-I & +0.01365 [0.01009, 0.01718]\\
-512 & 10 & WHOLE & DISTS & -0.01082 [-0.01180, -0.00986]\\
-512 & 19 & WHOLE & PSNR & +0.99391 [0.93976, 1.04841]\\
-512 & 19 & WHOLE & LPIPS & -0.03430 [-0.03577, -0.03284]\\
-512 & 19 & WHOLE & DreamSim & -0.03081 [-0.03328, -0.02843]\\
-512 & 19 & WHOLE & CLIP-I & +0.02054 [0.01696, 0.02425]\\
-512 & 19 & WHOLE & DISTS & -0.01644 [-0.01747, -0.01542]\\
-1024 & 4 & WHOLE & PSNR & +0.82204 [0.76554, 0.88112]\\
-1024 & 4 & WHOLE & LPIPS & -0.03289 [-0.03452, -0.03128]\\
-1024 & 4 & WHOLE & DreamSim & -0.03033 [-0.03335, -0.02731]\\
-1024 & 4 & WHOLE & CLIP-I & +0.01942 [0.01560, 0.02316]\\
-1024 & 4 & WHOLE & DISTS & -0.01463 [-0.01571, -0.01357]\\
-1024 & 7 & WHOLE & PSNR & +0.45308 [0.39299, 0.51258]\\
-1024 & 7 & WHOLE & LPIPS & -0.01432 [-0.01880, -0.00967]\\
-1024 & 7 & WHOLE & DreamSim & -0.01084 [-0.01567, -0.00566]\\
-1024 & 7 & WHOLE & CLIP-I & +0.00793 [0.00439, 0.01153]\\
-1024 & 7 & WHOLE & DISTS & -0.00603 [-0.00966, -0.00207]\\
-1024 & 10 & WHOLE & PSNR & +0.88117 [0.80754, 0.95550]\\
-1024 & 10 & WHOLE & LPIPS & -0.03293 [-0.03561, -0.03021]\\
-1024 & 10 & WHOLE & DreamSim & -0.02697 [-0.02990, -0.02408]\\
-1024 & 10 & WHOLE & CLIP-I & +0.01919 [0.01552, 0.02307]\\
-1024 & 10 & WHOLE & DISTS & -0.01406 [-0.01531, -0.01280]\\
-1024 & 19 & WHOLE & PSNR & +0.48975 [0.45749, 0.52298]\\
-1024 & 19 & WHOLE & LPIPS & -0.00824 [-0.00868, -0.00782]\\
-1024 & 19 & WHOLE & DreamSim & -0.00431 [-0.00508, -0.00359]\\
-1024 & 19 & WHOLE & CLIP-I & +0.00463 [0.00302, 0.00624]\\
-1024 & 19 & WHOLE & DISTS & -0.00482 [-0.00532, -0.00432]\\
-512 & 4 & Ada & PSNR & +4.29250 [4.09816, 4.49208]\\
-512 & 4 & Ada & LPIPS & -0.19761 [-0.20524, -0.19011]\\
-512 & 4 & Ada & DreamSim & -0.11068 [-0.12210, -0.09964]\\
-512 & 4 & Ada & CLIP-I & -0.02007 [-0.02843, -0.01175]\\
-512 & 4 & Ada & DISTS & -0.06332 [-0.06766, -0.05893]\\
-512 & 10 & Ada & PSNR & +4.24824 [4.07079, 4.42766]\\
-512 & 10 & Ada & LPIPS & -0.14597 [-0.15149, -0.14058]\\
-512 & 10 & Ada & DreamSim & -0.07443 [-0.08290, -0.06583]\\
-512 & 10 & Ada & CLIP-I & -0.00466 [-0.01139, 0.00187]\\
-512 & 10 & Ada & DISTS & -0.04455 [-0.04757, -0.04151]\\
-512 & 19 & Ada & PSNR & +1.94166 [1.77815, 2.11000]\\
-512 & 19 & Ada & LPIPS & -0.03133 [-0.03469, -0.02813]\\
-512 & 19 & Ada & DreamSim & +0.00723 [0.00374, 0.01056]\\
-512 & 19 & Ada & CLIP-I & -0.00339 [-0.00816, 0.00132]\\
-512 & 19 & Ada & DISTS & +0.00581 [0.00364, 0.00788]\\
-1024 & 4 & Ada & PSNR & +4.32222 [4.12839, 4.52292]\\
-1024 & 4 & Ada & LPIPS & -0.14026 [-0.14581, -0.13482]\\
-1024 & 4 & Ada & DreamSim & -0.06883 [-0.07668, -0.06109]\\
-1024 & 4 & Ada & CLIP-I & -0.00089 [-0.00713, 0.00524]\\
-1024 & 4 & Ada & DISTS & -0.04183 [-0.04498, -0.03863]\\
-1024 & 7 & Ada & PSNR & +3.07575 [2.88099, 3.27370]\\
-1024 & 7 & Ada & LPIPS & -0.06131 [-0.06696, -0.05571]\\
-1024 & 7 & Ada & DreamSim & -0.00093 [-0.00770, 0.00573]\\
-1024 & 7 & Ada & CLIP-I & -0.00527 [-0.01070, -0.00003]\\
-1024 & 7 & Ada & DISTS & -0.00701 [-0.01123, -0.00274]\\
-1024 & 10 & Ada & PSNR & +0.63508 [0.52112, 0.75347]\\
-1024 & 10 & Ada & LPIPS & -0.00156 [-0.00407, 0.00081]\\
-1024 & 10 & Ada & DreamSim & +0.01766 [0.01532, 0.01994]\\
-1024 & 10 & Ada & CLIP-I & -0.00721 [-0.01140, -0.00307]\\
-1024 & 10 & Ada & DISTS & +0.02055 [0.01885, 0.02218]\\
-1024 & 19 & Ada & PSNR & +1.39662 [1.33666, 1.45531]\\
-1024 & 19 & Ada & LPIPS & -0.02242 [-0.02342, -0.02140]\\
-1024 & 19 & Ada & DreamSim & +0.00095 [-0.00086, 0.00278]\\
-1024 & 19 & Ada & CLIP-I & +0.00903 [0.00521, 0.01290]\\
-1024 & 19 & Ada & DISTS & +0.00904 [0.00762, 0.01050]\\
+$N$ & SNR & Method & Metric & Mean [pointwise 95\% CI]\\\midrule\endhead
+1024 & 4 & ARPC & PSNR & +14.18407 [+13.95318, +14.41624]\\
+1024 & 4 & ARPC & LPIPS & +0.51240 [+0.50465, +0.52028]\\
+1024 & 4 & ARPC & DreamSim & +0.50098 [+0.49060, +0.51135]\\
+1024 & 4 & ARPC & CLIP-I & +0.64417 [+0.63589, +0.65219]\\
+1024 & 4 & ARPC & DISTS & +0.34360 [+0.33933, +0.34804]\\
+1024 & 7 & ARPC & PSNR & +14.75886 [+14.53731, +14.98569]\\
+1024 & 7 & ARPC & LPIPS & +0.48086 [+0.47449, +0.48726]\\
+1024 & 7 & ARPC & DreamSim & +0.47514 [+0.46502, +0.48512]\\
+1024 & 7 & ARPC & CLIP-I & +0.65078 [+0.64272, +0.65870]\\
+1024 & 7 & ARPC & DISTS & +0.32867 [+0.32493, +0.33247]\\
+1024 & 10 & ARPC & PSNR & +16.47078 [+16.23791, +16.71812]\\
+1024 & 10 & ARPC & LPIPS & +0.34127 [+0.33589, +0.34671]\\
+1024 & 10 & ARPC & DreamSim & +0.30617 [+0.29795, +0.31468]\\
+1024 & 10 & ARPC & CLIP-I & +0.71336 [+0.70484, +0.72177]\\
+1024 & 10 & ARPC & DISTS & +0.22777 [+0.22565, +0.22991]\\
+1024 & 19 & ARPC & PSNR & +18.19870 [+17.94205, +18.46612]\\
+1024 & 19 & ARPC & LPIPS & +0.25034 [+0.24504, +0.25564]\\
+1024 & 19 & ARPC & DreamSim & +0.19520 [+0.18868, +0.20196]\\
+1024 & 19 & ARPC & CLIP-I & +0.78799 [+0.77986, +0.79620]\\
+1024 & 19 & ARPC & DISTS & +0.18119 [+0.17910, +0.18329]\\
+1024 & 4 & BPG & PSNR & +20.74259 [+20.48394, +21.01048]\\
+1024 & 4 & BPG & LPIPS & +0.72548 [+0.71176, +0.73898]\\
+1024 & 4 & BPG & DreamSim & +0.57367 [+0.56326, +0.58404]\\
+1024 & 4 & BPG & CLIP-I & +0.58586 [+0.57844, +0.59343]\\
+1024 & 4 & BPG & DISTS & +0.40221 [+0.39859, +0.40577]\\
+1024 & 7 & BPG & PSNR & +21.71706 [+21.43692, +22.00492]\\
+1024 & 7 & BPG & LPIPS & +0.64997 [+0.63567, +0.66440]\\
+1024 & 7 & BPG & DreamSim & +0.47885 [+0.46815, +0.48964]\\
+1024 & 7 & BPG & CLIP-I & +0.61501 [+0.60661, +0.62317]\\
+1024 & 7 & BPG & DISTS & +0.36759 [+0.36373, +0.37158]\\
+1024 & 10 & BPG & PSNR & +22.54299 [+22.25423, +22.84398]\\
+1024 & 10 & BPG & LPIPS & +0.58937 [+0.57491, +0.60402]\\
+1024 & 10 & BPG & DreamSim & +0.41655 [+0.40602, +0.42735]\\
+1024 & 10 & BPG & CLIP-I & +0.63501 [+0.62685, +0.64313]\\
+1024 & 10 & BPG & DISTS & +0.34088 [+0.33739, +0.34443]\\
+1024 & 19 & BPG & PSNR & +24.23012 [+23.91237, +24.55901]\\
+1024 & 19 & BPG & LPIPS & +0.45839 [+0.44408, +0.47289]\\
+1024 & 19 & BPG & DreamSim & +0.29638 [+0.28691, +0.30623]\\
+1024 & 19 & BPG & CLIP-I & +0.68431 [+0.67584, +0.69274]\\
+1024 & 19 & BPG & DISTS & +0.29196 [+0.28819, +0.29569]\\
+1024 & 4 & Latent & PSNR & +19.65784 [+19.44190, +19.88023]\\
+1024 & 4 & Latent & LPIPS & +0.21878 [+0.21455, +0.22299]\\
+1024 & 4 & Latent & DreamSim & +0.23168 [+0.22524, +0.23825]\\
+1024 & 4 & Latent & CLIP-I & +0.74083 [+0.73298, +0.74851]\\
+1024 & 4 & Latent & DISTS & +0.22180 [+0.21932, +0.22431]\\
+1024 & 7 & Latent & PSNR & +20.36893 [+20.14132, +20.60239]\\
+1024 & 7 & Latent & LPIPS & +0.18928 [+0.18537, +0.19319]\\
+1024 & 7 & Latent & DreamSim & +0.19117 [+0.18547, +0.19693]\\
+1024 & 7 & Latent & CLIP-I & +0.77169 [+0.76408, +0.77913]\\
+1024 & 7 & Latent & DISTS & +0.20695 [+0.20442, +0.20950]\\
+1024 & 10 & Latent & PSNR & +20.80259 [+20.56741, +21.04386]\\
+1024 & 10 & Latent & LPIPS & +0.17326 [+0.16950, +0.17697]\\
+1024 & 10 & Latent & DreamSim & +0.17115 [+0.16587, +0.17653]\\
+1024 & 10 & Latent & CLIP-I & +0.78918 [+0.78168, +0.79654]\\
+1024 & 10 & Latent & DISTS & +0.19864 [+0.19606, +0.20124]\\
+1024 & 19 & Latent & PSNR & +21.24461 [+21.00138, +21.49488]\\
+1024 & 19 & Latent & LPIPS & +0.15848 [+0.15491, +0.16204]\\
+1024 & 19 & Latent & DreamSim & +0.15460 [+0.14960, +0.15965]\\
+1024 & 19 & Latent & CLIP-I & +0.80414 [+0.79651, +0.81159]\\
+1024 & 19 & Latent & DISTS & +0.19110 [+0.18847, +0.19376]\\
+1024 & 4 & Swin & PSNR & +21.67102 [+21.41910, +21.93451]\\
+1024 & 4 & Swin & LPIPS & +0.52973 [+0.51727, +0.54219]\\
+1024 & 4 & Swin & DreamSim & +0.43591 [+0.42657, +0.44546]\\
+1024 & 4 & Swin & CLIP-I & +0.62668 [+0.61916, +0.63428]\\
+1024 & 4 & Swin & DISTS & +0.34884 [+0.34588, +0.35185]\\
+1024 & 7 & Swin & PSNR & +22.47464 [+22.21420, +22.74510]\\
+1024 & 7 & Swin & LPIPS & +0.49334 [+0.48081, +0.50593]\\
+1024 & 7 & Swin & DreamSim & +0.38872 [+0.37959, +0.39807]\\
+1024 & 7 & Swin & CLIP-I & +0.65049 [+0.64287, +0.65827]\\
+1024 & 7 & Swin & DISTS & +0.33363 [+0.33067, +0.33664]\\
+1024 & 10 & Swin & PSNR & +23.02595 [+22.75708, +23.30447]\\
+1024 & 10 & Swin & LPIPS & +0.46866 [+0.45613, +0.48130]\\
+1024 & 10 & Swin & DreamSim & +0.35639 [+0.34736, +0.36558]\\
+1024 & 10 & Swin & CLIP-I & +0.66908 [+0.66126, +0.67681]\\
+1024 & 10 & Swin & DISTS & +0.32239 [+0.31935, +0.32544]\\
+1024 & 19 & Swin & PSNR & +23.69820 [+23.41493, +23.98647]\\
+1024 & 19 & Swin & LPIPS & +0.44003 [+0.42754, +0.45280]\\
+1024 & 19 & Swin & DreamSim & +0.31795 [+0.30924, +0.32685]\\
+1024 & 19 & Swin & CLIP-I & +0.69660 [+0.68874, +0.70444]\\
+1024 & 19 & Swin & DISTS & +0.30806 [+0.30490, +0.31123]\\
+1024 & 4 & WHOLE & PSNR & +16.83227 [+16.60005, +17.07610]\\
+1024 & 4 & WHOLE & LPIPS & +0.28783 [+0.28187, +0.29378]\\
+1024 & 4 & WHOLE & DreamSim & +0.20460 [+0.19737, +0.21184]\\
+1024 & 4 & WHOLE & CLIP-I & +0.80770 [+0.79894, +0.81618]\\
+1024 & 4 & WHOLE & DISTS & +0.20283 [+0.20033, +0.20541]\\
+1024 & 7 & WHOLE & PSNR & +18.50839 [+18.26293, +18.76356]\\
+1024 & 7 & WHOLE & LPIPS & +0.22434 [+0.21821, +0.23042]\\
+1024 & 7 & WHOLE & DreamSim & +0.15276 [+0.14644, +0.15931]\\
+1024 & 7 & WHOLE & CLIP-I & +0.84501 [+0.83683, +0.85266]\\
+1024 & 7 & WHOLE & DISTS & +0.17740 [+0.17390, +0.18112]\\
+1024 & 10 & WHOLE & PSNR & +19.31282 [+19.02087, +19.60883]\\
+1024 & 10 & WHOLE & LPIPS & +0.19872 [+0.19218, +0.20525]\\
+1024 & 10 & WHOLE & DreamSim & +0.13172 [+0.12594, +0.13763]\\
+1024 & 10 & WHOLE & CLIP-I & +0.85774 [+0.84973, +0.86557]\\
+1024 & 10 & WHOLE & DISTS & +0.16213 [+0.15914, +0.16511]\\
+1024 & 19 & WHOLE & PSNR & +21.84437 [+21.57627, +22.12225]\\
+1024 & 19 & WHOLE & LPIPS & +0.12338 [+0.11983, +0.12691]\\
+1024 & 19 & WHOLE & DreamSim & +0.08150 [+0.07852, +0.08467]\\
+1024 & 19 & WHOLE & CLIP-I & +0.89687 [+0.89117, +0.90238]\\
+1024 & 19 & WHOLE & DISTS & +0.12744 [+0.12526, +0.12972]\\
+1024 & 4 & NeST & PSNR & +17.64940 [+17.40096, +17.91029]\\
+1024 & 4 & NeST & LPIPS & +0.25544 [+0.24922, +0.26159]\\
+1024 & 4 & NeST & DreamSim & +0.17486 [+0.16822, +0.18169]\\
+1024 & 4 & NeST & CLIP-I & +0.82686 [+0.81808, +0.83519]\\
+1024 & 4 & NeST & DISTS & +0.18865 [+0.18603, +0.19135]\\
+1024 & 7 & NeST & PSNR & +19.00602 [+18.75004, +19.27588]\\
+1024 & 7 & NeST & LPIPS & +0.20578 [+0.19989, +0.21174]\\
+1024 & 7 & NeST & DreamSim & +0.13688 [+0.13119, +0.14276]\\
+1024 & 7 & NeST & CLIP-I & +0.85495 [+0.84729, +0.86247]\\
+1024 & 7 & NeST & DISTS & +0.16709 [+0.16386, +0.17049]\\
+1024 & 10 & NeST & PSNR & +20.19404 [+19.92706, +20.46997]\\
+1024 & 10 & NeST & LPIPS & +0.16579 [+0.16126, +0.17040]\\
+1024 & 10 & NeST & DreamSim & +0.10476 [+0.10099, +0.10873]\\
+1024 & 10 & NeST & CLIP-I & +0.87692 [+0.87020, +0.88351]\\
+1024 & 10 & NeST & DISTS & +0.14806 [+0.14572, +0.15049]\\
+1024 & 19 & NeST & PSNR & +22.33412 [+22.05308, +22.62458]\\
+1024 & 19 & NeST & LPIPS & +0.11513 [+0.11146, +0.11875]\\
+1024 & 19 & NeST & DreamSim & +0.07719 [+0.07425, +0.08028]\\
+1024 & 19 & NeST & CLIP-I & +0.90149 [+0.89605, +0.90685]\\
+1024 & 19 & NeST & DISTS & +0.12262 [+0.12033, +0.12501]\\
+1024 & 4 & Ada & PSNR & +13.33209 [+13.12041, +13.55321]\\
+1024 & 4 & Ada & LPIPS & +0.39520 [+0.38782, +0.40263]\\
+1024 & 4 & Ada & DreamSim & +0.24310 [+0.23346, +0.25323]\\
+1024 & 4 & Ada & CLIP-I & +0.82801 [+0.81999, +0.83582]\\
+1024 & 4 & Ada & DISTS & +0.23003 [+0.22634, +0.23382]\\
+1024 & 7 & Ada & PSNR & +15.92903 [+15.65016, +16.21807]\\
+1024 & 7 & Ada & LPIPS & +0.27056 [+0.26296, +0.27849]\\
+1024 & 7 & Ada & DreamSim & +0.14207 [+0.13514, +0.14930]\\
+1024 & 7 & Ada & CLIP-I & +0.85907 [+0.85189, +0.86617]\\
+1024 & 7 & Ada & DISTS & +0.17783 [+0.17363, +0.18220]\\
+1024 & 10 & Ada & PSNR & +19.55896 [+19.25831, +19.85439]\\
+1024 & 10 & Ada & LPIPS & +0.16735 [+0.16180, +0.17305]\\
+1024 & 10 & Ada & DreamSim & +0.08710 [+0.08352, +0.09089]\\
+1024 & 10 & Ada & CLIP-I & +0.88413 [+0.87777, +0.89041]\\
+1024 & 10 & Ada & DISTS & +0.12751 [+0.12507, +0.13006]\\
+1024 & 19 & Ada & PSNR & +20.93405 [+20.67159, +21.20482]\\
+1024 & 19 & Ada & LPIPS & +0.13769 [+0.13387, +0.14149]\\
+1024 & 19 & Ada & DreamSim & +0.07626 [+0.07337, +0.07926]\\
+1024 & 19 & Ada & CLIP-I & +0.89240 [+0.88639, +0.89829]\\
+1024 & 19 & Ada & DISTS & +0.11363 [+0.11195, +0.11536]\\
+512 & 4 & Ada & PSNR & +11.31831 [+11.12297, +11.51854]\\
+512 & 4 & Ada & LPIPS & +0.55416 [+0.54659, +0.56167]\\
+512 & 4 & Ada & DreamSim & +0.38473 [+0.37293, +0.39657]\\
+512 & 4 & Ada & CLIP-I & +0.78921 [+0.78074, +0.79763]\\
+512 & 4 & Ada & DISTS & +0.29961 [+0.29541, +0.30391]\\
+512 & 10 & Ada & PSNR & +13.16468 [+12.94332, +13.39518]\\
+512 & 10 & Ada & LPIPS & +0.41098 [+0.40364, +0.41835]\\
+512 & 10 & Ada & DreamSim & +0.25817 [+0.24805, +0.26846]\\
+512 & 10 & Ada & CLIP-I & +0.82575 [+0.81785, +0.83350]\\
+512 & 10 & Ada & DISTS & +0.23671 [+0.23306, +0.24043]\\
+512 & 19 & Ada & PSNR & +17.69003 [+17.38737, +17.99744]\\
+512 & 19 & Ada & LPIPS & +0.21457 [+0.20778, +0.22136]\\
+512 & 19 & Ada & DreamSim & +0.10775 [+0.10289, +0.11287]\\
+512 & 19 & Ada & CLIP-I & +0.87228 [+0.86544, +0.87899]\\
+512 & 19 & Ada & DISTS & +0.14958 [+0.14661, +0.15261]\\
+512 & 4 & WHOLE & PSNR & +15.10655 [+14.85320, +15.36607]\\
+512 & 4 & WHOLE & LPIPS & +0.39512 [+0.38531, +0.40493]\\
+512 & 4 & WHOLE & DreamSim & +0.32466 [+0.31308, +0.33661]\\
+512 & 4 & WHOLE & CLIP-I & +0.74694 [+0.73701, +0.75681]\\
+512 & 4 & WHOLE & DISTS & +0.25800 [+0.25370, +0.26247]\\
+512 & 10 & WHOLE & PSNR & +16.82131 [+16.59007, +17.06388]\\
+512 & 10 & WHOLE & LPIPS & +0.28808 [+0.28216, +0.29399]\\
+512 & 10 & WHOLE & DreamSim & +0.20486 [+0.19764, +0.21207]\\
+512 & 10 & WHOLE & CLIP-I & +0.80744 [+0.79868, +0.81586]\\
+512 & 10 & WHOLE & DISTS & +0.20297 [+0.20052, +0.20552]\\
+512 & 19 & WHOLE & PSNR & +18.63777 [+18.38451, +18.90215]\\
+512 & 19 & WHOLE & LPIPS & +0.21754 [+0.21220, +0.22296]\\
+512 & 19 & WHOLE & DreamSim & +0.14580 [+0.14038, +0.15132]\\
+512 & 19 & WHOLE & CLIP-I & +0.84835 [+0.84040, +0.85602]\\
+512 & 19 & WHOLE & DISTS & +0.17184 [+0.16935, +0.17438]\\
+512 & 4 & NeST & PSNR & +15.61081 [+15.37367, +15.85747]\\
+512 & 4 & NeST & LPIPS & +0.35654 [+0.34905, +0.36393]\\
+512 & 4 & NeST & DreamSim & +0.27405 [+0.26514, +0.28318]\\
+512 & 4 & NeST & CLIP-I & +0.76914 [+0.75969, +0.77862]\\
+512 & 4 & NeST & DISTS & +0.23629 [+0.23302, +0.23961]\\
+512 & 10 & NeST & PSNR & +17.41292 [+17.16882, +17.66911]\\
+512 & 10 & NeST & LPIPS & +0.26501 [+0.25877, +0.27119]\\
+512 & 10 & NeST & DreamSim & +0.18374 [+0.17689, +0.19076]\\
+512 & 10 & NeST & CLIP-I & +0.82109 [+0.81231, +0.82950]\\
+512 & 10 & NeST & DISTS & +0.19216 [+0.18960, +0.19472]\\
+512 & 19 & NeST & PSNR & +19.63169 [+19.36599, +19.90637]\\
+512 & 19 & NeST & LPIPS & +0.18324 [+0.17819, +0.18829]\\
+512 & 19 & NeST & DreamSim & +0.11499 [+0.11062, +0.11957]\\
+512 & 19 & NeST & CLIP-I & +0.86889 [+0.86183, +0.87572]\\
+512 & 19 & NeST & DISTS & +0.15539 [+0.15295, +0.15787]\\
+512 & 4 & Quarter & PSNR & +15.49872 [+15.26339, +15.74203]\\
+512 & 4 & Quarter & LPIPS & +0.36517 [+0.35750, +0.37269]\\
+512 & 4 & Quarter & DreamSim & +0.28187 [+0.27274, +0.29107]\\
+512 & 4 & Quarter & CLIP-I & +0.76569 [+0.75648, +0.77489]\\
+512 & 4 & Quarter & DISTS & +0.24062 [+0.23738, +0.24393]\\
+512 & 10 & Quarter & PSNR & +17.21988 [+16.97768, +17.47598]\\
+512 & 10 & Quarter & LPIPS & +0.27260 [+0.26625, +0.27880]\\
+512 & 10 & Quarter & DreamSim & +0.19217 [+0.18495, +0.19957]\\
+512 & 10 & Quarter & CLIP-I & +0.81498 [+0.80623, +0.82341]\\
+512 & 10 & Quarter & DISTS & +0.19583 [+0.19312, +0.19862]\\
+512 & 19 & Quarter & PSNR & +19.42978 [+19.16706, +19.70150]\\
+512 & 19 & Quarter & LPIPS & +0.19005 [+0.18497, +0.19519]\\
+512 & 19 & Quarter & DreamSim & +0.12168 [+0.11686, +0.12663]\\
+512 & 19 & Quarter & CLIP-I & +0.86400 [+0.85678, +0.87100]\\
+512 & 19 & Quarter & DISTS & +0.15865 [+0.15625, +0.16113]\\
 \bottomrule\end{longtable}
 
-\subsection{Failures and denominator}
-The following nonzero gray-image counts are verified from native pixel hashes and receiver statuses. Other cells have zero observed gray outputs. Main systems use their prescribed independent noise streams; the matched-granularity control uses shared noise.
-
-\begin{longtable}{@{}rrlrr@{}}\toprule
-$N$ & SNR & Method & Gray count & Denominator\\\midrule\endhead
-512 & 4 & Ada & 5 & 1500\\
-1024 & 7 & Ada & 7 & 1500\\
-1024 & 7 & BPG & 11 & 1500\\
-512 & 4 & WHOLE & 7 & 1500\\
-1024 & 7 & WHOLE & 7 & 1500\\
-512 & 4 & NeST & 4 & 1500\\
-1024 & 7 & NeST & 13 & 1500\\
-512 & 4 & Quarter & 4 & 1500\\
-512 & 10 & Quarter & 1 & 1500\\
-1024 & 7 & Quarter & 6 & 1500\\
+\begin{longtable}{@{}rrlll@{}}\toprule
+$N$ & SNR & Comparison & Metric & Difference [paired 95\% CI]\\\midrule\endhead
+1024 & 4 & NeST-WHOLE & PSNR & +0.81713 [+0.75992, +0.87680]\\
+1024 & 4 & NeST-WHOLE & LPIPS & -0.03239 [-0.03425, -0.03040]\\
+1024 & 4 & NeST-WHOLE & DreamSim & -0.02974 [-0.03303, -0.02644]\\
+1024 & 4 & NeST-WHOLE & CLIP-I & +0.01916 [+0.01528, +0.02297]\\
+1024 & 4 & NeST-WHOLE & DISTS & -0.01418 [-0.01552, -0.01265]\\
+1024 & 7 & NeST-WHOLE & PSNR & +0.49764 [+0.44148, +0.55287]\\
+1024 & 7 & NeST-WHOLE & LPIPS & -0.01856 [-0.02281, -0.01443]\\
+1024 & 7 & NeST-WHOLE & DreamSim & -0.01588 [-0.02072, -0.01117]\\
+1024 & 7 & NeST-WHOLE & CLIP-I & +0.00994 [+0.00652, +0.01350]\\
+1024 & 7 & NeST-WHOLE & DISTS & -0.01031 [-0.01391, -0.00683]\\
+1024 & 10 & NeST-WHOLE & PSNR & +0.88122 [+0.80761, +0.95550]\\
+1024 & 10 & NeST-WHOLE & LPIPS & -0.03293 [-0.03561, -0.03021]\\
+1024 & 10 & NeST-WHOLE & DreamSim & -0.02697 [-0.02990, -0.02408]\\
+1024 & 10 & NeST-WHOLE & CLIP-I & +0.01918 [+0.01551, +0.02307]\\
+1024 & 10 & NeST-WHOLE & DISTS & -0.01407 [-0.01532, -0.01281]\\
+1024 & 19 & NeST-WHOLE & PSNR & +0.48975 [+0.45749, +0.52298]\\
+1024 & 19 & NeST-WHOLE & LPIPS & -0.00824 [-0.00868, -0.00782]\\
+1024 & 19 & NeST-WHOLE & DreamSim & -0.00431 [-0.00508, -0.00359]\\
+1024 & 19 & NeST-WHOLE & CLIP-I & +0.00462 [+0.00302, +0.00624]\\
+1024 & 19 & NeST-WHOLE & DISTS & -0.00482 [-0.00532, -0.00432]\\
+1024 & 4 & NeST-Ada & PSNR & +4.31731 [+4.12308, +4.51801]\\
+1024 & 4 & NeST-Ada & LPIPS & -0.13975 [-0.14538, -0.13426]\\
+1024 & 4 & NeST-Ada & DreamSim & -0.06824 [-0.07605, -0.06039]\\
+1024 & 4 & NeST-Ada & CLIP-I & -0.00115 [-0.00740, +0.00494]\\
+1024 & 4 & NeST-Ada & DISTS & -0.04138 [-0.04464, -0.03809]\\
+1024 & 7 & NeST-Ada & PSNR & +3.07700 [+2.88114, +3.28063]\\
+1024 & 7 & NeST-Ada & LPIPS & -0.06479 [-0.07023, -0.05944]\\
+1024 & 7 & NeST-Ada & DreamSim & -0.00519 [-0.01159, +0.00101]\\
+1024 & 7 & NeST-Ada & CLIP-I & -0.00412 [-0.00946, +0.00107]\\
+1024 & 7 & NeST-Ada & DISTS & -0.01074 [-0.01491, -0.00670]\\
+1024 & 10 & NeST-Ada & PSNR & +0.63508 [+0.52112, +0.75347]\\
+1024 & 10 & NeST-Ada & LPIPS & -0.00156 [-0.00407, +0.00081]\\
+1024 & 10 & NeST-Ada & DreamSim & +0.01766 [+0.01532, +0.01994]\\
+1024 & 10 & NeST-Ada & CLIP-I & -0.00721 [-0.01140, -0.00307]\\
+1024 & 10 & NeST-Ada & DISTS & +0.02055 [+0.01885, +0.02218]\\
+1024 & 19 & NeST-Ada & PSNR & +1.40008 [+1.34001, +1.45887]\\
+1024 & 19 & NeST-Ada & LPIPS & -0.02255 [-0.02356, -0.02153]\\
+1024 & 19 & NeST-Ada & DreamSim & +0.00093 [-0.00087, +0.00276]\\
+1024 & 19 & NeST-Ada & CLIP-I & +0.00909 [+0.00528, +0.01298]\\
+1024 & 19 & NeST-Ada & DISTS & +0.00899 [+0.00756, +0.01045]\\
+1024 & 4 & WHOLE-Ada & PSNR & +3.50018 [+3.31221, +3.69540]\\
+1024 & 4 & WHOLE-Ada & LPIPS & -0.10736 [-0.11317, -0.10169]\\
+1024 & 4 & WHOLE-Ada & DreamSim & -0.03850 [-0.04715, -0.03006]\\
+1024 & 4 & WHOLE-Ada & CLIP-I & -0.02031 [-0.02711, -0.01385]\\
+1024 & 4 & WHOLE-Ada & DISTS & -0.02720 [-0.03044, -0.02398]\\
+1024 & 7 & WHOLE-Ada & PSNR & +2.57936 [+2.37823, +2.78822]\\
+1024 & 7 & WHOLE-Ada & LPIPS & -0.04623 [-0.05176, -0.04078]\\
+1024 & 7 & WHOLE-Ada & DreamSim & +0.01069 [+0.00437, +0.01710]\\
+1024 & 7 & WHOLE-Ada & CLIP-I & -0.01406 [-0.01971, -0.00854]\\
+1024 & 7 & WHOLE-Ada & DISTS & -0.00043 [-0.00464, +0.00372]\\
+1024 & 10 & WHOLE-Ada & PSNR & -0.24614 [-0.37122, -0.11750]\\
+1024 & 10 & WHOLE-Ada & LPIPS & +0.03137 [+0.02789, +0.03480]\\
+1024 & 10 & WHOLE-Ada & DreamSim & +0.04462 [+0.04085, +0.04841]\\
+1024 & 10 & WHOLE-Ada & CLIP-I & -0.02640 [-0.03148, -0.02151]\\
+1024 & 10 & WHOLE-Ada & DISTS & +0.03462 [+0.03271, +0.03645]\\
+1024 & 19 & WHOLE-Ada & PSNR & +0.91033 [+0.85993, +0.96070]\\
+1024 & 19 & WHOLE-Ada & LPIPS & -0.01431 [-0.01529, -0.01333]\\
+1024 & 19 & WHOLE-Ada & DreamSim & +0.00524 [+0.00344, +0.00705]\\
+1024 & 19 & WHOLE-Ada & CLIP-I & +0.00447 [+0.00080, +0.00831]\\
+1024 & 19 & WHOLE-Ada & DISTS & +0.01381 [+0.01249, +0.01516]\\
+1024 & 4 & NeST-Latent & PSNR & -2.00844 [-2.10404, -1.91048]\\
+1024 & 4 & NeST-Latent & LPIPS & +0.03666 [+0.03352, +0.03988]\\
+1024 & 4 & NeST-Latent & DreamSim & -0.05681 [-0.06208, -0.05142]\\
+1024 & 4 & NeST-Latent & CLIP-I & +0.08603 [+0.07938, +0.09230]\\
+1024 & 4 & NeST-Latent & DISTS & -0.03315 [-0.03528, -0.03098]\\
+1024 & 7 & NeST-Latent & PSNR & -1.36290 [-1.45842, -1.26437]\\
+1024 & 7 & NeST-Latent & LPIPS & +0.01650 [+0.01306, +0.02020]\\
+1024 & 7 & NeST-Latent & DreamSim & -0.05429 [-0.05900, -0.04946]\\
+1024 & 7 & NeST-Latent & CLIP-I & +0.08326 [+0.07756, +0.08888]\\
+1024 & 7 & NeST-Latent & DISTS & -0.03986 [-0.04262, -0.03696]\\
+1024 & 10 & NeST-Latent & PSNR & -0.60855 [-0.69268, -0.51994]\\
+1024 & 10 & NeST-Latent & LPIPS & -0.00746 [-0.00940, -0.00555]\\
+1024 & 10 & NeST-Latent & DreamSim & -0.06639 [-0.06971, -0.06317]\\
+1024 & 10 & NeST-Latent & CLIP-I & +0.08774 [+0.08238, +0.09314]\\
+1024 & 10 & NeST-Latent & DISTS & -0.05058 [-0.05219, -0.04899]\\
+1024 & 19 & NeST-Latent & PSNR & +1.08951 [+0.99436, +1.18423]\\
+1024 & 19 & NeST-Latent & LPIPS & -0.04335 [-0.04493, -0.04170]\\
+1024 & 19 & NeST-Latent & DreamSim & -0.07741 [-0.08074, -0.07422]\\
+1024 & 19 & NeST-Latent & CLIP-I & +0.09735 [+0.09219, +0.10272]\\
+1024 & 19 & NeST-Latent & DISTS & -0.06847 [-0.07005, -0.06689]\\
+1024 & 4 & NeST-Swin & PSNR & -4.02162 [-4.13349, -3.90899]\\
+1024 & 4 & NeST-Swin & LPIPS & -0.27428 [-0.28476, -0.26443]\\
+1024 & 4 & NeST-Swin & DreamSim & -0.26105 [-0.26981, -0.25244]\\
+1024 & 4 & NeST-Swin & CLIP-I & +0.20018 [+0.19222, +0.20796]\\
+1024 & 4 & NeST-Swin & DISTS & -0.16019 [-0.16323, -0.15707]\\
+1024 & 7 & NeST-Swin & PSNR & -3.46862 [-3.57271, -3.36560]\\
+1024 & 7 & NeST-Swin & LPIPS & -0.28757 [-0.29819, -0.27739]\\
+1024 & 7 & NeST-Swin & DreamSim & -0.25184 [-0.25993, -0.24370]\\
+1024 & 7 & NeST-Swin & CLIP-I & +0.20446 [+0.19714, +0.21171]\\
+1024 & 7 & NeST-Swin & DISTS & -0.16655 [-0.17001, -0.16289]\\
+1024 & 10 & NeST-Swin & PSNR & -2.83191 [-2.91889, -2.74662]\\
+1024 & 10 & NeST-Swin & LPIPS & -0.30286 [-0.31304, -0.29318]\\
+1024 & 10 & NeST-Swin & DreamSim & -0.25163 [-0.25921, -0.24423]\\
+1024 & 10 & NeST-Swin & CLIP-I & +0.20784 [+0.20088, +0.21498]\\
+1024 & 10 & NeST-Swin & DISTS & -0.17433 [-0.17689, -0.17179]\\
+1024 & 19 & NeST-Swin & PSNR & -1.36408 [-1.44263, -1.28515]\\
+1024 & 19 & NeST-Swin & LPIPS & -0.32490 [-0.33497, -0.31516]\\
+1024 & 19 & NeST-Swin & DreamSim & -0.24076 [-0.24816, -0.23368]\\
+1024 & 19 & NeST-Swin & CLIP-I & +0.20489 [+0.19822, +0.21150]\\
+1024 & 19 & NeST-Swin & DISTS & -0.18544 [-0.18795, -0.18291]\\
+1024 & 4 & NeST-BPG & PSNR & -3.09319 [-3.19523, -2.99035]\\
+1024 & 4 & NeST-BPG & LPIPS & -0.47003 [-0.48044, -0.45979]\\
+1024 & 4 & NeST-BPG & DreamSim & -0.39881 [-0.40911, -0.38847]\\
+1024 & 4 & NeST-BPG & CLIP-I & +0.24100 [+0.23208, +0.24991]\\
+1024 & 4 & NeST-BPG & DISTS & -0.21356 [-0.21684, -0.21023]\\
+1024 & 7 & NeST-BPG & PSNR & -2.71104 [-2.82425, -2.59383]\\
+1024 & 7 & NeST-BPG & LPIPS & -0.44419 [-0.45581, -0.43286]\\
+1024 & 7 & NeST-BPG & DreamSim & -0.34197 [-0.35196, -0.33225]\\
+1024 & 7 & NeST-BPG & CLIP-I & +0.23994 [+0.23141, +0.24872]\\
+1024 & 7 & NeST-BPG & DISTS & -0.20050 [-0.20461, -0.19633]\\
+1024 & 10 & NeST-BPG & PSNR & -2.34895 [-2.43360, -2.26426]\\
+1024 & 10 & NeST-BPG & LPIPS & -0.42358 [-0.43505, -0.41248]\\
+1024 & 10 & NeST-BPG & DreamSim & -0.31179 [-0.32132, -0.30255]\\
+1024 & 10 & NeST-BPG & CLIP-I & +0.24191 [+0.23400, +0.24964]\\
+1024 & 10 & NeST-BPG & DISTS & -0.19282 [-0.19556, -0.19008]\\
+1024 & 19 & NeST-BPG & PSNR & -1.89600 [-1.97754, -1.81607]\\
+1024 & 19 & NeST-BPG & LPIPS & -0.34325 [-0.35483, -0.33196]\\
+1024 & 19 & NeST-BPG & DreamSim & -0.21919 [-0.22742, -0.21119]\\
+1024 & 19 & NeST-BPG & CLIP-I & +0.21718 [+0.20920, +0.22538]\\
+1024 & 19 & NeST-BPG & DISTS & -0.16934 [-0.17197, -0.16666]\\
+1024 & 4 & NeST-ARPC & PSNR & +3.46533 [+3.32232, +3.61180]\\
+1024 & 4 & NeST-ARPC & LPIPS & -0.25696 [-0.26356, -0.25057]\\
+1024 & 4 & NeST-ARPC & DreamSim & -0.32611 [-0.33635, -0.31576]\\
+1024 & 4 & NeST-ARPC & CLIP-I & +0.18269 [+0.17469, +0.19080]\\
+1024 & 4 & NeST-ARPC & DISTS & -0.15495 [-0.15951, -0.15047]\\
+1024 & 7 & NeST-ARPC & PSNR & +4.24716 [+4.10799, +4.39003]\\
+1024 & 7 & NeST-ARPC & LPIPS & -0.27508 [-0.28062, -0.26963]\\
+1024 & 7 & NeST-ARPC & DreamSim & -0.33827 [-0.34804, -0.32841]\\
+1024 & 7 & NeST-ARPC & CLIP-I & +0.20416 [+0.19639, +0.21196]\\
+1024 & 7 & NeST-ARPC & DISTS & -0.16158 [-0.16590, -0.15720]\\
+1024 & 10 & NeST-ARPC & PSNR & +3.72326 [+3.61522, +3.83454]\\
+1024 & 10 & NeST-ARPC & LPIPS & -0.17547 [-0.17876, -0.17216]\\
+1024 & 10 & NeST-ARPC & DreamSim & -0.20141 [-0.20900, -0.19388]\\
+1024 & 10 & NeST-ARPC & CLIP-I & +0.16356 [+0.15623, +0.17083]\\
+1024 & 10 & NeST-ARPC & DISTS & -0.07971 [-0.08218, -0.07719]\\
+1024 & 19 & NeST-ARPC & PSNR & +4.13543 [+4.03989, +4.22803]\\
+1024 & 19 & NeST-ARPC & LPIPS & -0.13520 [-0.13846, -0.13205]\\
+1024 & 19 & NeST-ARPC & DreamSim & -0.11801 [-0.12370, -0.11237]\\
+1024 & 19 & NeST-ARPC & CLIP-I & +0.11350 [+0.10702, +0.11995]\\
+1024 & 19 & NeST-ARPC & DISTS & -0.05857 [-0.06078, -0.05638]\\
+512 & 4 & NeST-Quarter & PSNR & +0.11210 [+0.06798, +0.16080]\\
+512 & 4 & NeST-Quarter & LPIPS & -0.00863 [-0.01104, -0.00621]\\
+512 & 4 & NeST-Quarter & DreamSim & -0.00782 [-0.01132, -0.00447]\\
+512 & 4 & NeST-Quarter & CLIP-I & +0.00345 [-0.00043, +0.00738]\\
+512 & 4 & NeST-Quarter & DISTS & -0.00433 [-0.00627, -0.00247]\\
+512 & 10 & NeST-Quarter & PSNR & +0.19304 [+0.16224, +0.22489]\\
+512 & 10 & NeST-Quarter & LPIPS & -0.00759 [-0.00914, -0.00622]\\
+512 & 10 & NeST-Quarter & DreamSim & -0.00842 [-0.01061, -0.00630]\\
+512 & 10 & NeST-Quarter & CLIP-I & +0.00611 [+0.00330, +0.00898]\\
+512 & 10 & NeST-Quarter & DISTS & -0.00367 [-0.00476, -0.00270]\\
+512 & 19 & NeST-Quarter & PSNR & +0.20191 [+0.17590, +0.22869]\\
+512 & 19 & NeST-Quarter & LPIPS & -0.00681 [-0.00771, -0.00595]\\
+512 & 19 & NeST-Quarter & DreamSim & -0.00669 [-0.00828, -0.00521]\\
+512 & 19 & NeST-Quarter & CLIP-I & +0.00489 [+0.00239, +0.00738]\\
+512 & 19 & NeST-Quarter & DISTS & -0.00326 [-0.00391, -0.00263]\\
+512 & 4 & NeST-WHOLE & PSNR & +0.50427 [+0.43976, +0.57335]\\
+512 & 4 & NeST-WHOLE & LPIPS & -0.03858 [-0.04275, -0.03445]\\
+512 & 4 & NeST-WHOLE & DreamSim & -0.05062 [-0.05665, -0.04454]\\
+512 & 4 & NeST-WHOLE & CLIP-I & +0.02219 [+0.01714, +0.02740]\\
+512 & 4 & NeST-WHOLE & DISTS & -0.02171 [-0.02449, -0.01904]\\
+512 & 10 & NeST-WHOLE & PSNR & +0.59161 [+0.54369, +0.64265]\\
+512 & 10 & NeST-WHOLE & LPIPS & -0.02307 [-0.02452, -0.02161]\\
+512 & 10 & NeST-WHOLE & DreamSim & -0.02112 [-0.02363, -0.01865]\\
+512 & 10 & NeST-WHOLE & CLIP-I & +0.01365 [+0.01009, +0.01718]\\
+512 & 10 & NeST-WHOLE & DISTS & -0.01082 [-0.01180, -0.00986]\\
+512 & 19 & NeST-WHOLE & PSNR & +0.99391 [+0.93976, +1.04841]\\
+512 & 19 & NeST-WHOLE & LPIPS & -0.03430 [-0.03577, -0.03284]\\
+512 & 19 & NeST-WHOLE & DreamSim & -0.03081 [-0.03328, -0.02843]\\
+512 & 19 & NeST-WHOLE & CLIP-I & +0.02054 [+0.01696, +0.02425]\\
+512 & 19 & NeST-WHOLE & DISTS & -0.01644 [-0.01747, -0.01542]\\
+512 & 4 & NeST-Ada & PSNR & +4.29250 [+4.09816, +4.49208]\\
+512 & 4 & NeST-Ada & LPIPS & -0.19761 [-0.20524, -0.19011]\\
+512 & 4 & NeST-Ada & DreamSim & -0.11068 [-0.12210, -0.09964]\\
+512 & 4 & NeST-Ada & CLIP-I & -0.02007 [-0.02843, -0.01175]\\
+512 & 4 & NeST-Ada & DISTS & -0.06332 [-0.06766, -0.05893]\\
+512 & 10 & NeST-Ada & PSNR & +4.24824 [+4.07079, +4.42766]\\
+512 & 10 & NeST-Ada & LPIPS & -0.14597 [-0.15149, -0.14058]\\
+512 & 10 & NeST-Ada & DreamSim & -0.07443 [-0.08290, -0.06583]\\
+512 & 10 & NeST-Ada & CLIP-I & -0.00466 [-0.01139, +0.00187]\\
+512 & 10 & NeST-Ada & DISTS & -0.04455 [-0.04757, -0.04151]\\
+512 & 19 & NeST-Ada & PSNR & +1.94166 [+1.77815, +2.11000]\\
+512 & 19 & NeST-Ada & LPIPS & -0.03133 [-0.03469, -0.02813]\\
+512 & 19 & NeST-Ada & DreamSim & +0.00723 [+0.00374, +0.01056]\\
+512 & 19 & NeST-Ada & CLIP-I & -0.00339 [-0.00816, +0.00132]\\
+512 & 19 & NeST-Ada & DISTS & +0.00581 [+0.00364, +0.00788]\\
+512 & 4 & WHOLE-Ada & PSNR & +3.78823 [+3.58271, +3.99821]\\
+512 & 4 & WHOLE-Ada & LPIPS & -0.15903 [-0.16820, -0.14991]\\
+512 & 4 & WHOLE-Ada & DreamSim & -0.06007 [-0.07327, -0.04710]\\
+512 & 4 & WHOLE-Ada & CLIP-I & -0.04227 [-0.05108, -0.03354]\\
+512 & 4 & WHOLE-Ada & DISTS & -0.04161 [-0.04673, -0.03637]\\
+512 & 10 & WHOLE-Ada & PSNR & +3.65663 [+3.48147, +3.83501]\\
+512 & 10 & WHOLE-Ada & LPIPS & -0.12290 [-0.12856, -0.11742]\\
+512 & 10 & WHOLE-Ada & DreamSim & -0.05331 [-0.06229, -0.04443]\\
+512 & 10 & WHOLE-Ada & CLIP-I & -0.01831 [-0.02550, -0.01126]\\
+512 & 10 & WHOLE-Ada & DISTS & -0.03374 [-0.03687, -0.03056]\\
+512 & 19 & WHOLE-Ada & PSNR & +0.94774 [+0.77798, +1.12367]\\
+512 & 19 & WHOLE-Ada & LPIPS & +0.00297 [-0.00067, +0.00651]\\
+512 & 19 & WHOLE-Ada & DreamSim & +0.03804 [+0.03381, +0.04212]\\
+512 & 19 & WHOLE-Ada & CLIP-I & -0.02393 [-0.02905, -0.01888]\\
+512 & 19 & WHOLE-Ada & DISTS & +0.02225 [+0.01990, +0.02456]\\
 \bottomrule\end{longtable}
+\subsection{Capacity and rejected receptions}
+The current N1024 counts retain all 1500 logical events per method/SNR. Valid paid NULL is listed within gray outputs and separately; it is not a lost denominator. Unchanged BPG has 11 body-CRC rejections across the four SNRs, while the other reused external methods have no rejected reconstruction. Complete event counts and native identities are retained in the result files.
 
-\subsection{Per-source improvement distributions}
-Gain is target minus reference for PSNR/CLIP-I and reference minus target for distances. Better/tie/worse uses numerical tolerance $10^{-10}$; this is not a perceptual visibility threshold. Quantiles use the linear rule. Rows retain all sources and failures. N1024/10 Token versus WHOLE improves DISTS for 83.4\%, DreamSim for 83.0\%, and both for 72.2\%; each distance worsens on 16.2\%. These are descriptive proportions, alongside the direct paired mean intervals above.
-
-\begin{longtable}{@{}llllrrr@{}}\toprule
-$N$/SNR & Reference & Metric & Better/tie/worse & P05 & Median & P95\\\midrule\endhead
-512/4 & WHOLE & PSNR & 362/42/96 & -0.2496 & +0.2694 & +1.7441\\
-512/4 & WHOLE & LPIPS & 381/42/77 & -0.0085 & +0.0196 & +0.1291\\
-512/4 & WHOLE & DreamSim & 361/42/97 & -0.0246 & +0.0250 & +0.1953\\
-512/4 & WHOLE & CLIP-I & 299/42/159 & -0.0573 & +0.0094 & +0.1290\\
-512/4 & WHOLE & DISTS & 375/42/83 & -0.0082 & +0.0138 & +0.0679\\
-512/4 & Quarter & PSNR & 270/60/170 & -0.4538 & +0.0249 & +0.8224\\
-512/4 & Quarter & LPIPS & 313/60/127 & -0.0134 & +0.0053 & +0.0389\\
-512/4 & Quarter & DreamSim & 265/60/175 & -0.0428 & +0.0020 & +0.0681\\
-512/4 & Quarter & CLIP-I & 236/60/204 & -0.0663 & +0.0000 & +0.0707\\
-512/4 & Quarter & DISTS & 294/60/146 & -0.0129 & +0.0025 & +0.0247\\
-512/4 & Ada & PSNR & 496/0/4 & +1.0635 & +4.1103 & +8.1459\\
-512/4 & Ada & LPIPS & 497/0/3 & +0.0657 & +0.1931 & +0.3573\\
-512/4 & Ada & DreamSim & 413/0/87 & -0.0803 & +0.1046 & +0.3274\\
-512/4 & Ada & CLIP-I & 217/0/283 & -0.1886 & -0.0132 & +0.1280\\
-512/4 & Ada & DISTS & 466/0/34 & -0.0052 & +0.0603 & +0.1516\\
-512/10 & WHOLE & PSNR & 474/2/24 & +0.0000 & +0.4505 & +1.7163\\
-512/10 & WHOLE & LPIPS & 472/2/26 & -0.0004 & +0.0212 & +0.0540\\
-512/10 & WHOLE & DreamSim & 389/2/109 & -0.0178 & +0.0179 & +0.0798\\
-512/10 & WHOLE & CLIP-I & 329/2/169 & -0.0498 & +0.0093 & +0.0868\\
-512/10 & WHOLE & DISTS & 423/2/75 & -0.0055 & +0.0103 & +0.0296\\
-512/10 & Quarter & PSNR & 345/32/123 & -0.2317 & +0.1260 & +0.8049\\
-512/10 & Quarter & LPIPS & 345/32/123 & -0.0096 & +0.0057 & +0.0293\\
-512/10 & Quarter & DreamSim & 298/32/170 & -0.0239 & +0.0053 & +0.0439\\
-512/10 & Quarter & CLIP-I & 268/32/200 & -0.0431 & +0.0021 & +0.0614\\
-512/10 & Quarter & DISTS & 304/32/164 & -0.0094 & +0.0022 & +0.0201\\
-512/10 & Ada & PSNR & 500/0/0 & +1.4835 & +3.9296 & +8.1875\\
-512/10 & Ada & LPIPS & 499/0/1 & +0.0523 & +0.1409 & +0.2573\\
-512/10 & Ada & DreamSim & 397/0/103 & -0.0560 & +0.0608 & +0.2530\\
-512/10 & Ada & CLIP-I & 256/0/244 & -0.1487 & +0.0013 & +0.1180\\
-512/10 & Ada & DISTS & 458/0/42 & -0.0088 & +0.0417 & +0.1011\\
-512/19 & WHOLE & PSNR & 491/2/7 & +0.2019 & +0.8817 & +2.2591\\
-512/19 & WHOLE & LPIPS & 493/2/5 & +0.0072 & +0.0336 & +0.0628\\
-512/19 & WHOLE & DreamSim & 471/2/27 & -0.0004 & +0.0254 & +0.0841\\
-512/19 & WHOLE & CLIP-I & 357/2/141 & -0.0329 & +0.0132 & +0.0995\\
-512/19 & WHOLE & DISTS & 462/2/36 & -0.0006 & +0.0161 & +0.0379\\
-512/19 & Quarter & PSNR & 379/23/98 & -0.1316 & +0.1230 & +0.8131\\
-512/19 & Quarter & LPIPS & 370/23/107 & -0.0061 & +0.0053 & +0.0257\\
-512/19 & Quarter & DreamSim & 322/23/155 & -0.0139 & +0.0035 & +0.0383\\
-512/19 & Quarter & CLIP-I & 276/23/201 & -0.0332 & +0.0022 & +0.0520\\
-512/19 & Quarter & DISTS & 331/23/146 & -0.0083 & +0.0024 & +0.0160\\
-512/19 & Ada & PSNR & 444/0/56 & -0.5606 & +1.6364 & +5.6562\\
-512/19 & Ada & LPIPS & 399/0/101 & -0.0208 & +0.0274 & +0.0977\\
-512/19 & Ada & DreamSim & 165/0/335 & -0.0633 & -0.0082 & +0.0499\\
-512/19 & Ada & CLIP-I & 237/0/263 & -0.0912 & -0.0018 & +0.0784\\
-512/19 & Ada & DISTS & 173/0/327 & -0.0411 & -0.0071 & +0.0377\\
-1024/4 & WHOLE & PSNR & 488/0/12 & +0.0976 & +0.6558 & +2.1413\\
-1024/4 & WHOLE & LPIPS & 492/0/8 & +0.0055 & +0.0308 & +0.0658\\
-1024/4 & WHOLE & DreamSim & 432/0/68 & -0.0147 & +0.0242 & +0.0975\\
-1024/4 & WHOLE & CLIP-I & 345/0/155 & -0.0430 & +0.0158 & +0.0931\\
-1024/4 & WHOLE & DISTS & 447/0/53 & -0.0039 & +0.0136 & +0.0362\\
-1024/4 & Quarter & PSNR & 374/0/126 & -0.2168 & +0.1524 & +0.8926\\
-1024/4 & Quarter & LPIPS & 366/0/134 & -0.0073 & +0.0064 & +0.0301\\
-1024/4 & Quarter & DreamSim & 327/11/162 & -0.0249 & +0.0054 & +0.0559\\
-1024/4 & Quarter & CLIP-I & 272/2/226 & -0.0457 & +0.0012 & +0.0613\\
-1024/4 & Quarter & DISTS & 318/10/172 & -0.0094 & +0.0024 & +0.0176\\
-1024/4 & Ada & PSNR & 497/0/3 & +1.3662 & +3.9578 & +8.5143\\
-1024/4 & Ada & LPIPS & 497/0/3 & +0.0453 & +0.1362 & +0.2457\\
-1024/4 & Ada & DreamSim & 403/0/97 & -0.0471 & +0.0541 & +0.2385\\
-1024/4 & Ada & CLIP-I & 268/0/232 & -0.1292 & +0.0048 & +0.1108\\
-1024/4 & Ada & DISTS & 446/0/54 & -0.0091 & +0.0386 & +0.1069\\
-1024/7 & WHOLE & PSNR & 461/0/39 & -0.0594 & +0.3809 & +1.4071\\
-1024/7 & WHOLE & LPIPS & 469/0/31 & -0.0019 & +0.0158 & +0.0401\\
-1024/7 & WHOLE & DreamSim & 398/0/102 & -0.0150 & +0.0109 & +0.0540\\
-1024/7 & WHOLE & CLIP-I & 306/0/194 & -0.0568 & +0.0069 & +0.0705\\
-1024/7 & WHOLE & DISTS & 408/0/92 & -0.0085 & +0.0077 & +0.0265\\
-1024/7 & Quarter & PSNR & 359/25/116 & -0.1978 & +0.1076 & +0.7268\\
-1024/7 & Quarter & LPIPS & 365/25/110 & -0.0075 & +0.0045 & +0.0237\\
-1024/7 & Quarter & DreamSim & 309/25/166 & -0.0183 & +0.0030 & +0.0363\\
-1024/7 & Quarter & CLIP-I & 254/25/221 & -0.0532 & +0.0003 & +0.0574\\
-1024/7 & Quarter & DISTS & 327/25/148 & -0.0101 & +0.0023 & +0.0177\\
-1024/7 & Ada & PSNR & 471/0/29 & -0.1458 & +2.7760 & +7.0974\\
-1024/7 & Ada & LPIPS & 454/0/46 & -0.0131 & +0.0602 & +0.1545\\
-1024/7 & Ada & DreamSim & 233/0/267 & -0.0821 & -0.0026 & +0.1231\\
-1024/7 & Ada & CLIP-I & 236/0/264 & -0.1079 & -0.0059 & +0.0964\\
-1024/7 & Ada & DISTS & 293/0/207 & -0.0371 & +0.0063 & +0.0661\\
-1024/10 & WHOLE & PSNR & 438/0/62 & -0.0182 & +0.7597 & +2.3170\\
-1024/10 & WHOLE & LPIPS & 439/0/61 & -0.0013 & +0.0365 & +0.0829\\
-1024/10 & WHOLE & DreamSim & 415/4/81 & -0.0032 & +0.0148 & +0.0898\\
-1024/10 & WHOLE & CLIP-I & 344/0/156 & -0.0288 & +0.0064 & +0.0979\\
-1024/10 & WHOLE & DISTS & 417/2/81 & -0.0024 & +0.0113 & +0.0400\\
-1024/10 & Quarter & PSNR & 391/0/109 & -0.0622 & +0.1011 & +0.6810\\
-1024/10 & Quarter & LPIPS & 396/0/104 & -0.0036 & +0.0042 & +0.0194\\
-1024/10 & Quarter & DreamSim & 320/5/175 & -0.0116 & +0.0015 & +0.0215\\
-1024/10 & Quarter & CLIP-I & 284/0/216 & -0.0278 & +0.0012 & +0.0439\\
-1024/10 & Quarter & DISTS & 329/5/166 & -0.0056 & +0.0016 & +0.0132\\
-1024/10 & Ada & PSNR & 345/0/155 & -1.2376 & +0.4750 & +3.0169\\
-1024/10 & Ada & LPIPS & 226/0/274 & -0.0349 & -0.0026 & +0.0542\\
-1024/10 & Ada & DreamSim & 100/0/400 & -0.0599 & -0.0149 & +0.0165\\
-1024/10 & Ada & CLIP-I & 205/0/295 & -0.0849 & -0.0074 & +0.0636\\
-1024/10 & Ada & DISTS & 62/0/438 & -0.0496 & -0.0220 & +0.0093\\
-1024/19 & WHOLE & PSNR & 496/0/4 & +0.0867 & +0.3851 & +1.2180\\
-1024/19 & WHOLE & LPIPS & 492/0/8 & +0.0012 & +0.0077 & +0.0168\\
-1024/19 & WHOLE & DreamSim & 361/3/136 & -0.0047 & +0.0030 & +0.0162\\
-1024/19 & WHOLE & CLIP-I & 299/1/200 & -0.0171 & +0.0017 & +0.0366\\
-1024/19 & WHOLE & DISTS & 413/1/86 & -0.0026 & +0.0043 & +0.0144\\
-1024/19 & Quarter & PSNR & 472/0/28 & -0.0000 & +0.1358 & +0.4535\\
-1024/19 & Quarter & LPIPS & 430/0/70 & -0.0009 & +0.0025 & +0.0085\\
-1024/19 & Quarter & DreamSim & 308/8/184 & -0.0037 & +0.0006 & +0.0080\\
-1024/19 & Quarter & CLIP-I & 258/3/239 & -0.0144 & +0.0000 & +0.0188\\
-1024/19 & Quarter & DISTS & 350/4/146 & -0.0033 & +0.0013 & +0.0076\\
-1024/19 & Ada & PSNR & 493/0/7 & +0.4733 & +1.3082 & +2.5644\\
-1024/19 & Ada & LPIPS & 492/0/8 & +0.0046 & +0.0215 & +0.0428\\
-1024/19 & Ada & DreamSim & 232/0/268 & -0.0333 & -0.0011 & +0.0327\\
-1024/19 & Ada & CLIP-I & 291/0/209 & -0.0578 & +0.0072 & +0.0861\\
-1024/19 & Ada & DISTS & 144/0/356 & -0.0378 & -0.0081 & +0.0181\\
+\begin{longtable}{@{}lrrrr@{}}\toprule
+Method & SNR & Util. (\%) & Gray / 1500 & Paid NULL\\\midrule\endhead
+WHOLE & 4 & 73.812 & 0 & 0\\
+WHOLE & 7 & 83.188 & 11 & 0\\
+WHOLE & 10 & 77.704 & 0 & 0\\
+WHOLE & 19 & 85.240 & 0 & 0\\
+NeST & 4 & 99.561 & 1 & 0\\
+NeST & 7 & 99.715 & 7 & 0\\
+NeST & 10 & 99.794 & 0 & 0\\
+NeST & 19 & 99.829 & 0 & 0\\
+Ada & 4 & 99.558 & 0 & 0\\
+Ada & 7 & 99.670 & 10 & 0\\
+Ada & 10 & 98.721 & 0 & 0\\
+Ada & 19 & 87.375 & 0 & 0\\
 \bottomrule\end{longtable}
+\subsection{Source-level variation}
+Positive gain is favorable: reference minus NeST for distances and NeST minus reference for PSNR/CLIP-I. Better/tie/worse uses tolerance $10^{-10}$, not a perceptual visibility threshold. The distance distributions below include all sources and failures; complete five-metric distributions are in the companion CSV.
 
-\begin{longtable}{@{}llllrrr@{}}\toprule
-Bits & Reference & Metric & Better/tie/worse & P05 & Median & P95\\\midrule\endhead
-620 & WHOLE & PSNR & 361/42/97 & -0.2496 & +0.2694 & +1.7003\\
-620 & WHOLE & LPIPS & 381/42/77 & -0.0080 & +0.0192 & +0.1214\\
-620 & WHOLE & DreamSim & 360/42/98 & -0.0222 & +0.0243 & +0.1910\\
-620 & WHOLE & CLIP-I & 297/42/161 & -0.0605 & +0.0092 & +0.1262\\
-620 & WHOLE & DISTS & 374/42/84 & -0.0078 & +0.0134 & +0.0662\\
-620 & Ada & PSNR & 499/0/1 & +1.4708 & +4.0982 & +7.5756\\
-620 & Ada & LPIPS & 497/0/3 & +0.0701 & +0.1923 & +0.3280\\
-620 & Ada & DreamSim & 418/0/82 & -0.0760 & +0.1040 & +0.3216\\
-620 & Ada & CLIP-I & 219/0/281 & -0.1831 & -0.0109 & +0.1297\\
-620 & Ada & DISTS & 474/0/26 & -0.0005 & +0.0580 & +0.1265\\
-1212 & WHOLE & PSNR & 475/0/25 & +0.0003 & +0.4509 & +1.7163\\
-1212 & WHOLE & LPIPS & 473/0/27 & -0.0006 & +0.0212 & +0.0540\\
-1212 & WHOLE & DreamSim & 391/0/109 & -0.0178 & +0.0179 & +0.0798\\
-1212 & WHOLE & CLIP-I & 330/0/170 & -0.0498 & +0.0098 & +0.0868\\
-1212 & WHOLE & DISTS & 424/0/76 & -0.0055 & +0.0104 & +0.0299\\
-1212 & Ada & PSNR & 499/0/1 & +1.7129 & +3.9729 & +8.1332\\
-1212 & Ada & LPIPS & 498/0/2 & +0.0560 & +0.1460 & +0.2381\\
-1212 & Ada & DreamSim & 419/0/81 & -0.0523 & +0.0655 & +0.2320\\
-1212 & Ada & CLIP-I & 275/0/225 & -0.1235 & +0.0084 & +0.1062\\
-1212 & Ada & DISTS & 464/0/36 & -0.0055 & +0.0461 & +0.1114\\
-1302 & WHOLE & PSNR & 488/1/11 & +0.1039 & +0.6558 & +2.1413\\
-1302 & WHOLE & LPIPS & 490/1/9 & +0.0056 & +0.0307 & +0.0658\\
-1302 & WHOLE & DreamSim & 431/1/68 & -0.0147 & +0.0242 & +0.0975\\
-1302 & WHOLE & CLIP-I & 346/1/153 & -0.0430 & +0.0164 & +0.0931\\
-1302 & WHOLE & DISTS & 446/1/53 & -0.0039 & +0.0136 & +0.0362\\
-1302 & Ada & PSNR & 499/0/1 & +1.6604 & +3.9410 & +8.1762\\
-1302 & Ada & LPIPS & 499/0/1 & +0.0558 & +0.1393 & +0.2309\\
-1302 & Ada & DreamSim & 408/0/92 & -0.0406 & +0.0580 & +0.2283\\
-1302 & Ada & CLIP-I & 264/0/236 & -0.1289 & +0.0039 & +0.0916\\
-1302 & Ada & DISTS & 464/0/36 & -0.0085 & +0.0433 & +0.1030\\
-1940 & WHOLE & PSNR & 473/0/27 & -0.0050 & +0.3948 & +1.3201\\
-1940 & WHOLE & LPIPS & 481/0/19 & +0.0007 & +0.0159 & +0.0370\\
-1940 & WHOLE & DreamSim & 407/0/93 & -0.0105 & +0.0111 & +0.0486\\
-1940 & WHOLE & CLIP-I & 312/0/188 & -0.0421 & +0.0072 & +0.0631\\
-1940 & WHOLE & DISTS & 419/0/81 & -0.0056 & +0.0078 & +0.0254\\
-1940 & Ada & PSNR & 482/0/18 & +0.1806 & +2.7900 & +6.5027\\
-1940 & Ada & LPIPS & 471/0/29 & -0.0009 & +0.0596 & +0.1437\\
-1940 & Ada & DreamSim & 248/0/252 & -0.0672 & -0.0008 & +0.0839\\
-1940 & Ada & CLIP-I & 237/0/263 & -0.0991 & -0.0025 & +0.0718\\
-1940 & Ada & DISTS & 305/0/195 & -0.0322 & +0.0070 & +0.0561\\
-2248 & WHOLE & PSNR & 491/2/7 & +0.2019 & +0.8817 & +2.2593\\
-2248 & WHOLE & LPIPS & 493/2/5 & +0.0072 & +0.0336 & +0.0628\\
-2248 & WHOLE & DreamSim & 472/2/26 & -0.0003 & +0.0254 & +0.0841\\
-2248 & WHOLE & CLIP-I & 357/2/141 & -0.0329 & +0.0132 & +0.0995\\
-2248 & WHOLE & DISTS & 463/2/35 & -0.0006 & +0.0161 & +0.0379\\
-2248 & Ada & PSNR & 448/0/52 & -0.4519 & +1.7167 & +4.8464\\
-2248 & Ada & LPIPS & 406/0/94 & -0.0201 & +0.0261 & +0.0946\\
-2248 & Ada & DreamSim & 165/0/335 & -0.0586 & -0.0098 & +0.0476\\
-2248 & Ada & CLIP-I & 235/0/265 & -0.0913 & -0.0035 & +0.0760\\
-2248 & Ada & DISTS & 166/0/334 & -0.0415 & -0.0074 & +0.0301\\
-2577 & WHOLE & PSNR & 432/16/52 & -0.0182 & +0.7685 & +2.3170\\
-2577 & WHOLE & LPIPS & 433/16/51 & -0.0013 & +0.0365 & +0.0829\\
-2577 & WHOLE & DreamSim & 409/16/75 & -0.0032 & +0.0148 & +0.0898\\
-2577 & WHOLE & CLIP-I & 337/16/147 & -0.0288 & +0.0064 & +0.0979\\
-2577 & WHOLE & DISTS & 413/16/71 & -0.0023 & +0.0113 & +0.0400\\
-2577 & Ada & PSNR & 353/0/147 & -1.1817 & +0.5351 & +3.0938\\
-2577 & Ada & LPIPS & 231/0/269 & -0.0345 & -0.0020 & +0.0526\\
-2577 & Ada & DreamSim & 99/0/401 & -0.0594 & -0.0156 & +0.0176\\
-2577 & Ada & CLIP-I & 228/0/272 & -0.0846 & -0.0044 & +0.0591\\
-2577 & Ada & DISTS & 63/0/437 & -0.0482 & -0.0211 & +0.0094\\
+\begin{longtable}{@{}rlllr@{}}\toprule
+SNR & Reference & Metric & Better/tie/worse & Median gain\\\midrule\endhead
+4 & WHOLE & DreamSim & 430/1/69 & +0.02416\\
+4 & WHOLE & DISTS & 446/1/53 & +0.01356\\
+7 & WHOLE & DreamSim & 403/3/94 & +0.01131\\
+7 & WHOLE & DISTS & 414/3/83 & +0.00795\\
+10 & WHOLE & DreamSim & 409/16/75 & +0.01484\\
+10 & WHOLE & DISTS & 412/16/72 & +0.01130\\
+19 & WHOLE & DreamSim & 359/6/135 & +0.00298\\
+19 & WHOLE & DISTS & 410/6/84 & +0.00434\\
+4 & Ada & DreamSim & 402/0/98 & +0.05383\\
+4 & Ada & DISTS & 445/0/55 & +0.03848\\
+7 & Ada & DreamSim & 236/0/264 & -0.00264\\
+7 & Ada & DISTS & 298/0/202 & +0.00696\\
+10 & Ada & DreamSim & 100/0/400 & -0.01489\\
+10 & Ada & DISTS & 62/0/438 & -0.02199\\
+19 & Ada & DreamSim & 231/0/269 & -0.00107\\
+19 & Ada & DISTS & 144/0/356 & -0.00806\\
+4 & Latent & DreamSim & 427/0/73 & +0.05623\\
+4 & Latent & DISTS & 469/0/31 & +0.03244\\
+7 & Latent & DreamSim & 460/0/40 & +0.05402\\
+7 & Latent & DISTS & 484/0/16 & +0.04196\\
+10 & Latent & DreamSim & 489/0/11 & +0.06137\\
+10 & Latent & DISTS & 500/0/0 & +0.05024\\
+19 & Latent & DreamSim & 500/0/0 & +0.07172\\
+19 & Latent & DISTS & 500/0/0 & +0.06790\\
+4 & Swin & DreamSim & 499/0/1 & +0.26441\\
+4 & Swin & DISTS & 499/0/1 & +0.15934\\
+7 & Swin & DreamSim & 496/0/4 & +0.25173\\
+7 & Swin & DISTS & 493/0/7 & +0.17057\\
+10 & Swin & DreamSim & 500/0/0 & +0.24916\\
+10 & Swin & DISTS & 500/0/0 & +0.17445\\
+19 & Swin & DreamSim & 500/0/0 & +0.23573\\
+19 & Swin & DISTS & 500/0/0 & +0.18552\\
+4 & BPG & DreamSim & 500/0/0 & +0.40249\\
+4 & BPG & DISTS & 499/0/1 & +0.21549\\
+7 & BPG & DreamSim & 499/0/1 & +0.34091\\
+7 & BPG & DISTS & 495/0/5 & +0.20147\\
+10 & BPG & DreamSim & 500/0/0 & +0.30439\\
+10 & BPG & DISTS & 500/0/0 & +0.19389\\
+19 & BPG & DreamSim & 499/0/1 & +0.21229\\
+19 & BPG & DISTS & 500/0/0 & +0.17141\\
+4 & ARPC & DreamSim & 500/0/0 & +0.31992\\
+4 & ARPC & DISTS & 500/0/0 & +0.15033\\
+7 & ARPC & DreamSim & 499/0/1 & +0.34055\\
+7 & ARPC & DISTS & 495/0/5 & +0.15890\\
+10 & ARPC & DreamSim & 499/0/1 & +0.18775\\
+10 & ARPC & DISTS & 498/0/2 & +0.08075\\
+19 & ARPC & DreamSim & 498/0/2 & +0.10736\\
+19 & ARPC & DISTS & 495/0/5 & +0.05859\\
 \bottomrule\end{longtable}
 
 \section{Matched controls and generation sensitivity}
@@ -585,6 +756,37 @@ $N$ & SNR & Metric & Difference [paired 95\% CI]\\\midrule\endhead
 1024 & 10 & DreamSim & +0.00358 [+0.00101, +0.00601]\\
 1024 & 10 & CLIP-I & -0.00131 [-0.00523, +0.00253]\\
 \bottomrule\end{longtable}
+
+\subsection{Matched low-budget termination grid}
+At N512/10 dB, the same control100 sources, three original noise realizations, fixed 16-QAM rate 2/3, ceiling $(7,0)$, frozen model and receiver are shared by Whole/Quarter/Eighth/Token. Only allowed termination positions change. There are 1200 logical positions, 963 unique physical frames (846 exact reuses, 117 new) and 321 unique receiver inputs (282 reuses, 39 new). Thirty-nine new native source/output pairs receive all five metrics. The actual all-candidate length comparisons per image are 4/13/25/126, respectively; these are not model-forward or latency counts.
+
+\begin{longtable}{@{}lrrrrrr@{}}\toprule
+Grid & Util. (\%) & PSNR & LPIPS & DreamSim & CLIP-I & DISTS\\\midrule\endhead
+Whole & 79.176 & 17.01521 & 0.29150 & 0.21809 & 0.79457 & 0.20703\\
+Quarter & 93.162 & 17.40397 & 0.27595 & 0.20185 & 0.80128 & 0.19888\\
+Eighth & 96.239 & 17.47883 & 0.27253 & 0.19891 & 0.80489 & 0.19739\\
+Token & 99.545 & 17.54887 & 0.26938 & 0.19332 & 0.81030 & 0.19592\\
+\bottomrule\end{longtable}
+
+\begin{longtable}{@{}lll@{}}\toprule
+Comparison & Metric & Difference [paired 95\% CI]\\\midrule\endhead
+token-whole & PSNR & +0.53366 [+0.44580, +0.62511]\\
+token-whole & LPIPS & -0.02212 [-0.02553, -0.01874]\\
+token-whole & DreamSim & -0.02477 [-0.03072, -0.01885]\\
+token-whole & CLIP-I & +0.01573 [+0.00749, +0.02374]\\
+token-whole & DISTS & -0.01111 [-0.01339, -0.00887]\\
+eighth-whole & PSNR & +0.46362 [+0.38349, +0.54684]\\
+eighth-whole & LPIPS & -0.01898 [-0.02218, -0.01588]\\
+eighth-whole & DreamSim & -0.01919 [-0.02432, -0.01382]\\
+eighth-whole & CLIP-I & +0.01031 [+0.00234, +0.01795]\\
+eighth-whole & DISTS & -0.00963 [-0.01165, -0.00765]\\
+token-eighth & PSNR & +0.07003 [+0.02910, +0.11490]\\
+token-eighth & LPIPS & -0.00315 [-0.00508, -0.00121]\\
+token-eighth & DreamSim & -0.00558 [-0.00956, -0.00157]\\
+token-eighth & CLIP-I & +0.00541 [-0.00061, +0.01141]\\
+token-eighth & DISTS & -0.00148 [-0.00320, +0.00023]\\
+\bottomrule\end{longtable}
+Eighth retains approximately 87\% of the Whole-to-Token mean PSNR gain at this point. Token--Eighth improves PSNR, LPIPS and DreamSim in the paired intervals, while DISTS and CLIP-I intervals cross zero. This diagnostic isolates granularity; it does not decompose the separately calibrated common500 system gain.
 
 \section{Equal information budgets}
 The information budget includes 12 profile bits, header CRC16, length13 and body CRC16: 57 shared bits, plus 10 class bits for Ada. The arithmetic-code limits are $B-57$ for WHOLE/NeST and $B-67$ for Ada. The fixed budgets are $B=620,1212,1302,1940,2248,2577$ bits. WHOLE/NeST share maximum $(10,0)$; Ada permits 1--256 tokens. Actual information fields and arithmetic streams are independently parsed at RX without PHY noise. The receiver cannot inspect unsent source tokens. This comparison removes wireless and MCS effects, but retains differences among tokenizer, prior, conditioning and decoder.
@@ -892,14 +1094,27 @@ WHOLE & 10 & 2000 & 0.16500 & 0.13874\\
 
 
 \section{Qualitative examples}
-Fig.3 uses sources 135 and 201 at $N=1024$, 10 dB (catalog C10-016/C10-017), chosen after inspection of the complete candidate gallery to illustrate perceptual advantages. These are selected examples, not random or representative samples. The full IDs are \path{n04461696/ILSVRC2012_val_00026517_n04461696} and \path{n06596364/ILSVRC2012_val_00001019_n06596364}. NeST has lower DISTS and DreamSim than WHOLE, SwinJSCC and Ada in both displayed realizations; this does not imply superiority in every metric or over the population. SwinJSCC/NeST PSNR is 21.96/19.99 dB and 19.75/16.82 dB, respectively. Ada has lower LPIPS on source 135 (0.1955 versus 0.2112) and higher CLIP-I on source 201 (0.6926 versus 0.6596). Full-precision scores and image identities are in \path{inputs/fig3_selected_20261102/}.
+Fig.3 retains the two source IDs selected by the user from the prior complete gallery: source135 (C10-016, truck) and source201 (C10-017). WHOLE/NeST/Ada now use the current frozen N1024/10 policies and the first registered channel repetition, seed6201; SwinJSCC retains its original first repetition, seed2001. Sources were not reselected after the new calibration. Images retain the full 256-by-256 field. The displayed DISTS/DreamSim values are computed from the corresponding native float output, not a PNG or a three-repeat mean. These remain selected illustrative cases, not random or representative samples.
 
-All images retain the full $256\times256$ field and each method's original first channel repetition: seed 6201 for WHOLE, NeST and Ada; seed 2001 for SwinJSCC, preserving historical method-specific noise. No failure or repetition was substituted. Metrics use the native float outputs; PNGs serve display only. The following panel shows the selected 7-dB television (index 84) and leather (index 143) advantage examples with complete method comparisons.
+\begin{longtable}{@{}rlrrrrr@{}}\toprule
+Index & Method & PSNR & LPIPS & DreamSim & CLIP-I & DISTS\\\midrule\endhead
+135 & WHOLE & 18.16309 & 0.26054 & 0.10733 & 0.87756 & 0.17963\\
+135 & SwinJSCC & 21.96407 & 0.44166 & 0.36055 & 0.60724 & 0.34328\\
+135 & Ada-TokenCom & 18.81166 & 0.19548 & 0.08909 & 0.83364 & 0.16033\\
+135 & NeST-Com & 19.98544 & 0.21118 & 0.07420 & 0.91333 & 0.14699\\
+201 & WHOLE & 15.28726 & 0.26756 & 0.23034 & 0.61705 & 0.17104\\
+201 & SwinJSCC & 19.74965 & 0.52086 & 0.46440 & 0.60563 & 0.29948\\
+201 & Ada-TokenCom & 12.67242 & 0.26190 & 0.17663 & 0.69265 & 0.15176\\
+201 & NeST-Com & 16.82297 & 0.19017 & 0.17180 & 0.65959 & 0.13561\\
+\bottomrule\end{longtable}
+The following supplemental image panels retain their historical policies and their previously fixed selections. Their labels and numbers are not substituted for the newly calibrated main Fig.3. The following panel shows the selected 7-dB television (index 84) and leather (index 143) advantage examples with complete method comparisons.
 \begin{figure}[htbp]\centering\includegraphics[width=\linewidth]{figures/figure3_all_methods_supplement.pdf}\caption{Complete method comparisons for the television and leather advantage examples. Full256$\times$256 fields are retained.}\end{figure}
 For a complementary view, the next two sources were fixed before their images were opened: common500 N1024/10dB, ranked by each source's mean DISTS gain of Token over WHOLE, with stable source-index tie breaking. We use the package's median-rank source 209 and minimum-gain source 39, without a success filter. Display is the first original repetition (noise 6201 for both methods). Source209 is \path{n04509417/ILSVRC2012_val_00035733_n04509417}; source 39 is \path{n02097130/ILSVRC2012_val_00048087_n02097130}. This is a fixed median-rank and DISTS-degradation comparison. Source39 worsens in DISTS but improves in DreamSim, illustrating disagreement between distances.
 \begin{figure}[htbp]\centering\includegraphics[width=5.8in]{figures/supp_examples_distribution.pdf}\caption{Median-rank (top) and minimum DISTS-gain (bottom) sources at N1024/10dB. Columns are source, WHOLE and NeST. Values are DISTS / DreamSim for the displayed first repetition, lower favorable.}\end{figure}
 
 \section{Unified processing costs}
+The timing sessions below retain their original registered ceilings, MCSs and numerical routes. The new calibration does not remeasure latency; these measurements are not attached as the timing of a different newly selected policy.
+
 \subsection{Corrected resource protocol for the main comparisons}
 The resource audit uses the same first 32 common500 IDs at $N=1024$, 10 dB, batch one, with two warmups and three measurements per source and direction. All five GPU implementations run serially on the same physical RTX PRO 6000. Every method uses CPU affinity [38,40], which selects distinct physical cores 19 and 20 of socket 0, with two intra-op and two inter-op threads. BPG uses these CPU cores without a GPU. The numerical routes, weights, policies, source order and observed RX symbols remain frozen. Every emitted waveform and reconstructed image matches its historical event hash exactly. Ada's measurements below document our adaptation only and are withheld from the main timing comparison for the implementation reasons given below.
 
@@ -960,7 +1175,7 @@ We replace the serial encoder with a single conditional causal prefill and compi
 
 Two fixed sources first pass exact recovery of all 512 tokens and 512 integer CDFs, plus two fixed-prefix tail checks. That successful qualification is reused, without repeating its model calls. The formal study then performs fresh RGB-to-symbol TX and independent symbol-to-RGB RX on the same 32 sources, with two warmups and three measurements per direction. RX has no access to source pixels or TX witness files. All 160 received prefixes, decoded classes and endpoints match the external TX witness after RX has exited; all 96 measured receptions succeed. Repeated outputs are deterministic within the new implementation.
 
-The following timings include class prediction and actual digital-link processing at the same synchronized boundaries as the preceding resource audit. Model loading and cold compilation are excluded from latency, but remain charged to the resource ledger. Compilation uses eight CPU cores; each timed span returns to the same two distinct cores and 2/2 thread pools. No main image-quality experiment or metric evaluation is rerun. The 10\,000-by-32 bootstrap index bank and source order are reused exactly.
+The following timings include class prediction and actual digital-link processing at the same synchronized boundaries as the preceding resource audit. Model loading and cold compilation are excluded from latency, but remain charged to the resource ledger. Compilation uses eight CPU cores; each timed span returns to the same two distinct cores and 2/2 thread pools. That timing study did not evaluate image quality; the subsequent same-source quality diagnostic below supplies it. The 10\,000-by-32 bootstrap index bank and source order are reused exactly.
 
 \begin{longtable}{@{}lrl@{}}\toprule
 Implementation span & Mean (ms) & 95\% source interval\\\midrule\endhead
@@ -972,6 +1187,31 @@ The new route matches 0/160 historical emitted waveforms and 10/160 historical r
 
 Three unsuccessful compilation attempts (missing development headers, parent and compiler-child module-name collisions) precede the formal run. They produced no timed TX/RX results and are retained with their actual nonzero exits and resource use. Private matching Python headers and the existing child-namespace binding repair the environment without changing the qualified model calculation. These failures are not included in per-image processing times. All study attempts remain charged against the original absolute deadline and the separately authorized resource extension.
 
+
+\subsection{Quality paired with compiled Ada timing}
+We restore the 32 saved timed received waveforms and compare native outputs on the exact same sources, received prefixes/classes and channel events. The restored compiled outputs match all 32 timed output hashes. No TX, new channel event or new timing run is performed. The original and compiled coders recover identical source tokens, but their bitstreams differ; the existing seed derivation from received payload bytes can therefore change the tail-generation seed.
+
+Before successful new quality evaluation, an additional fixed-original-seed arm is specified. It needs 30 extra tail renders and reuses two identical cases. Holding that seed fixed makes all 32 native reconstructed images byte-identical to the original timed route, and all five paired quality differences are exactly zero. The actual timed outputs differ on 30 images. Their paired mean differences below all have intervals crossing zero; this 32-source diagnostic does not establish population equivalence or replace common500. Each source has one distinct timed event; five timing repetitions are not five quality samples. The original serial quality route was selected for unified calibration before this diagnostic's outcome.
+
+\begin{longtable}{@{}lll@{}}\toprule
+Arm difference & Metric & Mean [paired 95\% CI]\\\midrule\endhead
+Compiled-Original & PSNR & -0.03839 [-0.47062, +0.39219]\\
+Compiled-Original & LPIPS & -0.00168 [-0.00524, +0.00177]\\
+Compiled-Original & DreamSim & -0.00349 [-0.00837, +0.00082]\\
+Compiled-Original & CLIP-I & -0.00103 [-0.00614, +0.00379]\\
+Compiled-Original & DISTS & -0.00175 [-0.00444, +0.00090]\\
+Fixed-seed-Original & PSNR & +0.00000 [+0.00000, +0.00000]\\
+Fixed-seed-Original & LPIPS & +0.00000 [+0.00000, +0.00000]\\
+Fixed-seed-Original & DreamSim & +0.00000 [+0.00000, +0.00000]\\
+Fixed-seed-Original & CLIP-I & +0.00000 [+0.00000, +0.00000]\\
+Fixed-seed-Original & DISTS & +0.00000 [+0.00000, +0.00000]\\
+Compiled-Fixed-seed & PSNR & -0.03839 [-0.47062, +0.39219]\\
+Compiled-Fixed-seed & LPIPS & -0.00168 [-0.00524, +0.00177]\\
+Compiled-Fixed-seed & DreamSim & -0.00349 [-0.00837, +0.00082]\\
+Compiled-Fixed-seed & CLIP-I & -0.00103 [-0.00614, +0.00379]\\
+Compiled-Fixed-seed & DISTS & -0.00175 [-0.00444, +0.00090]\\
+\bottomrule\end{longtable}
+The actual compiled timed outputs have source-mean PSNR 19.36069, LPIPS 0.16355, DreamSim 0.09640, CLIP-I 0.87857, DISTS 0.13098. Their corresponding TX/RX/total means are 114.55/2949.76/3064.30 ms. The fixed-seed diagnostic is not assigned a newly measured latency.
 
 \subsection{Historical E5 resource protocol}
 The historical 7-dB, N512, ARPC and grid-RX groups below were not rerun. For completeness, the original N1024/10 groups are also retained and labeled historical. They use affinity [38,39] (two SMT siblings of one physical core), six intra-op and two inter-op threads. These values are not combined with the corrected-resource main tables.
@@ -1063,7 +1303,7 @@ This software implementation includes actual CDF construction, independent arith
 
 
 \section{Transfer to Kodak24}
-Kodak uses the original RGB center 256$\times$256 crop without resizing before cropping. ImageNet-calibrated policies, model components and receiver configuration remain fixed. WHOLE and Quarter are the prior complete-scale and quarter-grid systems, respectively; Token uses integer endpoints. Ada remains the paid predicted-class fixed-frame adaptation. SNR 4/10/19 each use three original events per image (seeds2001/2002/2003), giving 216 logical results per method. Native outputs and existing four metrics are reused under exact identities; DISTS is evaluated on all 269 unique source/output pairs. Token needs 213 new physical frames plus 3 exact reused frames, and 71 new unique formal reconstructions plus 1 reused reconstruction. All 864 four-method events are accepted; the independent source population is 24, not 72.
+Kodak retains the earlier ImageNet-calibrated policies, without repeating the new N1024 calibration on Kodak. It uses the original RGB center 256$\times$256 crop without resizing before cropping. ImageNet-calibrated policies, model components and receiver configuration remain fixed. WHOLE and Quarter are the prior complete-scale and quarter-grid systems, respectively; Token uses integer endpoints. Ada remains the paid predicted-class fixed-frame adaptation. SNR 4/10/19 each use three original events per image (seeds2001/2002/2003), giving 216 logical results per method. Native outputs and existing four metrics are reused under exact identities; DISTS is evaluated on all 269 unique source/output pairs. Token needs 213 new physical frames plus 3 exact reused frames, and 71 new unique formal reconstructions plus 1 reused reconstruction. All 864 four-method events are accepted; the independent source population is 24, not 72.
 
 Token improves PSNR, DISTS and DreamSim over WHOLE at all three SNRs. Compared with Quarter, Token's DISTS/DreamSim intervals exclude zero at 10/19 dB and cross zero at 4 dB. Against Ada, Token improves DISTS/DreamSim at 4 dB; Ada improves DISTS at 10/19 dB, while DreamSim differences cross zero. The complete five-metric results follow; all intervals use the existing 10\,000$\times24$ source bank after source-level event averaging.
 

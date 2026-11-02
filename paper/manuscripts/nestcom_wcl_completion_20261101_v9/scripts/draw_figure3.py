@@ -1,4 +1,4 @@
-"""Two user-selected 10-dB examples; exact existing first-repeat display images."""
+"""Retain the two chosen source IDs; show each current policy's first event."""
 from pathlib import Path
 import json,csv,hashlib
 from PIL import Image
@@ -6,8 +6,8 @@ import matplotlib
 matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 P=Path(__file__).resolve().parents[1]
-data=json.loads((P/'inputs/fig3_selected_20261102/native_mapping.json').read_text())
-selection=json.loads((P/'inputs/fig3_selected_20261102/selection.json').read_text())
+data=json.loads((P/'inputs/fig3_unified_20261103/native_mapping.json').read_text())
+selection=json.loads((P/'inputs/fig3_unified_20261103/selection.json').read_text())
 plt.rcParams.update({'font.family':'DejaVu Sans','font.size':8.5,'pdf.fonttype':42,'ps.fonttype':42,'svg.fonttype':'none'})
 width,height=6.0,2.77
 fig=plt.figure(figsize=(width,height));cols=['Source','WHOLE','SwinJSCC','Ada-TokenCom','NeST-Com'];used=[]

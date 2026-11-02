@@ -48,7 +48,7 @@ expected_display_equations=len(re.findall(r'\\begin\{equation\}',t))
 counts={'figure':0,'table':0}
 def numbered_caption(m):
     kind='figure' if m[1].startswith('figure') else 'table';counts[kind]+=1
-    label=('Fig. '+str(counts[kind])+'. ') if kind=='figure' else ('Table '+('I','II','III')[counts[kind]-1]+'. ')
+    label=('Fig. '+str(counts[kind])+'. ') if kind=='figure' else ('Table '+('I','II','III','IV')[counts[kind]-1]+'. ')
     return m[0].replace(r'\caption{',r'\caption{'+label,1)
 t=re.sub(r'\\begin\{(figure\*?|table)\}(.*?)\\end\{\1\}',numbered_caption,t,flags=re.S)
 # Pandoc converts the body, figures and equations only. Complex LaTeX table
@@ -58,7 +58,7 @@ def native_table_placeholder(m):
     spec=table_spec(m[0],len(table_specs)+1);table_specs.append(spec)
     return '\n\n'+spec['marker']+'\n\n'
 t=re.sub(r'\\begin\{table\}.*?\\end\{table\}',native_table_placeholder,t,flags=re.S)
-assert len(table_specs)==3 and r'\begin{table}' not in t
+assert len(table_specs)==4 and r'\begin{table}' not in t
 # Keep purely numeric confidence intervals as ordinary editable text, copying
 # all three number strings without rounding and retaining square brackets.
 number_pattern=r'[-+]?\d+(?:\.\d+)?'
@@ -76,7 +76,7 @@ def numbered_heading(m):
 t=re.sub(r'\\(section|subsection)\{([^}]+)\}',numbered_heading,t)
 keys=re.findall(r'\\bibitem\{([^}]+)\}',t);numbers={k:str(i+1)for i,k in enumerate(keys)}
 t=re.sub(r'\\cite\{([^}]+)\}',lambda m:'['+', '.join(numbers[k]for k in m[1].split(','))+']',t)
-labels={'fig:system':'1','fig:performance':'2','fig:qualitative':'3','tab:internal':'I','tab:external':'II','tab:reduced':'III'}
+labels={'fig:system':'1','fig:performance':'2','fig:qualitative':'3','tab:internal':'I','tab:external':'II','tab:reduced':'III','tab:policies':'IV'}
 eqn=[0]
 def equation(m):
     eqn[0]+=1;body=m[1]
@@ -175,7 +175,7 @@ for p in d.paragraphs:
     if p.style.name.startswith('Heading'):p.paragraph_format.keep_with_next=True
     # Headings keep their next paragraph; normal flow avoids an empty half-page.
     if p._p.xpath('.//w:drawing'):p.paragraph_format.keep_with_next=True
-    if re.match(r'^(Fig\. [123]\.|Table I{1,3}\.)',p.text):
+    if re.match(r'^(Fig\. [123]\.|Table [IV]+\.)',p.text):
         p.style=d.styles['Caption'];p.paragraph_format.line_spacing=1.15
         p.paragraph_format.keep_together=True
         if p.text.startswith('Table '):p.paragraph_format.keep_with_next=True
@@ -184,7 +184,7 @@ for p in d.paragraphs:
 d.save(target)
 import zipfile
 with zipfile.ZipFile(target)as z:xml=z.read('word/document.xml')
-record=dict(source_tex_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),word_sha256=hashlib.sha256(target.read_bytes()).hexdigest(),reference_keys=keys,display_equation_count=eqn[0],expected_display_equations=expected_display_equations,editable_omml_count=xml.count(b'<m:oMath>'),numeric_ci_text_count=numeric_ci_text_count,delimiter_properties_reordered=delimiter_properties_reordered,inline_punctuation_attached=inline_punctuation_attached,native_tables=len(d.tables),native_table_sources=native_table_records,figures=3,body_double_line_spacing=True,figures_unchanged=True, unchanged_figures=[1,2,3], revised_figures=[],revision_base_commit='4c6c9b74ec4720b1d978342f2278c2c63eba9c45',figure_pdf_hashes={str(i):hashlib.sha256((P/'figures'/FIGURE_FILES[i]).read_bytes()).hexdigest() for i in range(1,4)},render_review_pending=True)
+record=dict(source_tex_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),word_sha256=hashlib.sha256(target.read_bytes()).hexdigest(),reference_keys=keys,display_equation_count=eqn[0],expected_display_equations=expected_display_equations,editable_omml_count=xml.count(b'<m:oMath>'),numeric_ci_text_count=numeric_ci_text_count,delimiter_properties_reordered=delimiter_properties_reordered,inline_punctuation_attached=inline_punctuation_attached,native_tables=len(d.tables),native_table_sources=native_table_records,figures=3,body_double_line_spacing=True,figures_unchanged=False, unchanged_figures=[1], revised_figures=[2,3],revision_base_commit='64577982715bfbbf0d5020f65c7c5bb5d08fa9df',figure_pdf_hashes={str(i):hashlib.sha256((P/'figures'/FIGURE_FILES[i]).read_bytes()).hexdigest() for i in range(1,4)},render_review_pending=True)
 (QA/'conversion_check.json').write_text(json.dumps(record,indent=2)+'\n',newline='\n')
-assert record['display_equation_count']==expected_display_equations and record['editable_omml_count']>=expected_display_equations and record['native_tables']==3
+assert record['display_equation_count']==expected_display_equations and record['editable_omml_count']>=expected_display_equations and record['native_tables']==4
 print(json.dumps(record))
