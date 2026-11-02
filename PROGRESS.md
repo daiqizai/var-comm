@@ -1,3 +1,7 @@
+## Fig.1 user-edited PowerPoint cleanup - 2026-11-02
+
+A separate thin-v6-clean editing variant preserves the user-adjusted geometry and text, removes duplicate arrow shafts and purple route fragments, and binds each of 42 arrowheads to its shaft in one native object. The exact supplied PPTX, editable cleanup, same-source exports and visual/structural review are archived. The active compiled manuscript still uses the previously reviewed thin-v5 PDF; no manuscript rebuild or scientific computation was performed. [Review](paper/manuscripts/nestcom_wcl_completion_20261101_v9/FIG1_USER_CLEANUP_20261102.md).
+
 ## Fig.1 arrow alignment and editable PowerPoint — 2026-11-02
 
 The active V9 figure has 33 straight, four single-turn and one necessary feedback route among 38 redrawn connectors. The frame inset is above the digital body route; labels, sum and residual flow are aligned. A current native editable PPTX is delivered separately with embedded fonts, 208 editable text components and 1175 vector objects; mathematical labels are grouped text, not OfficeMath. The previous PPTX is retained as historical. Required manuscript outputs remain 5/15/15 pages, with three changed pages inspected and the remaining 32 verified pixel-identical to previously inspected pages. Scientific data, Figures 2/3 and supplement are unchanged. [Review and provenance](paper/manuscripts/nestcom_wcl_completion_20261101_v9/FIG1_ARROW_ALIGNMENT_20261102.md). No scientific computation.
