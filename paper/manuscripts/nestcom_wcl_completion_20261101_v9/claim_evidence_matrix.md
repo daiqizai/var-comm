@@ -12,3 +12,8 @@
 | 0.660s vs 15.422s; JSCC faster | timing32, matched hardware/quota | software TX+RX processing, excludes loading/I/O/scoring | inputs/e5/timing_summary.csv |
 | Finite fixed-policy rejection transition | 100 sources×20 events per point | 8–10dB fixed-policy scan; no broad channel-robustness claim | inputs/e6/ |
 | Paid NULL current catalogue works without altering normal outputs | 33 CPU checks / all12 MCS | protocol regression, not new quality or reliability result | ../../../../results/nestcom_v9_completion_20261101_v1/execution_receipts/paid_null/worker_completion.json |
+
+
+## Fig.3 selected examples, 2026-11-02
+
+On selected sources 135 and 201 at N1024/10 dB, NeST has lower DISTS and DreamSim than WHOLE, SwinJSCC and Ada. Individual perceptual advantage examples; not random, representative, all-metric or aggregate superiority. Swin PSNR and the stated Ada per-image advantages are retained. Evidence: `inputs/fig3_selected_20261102/all_five_metrics.csv`; full source/noise/native array identities in `inputs/fig3_selected_20261102/native_mapping.json`. Population: Two user-selected first-repeat examples after candidate inspection.

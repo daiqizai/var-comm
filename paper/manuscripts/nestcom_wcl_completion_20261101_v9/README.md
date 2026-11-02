@@ -1,3 +1,7 @@
+## 当前 Fig.3 修订 — 2026-11-02
+
+已采用 C10-016 / C10-017 的 N1024、10 dB 两行五列对照，加入 SwinJSCC。图下 DISTS / DreamSim 均为对应原第一重复的实际指标。双栏/单栏/Word/补充材料页数为 5/15/15/27，62 页均已逐页检查。数据、取舍与来源见 [Fig.3 修订记录](FIG3_SELECTION_20261102.md)。下面保留历史版本记录；当前验证文件以本轮为准。
+
 ## Current figure revision — 2026-11-02
 
 Fig. 2 is now a 181.353259 × 64 mm four-panel horizontal figure, integrated in all three main manuscript exports. All 92 means and 92 confidence intervals are unchanged. Actual output: 5-page double-column, 15-page single-column, 14-page editable Word; all 34 revised pages inspected. Build the figure with `python scripts/draw_figure2_1x4.py`. See [revision and provenance](FIG2_1X4_REVISION_20261102.md). The historical publication paragraph below describes the preceding V9 delivery; this revision has its own outer publication receipt.
@@ -8,7 +12,7 @@ Anonymous manuscript: **NeST-Com: Fixed-Budget Next-Scale Token Communication**.
 
 - `manuscript_doublecolumn.pdf`: 5 pages, 10 pt, 99-word abstract.
 - `manuscript_singlecolumn.pdf`: 15 pages, double spaced.
-- `manuscript_review.docx`: editable body, 3 native tables, 59 OMML elements; 14 pages in Word.
+- `manuscript_review.docx`: editable body, 3 native tables, 59 OMML elements; 15 pages in Word.
 - `supplementary.pdf`: 27 pages; full S1–S8 recipe/results.
 - `main.tex`, `main_singlecolumn.tex`, `supplementary.tex`, `sections/`, `tables/`, `references.tex`: compilation sources.
 - `figures/figure1.pptx`: native structural figure. Fig.2/3 scripts, PDF/SVG/PNG and print-size previews are included. Text editing for Fig.1 uses PPTX; path-based SVG glyphs are not represented as editable text.

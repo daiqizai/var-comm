@@ -1,3 +1,7 @@
+## Latest manuscript figure selection — 2026-11-02
+
+The active [V9 manuscript](paper/manuscripts/nestcom_wcl_completion_20261101_v9/README.md) now uses the user-selected C10-016/C10-017 examples for Figure 3 at N1024/10 dB: Source, WHOLE, SwinJSCC, Ada-TokenCom and NeST-Com. The two displayed perceptual metrics favor NeST; all five per-image metrics and original method-specific first repeats remain documented. These are selected examples, not population or all-metric dominance. Double/single/Word/supplement outputs are 5/15/15/27 pages; all 62 pages were actually inspected. Figure 1/2, tables and existing scientific inputs are unchanged. [Selection and review](paper/manuscripts/nestcom_wcl_completion_20261101_v9/FIG3_SELECTION_20261102.md). No new scientific computation or scheduling. Historical records below retain their original scope.
+
 ## Fig.3 candidate review — 2026-11-02
 
 The existing 500-source pools at N1024/7 and N1024/10 were exhaustively screened at the fixed first realization, with no new inference, PHY or scoring. NeST strictly leads WHOLE and Ada on both displayed distances in 143 / 23 cases; 60 / 11 also lead on all five metrics (58 / 11 with no comparator gray). All 166 candidates are available as full-view image catalogs, with complete 1000-case numerical audit and explicit gray flags. This is selected illustration evidence; current manuscript and population statistics are unchanged. [Catalog and reproduction](paper/fig3_candidates_20261102/README.md), [audit](results/fig3_candidates_20261102/README.md).

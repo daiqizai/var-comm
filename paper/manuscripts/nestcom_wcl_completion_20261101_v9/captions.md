@@ -10,7 +10,7 @@ Source-referenced reconstruction on 500 ImageNet images. (a,b) Seven systems at 
 
 ## figure3_float
 
-Selected advantage example at $N=1024$ and 7 dB, illustrating preservation of source structure. Columns show source, WHOLE, adapted Ada and NeST. Values are full-image DISTS$\downarrow$ / DreamSim$\downarrow$ for the first prescribed channel realization. Supplement~S6 gives source IDs, selection rules and additional examples.
+Selected perceptual-advantage examples at $N=1024$ and 10 dB. Columns show source, WHOLE, SwinJSCC, the predicted-class fixed-frame Ada-TokenCom adaptation, and NeST-Com. Values are full-image DISTS$\downarrow$ / DreamSim$\downarrow$ for each method's first prescribed channel realization. Supplement~S6 gives source identities, selection details and additional examples.
 
 ## table_i
 
