@@ -1,3 +1,7 @@
+## Final user-edited Fig.1 in the active V9 manuscript - 2026-11-02
+
+The final user-saved PPTX is retained byte-for-byte and has been checked against the current method and caption. Its same-source PDF replaces thin-v5 in TeX and Word; all 35 pages of the rebuilt double/single/Word outputs (5/15/15 pages) were rendered and opened. The figure preserves the user layout and correctly shows actual-length fitting, boundary overwrite, residual accumulation and finer-scale state feedback. All scientific CSVs, Fig.2/3, prose, tables and supplement remain unchanged. No scientific computation or scheduling occurred. [Review](paper/manuscripts/nestcom_wcl_completion_20261101_v9/FIG1_FINAL_REVIEW_20261102.md).
+
 ## Fig.1 lower-panel balance - 2026-11-02
 
 The user requested the full contents of panel (c) to follow its moved boundary. The thin-v7-balanced editable variant shifts its title/input and tightens horizontal module spacing, lengthens panel (b) fitting/capacity graphics, and groups each lower panel for future movement. Text sizes and grid proportions are retained; panel (a) and the legend are pixel-identical to the cleaned source. Native PPTX and same-source exports were reviewed. Compiled manuscript, scientific data and scheduling remain unchanged. [Review](paper/manuscripts/nestcom_wcl_completion_20261101_v9/FIG1_PANEL_BALANCE_20261102.md).

@@ -1,3 +1,9 @@
+# 当前 Fig.1 最终用户微调版 — 2026-11-02
+
+已检查并接入用户最后保存的布局，原 PPTX 字节保留。当前正文使用 [最终 Fig.1 PDF](figures/figure1_final.pdf)，编辑源为 [最终 PPTX](figures/figure1_final.pptx)。三面板文字/数学/信息流与方法和图注一致；双栏/单栏/Word 重新编译与逐页查看，页数 **5/15/15**。见 [本次检查记录](FIG1_FINAL_REVIEW_20261102.md)。下方 thin-v5/v6/v7 记录均为历史状态。
+
+---
+
 # Fig.1 下方面板布局跟进 — 2026-11-02
 
 最新可编辑变体：[thin-v7 balanced PPTX](figures/figure1_thin_v7_balanced.pptx) · [PDF](figures/figure1_thin_v7_balanced.pdf)。左侧装帧框和容量条加长；(c) 标题、输入和递推内容跟进右移后的框体，并收紧横向间距。两面板已分别成组。详见 [布局和检查记录](FIG1_PANEL_BALANCE_20261102.md)。当前已编译论文引用未变，以下为历史记录。
