@@ -1,0 +1,51 @@
+{
+  "status": "PASS",
+  "base_commit": "4c6c9b74ec4720b1d978342f2278c2c63eba9c45",
+  "statistical_source": "inputs/timing_fairness_20261102",
+  "claims": [
+    {
+      "claim": "Two distinct physical cores in current timing",
+      "evidence": "effective_timing_resources and /sys topology; affinity38,40",
+      "scope": "Affinity allocation, not exclusive reservation of a shared host"
+    },
+    {
+      "claim": "All final GPU cells use the same physical GPU6",
+      "evidence": "per-stage CUDA/NVML mapping, actual wait, output identities and telemetry",
+      "scope": "Initial GPU0 values excluded; CPU-only BPG exact reuse documented"
+    },
+    {
+      "claim": "Ada timing withheld from main comparison",
+      "evidence": "Original paper IV-E uses encoder prefill/torch.compile; local serial TX differs. Four prefill calls on two fixed sources are not CDF/stream equivalent to the frozen route.",
+      "scope": "Ada raw timings are implementation audit only; author-aligned end-to-end timing remains uncompleted"
+    },
+    {
+      "claim": "Small audit diagnostic retained without correcting main means",
+      "evidence": "First2sources, all TX/RX results and unchanged NeST TX control",
+      "scope": "Descriptive sensitivity only; no quality or model change"
+    },
+    {
+      "claim": "Image quality, policies and figures unchanged",
+      "evidence": "SHA comparison to base and non-timing CSV-column checks",
+      "scope": "Only timing tables and associated prose revised"
+    }
+  ],
+  "compute": {
+    "status": "COMPLETE",
+    "canonical_pipeline_calls": 2440,
+    "canonical_main_calls": 1920,
+    "canonical_diagnostic_calls": 40,
+    "canonical_granularity_new_TX_calls": 480,
+    "warmups": 976,
+    "measured": 1464,
+    "CPU_calls_reused": 320,
+    "all_attempted_completed_calls": 2806,
+    "all_attempted_unresolved_or_failed_calls": 1,
+    "cached_results_inside_timed_path": 0,
+    "training": 0,
+    "quality_evaluation": 0,
+    "calibration": 0,
+    "all_canonical_outputs_match_historical": true,
+    "GPU_device_seconds": 4319.799611091614,
+    "CPU_process_wall_seconds": 499.17666959762573
+  }
+}

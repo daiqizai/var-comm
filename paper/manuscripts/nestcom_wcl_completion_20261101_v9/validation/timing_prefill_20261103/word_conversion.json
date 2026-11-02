@@ -1,0 +1,419 @@
+{
+  "source_tex_sha256": "5085c7742ff087ab78a4adbbfbf08eb9639be1650ed489feec0e95bc610fb7a2",
+  "word_sha256": "c030890aa7408cdb1d61afa36ef10b84966c19389286b96f75993b4cd09903bb",
+  "reference_keys": [
+    "var",
+    "arpc",
+    "adatokencom",
+    "resarc",
+    "chande",
+    "arithmetic",
+    "nr",
+    "dinov2",
+    "imagenet",
+    "swinjscc",
+    "bpg",
+    "dists",
+    "dreamsim",
+    "lpips",
+    "clip"
+  ],
+  "display_equation_count": 6,
+  "expected_display_equations": 6,
+  "editable_omml_count": 60,
+  "numeric_ci_text_count": 8,
+  "delimiter_properties_reordered": 0,
+  "inline_punctuation_attached": 24,
+  "native_tables": 3,
+  "native_table_sources": [
+    {
+      "number": 1,
+      "source_csv": "tables\\table_i.csv",
+      "source_sha256": "46740be26f06bc8283d15c7174e9a7c59ad5c8ff7b0e1dbbdcce88cc418dddc0",
+      "source_records": 10,
+      "word_rows": 16,
+      "word_columns": 5,
+      "width_inches": 6.5,
+      "caption": "Table I. Within-scale transmission. (A) Shared-model NeST–WHOLE differences. (B) Matched endpoint granularity. (C) Ordered receiver interventions. Brackets are source-paired 95% intervals; sample sizes are specified for each block.",
+      "note": "A0: prior completion without received boundary tokens. B0: A0 plus boundary residual correction. C0: B0 plus updated finer-scale conditioning.",
+      "cells": [
+        {
+          "kind": "group",
+          "text": [
+            "(A) 500 sources, N = 1024, family-specific policies"
+          ]
+        },
+        {
+          "kind": "header",
+          "text": [
+            "SNR",
+            "Util. W→N (%)",
+            "ΔDISTS [95% CI]",
+            "ΔDreamSim [95% CI]",
+            ""
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "4",
+            "73.81 → 99.56",
+            "-0.0146\n[-0.0157, -0.0136]",
+            "-0.0303\n[-0.0333, -0.0273]",
+            ""
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "7",
+            "83.19 → 99.75",
+            "-0.0060\n[-0.0097, -0.0021]",
+            "-0.0108\n[-0.0157, -0.0057]",
+            ""
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "10",
+            "77.70 → 99.79",
+            "-0.0141\n[-0.0153, -0.0128]",
+            "-0.0270\n[-0.0299, -0.0241]",
+            ""
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "19",
+            "85.24 → 99.83",
+            "-0.0048\n[-0.0053, -0.0043]",
+            "-0.0043\n[-0.0051, -0.0036]",
+            ""
+          ]
+        },
+        {
+          "kind": "group",
+          "text": [
+            "(B) 100 quality sources; 32 timing sources; ceiling (8,126)"
+          ]
+        },
+        {
+          "kind": "header",
+          "text": [
+            "Grid",
+            "Utilization (%)",
+            "DISTS",
+            "DreamSim",
+            "TX (ms)"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "Whole",
+            "78.13",
+            "0.1650",
+            "0.1387",
+            "185.2"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "Quarter",
+            "95.19",
+            "0.1535",
+            "0.1143",
+            "215.8"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "Eighth",
+            "97.44",
+            "0.1516",
+            "0.1137",
+            "217.8"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "Token",
+            "99.85",
+            "0.1505",
+            "0.1115",
+            "248.4"
+          ]
+        },
+        {
+          "kind": "group",
+          "text": [
+            "(C) 100 sources, 10 dB, same received prefixes"
+          ]
+        },
+        {
+          "kind": "header",
+          "text": [
+            "Intervention",
+            "ΔPSNR (dB)",
+            "ΔDISTS",
+            "ΔDreamSim",
+            ""
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "B0−A0",
+            "+0.287\n[0.240, 0.335]",
+            "-0.0062\n[-0.0077, -0.0048]",
+            "-0.0113\n[-0.0147, -0.0083]",
+            ""
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "C0−B0",
+            "+0.537\n[0.404, 0.682]",
+            "-0.0083\n[-0.0102, -0.0065]",
+            "-0.0159\n[-0.0205, -0.0116]",
+            ""
+          ]
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "source_csv": "tables\\table_ii.csv",
+      "source_sha256": "d5565f86bbe6cb115f131033e21c37fbfc30ced84ac42a5da464723ea3dce3d5",
+      "source_records": 7,
+      "word_rows": 7,
+      "word_columns": 6,
+      "width_inches": 6.5,
+      "caption": "Table II. Auxiliary quality and processing costs at N=1024, 10 dB. Quality uses 500 sources; timing uses 32 sources, one RTX PRO 6000, two physical CPU cores, batch one, and complete TX/RX processing boundaries. BPG uses CPU only. Ada's separately qualified compiled-route timing is reported in S7.",
+      "note": "",
+      "cells": [
+        {
+          "kind": "header",
+          "text": [
+            "Method",
+            "PSNR↑ (dB)",
+            "LPIPS↓",
+            "CLIP-I↑",
+            "TX (ms)",
+            "RX (ms)"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "WHOLE",
+            "19.31",
+            "0.199",
+            "0.858",
+            "215.3",
+            "366.4"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "NeST-Com",
+            "20.19",
+            "0.166",
+            "0.877",
+            "248.4",
+            "404.0"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "Ada-TokenCom",
+            "19.56",
+            "0.167",
+            "0.884",
+            "—",
+            "—"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "Latent JSCC",
+            "20.80",
+            "0.173",
+            "0.789",
+            "15.3",
+            "23.9"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "SwinJSCC",
+            "23.03",
+            "0.469",
+            "0.669",
+            "21.0",
+            "18.2"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "BPG + LDPC",
+            "22.54",
+            "0.589",
+            "0.635",
+            "2210.0",
+            "21.3"
+          ]
+        }
+      ]
+    },
+    {
+      "number": 3,
+      "source_csv": "tables\\table_iii.csv",
+      "source_sha256": "c7edbe69f8298e8fc3e43bfe2687546510e84603736741e569c0c36a3ff4f7c8",
+      "source_records": 9,
+      "word_rows": 13,
+      "word_columns": 4,
+      "width_inches": 6.5,
+      "caption": "Table III. Reduced-budget reconstruction on 500 sources at N=512. Means include all failures; PSNR differences use direct source-paired 95% intervals. All five metrics and paired comparisons are in Supplement S2.",
+      "note": "",
+      "cells": [
+        {
+          "kind": "header",
+          "text": [
+            "SNR / method",
+            "PSNR↑ (dB)",
+            "DISTS↓",
+            "DreamSim↓"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "4 / WHOLE",
+            "15.11",
+            "0.2580",
+            "0.3247"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "4 / NeST-Com",
+            "15.61",
+            "0.2363",
+            "0.2740"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "4 / Ada-TokenCom",
+            "11.32",
+            "0.2996",
+            "0.3847"
+          ]
+        },
+        {
+          "kind": "group",
+          "text": [
+            "NeST−WHOLE ΔPSNR: +0.504 [0.440, 0.573] dB"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "10 / WHOLE",
+            "16.82",
+            "0.2030",
+            "0.2049"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "10 / NeST-Com",
+            "17.41",
+            "0.1922",
+            "0.1837"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "10 / Ada-TokenCom",
+            "13.16",
+            "0.2367",
+            "0.2582"
+          ]
+        },
+        {
+          "kind": "group",
+          "text": [
+            "NeST−WHOLE ΔPSNR: +0.592 [0.544, 0.643] dB"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "19 / WHOLE",
+            "18.64",
+            "0.1718",
+            "0.1458"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "19 / NeST-Com",
+            "19.63",
+            "0.1554",
+            "0.1150"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "19 / Ada-TokenCom",
+            "17.69",
+            "0.1496",
+            "0.1078"
+          ]
+        },
+        {
+          "kind": "group",
+          "text": [
+            "NeST−WHOLE ΔPSNR: +0.994 [0.940, 1.048] dB"
+          ]
+        }
+      ]
+    }
+  ],
+  "figures": 3,
+  "body_double_line_spacing": true,
+  "figures_unchanged": true,
+  "unchanged_figures": [
+    1,
+    2,
+    3
+  ],
+  "revised_figures": [],
+  "revision_base_commit": "4c6c9b74ec4720b1d978342f2278c2c63eba9c45",
+  "figure_pdf_hashes": {
+    "1": "bcc8e9c4881ea3865379c8af48767986970bef585283472c74ca295d8515c8bf",
+    "2": "c259de2ee0d3ddcc643ae7a3c612432b90a005a330ab496265e3bde6b3ac4f99",
+    "3": "7064655f6895a930d3ffb193ac3b59c57b13e40457561f98aacb54e847179cdf"
+  },
+  "render_review_pending": false,
+  "artifact_review": "artifact_review.json"
+}

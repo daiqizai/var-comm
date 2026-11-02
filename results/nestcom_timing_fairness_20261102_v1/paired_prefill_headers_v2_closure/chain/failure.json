@@ -1,0 +1,90 @@
+{
+  "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-timing-fairness-20261102/ada_paired_prefill_chain_v1.py\", line 40, in main\n    assert rc==0 and result['status']=='COMPLETE', 'PRESERVED_STAGE_FAILURE_NO_RETRY'\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: PRESERVED_STAGE_FAILURE_NO_RETRY\n",
+  "stages": [
+    {
+      "phase": "qualification",
+      "wait": {
+        "returncode": 0,
+        "child": {
+          "pid": 1899234,
+          "start_ticks": 701446607,
+          "state": "R"
+        },
+        "process_gone": true,
+        "actual_wait": true,
+        "elapsed": 80.2960205078125
+      },
+      "result": {
+        "status": "COMPLETE",
+        "stages": [
+          {
+            "name": "qualification",
+            "status": "COMPLETE",
+            "actual_wait": {
+              "returncode": 0,
+              "child": {
+                "pid": 1899239,
+                "start_ticks": 701446680,
+                "state": "R"
+              },
+              "final_identity": null,
+              "started_unix": 1793634899.02299,
+              "finished_unix": 1793634978.5604074,
+              "GPU_device_seconds": 79.53732442855835,
+              "CPU_process_wall_seconds": 0,
+              "terminated_reason": null,
+              "automatic_retry": false
+            }
+          }
+        ],
+        "GPU_device_seconds": 79.53732442855835,
+        "CPU_process_wall_seconds": 0.0,
+        "elapsed": 80.2443380355835
+      }
+    },
+    {
+      "phase": "tx",
+      "wait": {
+        "returncode": 1,
+        "child": {
+          "pid": 1899428,
+          "start_ticks": 701454639,
+          "state": "R"
+        },
+        "process_gone": true,
+        "actual_wait": true,
+        "elapsed": 37.88915014266968
+      },
+      "result": {
+        "status": "INCOMPLETE_WITH_PRESERVED_DIAGNOSTICS",
+        "stages": [
+          {
+            "name": "tx",
+            "status": "FAILED_PRESERVED",
+            "actual_wait": {
+              "returncode": 1,
+              "child": {
+                "pid": 1899433,
+                "start_ticks": 701454716,
+                "state": "R"
+              },
+              "final_identity": null,
+              "started_unix": 1793634979.3763914,
+              "finished_unix": 1793635016.469402,
+              "GPU_device_seconds": 37.09290814399719,
+              "CPU_process_wall_seconds": 0,
+              "terminated_reason": null,
+              "automatic_retry": false
+            }
+          }
+        ],
+        "GPU_device_seconds": 37.09290814399719,
+        "CPU_process_wall_seconds": 0.0,
+        "elapsed": 37.80537390708923
+      }
+    }
+  ],
+  "GPU_device_seconds": 116.63023257255554,
+  "aggregate_GPU_device_seconds": 4528.889293432236,
+  "automatic_retry": false
+}

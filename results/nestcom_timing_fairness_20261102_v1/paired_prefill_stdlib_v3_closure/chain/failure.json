@@ -1,0 +1,49 @@
+{
+  "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-timing-fairness-20261102/ada_paired_prefill_chain_stdlib_v3.py\", line 40, in main\n    assert rc==0 and result['status']=='COMPLETE', 'PRESERVED_STAGE_FAILURE_NO_RETRY'\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: PRESERVED_STAGE_FAILURE_NO_RETRY\n",
+  "stages": [
+    {
+      "phase": "tx",
+      "wait": {
+        "returncode": 1,
+        "child": {
+          "pid": 1899533,
+          "start_ticks": 701478375,
+          "state": "R"
+        },
+        "process_gone": true,
+        "actual_wait": true,
+        "elapsed": 54.117791175842285
+      },
+      "result": {
+        "status": "INCOMPLETE_WITH_PRESERVED_DIAGNOSTICS",
+        "stages": [
+          {
+            "name": "tx",
+            "status": "FAILED_PRESERVED",
+            "actual_wait": {
+              "returncode": 1,
+              "child": {
+                "pid": 1899538,
+                "start_ticks": 701478430,
+                "state": "R"
+              },
+              "final_identity": null,
+              "started_unix": 1793635216.517243,
+              "finished_unix": 1793635270.0728693,
+              "GPU_device_seconds": 53.555548667907715,
+              "CPU_process_wall_seconds": 0,
+              "terminated_reason": null,
+              "automatic_retry": false
+            }
+          }
+        ],
+        "GPU_device_seconds": 53.555548667907715,
+        "CPU_process_wall_seconds": 0.0,
+        "elapsed": 54.067622423172
+      }
+    }
+  ],
+  "GPU_device_seconds": 53.555548667907715,
+  "aggregate_GPU_device_seconds": 4582.444842100143,
+  "automatic_retry": false
+}

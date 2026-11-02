@@ -204,46 +204,70 @@
   "TableI": {
     "inputs": [
       "tables/table_i.csv",
-      "inputs/v9_package/derived/granularity_quality_cost.csv"
+      "inputs/v9_package/derived/granularity_quality_cost.csv",
+      "inputs/timing_fairness_20261102/granularity_summary.csv"
     ],
     "population": "A common500; B control100 quality/timing32 cost; C control100 same prefixes",
     "pins": [
       {
         "path": "tables/table_i.csv",
-        "sha256": "87f2ab38f3a18fa20e6d2a0b677e259931856b0849ca6978d23db0afbe88f263",
-        "bytes": 2115
+        "sha256": "46740be26f06bc8283d15c7174e9a7c59ad5c8ff7b0e1dbbdcce88cc418dddc0",
+        "bytes": 2157
       },
       {
         "path": "inputs/v9_package/derived/granularity_quality_cost.csv",
         "sha256": "4d2c4ae80380397c9f8a7379475186a636bb6f623c2308b09890a19d0aa77d12",
         "bytes": 1026
+      },
+      {
+        "path": "inputs/timing_fairness_20261102/granularity_summary.csv",
+        "sha256": "488aa05ac93685571e81cd18c67fe6618937bd6d58cc15988f14c68c9b8cf086",
+        "bytes": 467
       }
     ],
-    "inherited_source_commit": "dde679637b30f1166bc540d4c7b6fa91fe457e8c"
+    "inherited_source_commit": "dde679637b30f1166bc540d4c7b6fa91fe457e8c",
+    "historical_inputs": [
+      "tables/table_i.csv",
+      "inputs/v9_package/derived/granularity_quality_cost.csv"
+    ],
+    "timing_revision_base": "4c6c9b74ec4720b1d978342f2278c2c63eba9c45",
+    "timing_population": "32 fixed sources;2warm+3measured;N1024/10dB",
+    "timing_resources": "Same GPU6; distinct physical CPU cores38,40;2intra/2interop",
+    "old_quality_inputs_unchanged": true,
+    "Ada_main_timing": "WITHHELD; serial implementation not author-aligned; raw audit retained in S7"
   },
   "TableII": {
     "inputs": [
       "tables/table_ii.csv",
-      "inputs/e5/timing_summary.csv"
+      "inputs/timing_fairness_20261102/timing_summary.csv"
     ],
     "population": "common500 N1024/10 quality and timing32 processing",
     "pins": [
       {
         "path": "tables/table_ii.csv",
-        "sha256": "2d732c70ff8555972f3b20ec0a62b6924294cfe55e295d932ac3deda0de1514b",
-        "bytes": 989
+        "sha256": "d5565f86bbe6cb115f131033e21c37fbfc30ced84ac42a5da464723ea3dce3d5",
+        "bytes": 1043
       },
       {
-        "path": "inputs/e5/timing_summary.csv",
-        "sha256": "10143d3e13a8536f8a2c8f15bf2e63d8f1d994d1258ee301bfb4f19f13ff65d1",
-        "bytes": 6251
+        "path": "inputs/timing_fairness_20261102/timing_summary.csv",
+        "sha256": "dd46510dd2224e84025739cf1191b147f2bb14bee96705bb433f3a3729f5299a",
+        "bytes": 2333
       }
     ],
     "inherited_source_commit": "dde679637b30f1166bc540d4c7b6fa91fe457e8c",
     "source_records": 7,
     "displayed_records": 6,
     "display_filter": "Exclude ARPC row from main table only; full quality and timing results remain in Supplement S2/S7.",
-    "revision_base": "99015482bafb11a3a65d9ab4a72a22a6210da3eb"
+    "revision_base": "99015482bafb11a3a65d9ab4a72a22a6210da3eb",
+    "historical_inputs": [
+      "tables/table_ii.csv",
+      "inputs/e5/timing_summary.csv"
+    ],
+    "timing_revision_base": "4c6c9b74ec4720b1d978342f2278c2c63eba9c45",
+    "timing_population": "32 fixed sources;2warm+3measured;N1024/10dB",
+    "timing_resources": "Same GPU6; distinct physical CPU cores38,40;2intra/2interop",
+    "old_quality_inputs_unchanged": true,
+    "Ada_main_timing": "REPORTED_SEPARATELY_S7; compiled numerical route differs from the quality-evaluation route"
   },
   "TableIII": {
     "inputs": [
@@ -611,5 +635,59 @@
     "validation": "validation/positioning_20261102",
     "command": "python scripts/draw_figure2_1x4.py --include-arpc --stem figure2_complete_with_arpc --no-aliases",
     "placement": "Supplement S2, Figure S1"
+  },
+  "TableI_before_timing_fairness_20261102": {
+    "inputs": [
+      "tables/table_i.csv",
+      "inputs/v9_package/derived/granularity_quality_cost.csv"
+    ],
+    "population": "A common500; B control100 quality/timing32 cost; C control100 same prefixes",
+    "pins": [
+      {
+        "path": "tables/table_i.csv",
+        "sha256": "87f2ab38f3a18fa20e6d2a0b677e259931856b0849ca6978d23db0afbe88f263",
+        "bytes": 2115
+      },
+      {
+        "path": "inputs/v9_package/derived/granularity_quality_cost.csv",
+        "sha256": "4d2c4ae80380397c9f8a7379475186a636bb6f623c2308b09890a19d0aa77d12",
+        "bytes": 1026
+      }
+    ],
+    "inherited_source_commit": "dde679637b30f1166bc540d4c7b6fa91fe457e8c"
+  },
+  "TableII_before_timing_fairness_20261102": {
+    "inputs": [
+      "tables/table_ii.csv",
+      "inputs/e5/timing_summary.csv"
+    ],
+    "population": "common500 N1024/10 quality and timing32 processing",
+    "pins": [
+      {
+        "path": "tables/table_ii.csv",
+        "sha256": "2d732c70ff8555972f3b20ec0a62b6924294cfe55e295d932ac3deda0de1514b",
+        "bytes": 989
+      },
+      {
+        "path": "inputs/e5/timing_summary.csv",
+        "sha256": "10143d3e13a8536f8a2c8f15bf2e63d8f1d994d1258ee301bfb4f19f13ff65d1",
+        "bytes": 6251
+      }
+    ],
+    "inherited_source_commit": "dde679637b30f1166bc540d4c7b6fa91fe457e8c",
+    "source_records": 7,
+    "displayed_records": 6,
+    "display_filter": "Exclude ARPC row from main table only; full quality and timing results remain in Supplement S2/S7.",
+    "revision_base": "99015482bafb11a3a65d9ab4a72a22a6210da3eb"
+  },
+  "Ada_compiled_prefill_timing": {
+    "inputs": [
+      "inputs/ada_compiled_prefill_20261103/summary.csv",
+      "inputs/ada_compiled_prefill_20261103/actual_compute_and_reuse.json"
+    ],
+    "population": "32fixedsources,N1024/10dB,2warm+3measured per direction",
+    "location": "Main processing paragraph and SupplementS7",
+    "main_quality_table_cells": "WITHHELD; this separately qualified numerical route differs from quality-evaluation route",
+    "source_bank": "inputs/ada_compiled_prefill_20261103/statistics_identity.json"
   }
 }

@@ -1,0 +1,21 @@
+{
+  "traceback": "Traceback (most recent call last):\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-timing-fairness-20261102/ada_paired_prefill_headers_v2.py\", line 181, in main\n    ledger.call('compile_prefill', str(branches), compile_call)\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-opt-20261030/opt_common.py\", line 43, in call\n    try:v=fn()\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-timing-fairness-20261102/ada_paired_prefill_headers_v2.py\", line 179, in compile_call\n    values = route.logits([], 0, branches); t.cuda.synchronize()\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/nestcom-timing-fairness-20261102/ada_paired_prefill_headers_v2.py\", line 47, in logits\n    out = self.forward(idx, classes)\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/external/home/liulu/.local/lib/python3.10/site-packages/torch/_dynamo/eval_frame.py\", line 1038, in compile_wrapper\n    raise e.remove_dynamo_frames() from None  # see TORCHDYNAMO_VERBOSE=1\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/external/home/liulu/.local/lib/python3.10/site-packages/torch/_dynamo/output_graph.py\", line 2689, in _call_user_compiler\n    raise BackendCompilerFailed(\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/external/home/liulu/.local/lib/python3.10/site-packages/torch/_dynamo/output_graph.py\", line 2664, in _call_user_compiler\n    compiled_fn = compiler_fn(gm, example_inputs)\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/external/home/liulu/.local/lib/python3.10/site-packages/torch/_dynamo/repro/after_dynamo.py\", line 156, in __call__\n    compiled_gm = compiler_fn(gm, example_inputs)\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/external/home/liulu/.local/lib/python3.10/site-packages/torch/__init__.py\", line 2459, in __call__\n    from torch._inductor.compile_fx import compile_fx\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/external/home/liulu/.local/lib/python3.10/site-packages/torch/_inductor/compile_fx.py\", line 70, in <module>\n    from torch._inductor.debug import (\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/external/home/liulu/.local/lib/python3.10/site-packages/torch/_inductor/debug.py\", line 37, in <module>\n    from . import config, ir  # noqa: F811, this is needed\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/external/home/liulu/.local/lib/python3.10/site-packages/torch/_inductor/ir.py\", line 88, in <module>\n    from .runtime.benchmarking import benchmarker\n  File \"/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/assets/frozen_namespace_v1/external/home/liulu/.local/lib/python3.10/site-packages/torch/_inductor/runtime/benchmarking.py\", line 7, in <module>\n    from statistics import median\ntorch._dynamo.exc.BackendCompilerFailed: backend='inductor' raised:\nImportError: cannot import name 'median' from 'statistics' (/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/baseline-delivery-20261012/statistics.py)\n\nSet TORCHDYNAMO_VERBOSE=1 for the internal stack trace (please do this especially if you're reporting a bug to PyTorch). For even more developer context, set TORCH_LOGS=\"+dynamo\"\n\n",
+  "ledger": {
+    "caps": {
+      "compile_prefill": 2,
+      "codec_qualification": 2,
+      "tail_qualification": 2,
+      "timing_trial": 160
+    },
+    "counts": [
+      {
+        "kind": "compile_prefill",
+        "status": "FAILED",
+        "count": 1
+      }
+    ],
+    "unresolved": 1
+  },
+  "rows": 0,
+  "automatic_retry": false
+}

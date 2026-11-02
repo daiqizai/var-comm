@@ -17,7 +17,7 @@ The tokenizer has a 4096-entry codebook and ten maps of side lengths $(1,2,3,4,5
 
 The adapted decoder checkpoint is update0038000. It minimizes MSE+$0.1$ LPIPS on 20\,000 ImageNet training images with a 50/25/25 mixture of continuous latents, fully quantized latents, and interpolated prefix-completed latents. The last input is $F_b+\alpha(F-F_b)$, $\alpha\sim U[0,1]$, with $F_b$ completed from eight source scales. Selection minimizes full-calibration mixture image loss. Tokenizer, prior and codebook remain frozen. The recipe is \texttt{experiments/var-latent-enhancement-20260917/configs/experiment.json}.
 
-The NeST reference route is Python 3.10.12, NumPy 2.2.6, Torch 2.11.0+cu128, CUDA 12.8 and cuDNN 91900. Inference is FP32, batch 1, eval/no-grad, TF32 off, matmul precision highest, deterministic algorithms and cuDNN deterministic on, benchmark off. Six library threads are confined to two CPU cores in the matched timing. Device PCI/UUID, tensor-state hashes, checkpoint-file hashes and source-file hashes are separate manifest fields. Reproducing a floating-point probability stream requires this numerical route as well as the weights.
+The NeST reference route is Python 3.10.12, NumPy 2.2.6, Torch 2.11.0+cu128, CUDA 12.8 and cuDNN 91900. Inference is FP32, batch 1, eval/no-grad, TF32 off, matmul precision highest, deterministic algorithms and cuDNN deterministic on, benchmark off. The revised timing uses two intra-op and two inter-op threads on two distinct physical CPU cores; S7 separates it from the historical SMT-pair run. Device PCI/UUID, tensor-state hashes, checkpoint-file hashes and source-file hashes are separate manifest fields. Reproducing a floating-point probability stream requires this numerical route as well as the weights.
 
 Ada retains LlamaGen-L/VQ16 (upstream commit \texttt{ce98ec41803a74a90ce68c40ababa9eaeffeb4ec}), predicted ConvNeXt-tiny classes, conditional-branch entropy CDFs and CFG 4/T1/top-$k$2000/top-$p$1 sampled completion. Its 10-bit class is paid. The public LlamaGen weight URLs and revision are included in the manifest. ARPC uses its public 0.06M preset, CFG 3, temperature 0.5 and seed 0; its paid caption and source container are preserved. Latent JSCC uses MSE+$0.1$ LPIPS+$0.01$ latent consistency and shared $D_c$, with 100k updates; SwinJSCC uses RGB MSE, 200k updates and minimum calibration-MSE selection. Both use the fixed 20k training subset. External models retain their own numerical routes rather than inheriting NeST's environment.
 
@@ -141,6 +141,9 @@ predicted-class, fixed-frame adaptation.}
 """
 assert s.count(r'\section{Complete quality results}')==1
 s=s.replace(r'\section{Complete quality results}',complete_plot)
+
+from timing_revision_supplement import apply_timing_revision
+s=apply_timing_revision(s,P)
 
 (P/'supplementary.tex').write_text('\n'.join(line.rstrip() for line in s.splitlines()).rstrip()+'\n')
 print('Built supplement with S1--S8, 165 descriptive rows, 12 Ada-control rows, 60 Kodak means and 90 paired intervals')

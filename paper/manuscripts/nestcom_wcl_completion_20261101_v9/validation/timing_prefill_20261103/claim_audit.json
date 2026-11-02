@@ -1,0 +1,119 @@
+{
+  "status": "PASS",
+  "proof": "inputs/ada_compiled_prefill_20261103/actual_compute_and_reuse.json",
+  "claims": [
+    {
+      "claim": "Compiled paired numerical implementation completes formal independent RX",
+      "evidence": "Actual waits0/gone;160 of160 received prefixes/classes/endpoints externally match; no unresolved ledger calls",
+      "scope": "Same32sources,N1024/10dB,FP32/math/TF32off"
+    },
+    {
+      "claim": "Serial TX overhead is not intrinsic to Ada",
+      "evidence": "Same-source single conditional prefill implementation and direct paired timing deltas",
+      "scope": "Implementation audit, not a cross-architecture speedup or reproduction of author executable"
+    },
+    {
+      "claim": "New latency kept separate from old quality row",
+      "evidence": {
+        "tx": {
+          "exact_old_output_matches": 0,
+          "total": 160
+        },
+        "rx": {
+          "exact_old_output_matches": 10,
+          "total": 160
+        }
+      },
+      "scope": "No quality rerun, no substitution of new numeric outputs into old quality metrics"
+    },
+    {
+      "claim": "Cold compile excluded from latency but charged",
+      "evidence": {
+        "qualification": {
+          "compile_cpu_affinity": [
+            38,
+            40,
+            42,
+            44,
+            46,
+            48,
+            50,
+            52
+          ],
+          "seconds": 37.93033313751221,
+          "torch": "2.11.0+cu128",
+          "compile": "inductor/default/fullgraph/static, 2 registered batch shapes",
+          "precision": "FP32/math/TF32off",
+          "cpu_affinity": [
+            38,
+            40
+          ],
+          "threads": 2,
+          "interop": 2,
+          "padded_context": 256,
+          "future_inputs": "public zeros; strict causal mask",
+          "cold_compilation_excluded": true,
+          "included_in_resource_budget": true
+        },
+        "tx": {
+          "compile_cpu_affinity": [
+            38,
+            40,
+            42,
+            44,
+            46,
+            48,
+            50,
+            52
+          ],
+          "seconds": 38.04170346260071,
+          "torch": "2.11.0+cu128",
+          "compile": "inductor/default/fullgraph/static, 2 registered batch shapes",
+          "precision": "FP32/math/TF32off",
+          "cpu_affinity": [
+            38,
+            40
+          ],
+          "threads": 2,
+          "interop": 2,
+          "padded_context": 256,
+          "future_inputs": "public zeros; strict causal mask",
+          "cold_compilation_excluded": true,
+          "included_in_resource_budget": true
+        },
+        "rx": {
+          "compile_cpu_affinity": [
+            38,
+            40,
+            42,
+            44,
+            46,
+            48,
+            50,
+            52
+          ],
+          "seconds": 38.596840143203735,
+          "torch": "2.11.0+cu128",
+          "compile": "inductor/default/fullgraph/static, 2 registered batch shapes",
+          "precision": "FP32/math/TF32off",
+          "cpu_affinity": [
+            38,
+            40
+          ],
+          "threads": 2,
+          "interop": 2,
+          "padded_context": 256,
+          "future_inputs": "public zeros; strict causal mask",
+          "cold_compilation_excluded": true,
+          "included_in_resource_budget": true
+        }
+      },
+      "scope": "Eight compile CPU cores, two distinct timed cores and2/2pools"
+    },
+    {
+      "claim": "Main figures and scientific quality inputs unchanged",
+      "evidence": "data_checks.json",
+      "scope": "Only timing-related prose, data and document artifacts changed"
+    }
+  ]
+}

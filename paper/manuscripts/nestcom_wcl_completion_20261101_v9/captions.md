@@ -18,7 +18,7 @@ Within-scale transmission. (A) Shared-model NeST--WHOLE differences. (B) Matched
 
 ## Table II
 
-Auxiliary quality and processing costs at $N=1024$, 10 dB. Quality uses 500 sources; timing uses 32 sources, one RTX PRO 6000, two CPU cores, batch one, and complete TX/RX processing boundaries. BPG uses CPU only.
+Auxiliary quality and processing costs at $N=1024$, 10 dB. Quality uses 500 sources; timing uses 32 sources, one RTX PRO 6000, two physical CPU cores, batch one, and complete TX/RX processing boundaries. BPG uses CPU only. Ada's separately qualified compiled-route timing is reported in S7.
 
 ## Table III
 

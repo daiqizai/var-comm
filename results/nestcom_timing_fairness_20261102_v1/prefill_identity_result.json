@@ -1,0 +1,133 @@
+{
+  "outer": {
+    "returncode": 0,
+    "child": {
+      "pid": 1889616,
+      "start_ticks": 701121458,
+      "state": "R"
+    },
+    "process_gone": true,
+    "actual_wait": true,
+    "elapsed": 33.914974212646484
+  },
+  "queue": {
+    "status": "COMPLETE",
+    "stages": [
+      {
+        "name": "diagnostic",
+        "status": "COMPLETE",
+        "actual_wait": {
+          "returncode": 0,
+          "child": {
+            "pid": 1889621,
+            "start_ticks": 701121500,
+            "state": "R"
+          },
+          "final_identity": null,
+          "started_unix": 1793631647.2176504,
+          "finished_unix": 1793631680.6894834,
+          "GPU_device_seconds": 33.47180151939392,
+          "CPU_process_wall_seconds": 0,
+          "terminated_reason": null,
+          "automatic_retry": false
+        }
+      }
+    ],
+    "GPU_device_seconds": 33.47180151939392,
+    "CPU_process_wall_seconds": 0.0,
+    "elapsed": 33.85596776008606
+  },
+  "diagnostic": {
+    "status": "COMPLETE",
+    "identity_qualification": "NON_EQUIVALENT_TO_FROZEN_INCREMENTAL_ROUTE",
+    "rows": [
+      {
+        "source_id": "n07836838/ILSVRC2012_val_00008223_n07836838",
+        "source_index": 0,
+        "branches": 1,
+        "conditional_CDF_matches": 0,
+        "conditional_CDF_total": 256,
+        "independently_terminated_stream_matches": 4,
+        "stream_total": 256,
+        "first_CDF_mismatch": 0,
+        "first_stream_mismatch": 5,
+        "maximum_absolute_length_delta_bits": 1,
+        "all_CDFs_identical": false,
+        "all_streams_identical": false
+      },
+      {
+        "source_id": "n07836838/ILSVRC2012_val_00008223_n07836838",
+        "source_index": 0,
+        "branches": 2,
+        "conditional_CDF_matches": 0,
+        "conditional_CDF_total": 256,
+        "independently_terminated_stream_matches": 4,
+        "stream_total": 256,
+        "first_CDF_mismatch": 0,
+        "first_stream_mismatch": 5,
+        "maximum_absolute_length_delta_bits": 1,
+        "all_CDFs_identical": false,
+        "all_streams_identical": false
+      },
+      {
+        "source_id": "n04380533/ILSVRC2012_val_00019316_n04380533",
+        "source_index": 1,
+        "branches": 1,
+        "conditional_CDF_matches": 0,
+        "conditional_CDF_total": 256,
+        "independently_terminated_stream_matches": 2,
+        "stream_total": 256,
+        "first_CDF_mismatch": 0,
+        "first_stream_mismatch": 3,
+        "maximum_absolute_length_delta_bits": 1,
+        "all_CDFs_identical": false,
+        "all_streams_identical": false
+      },
+      {
+        "source_id": "n04380533/ILSVRC2012_val_00019316_n04380533",
+        "source_index": 1,
+        "branches": 2,
+        "conditional_CDF_matches": 0,
+        "conditional_CDF_total": 256,
+        "independently_terminated_stream_matches": 2,
+        "stream_total": 256,
+        "first_CDF_mismatch": 0,
+        "first_stream_mismatch": 3,
+        "maximum_absolute_length_delta_bits": 1,
+        "all_CDFs_identical": false,
+        "all_streams_identical": false
+      }
+    ],
+    "ledger": {
+      "caps": {
+        "model_load": 1,
+        "prefill_identity": 4
+      },
+      "counts": [
+        {
+          "kind": "model_load",
+          "status": "COMPLETE",
+          "count": 1
+        },
+        {
+          "kind": "prefill_identity",
+          "status": "COMPLETE",
+          "count": 4
+        }
+      ],
+      "unresolved": 0
+    },
+    "new_model_prefills": 4,
+    "logical_probability_positions": 1024,
+    "new_tokenizer": 0,
+    "new_classifier": 0,
+    "new_render": 0,
+    "new_PHY": 0,
+    "new_quality": 0,
+    "torch_compile": "NOT_RUN: first establish numerical/CDF compatibility",
+    "scope": "Not timing or author-code reproduction. Tests one full-prefix call under frozen FP32/math route against preserved incremental CDFs/streams.",
+    "elapsed_seconds": 11.695730924606323
+  },
+  "combined_GPU_device_seconds": 4353.271412611008,
+  "combined_CPU_process_wall_seconds": 499.17666959762573
+}

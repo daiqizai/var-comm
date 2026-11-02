@@ -1,3 +1,11 @@
+## 2026-11-03：合理Ada实现完成
+
+单次条件prefill TX及匹配因果prefill RX经独立算术恢复验证并完成32源正式计时。成功资格复用，环境失败保留；正文/S7同步新时间，旧质量/图源不变，重新编译与实际页面验收。
+
+## 2026-11-02：计时公平性复核
+
+撤下未对齐作者实现的Ada主表计时和NeST/Ada速度比；保留审计数据及两源prefill不等价结果。修正CPU拓扑、统一GPU与2/2线程，更新其余Table I(B)/II计时。图像质量与图源不变，全部交付重新编译并逐页检查。
+
 ## 2026-11-02 — Positioning and evidence roles
 
 Reframe the argument around scale-wise prediction with within-scale, actual-length frame fitting. Credit ARPC as the closest progressive source-coding precedent and VAR for inherited overwrite/recursive state updates. Separate matched granularity, family-policy and mechanism evidence. Move the ARPC digital-link adaptation from the main figure/table into the complete supplementary comparison without altering any input data. Rebuild and visually review 5/15/15/27 pages; retain the user-final Fig.1 and Fig.3 exactly. See POSITIONING_REVISION_20261102.md.
