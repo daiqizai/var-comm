@@ -1,3 +1,9 @@
+# Fig.1 下方面板布局跟进 — 2026-11-02
+
+最新可编辑变体：[thin-v7 balanced PPTX](figures/figure1_thin_v7_balanced.pptx) · [PDF](figures/figure1_thin_v7_balanced.pdf)。左侧装帧框和容量条加长；(c) 标题、输入和递推内容跟进右移后的框体，并收紧横向间距。两面板已分别成组。详见 [布局和检查记录](FIG1_PANEL_BALANCE_20261102.md)。当前已编译论文引用未变，以下为历史记录。
+
+---
+
 # 用户手动编辑版 Fig.1 清理 — 2026-11-02
 
 最新可继续编辑的变体：[thin-v6 clean PPTX](figures/figure1_thin_v6_clean.pptx) · [PDF 预览](figures/figure1_thin_v6_clean.pdf)。保留用户调整的位置，清除箭头重影和紫色框两侧残片。当前已编译论文仍使用先前的 thin-v5 PDF，本轮未替换正文图或重编译。见 [清理与验收](FIG1_USER_CLEANUP_20261102.md)。下方记录为各轮历史状态。

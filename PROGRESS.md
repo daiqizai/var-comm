@@ -1,3 +1,7 @@
+## Fig.1 lower-panel balance - 2026-11-02
+
+The user requested the full contents of panel (c) to follow its moved boundary. The thin-v7-balanced editable variant shifts its title/input and tightens horizontal module spacing, lengthens panel (b) fitting/capacity graphics, and groups each lower panel for future movement. Text sizes and grid proportions are retained; panel (a) and the legend are pixel-identical to the cleaned source. Native PPTX and same-source exports were reviewed. Compiled manuscript, scientific data and scheduling remain unchanged. [Review](paper/manuscripts/nestcom_wcl_completion_20261101_v9/FIG1_PANEL_BALANCE_20261102.md).
+
 ## Fig.1 user-edited PowerPoint cleanup - 2026-11-02
 
 A separate thin-v6-clean editing variant preserves the user-adjusted geometry and text, removes duplicate arrow shafts and purple route fragments, and binds each of 42 arrowheads to its shaft in one native object. The exact supplied PPTX, editable cleanup, same-source exports and visual/structural review are archived. The active compiled manuscript still uses the previously reviewed thin-v5 PDF; no manuscript rebuild or scientific computation was performed. [Review](paper/manuscripts/nestcom_wcl_completion_20261101_v9/FIG1_USER_CLEANUP_20261102.md).
