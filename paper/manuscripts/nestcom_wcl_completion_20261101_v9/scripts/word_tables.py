@@ -110,6 +110,9 @@ def data_rows(number, rows):
         assert len(rows)==7
         yield 'header',['Method','PSNR↑ (dB)','LPIPS↓','CLIP-I↑','TX (ms)','RX (ms)']
         for r in rows:
+            # Preserve the seven-row input; report the ARPC adaptation in the supplement.
+            if r['method']=='ARPC':
+                continue
             yield 'data',[labels[r['method']],f"{float(r['psnr_db']):.2f}",f"{float(r['lpips_alex']):.3f}",f"{float(r['clip_image_cosine']):.3f}"]+[f"{float(r[k]):.1f}"if r[k]else'—'for k in ['tx_ms','rx_ms']]
     elif number==3:
         assert len(rows)==9

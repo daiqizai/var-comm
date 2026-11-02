@@ -6,7 +6,7 @@ NeST-Com. (a) The selected endpoint and fixed MCS determine the protected profil
 
 ## Figure 2
 
-Source-referenced reconstruction on 500 ImageNet images. (a,b) Seven systems at $N=1024$; three channel outcomes per source include gray failures. (c,d) NeST-Com, WHOLE and Ada-TokenCom at equal, error-free information budgets, including 57 shared protocol bits and Ada-TokenCom's additional 10-bit class; WHOLE/NeST share ceiling $(10,0)$. Points and error bars are equal-source means and pointwise 95\% source-bootstrap confidence intervals after within-source averaging. Ada-TokenCom is the predicted-class, fixed-frame adaptation. Lower values are favorable.
+Source-referenced reconstruction on 500 ImageNet images. (a,b) Six methods at $N=1024$, including the shared-model WHOLE reference; three channel outcomes per source include gray failures. (c,d) NeST-Com, WHOLE and Ada-TokenCom at equal, error-free information budgets, including 57 shared protocol bits and Ada-TokenCom's additional 10-bit class; WHOLE/NeST share ceiling $(10,0)$. Points and error bars are equal-source means and pointwise 95\% source-bootstrap confidence intervals after within-source averaging. Ada-TokenCom is the predicted-class, fixed-frame adaptation. Lower values are favorable.
 
 ## Figure 3
 

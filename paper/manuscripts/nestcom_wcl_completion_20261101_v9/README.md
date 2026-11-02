@@ -1,3 +1,13 @@
+# 当前论文定位修订 — 2026-11-02
+
+主线已调整为“保留尺度级预测，细化固定帧的传输端点”。ARPC 作为最接近的渐进源编码先行工作；其已完成数字适配结果移至完整补充比较。VAR 的覆盖与递推机制明确注明出处。主策略、匹配粒度和机制干预分别承担对应证据任务。
+
+当前产物：[双栏 5 页](manuscript_doublecolumn.pdf)、[单栏 15 页](manuscript_singlecolumn.pdf)、[可编辑 Word 15 页](manuscript_review.docx)、[补充 27 页](supplementary.pdf)。62 页已检查；摘要 91 词。正文 Fig.2 为 84 点/84 CI，补充完整图为 92 点/92 CI；所有原始 CSV 和用户最终 Fig.1、Fig.3 不变。本轮未执行新实验。
+
+详细修改与边界见 [本轮报告](POSITIONING_REVISION_20261102.md)，当前验收入口为 [本轮验证](validation/current_revision.json)。下方各轮页数、点数、摘要词数和发布状态均为其历史快照。
+
+---
+
 # 当前 Fig.1 最终用户微调版 — 2026-11-02
 
 已检查并接入用户最后保存的布局，原 PPTX 字节保留。当前正文使用 [最终 Fig.1 PDF](figures/figure1_final.pdf)，编辑源为 [最终 PPTX](figures/figure1_final.pptx)。三面板文字/数学/信息流与方法和图注一致；双栏/单栏/Word 重新编译与逐页查看，页数 **5/15/15**。见 [本次检查记录](FIG1_FINAL_REVIEW_20261102.md)。下方 thin-v5/v6/v7 记录均为历史状态。

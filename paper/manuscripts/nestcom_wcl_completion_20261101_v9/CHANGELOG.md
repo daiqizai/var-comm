@@ -1,3 +1,9 @@
+## 2026-11-02 — Positioning and evidence roles
+
+Reframe the argument around scale-wise prediction with within-scale, actual-length frame fitting. Credit ARPC as the closest progressive source-coding precedent and VAR for inherited overwrite/recursive state updates. Separate matched granularity, family-policy and mechanism evidence. Move the ARPC digital-link adaptation from the main figure/table into the complete supplementary comparison without altering any input data. Rebuild and visually review 5/15/15/27 pages; retain the user-final Fig.1 and Fig.3 exactly. See POSITIONING_REVISION_20261102.md.
+
+---
+
 ## 当前 Fig.3 修订 — 2026-11-02
 
 已采用 C10-016 / C10-017 的 N1024、10 dB 两行五列对照，加入 SwinJSCC。图下 DISTS / DreamSim 均为对应原第一重复的实际指标。双栏/单栏/Word/补充材料页数为 5/15/15/27，62 页均已逐页检查。数据、取舍与来源见 [Fig.3 修订记录](FIG3_SELECTION_20261102.md)。下面保留历史版本记录；当前验证文件以本轮为准。

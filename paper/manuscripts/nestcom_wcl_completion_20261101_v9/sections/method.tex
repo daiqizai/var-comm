@@ -18,7 +18,7 @@ The frozen VAR tokenizer produces ten residual token maps $q_s$, with side lengt
 p_\theta(q_s\mid q_{<s})=\prod_{i=1}^{L_s}p_\theta(q_{s,i}\mid q_{<s}).
 \label{eq:prior}
 \end{equation}
-Both terminals reconstruct identical integer CDFs, with total frequency $2^{24}$, for arithmetic coding~\cite{arithmetic}; no unreceived same-scale token is needed.
+Both terminals reconstruct identical integer CDFs, with total frequency $2^{24}$, for arithmetic coding~\cite{arithmetic}; no unreceived same-scale token is needed. Transmission can therefore end within a scale while probability evaluation remains scale-wise.
 
 
 
@@ -41,7 +41,7 @@ Offline calibration fixes a target and MCS for each budget/SNR by DINOv2 source/
 
 \ifCLASSOPTIONonecolumn\else\input{sections/figure2_float}\fi
 \subsection{Prefix-Constrained Reconstruction}
-Invalid profile CRC/catalogue, body CRC, declared length, known padding, or arithmetic parsing yields a fixed gray image, as does valid NULL reception. Otherwise, RX decodes the actual prefix using the shared CDFs. At $e=(10,0)$, all maps are received and directly decoded. Otherwise, RX predicts the boundary map by argmax conditioned on complete received maps, then overwrites known positions~\cite{var}:
+Invalid profile CRC/catalogue, body CRC, declared length, known padding, or arithmetic parsing yields a fixed gray image, as does valid NULL reception. Otherwise, RX decodes the actual prefix using the shared CDFs. At $e=(10,0)$, all maps are received and directly decoded. For an incomplete prefix, RX applies VAR's known-token overwrite and recursive state update~\cite{var}. It predicts the boundary map by argmax conditioned on complete received maps, then overwrites received positions:
 \begin{equation}
 \tilde q_{m+1,i}=\begin{cases}\hat q_{m+1,i},&i\leq K,\\q^{\mathrm{pred}}_{m+1,i},&i>K.\end{cases}
 \label{eq:overwrite}

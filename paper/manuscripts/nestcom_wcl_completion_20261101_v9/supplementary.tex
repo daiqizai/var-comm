@@ -108,6 +108,22 @@ The whole reference uses one explicitly counted receiver diagnostic without a ne
 Common500 uses its original 10\,000$\times500$ source-bootstrap bank; controls use a separately ordered 10\,000$\times100$ bank. Kodak uses the existing 10\,000$\times24$ bank. Each source first averages its three events, then receives equal weight; paired differences precede resampling. Full source IDs, pixel hashes and native receiver identities control reuse. No simultaneous multiplicity-adjusted interval claim is made.
 
 \section{Complete quality results}
+ARPC + LDPC applies our common digital frame to the ARPC progressive source
+codec. Its transmitted caption and other required fields are charged to the
+frame budget. Fig.~\ref{fig:complete_comparison} reports this additional comparison
+alongside the methods in the main Fig.~2. This section gives the complete
+quality results; S7 reports processing costs for the same adaptation.
+\begin{figure}[htbp]
+\centering\includegraphics[width=\linewidth]{figures/figure2_complete_with_arpc.pdf}
+\caption{Complete comparison, including the digital-link adaptation of the ARPC
+source codec. Panels (a,b) retain all seven methods at $N=1024$ and 4/7/10/19 dB;
+panels (c,d) retain all six equal-information budgets for NeST-Com, WHOLE and Ada.
+The 92 points and error bars are equal-source means and pointwise 95\%
+source-bootstrap intervals after within-source averaging. Ada is the
+predicted-class, fixed-frame adaptation.}
+\label{fig:complete_comparison}
+\end{figure}
+
 \subsection{Five-metric source means}
 All means retain failures. Pointwise intervals and direct paired intervals are provided in the full-precision CSVs; the compact table reports means.
 
@@ -876,7 +892,7 @@ WHOLE & 10 & 2000 & 0.16500 & 0.13874\\
 
 
 \section{Qualitative examples}
-Fig.3 uses sources 135 and 201 at $N=1024$, 10 dB (catalog C10-016/C10-017), chosen after inspection of the complete candidate gallery to illustrate perceptual advantages. These are selected examples, not random or representative samples. The full IDs are \path{n04461696/ILSVRC2012_val_00026517_n04461696} and \path{n06596364/ILSVRC2012_val_00001019_n06596364}. NeST has lower DISTS and DreamSim than WHOLE, SwinJSCC and Ada in both displayed realizations; this does not imply superiority in every metric or over the population. SwinJSCC/NeST PSNR is 21.96/19.99 dB and 19.75/16.82 dB, respectively. Ada has lower LPIPS on source 135 (0.1955 versus 0.2112) and higher CLIP-I on source 201 (0.6926 versus 0.6596). Full-precision scores and image identities are in \texttt{inputs/fig3\_selected\_20261102/}.
+Fig.3 uses sources 135 and 201 at $N=1024$, 10 dB (catalog C10-016/C10-017), chosen after inspection of the complete candidate gallery to illustrate perceptual advantages. These are selected examples, not random or representative samples. The full IDs are \path{n04461696/ILSVRC2012_val_00026517_n04461696} and \path{n06596364/ILSVRC2012_val_00001019_n06596364}. NeST has lower DISTS and DreamSim than WHOLE, SwinJSCC and Ada in both displayed realizations; this does not imply superiority in every metric or over the population. SwinJSCC/NeST PSNR is 21.96/19.99 dB and 19.75/16.82 dB, respectively. Ada has lower LPIPS on source 135 (0.1955 versus 0.2112) and higher CLIP-I on source 201 (0.6926 versus 0.6596). Full-precision scores and image identities are in \path{inputs/fig3_selected_20261102/}.
 
 All images retain the full $256\times256$ field and each method's original first channel repetition: seed 6201 for WHOLE, NeST and Ada; seed 2001 for SwinJSCC, preserving historical method-specific noise. No failure or repetition was substituted. Metrics use the native float outputs; PNGs serve display only. The following panel shows the selected 7-dB television (index 84) and leather (index 143) advantage examples with complete method comparisons.
 \begin{figure}[htbp]\centering\includegraphics[width=\linewidth]{figures/figure3_all_methods_supplement.pdf}\caption{Complete method comparisons for the television and leather advantage examples. Full256$\times$256 fields are retained.}\end{figure}

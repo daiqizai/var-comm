@@ -120,5 +120,27 @@ s=s.replace('Zero observed failures is not zero underlying error probability. Hi
 s=s.replace('numerical tolerance$10^{-10}$','numerical tolerance $10^{-10}$')
 s=s.replace('Older directories remain identifiable in the original result provenance; their quality outputs had no no-fit events.', 'No no-fit event occurred in the reported quality evaluations.')
 s=s.replace('Zero observed failures in a timing cell is not a reliability guarantee. No confidence interval is fabricated from the timing repetitions.', 'The table reports the observed success counts and descriptive timing statistics.')
+
+# Editorial scope: retain all ARPC adaptation results and expose the complete plot.
+complete_plot=r"""\section{Complete quality results}
+ARPC + LDPC applies our common digital frame to the ARPC progressive source
+codec. Its transmitted caption and other required fields are charged to the
+frame budget. Fig.~\ref{fig:complete_comparison} reports this additional comparison
+alongside the methods in the main Fig.~2. This section gives the complete
+quality results; S7 reports processing costs for the same adaptation.
+\begin{figure}[htbp]
+\centering\includegraphics[width=\linewidth]{figures/figure2_complete_with_arpc.pdf}
+\caption{Complete comparison, including the digital-link adaptation of the ARPC
+source codec. Panels (a,b) retain all seven methods at $N=1024$ and 4/7/10/19 dB;
+panels (c,d) retain all six equal-information budgets for NeST-Com, WHOLE and Ada.
+The 92 points and error bars are equal-source means and pointwise 95\%
+source-bootstrap intervals after within-source averaging. Ada is the
+predicted-class, fixed-frame adaptation.}
+\label{fig:complete_comparison}
+\end{figure}
+"""
+assert s.count(r'\section{Complete quality results}')==1
+s=s.replace(r'\section{Complete quality results}',complete_plot)
+
 (P/'supplementary.tex').write_text('\n'.join(line.rstrip() for line in s.splitlines()).rstrip()+'\n')
 print('Built supplement with S1--S8, 165 descriptive rows, 12 Ada-control rows, 60 Kodak means and 90 paired intervals')

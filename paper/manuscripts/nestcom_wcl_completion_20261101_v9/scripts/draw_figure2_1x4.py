@@ -4,7 +4,9 @@
 Example:
   python draw_figure2_1x4.py --data figure2_data.csv --out-dir figures
 Only the displayed equal-budget x unit changes: bits / 1000 = kbit.
-No model, summary statistic, interval, data selection, or smoothing is run.
+The main figure shows six methods. --include-arpc retains the complete
+seven-method comparison in a supplementary figure. All 92 input rows remain
+unchanged; no model, summary statistic, interval, or smoothing is recomputed.
 Dependencies: matplotlib, numpy, Pillow.
 """
 from __future__ import annotations
@@ -50,6 +52,9 @@ def parse_args():
     p.add_argument("--out-dir", type=Path, default=Path(__file__).resolve().parents[1] / "figures")
     p.add_argument("--width-mm", type=float, default=DEFAULT_WIDTH_MM)
     p.add_argument("--height-mm", type=float, default=64.0)
+    p.add_argument("--include-arpc", action="store_true", help="Render the complete comparison for the supplement.")
+    p.add_argument("--stem", default="figure2_1x4")
+    p.add_argument("--no-aliases", action="store_true", help="Do not overwrite the main Figure 2 compatibility filenames.")
     return p.parse_args()
 
 
@@ -105,6 +110,8 @@ def main():
             ax.set_axisbelow(True)
             ax.grid(axis="y", color="#E2E5E8", linewidth=.45)
             mapping = FIXED if exp == "fixed_symbols" else EQUAL
+            if not args.include_arpc:
+                mapping = [(method, key) for method, key in mapping if key != "arpc"]
             expected_x = [4., 7., 10., 19.] if exp == "fixed_symbols" else [620., 1212., 1302., 1940., 2248., 2577.]
             n = 0
             all_low, all_high = [], []
@@ -143,7 +150,8 @@ def main():
             fig.add_artist(Line2D([xs[start]/w, (xs[end]+pw)/w], [48.2/h]*2,
                                  transform=fig.transFigure, color="#C8CED4", lw=.5))
         legends = []
-        for keys, top_mm in [(list(STYLE)[:3], h-1.2), (list(STYLE)[3:], h-6.3)]:
+        lower_legend = [key for key in list(STYLE)[3:] if args.include_arpc or key != "arpc"]
+        for keys, top_mm in [(list(STYLE)[:3], h-1.2), (lower_legend, h-6.3)]:
             handles = []
             for key in keys:
                 st = STYLE[key].copy(); st.pop("zorder")
@@ -152,8 +160,11 @@ def main():
             legends.append(fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(.5, top_mm/h),
                            ncol=len(keys), frameon=False, borderpad=0, borderaxespad=0,
                            handlelength=2.0, handletextpad=.5, columnspacing=1.8))
-        if len(plotted_keys) != 92 or len(set(plotted_keys)) != 92:
-            raise ValueError("The figure must consume each of the 92 source records exactly once.")
+        expected_count = 92 if args.include_arpc else 84
+        expected_keys = {(r["experiment"], r["method"], r["metric"], float(r["x"]))
+                         for r in rows if args.include_arpc or r["method"] != "ARPC"}
+        if len(plotted_keys) != expected_count or set(plotted_keys) != expected_keys:
+            raise ValueError("The figure must consume every declared display record exactly once.")
         fig.canvas.draw()
         renderer = fig.canvas.get_renderer()
         clipped = []
@@ -169,21 +180,22 @@ def main():
             lb = legend.get_window_extent(renderer)
             if any(lb.overlaps(ax.get_window_extent(renderer)) for ax in axes):
                 raise ValueError("Legend overlaps a data panel.")
-        stem = args.out_dir / "figure2_1x4"
+        stem = args.out_dir / args.stem
         for ext in ("pdf", "svg", "png"):
             fig.savefig(stem.with_suffix("."+ext), dpi=600, bbox_inches=None, facecolor="white")
         svg = stem.with_suffix(".svg")
         svg.write_text("\n".join(line.rstrip() for line in svg.read_text(encoding="utf-8").splitlines())+"\n", encoding="utf-8")
-        fig.savefig(args.out_dir / "figure2_1x4_print_size.png", dpi=150, bbox_inches=None)
+        fig.savefig(args.out_dir / (args.stem + "_print_size.png"), dpi=150, bbox_inches=None)
         plt.close(fig)
     # Grayscale is a rendering preview only; it does not modify scientific data.
-    with Image.open(args.out_dir / "figure2_1x4_print_size.png") as im:
-        im.convert("L").save(args.out_dir / "figure2_1x4_grayscale.png")
+    with Image.open(args.out_dir / (args.stem + "_print_size.png")) as im:
+        im.convert("L").save(args.out_dir / (args.stem + "_grayscale.png"))
     # Compatibility aliases use exactly the same output bytes.
-    for ext in ("pdf", "svg", "png"):
-        shutil.copyfile(args.out_dir / ("figure2_1x4."+ext), args.out_dir / ("figure2."+ext))
-    for suffix in ("_print_size.png", "_grayscale.png"):
-        shutil.copyfile(args.out_dir / ("figure2_1x4"+suffix), args.out_dir / ("figure2"+suffix))
+    if not args.no_aliases:
+        for ext in ("pdf", "svg", "png"):
+            shutil.copyfile(args.out_dir / (args.stem+"."+ext), args.out_dir / ("figure2."+ext))
+        for suffix in ("_print_size.png", "_grayscale.png"):
+            shutil.copyfile(args.out_dir / (args.stem+suffix), args.out_dir / ("figure2"+suffix))
     copy = args.out_dir / "figure2_data.csv"
     if args.data.resolve() != copy.resolve():
         shutil.copyfile(args.data, copy)
@@ -192,6 +204,9 @@ def main():
         "copied_data_sha256": hashlib.sha256(copy.read_bytes()).hexdigest(),
         "source_records": len(rows), "plotted_means": len(plotted_keys),
         "plotted_confidence_intervals": len(plotted_keys), "panel_counts": counts,
+        "display_scope": "complete_with_arpc_adaptation" if args.include_arpc else "main_six_methods",
+        "arpc_rows_retained_in_input": 8,
+        "main_omission_reason": None if args.include_arpc else "ARPC is attributed as source-coding prior work; its digital-link adaptation is reported in the complete supplement.",
         "width_mm": w, "height_mm": h, "panel_width_mm": pw,
         "y_limits": {p[0]: p[3] for p in PANELS}, "source_ci_extents": interval_extents,
         "display_transform": "Equal-information x: bits / 1000 = kbit; all other values unchanged.",
@@ -199,8 +214,8 @@ def main():
         "legend_overlaps_axes": False, "matplotlib_version": matplotlib.__version__,
         "note": "Intervals are loaded from V9; no bootstrap or metric recomputation. Line segments join observed means only. Visual review remains required.",
     }
-    (args.out_dir / "figure2_1x4_validation.json").write_text(json.dumps(validation, indent=2)+"\n", encoding="utf-8")
-    print(json.dumps({"output": str(args.out_dir), "means": 92, "intervals": 92,
+    (args.out_dir / (args.stem + "_validation.json")).write_text(json.dumps(validation, indent=2)+"\n", encoding="utf-8")
+    print(json.dumps({"output": str(stem), "means": len(plotted_keys), "intervals": len(plotted_keys),
                       "size_mm": [w, h], "text_outside_canvas": clipped}, indent=2))
 
 
