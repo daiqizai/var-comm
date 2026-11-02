@@ -1,3 +1,7 @@
+## Fig.3 candidate review — 2026-11-02
+
+The existing 500-source pools at N1024/7 and N1024/10 were exhaustively screened at the fixed first realization, with no new inference, PHY or scoring. NeST strictly leads WHOLE and Ada on both displayed distances in 143 / 23 cases; 60 / 11 also lead on all five metrics (58 / 11 with no comparator gray). All 166 candidates are available as full-view image catalogs, with complete 1000-case numerical audit and explicit gray flags. This is selected illustration evidence; current manuscript and population statistics are unchanged. [Catalog and reproduction](paper/fig3_candidates_20261102/README.md), [audit](results/fig3_candidates_20261102/README.md).
+
 ## Latest manuscript layout — 2026-11-02
 
 The active [V9 manuscript](paper/manuscripts/nestcom_wcl_completion_20261101_v9/README.md) now uses a full-width 1×4 Figure 2 (181.353259 × 64 mm). Fixed-symbol and equal-information-budget panels retain all 92 frozen means and 92 intervals; only layout and the right-hand x unit change. Double-column/single-column/Word outputs are 5/15/14 pages, all 34 revised pages actually inspected. Figure 1/3, tables, the 27-page supplement and scientific results are unchanged; no new inference, PHY, scoring, statistics, training or scheduling. [Changes and provenance](paper/manuscripts/nestcom_wcl_completion_20261101_v9/FIG2_1X4_REVISION_20261102.md). Historical entries below retain their original scope and status.
