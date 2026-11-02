@@ -167,7 +167,8 @@ for sec in d.sections:
     sec.page_width=Inches(8.5);sec.page_height=Inches(11)
     sec.top_margin=sec.bottom_margin=sec.left_margin=sec.right_margin=Inches(1)
     p=sec.footer.paragraphs[0];p.alignment=1
-    r=OxmlElement('w:r');fld=OxmlElement('w:fldSimple');fld.set(qn('w:instr'),'PAGE');r.append(fld);p._p.append(r)
+    fld=OxmlElement('w:fldSimple');fld.set(qn('w:instr'),'PAGE')
+    r=OxmlElement('w:r');text=OxmlElement('w:t');text.text='1';r.append(text);fld.append(r);p._p.append(fld)
 assert not d.tables, 'No Pandoc-parsed table may remain in the Word body'
 native_table_records=insert_csv_tables(d,P,table_specs)
 for p in d.paragraphs:
@@ -183,7 +184,7 @@ for p in d.paragraphs:
 d.save(target)
 import zipfile
 with zipfile.ZipFile(target)as z:xml=z.read('word/document.xml')
-record=dict(source_tex_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),word_sha256=hashlib.sha256(target.read_bytes()).hexdigest(),reference_keys=keys,display_equation_count=eqn[0],expected_display_equations=expected_display_equations,editable_omml_count=xml.count(b'<m:oMath>'),numeric_ci_text_count=numeric_ci_text_count,delimiter_properties_reordered=delimiter_properties_reordered,inline_punctuation_attached=inline_punctuation_attached,native_tables=len(d.tables),native_table_sources=native_table_records,figures=3,body_double_line_spacing=True,figures_unchanged=False, unchanged_figures=[1,2], revised_figures=[3],revision_base_commit='7c7f04f31eae24561a898961434da158662bbe10',figure_pdf_hashes={str(i):hashlib.sha256((P/'figures'/FIGURE_FILES[i]).read_bytes()).hexdigest() for i in range(1,4)},render_review_pending=True)
+record=dict(source_tex_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),word_sha256=hashlib.sha256(target.read_bytes()).hexdigest(),reference_keys=keys,display_equation_count=eqn[0],expected_display_equations=expected_display_equations,editable_omml_count=xml.count(b'<m:oMath>'),numeric_ci_text_count=numeric_ci_text_count,delimiter_properties_reordered=delimiter_properties_reordered,inline_punctuation_attached=inline_punctuation_attached,native_tables=len(d.tables),native_table_sources=native_table_records,figures=3,body_double_line_spacing=True,figures_unchanged=True, unchanged_figures=[1,2,3], revised_figures=[],revision_base_commit='eee31804dc73fb1e43c1734ea21554a55c174c3d',figure_pdf_hashes={str(i):hashlib.sha256((P/'figures'/FIGURE_FILES[i]).read_bytes()).hexdigest() for i in range(1,4)},render_review_pending=True)
 (QA/'conversion_check.json').write_text(json.dumps(record,indent=2)+'\n',newline='\n')
 assert record['display_equation_count']==expected_display_equations and record['editable_omml_count']>=expected_display_equations and record['native_tables']==3
 print(json.dumps(record))

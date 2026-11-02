@@ -9,6 +9,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
+from docx.text.paragraph import Paragraph
 
 
 def braced_argument(text, start):
@@ -34,9 +35,10 @@ def braced_argument(text, start):
 
 def plain_caption(text):
     text = re.sub(r'\\textbf\{([^}]+)\}', r'\1', text)
+    text = text.replace('---', '—').replace('--', '–')
     replacements = {
         r'\%': '%', r'\uparrow': '↑', r'\downarrow': '↓',
-        r'\Delta': 'Δ', r'\to': '→', r'\footnotesize': '',
+        r'\Delta': 'Δ', r'\to': '→', r'\footnotesize': '', r'\scriptsize': '',
         r'\smallskip': '', r'\par': ' ', r'\,': ' ', r'\;': ' ',
         '~': ' ', '$': '',
     }
@@ -86,20 +88,20 @@ def paired_cell(row, multiline=False):
 def data_rows(number, rows):
     def pair(mean,low,high,n=4):
         return f"{float(mean):+.{n}f}\n[{float(low):.{n}f}, {float(high):.{n}f}]"
-    labels={'final_NeST':'NeST-Com','WHOLE_final_receiver':'WHOLE','Ada_frozen':'Ada (adapted)','Latent_JSCC':'Latent JSCC','SwinJSCC':'SwinJSCC','BPG_LDPC':'BPG + LDPC','ARPC':'ARPC + LDPC'}
+    labels={'final_NeST':'NeST-Com','WHOLE_final_receiver':'WHOLE','Ada_frozen':'Ada-TokenCom','Latent_JSCC':'Latent JSCC','SwinJSCC':'SwinJSCC','BPG_LDPC':'BPG + LDPC','ARPC':'ARPC + LDPC'}
     if number==1:
         assert len(rows)==10
-        yield 'group',['(A) common500, N = 1024, family-specific policies']
+        yield 'group',['(A) 500 sources, N = 1024, family-specific policies']
         yield 'header',['SNR','Util. W→N (%)','ΔDISTS [95% CI]','ΔDreamSim [95% CI]']
         for s in [4,7,10,19]:
             r=unique(rows,block='A',snr_db=s)
             yield 'data',[str(s),f"{100*float(r['whole_utilization']):.2f} → {100*float(r['nest_utilization']):.2f}",pair(r['dists_delta'],r['dists_low'],r['dists_high']),pair(r['dreamsim_delta'],r['dreamsim_low'],r['dreamsim_high'])]
-        yield 'group',['(B) control100, 10 dB, common ceiling (8,126)']
+        yield 'group',['(B) 100 quality sources; 32 timing sources; ceiling (8,126)']
         yield 'header',['Grid','Utilization (%)','DISTS','DreamSim','TX (ms)']
         for m in ['whole','quarter','eighth','token']:
             r=unique(rows,block='B',grid=m)
             yield 'data',[m.title(),f"{100*float(r['utilization']):.2f}",f"{float(r['dists']):.4f}",f"{float(r['dreamsim']):.4f}",f"{float(r['tx_ms']):.1f}"]
-        yield 'group',['(C) control100, 10 dB, same received prefixes']
+        yield 'group',['(C) 100 sources, 10 dB, same received prefixes']
         yield 'header',['Intervention','ΔPSNR (dB)','ΔDISTS','ΔDreamSim']
         for c,b in [('B0','A0'),('C0','B0')]:
             r=unique(rows,block='C',candidate=c,reference=b)
@@ -237,6 +239,9 @@ def insert_csv_tables(document, manuscript, specs):
             for cell in table.rows[-1].cells:
                 for paragraph in cell.paragraphs:
                     paragraph.paragraph_format.keep_with_next = False
+            following = anchor.getnext()
+            if following is not None and following.tag == qn('w:p'):
+                Paragraph(following, document).paragraph_format.space_before = Pt(6)
         anchor.getparent().remove(anchor)
         records.append(dict(number=number, source_csv=str(source.relative_to(manuscript)),
                             source_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),

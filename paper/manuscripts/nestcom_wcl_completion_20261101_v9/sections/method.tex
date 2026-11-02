@@ -28,7 +28,7 @@ An endpoint $e=(m,K)$ retains complete coarse maps and a raster-ordered boundary
 \pi_e=(q_1,\ldots,q_m,q_{m+1,1:K}).
 \label{eq:prefix}
 \end{equation}
-The fixed raster order specifies received positions without a mask. WHOLE permits $(m,0)$ for $m=4,\ldots,10$. NeST permits every integer $K=0,\ldots,L_{m+1}-1$ for $m=4,\ldots,9$, together with $(10,0)$: 651 distinct endpoints from 30 through 680 retained tokens. The paid 12-bit profile directory covers the applicable endpoint/MCS combinations. Quarter and Eighth provide coarser within-scale configurations; Token is the main configuration.
+The boundary prefix is empty for $K=0$, including $e=(10,0)$. The fixed raster order specifies received positions without a mask. WHOLE permits $(m,0)$ for $m=4,\ldots,10$. NeST permits every integer $K=0,\ldots,L_{m+1}-1$ for $m=4,\ldots,9$, together with $(10,0)$: 651 distinct endpoints from 30 through 680 retained tokens. The paid 12-bit profile directory covers the applicable endpoint/MCS combinations. Quarter and Eighth provide coarser within-scale configurations; Token is the main configuration.
 
 For MCS $a=(M,r)$, the coded body has $n_a=(N-68)\log_2M$ bits and information length $k_a=\lfloor rn_a\rfloor$. Its independently terminated arithmetic length $b(x,e)$ must satisfy
 \begin{equation}
@@ -37,11 +37,11 @@ b(x,e)+29\leq k_a,\qquad \eta(x,e)=\frac{b(x,e)}{k_a-29}.
 \end{equation}
 The 29 bits comprise a 13-bit length and CRC16. Unused information positions are zero-padded before 5G NR LDPC coding, rate matching~\cite{nr}, and QAM. Thus $\eta$ measures source-bit capacity utilization after the length/CRC overhead.
 
-Offline calibration fixes a target and MCS for each budget/SNR by DINOv2 source/reconstruction cosine~\cite{dinov2}. NeST retains these targets/MCSs while refining endpoints; Supplement~S1 specifies the family-specific candidate pools. A shared scale-wise probability and incremental coding traversal supplies candidates, each independently terminated rather than cut from a longer stream. With MCS fixed, TX selects the feasible endpoint with the most tokens up to the target. Actual terminated lengths determine feasibility without assuming length monotonicity. The timed implementation scans all allowed candidates. If no legal endpoint fits, TX sends a paid NULL profile with a two-bit zero payload; valid reception yields gray. The current $N=1024$ directory extends the existing IDs without changing normal profiles; all 12 MCS paths pass full-frame regression (Supplement~S1). No no-fit event occurred in the reported $N=1024$ quality samples. Missing assets or invalid model inputs remain execution errors.
+Offline calibration fixes a target and MCS for each budget/SNR by DINOv2 source/reconstruction cosine~\cite{dinov2}. NeST retains these targets/MCSs while refining endpoints; Supplement~S1 specifies the family-specific candidate pools. A shared scale-wise probability and incremental coding traversal supplies candidates, each independently terminated rather than cut from a longer stream. With MCS fixed, TX selects the feasible endpoint with the most tokens up to the calibrated target. Actual terminated lengths determine feasibility without assuming length monotonicity. The timed implementation scans all allowed candidates. If no legal endpoint fits, TX sends a paid NULL profile with a two-bit zero payload; valid reception yields a gray image. Supplement~S1 specifies the directory and fallback rules.
 
 \ifCLASSOPTIONonecolumn\else\input{sections/figure2_float}\fi
 \subsection{Prefix-Constrained Reconstruction}
-Invalid profile CRC/catalogue, body CRC, declared length, known padding, or arithmetic parsing yields a fixed gray image, as does valid NULL reception. Otherwise, RX decodes the actual prefix using the shared CDFs. It predicts the boundary map by argmax conditioned on complete received maps, then overwrites known positions~\cite{var}:
+Invalid profile CRC/catalogue, body CRC, declared length, known padding, or arithmetic parsing yields a fixed gray image, as does valid NULL reception. Otherwise, RX decodes the actual prefix using the shared CDFs. At $e=(10,0)$, all maps are received and directly decoded. Otherwise, RX predicts the boundary map by argmax conditioned on complete received maps, then overwrites known positions~\cite{var}:
 \begin{equation}
 \tilde q_{m+1,i}=\begin{cases}\hat q_{m+1,i},&i\leq K,\\q^{\mathrm{pred}}_{m+1,i},&i>K.\end{cases}
 \label{eq:overwrite}
