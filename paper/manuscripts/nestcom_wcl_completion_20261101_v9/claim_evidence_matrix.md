@@ -40,3 +40,16 @@ All paths below are relative to this manuscript. Historical policy evidence reta
 | Eighth and Token offer different quality/cost operating points | N1024/10 matched control100 quality, timing32 cost; Token extra30.7ms/14.1%; N512 control is independently identified |
 | Shared-model and matched-grid results justify the design; receiver interventions explain token use | TableI(A/B/C), N512 matched control; VAR overwrite/recurrence attributed in II-C |
 | H10 timing is relevant to equal MCS/ceiling U10, with distinct directory identity | S1.3 policy index; historical timing result files; no new timing claim |
+
+## Fixed-frame problem and related work — 2026-11-03
+
+| Statement | Primary source / manuscript evidence | Interpretation |
+|---|---|---|
+| Next-scale maps provide coarse coverage and residual refinement | VAR §§3,6; Introduction paragraph 1; II-A/II-C | Representation and known-token handling are attributed to VAR |
+| ARPC develops progressive next-scale source coding | ICLR 2026 published abstract; Introduction paragraph 2 | Closest progressive compression precedent; no claim that it lacks entropy coding or suffix generation |
+| Ada jointly adapts prefix length and MCS | Ada-TokenCom §III-C, problem P1 | Long-term average symbol budget; its wireless adaptation is acknowledged |
+| ResARC codes corrections for suffix-generation error | ResARC §3, generation-residual branch | Relevant residual-compensation route; distinct from using received boundary-map tokens |
+| NeST connects termination, protected-frame fitting and progressive reconstruction | II-A/II-B/II-C; Fig.1; actual frame constraints and receiver implementation | Positive description of the implemented fixed-per-image-frame design, not an exhaustive priority claim |
+| Scale-wise probabilities coexist with actual-length within-scale termination | II-A/II-B; coder property and matched controls | Specific technical mechanism within the overall communication framework |
+
+The literature check and its access limitations are recorded in `validation/problem_framing_20261103/literature_audit.json`. No new scientific values or claims of universal superiority were introduced.

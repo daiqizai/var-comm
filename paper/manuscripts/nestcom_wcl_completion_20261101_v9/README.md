@@ -1,3 +1,11 @@
+# 当前交付：固定帧问题与相关工作论证（2026-11-03）
+
+引言按“表示基础→先行工作→固定帧内协同设计问题→NeST-Com框架与机制”重写，保留系统贡献并准确交代VAR、ARPC、Ada和ResARC。全部实验与图表不变。
+
+[双栏PDF](manuscript_doublecolumn.pdf) · [单栏PDF](manuscript_singlecolumn.pdf) · [可编辑Word](manuscript_review.docx) · [修改说明](PROBLEM_FRAMING_20261103.md) · [当前验收](validation/current_revision.json)。更新稿5/15/16页、摘要88词，36页实际检查；36页补充保持。
+
+--- Historical record / 历史记录 ---
+
 # 当前交付：跨页与措辞精修（2026-11-03）
 
 已删除跨页重复总结，并将Ada尾部敏感性数值段完整留在第4页。同步修正平均对象、差值区间、端点/容量及MCS单位等表述。整体框架定位和全部科学数值保持。

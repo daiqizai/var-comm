@@ -1,3 +1,16 @@
+# 当前相关工作与问题论证修订（2026-11-03）
+
+| Item | Status | Evidence |
+|---|---|---|
+| Four-paragraph problem-first argument with accurate attribution | done | Introduction; literature_audit.json; claim_audit.json |
+| Preserve scientific evidence and previous page-break correction | done | data_checks.json; artifact_review.json |
+| Rebuild and visually review both PDFs and editable Word | done | 5/15/16 pages, 36 pages actually opened |
+| New science or timing | not-run-optional | Editorial-only scope |
+
+Required repository checks and normal publication are recorded in repository_checks.json and Git history.
+
+--- Historical record / 历史记录 ---
+
 # 当前措辞精修（2026-11-03）
 
 | Item | Status | Evidence |
