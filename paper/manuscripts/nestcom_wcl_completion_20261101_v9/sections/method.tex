@@ -2,7 +2,7 @@
 \subsection{Next-Scale Representation and Digital Frame}
 \begin{figure*}[t]
 \centering\includegraphics[width=\textwidth]{figure1_final.pdf}
-\caption{NeST-Com. (a) The shared policy fixes the MCS and profile directory; the protected profile selects the endpoint. VAR and known coarse tokens provide coding probabilities. (b) Independently terminated prefixes up to the target endpoint fit the body capacity; bars are schematic. (c) Received tokens overwrite boundary predictions. Recursive state updates accumulate residuals and condition each finer scale before decoding. Unreceived boundary positions retain their coarse-conditioned predictions.}
+\caption{NeST-Com. (a) The shared policy fixes the MCS and profile directory; the protected Profile ID selects the endpoint. VAR and known coarse tokens provide coding probabilities. (b) Independently terminated prefix bitstreams up to the target endpoint fit the body capacity; bars are schematic. (c) Received tokens overwrite boundary predictions. Recursive state updates accumulate residuals and condition each finer scale before decoding. Unreceived boundary positions retain their coarse-conditioned predictions.}
 \label{fig:system}
 \end{figure*}
 We transmit $x\in[0,1]^{256\times256\times3}$ using $N$ complex symbols over AWGN,
@@ -30,22 +30,22 @@ An endpoint $e=(m,K)$ retains complete coarse maps and a raster-ordered boundary
 \end{equation}
 For $K=0$, including $e=(10,0)$, the boundary prefix is empty. Raster order specifies positions without a mask. WHOLE permits $(m,0)$ for $m=4,\ldots,10$. NeST permits every integer $K=0,\ldots,L_{m+1}-1$ for $m=4,\ldots,9$, together with $(10,0)$: 651 endpoints from 30 through 680 retained tokens. Quarter/Eighth retain $K=\lfloor jL_{m+1}/d\rfloor$, $j=1,\ldots,d-1$, for $d=4/8$, plus complete-scale boundaries, with duplicates removed. Token is the main configuration.
 
-For MCS $a=(M,r)$, the coded body has $n_a=(N-68)\log_2M$ bits and information length $k_a=\lfloor rn_a\rfloor$. The actual source-code length $b(x,e)$ of an independently terminated prefix must satisfy
+For MCS $a=(M,r)$, the coded body has $n_a=(N-68)\log_2M$ bits and information length $k_a=\lfloor rn_a\rfloor$. Let $b(x,e)$ denote the actual bit length obtained by independently terminating the arithmetic code for token prefix $\pi_e$. Feasibility requires
 \begin{equation}
-b(x,e)+29\leq k_a,\qquad \eta(x,e)=\frac{b(x,e)}{k_a-29}.
+b(x,e)+29\leq k_a.
 \label{eq:budget}
 \end{equation}
-The 29 bits comprise a 13-bit length and CRC16, leaving a protected-frame body capacity of $k_a-29$ bits for the source code. Remaining positions are zero-padded before 5G NR LDPC coding, rate matching~\cite{nr}, and QAM; $\eta$ measures utilization of this source-bit capacity.
+The source-bit capacity utilization is $\eta(x,e)=b(x,e)/(k_a-29)$, where $k_a-29$ is the capacity available to the source payload. The 29 bits comprise a 13-bit length and CRC16. Remaining positions are zero-padded before 5G NR LDPC coding, rate matching~\cite{nr}, and QAM.
 
 For $N=1024$, WHOLE, NeST and Ada use the same 12 MCSs: QPSK/16-QAM/64-QAM with rates $1/2,2/3,3/4,5/6$. WHOLE has seven ceilings; NeST uses 25 Quarter ceilings with Token fallback; Ada allows prefixes through 256. All 396 candidates enter a 100-image, one-realization pilot. Per method/SNR, the top three plus a preset QPSK rate-1/2 anchor advance to 1000 sources with three realizations. Maximum equal-source DINOv2 cosine~\cite{dinov2}, including gray failures, selects the policy. $N=512$ retains its independently calibrated policies (Table~\ref{tab:policies}).
 
-A public method/MCS directory, frozen before calibration and shared across images, maps each profile to an endpoint. A shared traversal combines scale-wise probability evaluation with incremental coding. Non-mutating termination produces independently terminated prefixes; their bitstreams are not slices of a longer codeword.
+A public method/MCS directory, frozen before calibration and shared across images, maps source profiles to endpoints and includes a NULL profile. One traversal shares scale-wise probability evaluation and incremental coding. Non-mutating termination produces independent prefix bitstreams, not slices of a longer codeword.
 
-For this coder's fixed token/CDF traversal and non-mutating finish, $b_t=E_t+P_t+2$ after $t$ tokens, where $E_t$ and $P_t$ count emitted and pending bits. Renormalization increments $E_t+P_t$; other interval updates preserve it. Thus $b_t$ is nondecreasing, and feasible endpoints form an initial segment for fixed MCS and ceiling. TX selects its longest prefix, or sends a paid NULL profile with a two-bit zero payload if none fits. The measured code scans all candidates.
+For this coder's fixed token/CDF traversal and non-mutating finish, $b_t=E_t+P_t+2$ after $t$ tokens, where $E_t$ and $P_t$ count emitted and pending bits. Renormalization increments $E_t+P_t$; other interval updates preserve it. Thus $b_t$ is nondecreasing, and feasible endpoints form an initial segment for fixed MCS and ceiling. TX selects the longest feasible token prefix. If no source prefix fits, TX sends a NULL frame with a two-bit zero payload, using the full $N$-symbol budget. The measured code scans all candidates.
 
 \ifCLASSOPTIONonecolumn\else\input{sections/figure2_float}\fi
 \subsection{Prefix-Constrained Reconstruction}
-Invalid profile CRC/catalogue, body CRC, declared length, known padding, or arithmetic parsing yields a fixed gray image, as does valid NULL reception. Otherwise, RX decodes the actual prefix using the shared CDFs. At $e=(10,0)$, all maps are received and directly decoded. For an incomplete prefix, RX applies VAR's known-token overwrite and recursive state update~\cite{var}. It predicts the boundary map by argmax conditioned on complete received maps, then overwrites received positions:
+Invalid profile CRC/catalogue, body CRC, declared length, known padding, or arithmetic parsing yields fixed gray. Valid~NULL frames also produce gray; both remain in all metric denominators. Otherwise, RX decodes the actual prefix using the shared CDFs. At $e=(10,0)$, all maps are received and directly decoded. For an incomplete prefix, RX applies VAR's known-token overwrite and recursive state update~\cite{var}. It predicts the boundary map by argmax conditioned on complete received maps, then overwrites received positions:
 \begin{equation}
 \tilde q_{m+1,i}=\begin{cases}\hat q_{m+1,i},&i\leq K,\\q^{\mathrm{pred}}_{m+1,i},&i>K.\end{cases}
 \label{eq:overwrite}

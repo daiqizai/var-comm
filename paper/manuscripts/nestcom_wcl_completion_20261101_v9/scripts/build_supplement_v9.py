@@ -150,6 +150,8 @@ from wording_policy_revision import apply_wording_policy_revision
 s=apply_wording_policy_revision(s,P)
 from reading_flow_supplement import apply_reading_flow_revision
 s=apply_reading_flow_revision(s,P)
+from signal_supplement_revision import apply_signal_supplement_revision
+s=apply_signal_supplement_revision(s,P)
 
 (P/'supplementary.tex').write_text('\n'.join(line.rstrip() for line in s.splitlines()).rstrip()+'\n')
 print('Built supplement with S1--S8, 165 descriptive rows, 12 Ada-control rows, 60 Kodak means and 90 paired intervals')

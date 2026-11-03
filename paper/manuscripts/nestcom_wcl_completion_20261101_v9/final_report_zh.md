@@ -1,3 +1,11 @@
+# 当前交付：Fig.1 信令与补充材料整理（2026-11-03）
+
+Profile ID/预配置 MCS、NULL 和分别测量 TX/RX 的表述已统一。保留四段引言和 Table I(A/B/C)，科学数据、置信区间、Fig.2/3 原文件不变。S1/S7 阅读顺序调整，完整复现记录集中至可下载配套包。
+
+[双栏正文](manuscript_doublecolumn.pdf) · [单栏正文](manuscript_singlecolumn.pdf) · [补充 PDF](supplementary.pdf) · [Word](manuscript_review.docx) · [复现清单](REPRODUCTION_CHECKLIST.md) · [复现包生成入口](scripts/build_reproduction_companion.py) · [修改记录](SIGNAL_SUPPLEMENT_REVISION_20261103.md) · [当前验收](validation/current_revision.json)。页数 5/15/35/15，摘要 89 词；70 页本轮实际查看，未新增实验。
+
+--- Historical record / 历史记录 ---
+
 # 正文阅读连贯性与补充入口修订（2026-11-03）
 
 基准 main `6561fe6272d0e482d01dce672b28fd5cda3f9014`，活动稿 V9。本轮只修订文字组织、图注及补充导航，不新增科学、统计、训练或计时调用。

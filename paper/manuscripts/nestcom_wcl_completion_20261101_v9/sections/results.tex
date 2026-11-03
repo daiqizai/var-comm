@@ -5,30 +5,30 @@ We test 500 ImageNet validation images~\cite{imagenet}, disjoint from 1000 calib
 
 Latent JSCC maps tokenizer latents to symbols and shares $\Dc$ (MSE, LPIPS and latent-consistency losses, 100k updates). SwinJSCC~\cite{swinjscc} uses RGB MSE (200k updates, calibration-MSE selection). Both train on 20\,000 images at $N=1024$. BPG~\cite{bpg} uses LDPC/QAM. Ada-TokenCom~\cite{adatokencom} is a predicted-class, fixed-frame adaptation: LlamaGen-L/VQ16, prefix arithmetic coding, CFG=4, $T=1$, top-$k=2000$, top-$p=1$, and a paid 10-bit ConvNeXt class. Long-term control and ARQ are excluded.
 
-DISTS~\cite{dists}, DreamSim~\cite{dreamsim}, PSNR, LPIPS-Alex~\cite{lpips} and CLIP-I~\cite{clip} use native float RGB with fixed preprocessing. Timing uses 32 images, two warmups, three measurements, batch one, one RTX PRO 6000 and two physical CPU cores. Synchronized RGB-to-symbols-to-RGB spans include coding, link processing and generation, excluding loading, I/O and scoring. Supplement~S2--S8 gives complete results, controls, examples, timing and transfer details, including ARPC's specified digital-link adaptation.
+DISTS~\cite{dists}, DreamSim~\cite{dreamsim}, PSNR, LPIPS-Alex~\cite{lpips} and CLIP-I~\cite{clip} use native float RGB with fixed preprocessing. Timing uses 32 images, two warmups, three measurements, batch one, one RTX PRO 6000 and two physical CPU cores. We separately measure GPU-synchronized TX (RGB-to-symbols) and RX (symbols-to-RGB) processing times. They include coding, link processing and generation, excluding loading, I/O and scoring; total processing time is their sum. Supplement~S2--S8 gives complete results, controls, examples, timing and transfer details, including ARPC's specified digital-link adaptation.
 
 \input{tables/table_i}
 \ifCLASSOPTIONonecolumn\else\input{sections/figure3_float}\fi
 \subsection{Within-Scale Fitting and Granularity}
-Table~\ref{tab:internal}(A) compares NeST and WHOLE sharing model, coder and receiver under frozen family policies. All five paired metrics favor NeST at seven budget/SNR settings. At $N=1024$, 10 dB, utilization rises from 77.70\% to 99.79\%, DISTS falls from 0.1621 to 0.1481, and DreamSim from 0.1317 to 0.1048. PSNR gains span 0.49--0.88 dB across the four $N=1024$ points.
+NeST and WHOLE share model, coder and receiver with family-specific policies (Table~\ref{tab:internal}(A)). All five paired metrics favor NeST at seven budget/SNR points. At $N=1024$/10 dB, utilization rises from 77.70\% to 99.79\%, DISTS falls from 0.1621 to 0.1481, and DreamSim from 0.1317 to 0.1048. PSNR gains are 0.49--0.88 dB across $N=1024$ points.
 
 Block B isolates granularity by fixing model, 16-QAM rate 2/3, ceiling $(8,126)$, fitting rule and noise. Eighth retains approximately 92\% of the Whole-to-Token gain in PSNR, DISTS and DreamSim. Token raises utilization from 97.44\% to 99.85\%, adding $0.066\,[0.034,0.101]$ dB PSNR, with DISTS/DreamSim differences $-0.0011\,[-0.0020,-0.0002]$/$-0.0022\,[-0.0042,-0.0001]$, at 30.7 ms (14.1\%) additional TX cost. Eighth offers lower cost; Token prioritizes fuller capacity use and the additional measured quality gain.
 
-At $N=512$/10 dB, the matched control fixes 100 images, three shared noise realizations, 16-QAM rate 2/3, ceiling $(7,0)$, model and receiver. Eighth retains 87\% of the Whole-to-Token PSNR gain. Token further improves PSNR, LPIPS and DreamSim; DISTS/CLIP-I difference intervals cross zero.
+The $N=512$/10-dB control fixes 100 images, three shared noise realizations, 16-QAM rate 2/3, ceiling $(7,0)$, model and receiver. Eighth retains 87\% of the Whole-to-Token PSNR gain; Token further improves PSNR, LPIPS and DreamSim, with DISTS/CLIP-I intervals crossing zero.
 
-Block C intervenes on the same received NeST prefixes. A0 completes boundary and finer maps without received boundary tokens. B0 adds their residual correction with A0's finer-scale conditioning; C0 also updates that conditioning. At 10 dB, B0--A0 and C0--B0 add 0.287 and 0.537 dB PSNR. Paired intervals favor both stages in PSNR, DISTS and DreamSim. At the final scale, no finer-scale propagation remains.
+Block C uses identical received NeST prefixes. A0 generates boundary/finer maps without received boundary tokens; B0 adds their residual correction with A0's finer-scale conditioning; C0 also updates that conditioning. At 10 dB, B0--A0/C0--B0 add 0.287/0.537 dB PSNR, with paired PSNR/DISTS/DreamSim intervals favoring both stages.
 
 \subsection{Perceptual Reconstruction and Processing Cost}
 \ifCLASSOPTIONonecolumn\input{sections/figure3_float}\fi
 \input{tables/table_ii}
 Fig.~\ref{fig:performance}(a,b) compares six methods at equal symbol budgets. WHOLE shares NeST's model; external systems differ in representation, coding and receiver. NeST has lower DISTS/DreamSim than SwinJSCC, Latent JSCC and BPG at all four $N=1024$ SNRs (24 paired intervals excluding zero). SwinJSCC and BPG have higher PSNR.
 
-Against Ada, NeST improves both distances at 4 dB and DISTS at 7 dB; at 7 dB, the DreamSim difference interval crosses zero. Ada yields lower distances at 10 dB and lower DISTS at 19 dB, where the DreamSim difference interval again crosses zero. NeST has higher PSNR throughout. At 7 dB, WHOLE/NeST/Ada reject 11/7/10 of 1500 receptions each; NeST rejects one at 4 dB, with zero rejections at the other token-system points and no NULL outputs. Table~\ref{tab:external} gives auxiliary metrics at 10 dB.
+Against Ada, NeST improves both distances at 4 dB and DISTS at 7 dB; at 7 dB, the DreamSim difference interval crosses zero. Ada yields lower distances at 10 dB and lower DISTS at 19 dB, where the DreamSim difference interval again crosses zero. NeST has higher PSNR throughout. At 7 dB, WHOLE/NeST/Ada reject 11/7/10 of 1500 receptions each; NeST rejects one at 4 dB, with zero rejections at the other token-system points and no valid NULL frames. Table~\ref{tab:external} gives auxiliary metrics at 10 dB.
 
-Fig.~\ref{fig:performance}(c,d) uses six equal information budgets (620--2577 bits), including 57 shared protocol bits plus Ada's 10-bit class. Error-free reconstruction uses ceiling $(10,0)$ for WHOLE/NeST and 256 tokens for Ada, averaging three generation repeats per source. NeST improves all five metrics over WHOLE. Against Ada, DISTS favors NeST at the four smallest budgets and DreamSim at the first three; the 1940-bit DreamSim interval crosses zero. Ada has lower distances at 2248/2577 bits.
+Fig.~\ref{fig:performance}(c,d) uses six equal information budgets (620--2577 bits), including 57 shared protocol bits plus Ada's 10-bit class. Error-free reconstruction averages three generation repeats with ceilings $(10,0)$ for WHOLE/NeST and 256 for Ada. NeST improves all five metrics over WHOLE. Against Ada, DISTS favors NeST at the four smallest budgets and DreamSim at the first three; the 1940-bit DreamSim interval crosses zero. Ada has lower distances at 2248/2577 bits.
 
 \ifCLASSOPTIONonecolumn\else\begin{samepage}\fi
-On 100 fixed images, Ada's argmax tail worsens DreamSim at $N=512$, 4/10 dB and $N=1024$, 10 dB relative to sampling.
+Under the auxiliary configurations, Ada's argmax tail on 100 fixed images worsens DreamSim at $N=512$, 4/10 dB and $N=1024$, 10 dB relative to sampling.
 \par
 \ifCLASSOPTIONonecolumn\else\end{samepage}\fi
 
@@ -42,8 +42,8 @@ Timing uses earlier profile directories with the current $N=1024$/10-dB MCS and 
 \subsection{Reduced Budget and Transfer to Kodak}
 \input{tables/table_iii}
 \input{tables/table_iv}
-At $N=512$, all five NeST--WHOLE intervals favor NeST at each SNR, with PSNR gains of 0.50--0.99 dB. At 10 dB both use target $(7,0)$ and 16-QAM rate 2/3; utilization rises from 79.30\% to 99.54\%. Against Ada, NeST has higher PSNR and lower LPIPS throughout, and lower DISTS/DreamSim at 4/10 dB. Ada has lower distances at 19 dB, with both paired intervals excluding zero.
+At $N=512$, all five NeST--WHOLE intervals favor NeST, with PSNR gains of 0.50--0.99 dB. At 10 dB, both use ceiling $(7,0)$ and 16-QAM rate 2/3; utilization rises from 79.30\% to 99.54\%. NeST has higher PSNR and lower LPIPS than Ada throughout, and lower DISTS/DreamSim at 4/10 dB. Ada has lower distances at 19 dB; both paired intervals exclude zero.
 
-Kodak's 24 center crops reuse the original ImageNet-calibrated policies without retuning. NeST improves PSNR, DISTS and DreamSim over WHOLE at all three SNRs; all 864 receptions succeed. Against Ada, NeST has lower distances at 4 dB; Ada has lower DISTS at 10/19 dB, with DreamSim intervals crossing zero. Ada uses 64-QAM rate 5/6 at 19 dB here, versus 16-QAM rate 5/6 in the current main policy.
+Kodak's 24 center crops reuse the original ImageNet-calibrated policies. NeST improves PSNR/DISTS/DreamSim over WHOLE at all three SNRs; all 864 receptions succeed. NeST has lower distances than Ada at 4 dB; Ada has lower DISTS at 10/19 dB, with DreamSim intervals crossing zero. Historical Ada uses 64-QAM rate 5/6 at 19 dB, versus the current 16-QAM rate 5/6.
 
 \input{sections/threshold}

@@ -1,3 +1,11 @@
+# 最新：NeST-Com 信令与补充材料整理（2026-11-03）
+
+当前 V9 已统一预配置 MCS、endpoint Profile ID、NULL frame 与独立 TX/RX 计时说明。原生 Fig.1 局部修正，(b)/(c) 及整体大小保持；四段引言、Table I(A/B/C)、科学数据与 Fig.2/3 保留。补充 S1/S3/S7 组织调整，完整校准表、环境、哈希和路径集中于可下载复现包。
+
+双栏/单栏/Word/补充为 5/15/15/35 页，摘要 89 词；70 页本轮实际查看。没有新增科学、统计、计时或训练调用。活动稿 `paper/manuscripts/nestcom_wcl_completion_20261101_v9/`，入口 `SIGNAL_SUPPLEMENT_REVISION_20261103.md`、`REPRODUCTION_CHECKLIST.md`、`reproduction_companion.zip` 和 `validation/current_revision.json`。暂停支线及调度保持。
+
+--- 以下为历史记录 ---
+
 # 最新：NeST-Com 阅读连贯性与集中补充入口（2026-11-03）
 
 采用用户最终确认的四段引言，并统一尺度级概率计算、独立终止前缀、实际源码长度及受保护帧主体容量的表述。

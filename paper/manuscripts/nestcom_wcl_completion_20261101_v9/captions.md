@@ -1,11 +1,11 @@
-# Current captions and exact LaTeX sources — reading flow 2026-11-03
+# Current captions and exact LaTeX sources — signaling and supplement revision 2026-11-03
 
 ## sections/method.tex
 
 ```latex
 \begin{figure*}[t]
 \centering\includegraphics[width=\textwidth]{figure1_final.pdf}
-\caption{NeST-Com. (a) The shared policy fixes the MCS and profile directory; the protected profile selects the endpoint. VAR and known coarse tokens provide coding probabilities. (b) Independently terminated prefixes up to the target endpoint fit the body capacity; bars are schematic. (c) Received tokens overwrite boundary predictions. Recursive state updates accumulate residuals and condition each finer scale before decoding. Unreceived boundary positions retain their coarse-conditioned predictions.}
+\caption{NeST-Com. (a) The shared policy fixes the MCS and profile directory; the protected Profile ID selects the endpoint. VAR and known coarse tokens provide coding probabilities. (b) Independently terminated prefix bitstreams up to the target endpoint fit the body capacity; bars are schematic. (c) Received tokens overwrite boundary predictions. Recursive state updates accumulate residuals and condition each finer scale before decoding. Unreceived boundary positions retain their coarse-conditioned predictions.}
 \label{fig:system}
 \end{figure*}
 ```

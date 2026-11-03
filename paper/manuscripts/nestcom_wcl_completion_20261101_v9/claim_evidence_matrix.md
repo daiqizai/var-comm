@@ -60,7 +60,7 @@ The literature check and its access limitations are recorded in `validation/prob
 |---|---|---|
 | Whole-scale underfill, actual-length fitting, received-information use | II; Table I(A–C) | Shared-model system gains, matched granularity and ordered receiver interventions remain distinct |
 | Timing matches current 10-dB MCS and prefix ceilings but uses earlier directories | S1.3 policy index; S7.1 | Existing measured implementation, no new exact-directory timing claim |
-| Compiled Ada 3.064 s has its own 32-image quality | S7.4–S7.5 | Main 500-image quality remains original implementation |
+| Compiled Ada 3.064 s has its own 32-image quality | S7.3–S7.4 | Main 500-image quality remains original implementation |
 | Shortened N512, Ada-tail and Kodak discussion | S3.3–S3.4; S8 | Original populations, mixed findings and full intervals preserved |
 | ARPC related-work contribution and specified digital adaptation | Introduction; S1–S2 | Source-codec precedent; adaptation results do not substitute for matched internal controls |
 | Eighth/Token tradeoff and external strengths | Table I(B), S7; III-C | No universal best-granularity or best-system claim |
@@ -74,3 +74,12 @@ The literature check and its access limitations are recorded in `validation/prob
 | Within-scale endpoints preserve scale-wise probability evaluation | II-B; shared probability traversal and incremental arithmetic coding |
 | Received boundary information contributes to residuals and finer context | VAR attribution; II-C; ordered A0/B0/C0 interventions in Table I(C) |
 | Capacity, quality and processing costs form separate pieces of evidence | Shared-model policies, matched granularity, receiver interventions and complete-system comparisons retain their stated populations |
+
+## Signal and supplement organization — 2026-11-03
+
+| Clarification | Evidence and scope |
+|---|---|
+| Shared policy supplies MCS and directory; paid Profile ID selects an endpoint | Fig.1(a), II-A/B, S1.3; native source changed only in panel (a) |
+| NULL profile is a directory entry; NULL frame uses N symbols with a two-bit zero payload | II-B/C and S1.3; valid NULL and failed reception both retain their gray outputs in denominators |
+| TX and RX are synchronized and measured separately; total is their sum | III-A, S7.1; two-physical-core and historical SMT protocols never pooled |
+| Reproduction details remain accessible | REPRODUCTION_CHECKLIST.md, reproduction_companion.zip and file_inventory.csv; no new scientific computation |
