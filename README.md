@@ -1,3 +1,11 @@
+# 最新：NeST-Com 补充阅读版压缩（2026-11-03）
+
+当前 V9 补充由 35 页压缩为 14 页（减少 60%）。S1 算法/证明、S3 匹配控制、S5 失败证据及必要协议/配置差异保留；S2/S4/S8 按指标并列表格，历史运行记录和全量数值移至复现文件。全部原始 CSV/JSON、图和正文原字节保持；本轮未运行模型、PHY、评分、统计重采样、计时或训练。
+
+14 页已真实编译、渲染并逐页查看。正文双栏 5 页、单栏/Word 各 15 页保持已有交付，未冒称本轮重做。活动稿 `paper/manuscripts/nestcom_wcl_completion_20261101_v9/`，入口 `SUPPLEMENT_READER_20261103.md`、`REPRODUCTION_CHECKLIST.md`、`reproduction/reader_edition_index.md` 与 `validation/current_revision.json`。完整旧技术文本逐字归档，206 文件复现 ZIP 仅本地/PFS 交付，独立文件和构建脚本正常入 Git。既有暂停任务和调度保持。
+
+--- 以下为历史记录 ---
+
 # 最新：NeST-Com 信令与补充材料整理（2026-11-03）
 
 当前 V9 已统一预配置 MCS、endpoint Profile ID、NULL frame 与独立 TX/RX 计时说明。原生 Fig.1 局部修正，(b)/(c) 及整体大小保持；四段引言、Table I(A/B/C)、科学数据与 Fig.2/3 保留。补充 S1/S3/S7 组织调整，完整校准表、环境、哈希和路径集中于可下载复现包。

@@ -1,8 +1,8 @@
 # NeST-Com reproduction companion — 2026-11-03
 
-This companion indexes the preserved scientific records used by the current V9 manuscript. The present revision changes signaling exposition, terminology and reading order; it performs no new inference, channel simulation, scoring, bootstrap calculation or timing measurement. Baseline repository commit: `027d5d7dcfb531f81d85b257f4f426d2c916984f`.
+This companion indexes the preserved scientific records used by the current V9 manuscript. The present revision compresses the supplementary reading edition and reorganizes tables; it performs no new inference, channel simulation, scoring, bootstrap calculation or timing measurement. Baseline repository commit: `ab114f27209485de494af5fd5ab35c9a2a056b8f`.
 
-The local/PFS delivery includes `reproduction_companion.zip`. Repository policy excludes ZIP archives from Git; the same records are tracked individually below. In a checkout, generate the ZIP with `python paper/manuscripts/nestcom_wcl_completion_20261101_v9/scripts/build_reproduction_companion.py`. It preserves these relative paths and contains the metadata, candidate-score CSVs and small reference vectors, without trained checkpoints, datasets or native image caches.
+The local/PFS delivery includes `reproduction_companion.zip`. Repository policy excludes ZIP archives from Git; the same records are tracked individually below. In a checkout, generate the ZIP with `python paper/manuscripts/nestcom_wcl_completion_20261101_v9/scripts/build_reproduction_companion.py`. It preserves these relative paths and contains all original result/identity CSV and JSON files, display assets referenced by the full technical record, metadata, candidate scores and small reference vectors, without trained checkpoints, datasets or native image caches.
 
 | Check | Accessible record | What to verify |
 |---|---|---|
@@ -29,4 +29,15 @@ python experiments/nestcom-v9-completion-20261101/verify_cdf_ac.py --repo . --ou
 
 Use a fresh output directory. Integer reference checks do not require model weights. Model/CDF regeneration additionally requires the recorded checkpoints and numerical route; set `NESTCOM_ASSET_ROOT`, or provide `NESTCOM_ASSETS_JSON` mapping checkpoint names to local paths as described in S1. This editorial revision does not execute model regeneration or claim untested heterogeneous-device interchangeability.
 
-The companion tables are verbatim copies of the two large S1 tables moved out of the PDF. Existing main-table and result CSV bytes remain unchanged. No table values or confidence intervals are recomputed.
+The reading edition retains algorithms/proof, all system operating points, matched controls, critical paired intervals and adverse results. All original means, confidence intervals, source distributions, historical timings and execution diagnostics remain in the files below. The previous full technical text is preserved verbatim; its section references describe that earlier edition. Existing main-table and result CSV bytes remain unchanged. No estimates or intervals are recomputed.
+
+
+## Reading edition and complete evidence
+
+- [Section-by-section evidence index](reproduction/reader_edition_index.md) lists what remains in the PDF and where the complete records are found.
+- [Machine-readable index](reproduction/reader_edition_index.csv) gives the same mapping.
+- [Original full technical text](reproduction/technical_record_20261103_full.tex) retains the previous 35-page edition's prose and numerical tables verbatim. It is an archival record, not the current reading edition. From the manuscript root, `pdflatex reproduction/technical_record_20261103_full.tex` can render it with the included assets.
+- [Displayed-cell provenance](reproduction/reader_table_cells.json) identifies each reformatted metric cell by input hash, CSV row and field. Positive/negative interval endpoints are not rounded to zero.
+- [Historical timing and implementation notes](reproduction_logs/timing_execution_history_20261103.md) retain resource, failure and run-history details excluded from the reading PDF.
+
+From the extracted companion root, rebuild the reading PDF source with `python scripts/reader_supplement_revision.py`, then compile `supplementary.tex`. The repository's existing `scripts/build_supplement_v9.py` also calls this reader builder. Both routes use the frozen archived policy text and closed result files; neither invokes scientific evaluation.

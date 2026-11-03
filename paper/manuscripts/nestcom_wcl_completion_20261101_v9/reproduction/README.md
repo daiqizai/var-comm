@@ -1,7 +1,7 @@
-# Reproduction records
+# Complete companion to the concise supplement
 
-Start with [the manuscript companion checklist](../REPRODUCTION_CHECKLIST.md).
+Start with [the reproduction checklist](../REPRODUCTION_CHECKLIST.md) and [the section-to-evidence index](reader_edition_index.md).
 
-`phy_layouts.csv`, the pilot and confirmation score CSVs, and their two verbatim LaTeX table sources retain the numerical detail moved from S1. `environment_device_records.json` groups exact existing fields without replacing the original records. The inventory covers every included file except itself and the ZIP container.
+The PDF is a reading edition. All original lightweight result CSV/JSON files remain in `inputs/`, including complete intervals and source-level distributions. `technical_record_20261103_full.tex` preserves the preceding full technical text verbatim; `reader_table_cells.json` maps every reformatted quality cell to its input. The original layout/calibration tables, environment records and historical diagnostics remain accessible.
 
-All other metadata keep their original `inputs/` or `reproduction_logs/` paths. The local/PFS delivery includes a ZIP; Git stores the individual files and [the deterministic builder](../scripts/build_reproduction_companion.py), because archives are excluded by repository policy. Weights, datasets and native scientific image caches are not included.
+The deterministic ZIP builder preserves relative paths and includes the prior technical record's display assets. Git stores the individual files and builder; the ZIP is a local/PFS download. Trained weights, datasets and native reconstruction caches are not included. The inventory covers all packaged files except itself and the ZIP container.

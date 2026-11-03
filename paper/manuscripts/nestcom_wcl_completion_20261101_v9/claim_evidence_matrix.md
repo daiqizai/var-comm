@@ -1,3 +1,9 @@
+# 补充阅读版证据导航（2026-11-03）
+
+本轮不新增或改变正文主张。全部原结果保持；阅读版表格按指标并列，完整区间、逐源分布及历史实现记录由 [逐节证据索引](reproduction/reader_edition_index.md) 定位。S1 方法条件、S3 匹配控制、S5 失败边界和所有不利发现均保留；数值来源见 `reproduction/reader_table_cells.json`。
+
+--- 以下为此前版本记录 ---
+
 # Claim–evidence matrix — system framing, 2026-11-03
 
 All paths below are relative to this manuscript. Historical policy evidence retains its original population and cannot be pooled with the unified-policy results. `inputs/unified_calibration_20261103/` is abbreviated U.

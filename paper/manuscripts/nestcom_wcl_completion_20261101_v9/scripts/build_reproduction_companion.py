@@ -4,7 +4,7 @@ import csv, hashlib, io, json, zipfile
 
 P=Path(__file__).resolve().parents[1]
 R=P/'reproduction';R.mkdir(exist_ok=True)
-BASE='027d5d7dcfb531f81d85b257f4f426d2c916984f'
+BASE='ab114f27209485de494af5fd5ab35c9a2a056b8f'
 def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
 def dump(p,v):p.write_text(json.dumps(v,indent=2,ensure_ascii=False)+'\n',encoding='utf8')
 
@@ -90,6 +90,45 @@ Start with [the manuscript companion checklist](../REPRODUCTION_CHECKLIST.md).
 All other metadata keep their original `inputs/` or `reproduction_logs/` paths. The local/PFS delivery includes a ZIP; Git stores the individual files and [the deterministic builder](../scripts/build_reproduction_companion.py), because archives are excluded by repository policy. Weights, datasets and native scientific image caches are not included.
 ''',encoding='utf8')
 files.update(p for p in R.iterdir() if p.is_file() and p.name not in ['file_inventory.csv','file_inventory.json'])
+# Reading-edition compression moves presentation out of the PDF, never evidence.
+# Include every original lightweight result/identity file at its existing path.
+files.update(p for p in (P/'inputs').rglob('*') if p.is_file() and p.suffix in ['.csv','.json'])
+files.update(p for p in (P/'reproduction_logs').rglob('*') if p.is_file() and p.suffix in ['.md','.json','.csv'])
+record=R/'technical_record_20261103_full.tex'
+assert record.exists()
+import re
+for rel in re.findall(r'\\includegraphics(?:\[[^\]]*\])?\{([^}]+)\}',record.read_text(encoding='utf8')):
+    f=P/rel
+    assert f.exists(),rel
+    files.add(f)
+files.add(P/'scripts/reader_supplement_revision.py')
+checklist=checklist.replace('The present revision changes signaling exposition, terminology and reading order;',
+    'The present revision compresses the supplementary reading edition and reorganizes tables;')
+checklist=checklist.replace('It preserves these relative paths and contains the metadata, candidate-score CSVs and small reference vectors,',
+    'It preserves these relative paths and contains all original result/identity CSV and JSON files, display assets referenced by the full technical record, metadata, candidate scores and small reference vectors,')
+checklist=checklist.replace('The companion tables are verbatim copies of the two large S1 tables moved out of the PDF. Existing main-table and result CSV bytes remain unchanged. No table values or confidence intervals are recomputed.',
+    'The reading edition retains algorithms/proof, all system operating points, matched controls, critical paired intervals and adverse results. All original means, confidence intervals, source distributions, historical timings and execution diagnostics remain in the files below. The previous full technical text is preserved verbatim; its section references describe that earlier edition. Existing main-table and result CSV bytes remain unchanged. No estimates or intervals are recomputed.')
+checklist+='''
+
+## Reading edition and complete evidence
+
+- [Section-by-section evidence index](reproduction/reader_edition_index.md) lists what remains in the PDF and where the complete records are found.
+- [Machine-readable index](reproduction/reader_edition_index.csv) gives the same mapping.
+- [Original full technical text](reproduction/technical_record_20261103_full.tex) retains the previous 35-page edition's prose and numerical tables verbatim. It is an archival record, not the current reading edition. From the manuscript root, `pdflatex reproduction/technical_record_20261103_full.tex` can render it with the included assets.
+- [Displayed-cell provenance](reproduction/reader_table_cells.json) identifies each reformatted metric cell by input hash, CSV row and field. Positive/negative interval endpoints are not rounded to zero.
+- [Historical timing and implementation notes](reproduction_logs/timing_execution_history_20261103.md) retain resource, failure and run-history details excluded from the reading PDF.
+
+From the extracted companion root, rebuild the reading PDF source with `python scripts/reader_supplement_revision.py`, then compile `supplementary.tex`. The repository's existing `scripts/build_supplement_v9.py` also calls this reader builder. Both routes use the frozen archived policy text and closed result files; neither invokes scientific evaluation.
+'''
+(P/'REPRODUCTION_CHECKLIST.md').write_text(checklist,encoding='utf8')
+(R/'README.md').write_text('''# Complete companion to the concise supplement
+
+Start with [the reproduction checklist](../REPRODUCTION_CHECKLIST.md) and [the section-to-evidence index](reader_edition_index.md).
+
+The PDF is a reading edition. All original lightweight result CSV/JSON files remain in `inputs/`, including complete intervals and source-level distributions. `technical_record_20261103_full.tex` preserves the preceding full technical text verbatim; `reader_table_cells.json` maps every reformatted quality cell to its input. The original layout/calibration tables, environment records and historical diagnostics remain accessible.
+
+The deterministic ZIP builder preserves relative paths and includes the prior technical record's display assets. Git stores the individual files and builder; the ZIP is a local/PFS download. Trained weights, datasets and native reconstruction caches are not included. The inventory covers all packaged files except itself and the ZIP container.
+''',encoding='utf8')
 files.add(P/'REPRODUCTION_CHECKLIST.md')
 files.add(Path(__file__))
 rows=[{'path':p.relative_to(P).as_posix(),'bytes':p.stat().st_size,'sha256':sha(p)}for p in sorted(files)]
