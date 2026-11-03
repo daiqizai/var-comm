@@ -1,9 +1,10 @@
-# Claim–evidence matrix — unified calibration, 2026-11-03
+# Claim–evidence matrix — system framing, 2026-11-03
 
 All paths below are relative to this manuscript. Historical policy evidence retains its original population and cannot be pooled with the unified-policy results. `inputs/unified_calibration_20261103/` is abbreviated U.
 
 | Claim | Population / conditions | Scope and limits | Evidence |
 |---|---|---|---|
+| Fixed-budget digital communication framework based on next-scale residual descriptions | Source-prefix selection, protected digital frame and prefix-constrained reconstruction | Overall system design; actual-length fitting supplies the specific technical mechanism | Abstract; introduction; II; Fig.1; TablesI–IV |
 | Actual independently terminated within-scale prefixes fit a protected digital frame | Frozen VAR-d16, 68-symbol header, actual body capacity | Scale-wise probabilities with within-scale independent termination; inherited model/coder/receiver components are identified in II | sections/method.tex; U/public_directories.json; U/protocol.json |
 | ARPC is the closest next-scale progressive source-coding precedent | Original source-coding work | Progressive source-coding precedent; specified ARPC digital-link adaptation and full results retained in S1/S2 | introduction; references.tex; complete Fig.S1 |
 | Common12MCS pilot100/full1000 calibration | Three token systems, four SNRs, DINO objective including gray failure | 25 finite NeST ceilings with651 token fallbacks; not exhaustive651-ceiling optimization | U/pilot_calibration/candidate_scores.csv; U/full_calibration/candidate_scores.csv; U/frozen_policies.json |

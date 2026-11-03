@@ -1,3 +1,11 @@
+# 当前交付：整体通信框架定位（2026-11-03）
+
+NeST-Com先作为固定帧预算下的next-scale数字通信框架提出，再以尺度内独立终止/实际码长装入说明关键技术，并用既有受控证据和系统比较验证。摘要、引言、结论及Word同步。
+
+[双栏PDF](manuscript_doublecolumn.pdf) · [单栏PDF](manuscript_singlecolumn.pdf) · [可编辑Word](manuscript_review.docx) · [修订说明](SYSTEM_FRAMING_20261103.md) · [当前验收](validation/current_revision.json)。更新文档5/15/16页，摘要86词，本轮36页实际验收；补充36页及全部数据/图表原字节保持。
+
+--- Historical record / 历史记录 ---
+
 # 当前交付：贡献论证修订（2026-11-03）
 
 主线改为“保持尺度级概率计算，按独立终止的实际码长细化固定帧传输端点”。正文加入码长性质、粒度与成本取舍；已有接收机制准确归属，相关工作以各自解决的问题组织。

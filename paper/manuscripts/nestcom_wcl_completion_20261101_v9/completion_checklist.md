@@ -1,3 +1,17 @@
+# 当前整体框架定位修订（2026-11-03）
+
+| Item | Status | Evidence |
+|---|---|---|
+| Framework-first abstract/introduction/conclusion | done | Shared LaTeX text and revision report |
+| Method, findings, attribution and figures preserved | done | current data_checks.json |
+| PDF/Word build and actual review | done | 5/15/16 pages, 36 pages opened |
+| Supplement retained without new rendering claims | done | Exact baseline hash and previous review |
+| New experiments or re-timing | not-run-optional | Editorial scope only |
+
+Current repository_checks.json and normal Git history record verification and publication.
+
+--- Historical record / 历史记录 ---
+
 # 当前贡献论证修订验收（2026-11-03）
 
 | Item | Status | Evidence |
