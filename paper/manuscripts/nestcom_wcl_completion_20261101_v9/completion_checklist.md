@@ -1,3 +1,17 @@
+# 当前措辞精修（2026-11-03）
+
+| Item | Status | Evidence |
+|---|---|---|
+| Remove interrupted summary and keep sensitivity paragraph intact | done | Final double-column page 4 and artifact_review.json |
+| Correct ambiguous wording and synchronize captions/Word | done | wording_changes.json and shared sources |
+| Preserve figures, scientific values and contribution scope | done | data_checks.json and claim_audit.json |
+| Compile and visually inspect updated documents | done | 5/15/16 pages; 36 pages actually opened |
+| New experiments or timing | not-run-optional | Editorial-only scope |
+
+Current repository_checks.json and Git history record verification/publication.
+
+--- Historical record / 历史记录 ---
+
 # 当前整体框架定位修订（2026-11-03）
 
 | Item | Status | Evidence |

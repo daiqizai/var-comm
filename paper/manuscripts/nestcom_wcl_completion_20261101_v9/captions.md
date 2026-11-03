@@ -1,11 +1,11 @@
-# Current captions and exact LaTeX sources — wording revision 2026-11-03
+# Current captions and exact LaTeX sources — prose polish 2026-11-03
 
 ## sections/method.tex
 
 ```latex
 \begin{figure*}[t]
 \centering\includegraphics[width=\textwidth]{figure1_final.pdf}
-\caption{NeST-Com. (a) The shared policy fixes the MCS and profile directory; the protected profile selects the endpoint. VAR and known coarse tokens provide coding probabilities. (b) Independently terminated prefixes fit the actual capacity below the target; bars are schematic. (c) Received tokens overwrite boundary predictions. Recursive state updates accumulate residuals and condition each finer scale before decoding. Unreceived boundary positions retain their coarse-conditioned predictions.}
+\caption{NeST-Com. (a) The shared policy fixes the MCS and profile directory; the protected profile selects the endpoint. VAR and known coarse tokens provide coding probabilities. (b) Independently terminated prefixes up to the target endpoint fit the body capacity; bars are schematic. (c) Received tokens overwrite boundary predictions. Recursive state updates accumulate residuals and condition each finer scale before decoding. Unreceived boundary positions retain their coarse-conditioned predictions.}
 \label{fig:system}
 \end{figure*}
 ```
@@ -117,7 +117,7 @@ SNR / method & PSNR$\uparrow$ & DISTS$\downarrow$ & DreamSim$\downarrow$\\
 
 ```latex
 \begin{table}[t]
-\caption{Frozen policies: MCS $(q,r)$ (bits/symbol, code rate) and target ceiling $e$, with feasible fallback. Ada's ceiling is 256 tokens. Budgets are calibrated independently.}
+\caption{Frozen policies: MCS entries are (bits/symbol, code rate); $e$ is the target ceiling, with feasible fallback. Ada's ceiling is 256 tokens. Budgets are calibrated independently.}
 \label{tab:policies}\centering\footnotesize\setlength{\tabcolsep}{2.5pt}
 \begin{tabular}{@{}lccccc@{}}\toprule
 $N$/SNR & $a_{\rm W}$ & $e_{\rm W}$ & $a_{\rm N}$ & $e_{\rm N}$ & $a_{\rm Ada}$\\\midrule

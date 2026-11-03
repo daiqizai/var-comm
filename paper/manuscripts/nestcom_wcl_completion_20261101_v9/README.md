@@ -1,3 +1,11 @@
+# 当前交付：跨页与措辞精修（2026-11-03）
+
+已删除跨页重复总结，并将Ada尾部敏感性数值段完整留在第4页。同步修正平均对象、差值区间、端点/容量及MCS单位等表述。整体框架定位和全部科学数值保持。
+
+[双栏PDF](manuscript_doublecolumn.pdf) · [单栏PDF](manuscript_singlecolumn.pdf) · [可编辑Word](manuscript_review.docx) · [修改说明](PROSE_POLISH_20261103.md) · [当前验收](validation/current_revision.json)。更新文档5/15/16页、摘要88词，36页本轮实际检查；36页补充原文件保持。
+
+--- Historical record / 历史记录 ---
+
 # 当前交付：整体通信框架定位（2026-11-03）
 
 NeST-Com先作为固定帧预算下的next-scale数字通信框架提出，再以尺度内独立终止/实际码长装入说明关键技术，并用既有受控证据和系统比较验证。摘要、引言、结论及Word同步。

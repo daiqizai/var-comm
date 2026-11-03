@@ -2,7 +2,7 @@
 \subsection{Next-Scale Representation and Digital Frame}
 \begin{figure*}[t]
 \centering\includegraphics[width=\textwidth]{figure1_final.pdf}
-\caption{NeST-Com. (a) The shared policy fixes the MCS and profile directory; the protected profile selects the endpoint. VAR and known coarse tokens provide coding probabilities. (b) Independently terminated prefixes fit the actual capacity below the target; bars are schematic. (c) Received tokens overwrite boundary predictions. Recursive state updates accumulate residuals and condition each finer scale before decoding. Unreceived boundary positions retain their coarse-conditioned predictions.}
+\caption{NeST-Com. (a) The shared policy fixes the MCS and profile directory; the protected profile selects the endpoint. VAR and known coarse tokens provide coding probabilities. (b) Independently terminated prefixes up to the target endpoint fit the body capacity; bars are schematic. (c) Received tokens overwrite boundary predictions. Recursive state updates accumulate residuals and condition each finer scale before decoding. Unreceived boundary positions retain their coarse-conditioned predictions.}
 \label{fig:system}
 \end{figure*}
 We transmit $x\in[0,1]^{256\times256\times3}$ using $N$ complex symbols over AWGN,
@@ -30,7 +30,7 @@ An endpoint $e=(m,K)$ retains complete coarse maps and a raster-ordered boundary
 \end{equation}
 For $K=0$, including $e=(10,0)$, the boundary prefix is empty. Raster order specifies positions without a mask. WHOLE permits $(m,0)$ for $m=4,\ldots,10$. NeST permits every integer $K=0,\ldots,L_{m+1}-1$ for $m=4,\ldots,9$, together with $(10,0)$: 651 endpoints from 30 through 680 retained tokens. Quarter/Eighth retain $K=\lfloor jL_{m+1}/d\rfloor$, $j=1,\ldots,d-1$, for $d=4/8$, plus complete-scale boundaries, with duplicates removed. Token is the main configuration.
 
-For MCS $a=(M,r)$, the coded body has $n_a=(N-68)\log_2M$ bits and information length $k_a=\lfloor rn_a\rfloor$. Its independently terminated arithmetic length $b(x,e)$ must satisfy
+For MCS $a=(M,r)$, the coded body has $n_a=(N-68)\log_2M$ bits and information length $k_a=\lfloor rn_a\rfloor$. The independently terminated source length $b(x,e)$ must satisfy
 \begin{equation}
 b(x,e)+29\leq k_a,\qquad \eta(x,e)=\frac{b(x,e)}{k_a-29}.
 \label{eq:budget}
