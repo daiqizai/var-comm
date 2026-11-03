@@ -53,3 +53,24 @@ All paths below are relative to this manuscript. Historical policy evidence reta
 | Scale-wise probabilities coexist with actual-length within-scale termination | II-A/II-B; coder property and matched controls | Specific technical mechanism within the overall communication framework |
 
 The literature check and its access limitations are recorded in `validation/problem_framing_20261103/literature_audit.json`. No new scientific values or claims of universal superiority were introduced.
+
+## Reading flow and evidence placement — 2026-11-03
+
+| Main statement | Supporting evidence | Scope |
+|---|---|---|
+| Whole-scale underfill, actual-length fitting, received-information use | II; Table I(A–C) | Shared-model system gains, matched granularity and ordered receiver interventions remain distinct |
+| Timing matches current 10-dB MCS and prefix ceilings but uses earlier directories | S1.3 policy index; S7.1 | Existing measured implementation, no new exact-directory timing claim |
+| Compiled Ada 3.064 s has its own 32-image quality | S7.4–S7.5 | Main 500-image quality remains original implementation |
+| Shortened N512, Ada-tail and Kodak discussion | S3.3–S3.4; S8 | Original populations, mixed findings and full intervals preserved |
+| ARPC related-work contribution and specified digital adaptation | Introduction; S1–S2 | Source-codec precedent; adaptation results do not substitute for matched internal controls |
+| Eighth/Token tradeoff and external strengths | Table I(B), S7; III-C | No universal best-granularity or best-system claim |
+
+## Final four-paragraph introduction — 2026-11-03
+
+| Argument | Evidence and scope |
+|---|---|
+| Fixed-budget next-scale digital image communication is the research object | Introduction; II-A–C; complete-system evaluation |
+| Actual source-code length matches a legal independently terminated prefix to protected-frame body capacity | II-B; b(x,e)+29 <= k_a; coder-specific fixed token/CDF traversal and termination rule |
+| Within-scale endpoints preserve scale-wise probability evaluation | II-B; shared probability traversal and incremental arithmetic coding |
+| Received boundary information contributes to residuals and finer context | VAR attribution; II-C; ordered A0/B0/C0 interventions in Table I(C) |
+| Capacity, quality and processing costs form separate pieces of evidence | Shared-model policies, matched granularity, receiver interventions and complete-system comparisons retain their stated populations |

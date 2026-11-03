@@ -13,12 +13,12 @@ y=s+n,\quad n\sim\mathcal{CN}(0,\sigma^2 I_N),\quad
 \end{equation}
 with nominal $E_s=2$. TX uses the frozen policy for its design SNR; RX uses the actual noise variance for LLRs. Digital constellations have average energy two without per-frame renormalization. A 12-bit profile ID, CRC16, and terminated rate-1/2 convolutional code occupy 68 rotated-BPSK symbols $\{\pm(1+j)\}$. Under a preconfigured policy, both terminals know the MCS and profile directory; the 12-bit profile identifies the endpoint within that directory. The remaining $N-68$ symbols carry the LDPC-coded body, with public frame-dependent scrambling after rate matching and inverse scrambling before decoding. Continuous JSCC data are normalized per image to energy two; required side information is paid within $N$.
 
-The frozen VAR tokenizer produces ten residual token maps $q_s$, with side lengths $(1,2,3,4,5,6,8,10,13,16)$ and a 4096-entry codebook~\cite{var}. Write $L_s$ for the number of positions and $C_s$ for codebook lookup, resizing to the full latent grid, and the scale-dependent residual transform. The latent sum $\sum_s C_s(q_s)$ progressively refines a full-field description. Decoder $\Dc$ is adapted on 20\,000 ImageNet training images using MSE plus $0.1$ LPIPS, then frozen. The continuous/quantized/prefix-completed training mixture is specified in Supplement~S1. The null-class VAR-d16 prior factorizes as
+The frozen VAR tokenizer produces ten residual token maps $q_s$, with side lengths $(1,2,3,4,5,6,8,10,13,16)$ and a 4096-entry codebook~\cite{var}. Write $L_s$ for the number of positions and $C_s$ for codebook lookup, resizing to the full latent grid, and the scale-dependent residual transform. The latent sum $\sum_s C_s(q_s)$ progressively refines a full-field description. Decoder $\Dc$ is adapted on 20\,000 ImageNet training images using MSE plus $0.1$ LPIPS, then frozen. Training mixes continuous, fully quantized and interpolated prefix-completed latents. The null-class VAR-d16 prior factorizes as
 \begin{equation}
 p_\theta(q_s\mid q_{<s})=\prod_{i=1}^{L_s}p_\theta(q_{s,i}\mid q_{<s}).
 \label{eq:prior}
 \end{equation}
-Under the specified numerical route (S1), both terminals reconstruct identical integer CDFs, with total frequency $2^{24}$, for arithmetic coding~\cite{arithmetic}; no unreceived same-scale token is needed. Transmission can therefore end within a scale while probability evaluation remains scale-wise.
+Under the shared numerical configuration, both terminals reconstruct identical integer CDFs, with total frequency $2^{24}$, for arithmetic coding~\cite{arithmetic}; no unreceived same-scale token is needed. Transmission can therefore end within a scale while retaining scale-wise probability evaluation.
 
 
 
@@ -30,18 +30,18 @@ An endpoint $e=(m,K)$ retains complete coarse maps and a raster-ordered boundary
 \end{equation}
 For $K=0$, including $e=(10,0)$, the boundary prefix is empty. Raster order specifies positions without a mask. WHOLE permits $(m,0)$ for $m=4,\ldots,10$. NeST permits every integer $K=0,\ldots,L_{m+1}-1$ for $m=4,\ldots,9$, together with $(10,0)$: 651 endpoints from 30 through 680 retained tokens. Quarter/Eighth retain $K=\lfloor jL_{m+1}/d\rfloor$, $j=1,\ldots,d-1$, for $d=4/8$, plus complete-scale boundaries, with duplicates removed. Token is the main configuration.
 
-For MCS $a=(M,r)$, the coded body has $n_a=(N-68)\log_2M$ bits and information length $k_a=\lfloor rn_a\rfloor$. The independently terminated source length $b(x,e)$ must satisfy
+For MCS $a=(M,r)$, the coded body has $n_a=(N-68)\log_2M$ bits and information length $k_a=\lfloor rn_a\rfloor$. The actual source-code length $b(x,e)$ of an independently terminated prefix must satisfy
 \begin{equation}
 b(x,e)+29\leq k_a,\qquad \eta(x,e)=\frac{b(x,e)}{k_a-29}.
 \label{eq:budget}
 \end{equation}
-The 29 bits comprise a 13-bit length and CRC16. Remaining positions are zero-padded before 5G NR LDPC coding, rate matching~\cite{nr}, and QAM; $\eta$ measures source-bit capacity utilization after these 29 overhead bits.
+The 29 bits comprise a 13-bit length and CRC16, leaving a protected-frame body capacity of $k_a-29$ bits for the source code. Remaining positions are zero-padded before 5G NR LDPC coding, rate matching~\cite{nr}, and QAM; $\eta$ measures utilization of this source-bit capacity.
 
 For $N=1024$, WHOLE, NeST and Ada use the same 12 MCSs: QPSK/16-QAM/64-QAM with rates $1/2,2/3,3/4,5/6$. WHOLE has seven ceilings; NeST uses 25 Quarter ceilings with Token fallback; Ada allows prefixes through 256. All 396 candidates enter a 100-image, one-realization pilot. Per method/SNR, the top three plus a preset QPSK rate-1/2 anchor advance to 1000 sources with three realizations. Maximum equal-source DINOv2 cosine~\cite{dinov2}, including gray failures, selects the policy. $N=512$ retains its independently calibrated policies (Table~\ref{tab:policies}).
 
-A public method/MCS directory, frozen before calibration and shared across images, maps each profile to an endpoint. One scale-wise probability and incremental coding traversal supplies the candidates. Non-mutating termination makes each stream independently decodable; streams are not slices of a longer codeword.
+A public method/MCS directory, frozen before calibration and shared across images, maps each profile to an endpoint. A shared traversal combines scale-wise probability evaluation with incremental coding. Non-mutating termination produces independently terminated prefixes; their bitstreams are not slices of a longer codeword.
 
-For this coder's fixed token/CDF traversal and non-mutating finish, $b_t=E_t+P_t+2$ after $t$ tokens, where $E_t$ and $P_t$ count emitted and pending bits. Renormalization increments $E_t+P_t$; other interval updates preserve it. Thus $b_t$ is nondecreasing, and feasible endpoints form an initial segment for fixed MCS and ceiling. TX selects its longest prefix, or sends a paid NULL profile with a two-bit zero payload if none fits. The measured code scans all candidates; S1 gives algorithm and proof details.
+For this coder's fixed token/CDF traversal and non-mutating finish, $b_t=E_t+P_t+2$ after $t$ tokens, where $E_t$ and $P_t$ count emitted and pending bits. Renormalization increments $E_t+P_t$; other interval updates preserve it. Thus $b_t$ is nondecreasing, and feasible endpoints form an initial segment for fixed MCS and ceiling. TX selects its longest prefix, or sends a paid NULL profile with a two-bit zero payload if none fits. The measured code scans all candidates.
 
 \ifCLASSOPTIONonecolumn\else\input{sections/figure2_float}\fi
 \subsection{Prefix-Constrained Reconstruction}
@@ -55,4 +55,4 @@ Received boundary tokens serve two roles: they correct the residual representati
 \hat x=\Dc\!\left(\sum_{s=1}^{10}C_s(\tilde q_s)\right).
 \label{eq:reconstruction}
 \end{equation}
-At the last scale, overwrite only changes the residual contribution.
+At the last scale, overwrite only changes the residual contribution. Supplement~S1 gives the full algorithm, coder-specific proof, model configurations and numerical implementation details.

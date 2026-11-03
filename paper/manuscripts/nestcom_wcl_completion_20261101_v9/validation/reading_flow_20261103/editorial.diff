@@ -1,0 +1,160 @@
+--- baseline/sections/introduction.tex
++++ current/sections/introduction.tex
+@@ -2 +2 @@
+-Next-scale representations describe an image through complete coarse maps followed by residual refinements~\cite{var}. Each coarse map covers the full latent field and conditions prediction at finer scales. For communication, this organization provides a progressively refinable source description and a context for reconstructing content beyond the transmitted prefix.
++Next-scale representations describe an image through complete coarse maps followed by residual refinements~\cite{var}. Each scale map spans the full spatial extent of the latent field and provides context for finer-scale probability prediction. For communication, this organization offers both a progressively refinable source description and context for reconstructing untransmitted content.
+@@ -4 +4 @@
+-ARPC develops next-scale progressive compression through scale selection, entropy coding, generation and adaptive quantization~\cite{arpc}. Ada-TokenCom jointly adapts next-token prefix length and MCS under a long-term symbol budget, using the received prefix to generate the remaining tokens~\cite{adatokencom}. ResARC further codes residuals to correct suffix-generation errors~\cite{resarc}. These studies establish source-coding and generative reconstruction mechanisms on which communication designs can build.
++ARPC enables next-scale progressive image compression through scale selection, entropy coding, generation and adaptive quantization~\cite{arpc}. Ada-TokenCom jointly adapts next-token prefix length and modulation and coding scheme (MCS) under a long-term symbol budget, using the received prefix to generate the remaining tokens~\cite{adatokencom}. ResARC further codes residuals to compensate for suffix-generation errors~\cite{resarc}. These studies establish foundations for progressively transmitting and reconstructing image information through source coding, prefix transmission and generation-error compensation.
+@@ -6 +6 @@
+-A fixed per-image digital frame couples the termination point to the actual entropy-code length, signaling and channel-protection overhead. Whole-scale increments can leave capacity unused when the next residual map does not fit, motivating finer endpoints~\cite{chande}. Transmitting part of that map also requires the receiver to incorporate the recovered information into both the residual reconstruction and the context for subsequent scales. The design must therefore connect source termination, protected-frame fitting and progressive reconstruction.
++For communication with fixed-length digital frames per image, source-code termination must account for the actual source-code length, signaling overhead and channel protection~\cite{chande}. When the next complete residual map cannot fit, whole-scale transmission can leave capacity that could carry some of its tokens. Additional legal within-scale endpoints can use this capacity, provided their actual source-code length after independent termination fits the frame. With a partial boundary scale, the receiver must also incorporate recovered tokens into both residual reconstruction and finer-scale prediction context. Coordinating source-code termination, protected-frame capacity fitting and progressive reconstruction is therefore the central problem studied here.
+@@ -8 +8 @@
+-We propose NeST-Com, a digital communication framework that makes this connection under a fixed per-image symbol budget. It retains scale-wise probability evaluation while selecting independently terminated within-scale prefixes by their actual lengths and the protected body capacity. The received boundary tokens constrain residual reconstruction and finer-scale prediction through VAR's known-token overwrite and recursive update~\cite{var}. A coder-specific length property characterizes feasible prefixes. Shared-model policies and matched controls establish the fitting gains; receiver interventions explain information use, and complete-system comparisons quantify quality--cost tradeoffs.
++We propose NeST-Com, a next-scale digital image communication framework for fixed per-image channel-symbol budgets. It retains scale-wise probability evaluation and selects independently terminated prefixes within scales by matching their actual source-code length to the available protected-frame body capacity. Through VAR's known-token overwrite and recursive update, received boundary tokens contribute to residual reconstruction and condition finer-scale prediction~\cite{var}. A coder-specific nondecreasing length property characterizes the budget-feasible prefix set. Shared-model comparisons and matched endpoint-granularity experiments verify gains in capacity use and reconstruction quality; receiver interventions examine the role of received information (Table~\ref{tab:internal}). Complete-system comparisons evaluate reconstruction quality and processing cost across communication schemes.
+--- baseline/sections/method.tex
++++ current/sections/method.tex
+@@ -16 +16 @@
+-The frozen VAR tokenizer produces ten residual token maps $q_s$, with side lengths $(1,2,3,4,5,6,8,10,13,16)$ and a 4096-entry codebook~\cite{var}. Write $L_s$ for the number of positions and $C_s$ for codebook lookup, resizing to the full latent grid, and the scale-dependent residual transform. The latent sum $\sum_s C_s(q_s)$ progressively refines a full-field description. Decoder $\Dc$ is adapted on 20\,000 ImageNet training images using MSE plus $0.1$ LPIPS, then frozen. The continuous/quantized/prefix-completed training mixture is specified in Supplement~S1. The null-class VAR-d16 prior factorizes as
++The frozen VAR tokenizer produces ten residual token maps $q_s$, with side lengths $(1,2,3,4,5,6,8,10,13,16)$ and a 4096-entry codebook~\cite{var}. Write $L_s$ for the number of positions and $C_s$ for codebook lookup, resizing to the full latent grid, and the scale-dependent residual transform. The latent sum $\sum_s C_s(q_s)$ progressively refines a full-field description. Decoder $\Dc$ is adapted on 20\,000 ImageNet training images using MSE plus $0.1$ LPIPS, then frozen. Training mixes continuous, fully quantized and interpolated prefix-completed latents. The null-class VAR-d16 prior factorizes as
+@@ -21 +21 @@
+-Under the specified numerical route (S1), both terminals reconstruct identical integer CDFs, with total frequency $2^{24}$, for arithmetic coding~\cite{arithmetic}; no unreceived same-scale token is needed. Transmission can therefore end within a scale while probability evaluation remains scale-wise.
++Under the shared numerical configuration, both terminals reconstruct identical integer CDFs, with total frequency $2^{24}$, for arithmetic coding~\cite{arithmetic}; no unreceived same-scale token is needed. Transmission can therefore end within a scale while retaining scale-wise probability evaluation.
+@@ -33 +33 @@
+-For MCS $a=(M,r)$, the coded body has $n_a=(N-68)\log_2M$ bits and information length $k_a=\lfloor rn_a\rfloor$. The independently terminated source length $b(x,e)$ must satisfy
++For MCS $a=(M,r)$, the coded body has $n_a=(N-68)\log_2M$ bits and information length $k_a=\lfloor rn_a\rfloor$. The actual source-code length $b(x,e)$ of an independently terminated prefix must satisfy
+@@ -38 +38 @@
+-The 29 bits comprise a 13-bit length and CRC16. Remaining positions are zero-padded before 5G NR LDPC coding, rate matching~\cite{nr}, and QAM; $\eta$ measures source-bit capacity utilization after these 29 overhead bits.
++The 29 bits comprise a 13-bit length and CRC16, leaving a protected-frame body capacity of $k_a-29$ bits for the source code. Remaining positions are zero-padded before 5G NR LDPC coding, rate matching~\cite{nr}, and QAM; $\eta$ measures utilization of this source-bit capacity.
+@@ -42 +42 @@
+-A public method/MCS directory, frozen before calibration and shared across images, maps each profile to an endpoint. One scale-wise probability and incremental coding traversal supplies the candidates. Non-mutating termination makes each stream independently decodable; streams are not slices of a longer codeword.
++A public method/MCS directory, frozen before calibration and shared across images, maps each profile to an endpoint. A shared traversal combines scale-wise probability evaluation with incremental coding. Non-mutating termination produces independently terminated prefixes; their bitstreams are not slices of a longer codeword.
+@@ -44 +44 @@
+-For this coder's fixed token/CDF traversal and non-mutating finish, $b_t=E_t+P_t+2$ after $t$ tokens, where $E_t$ and $P_t$ count emitted and pending bits. Renormalization increments $E_t+P_t$; other interval updates preserve it. Thus $b_t$ is nondecreasing, and feasible endpoints form an initial segment for fixed MCS and ceiling. TX selects its longest prefix, or sends a paid NULL profile with a two-bit zero payload if none fits. The measured code scans all candidates; S1 gives algorithm and proof details.
++For this coder's fixed token/CDF traversal and non-mutating finish, $b_t=E_t+P_t+2$ after $t$ tokens, where $E_t$ and $P_t$ count emitted and pending bits. Renormalization increments $E_t+P_t$; other interval updates preserve it. Thus $b_t$ is nondecreasing, and feasible endpoints form an initial segment for fixed MCS and ceiling. TX selects its longest prefix, or sends a paid NULL profile with a two-bit zero payload if none fits. The measured code scans all candidates.
+@@ -58 +58 @@
+-At the last scale, overwrite only changes the residual contribution.
++At the last scale, overwrite only changes the residual contribution. Supplement~S1 gives the full algorithm, coder-specific proof, model configurations and numerical implementation details.
+--- baseline/sections/results.tex
++++ current/sections/results.tex
+@@ -4 +4 @@
+-Common500 ImageNet validation sources~\cite{imagenet} are disjoint from cal1000, with fixed $256\times256$ preprocessing. We test $N=1024$ at 4/7/10/19 dB and $N=512$ at 4/10/19 dB. Metrics are first averaged over three realizations per source, including gray failures; equal-source means and direct paired 95\% intervals use 10\,000 source resamples. Controls use control100. Calibrated token systems and matched controls share noise; external systems retain historical streams.
++We test 500 ImageNet validation images~\cite{imagenet}, disjoint from 1000 calibration images, at $256\times256$: $N=1024$ at 4/7/10/19 dB and $N=512$ at 4/10/19 dB. We average three realizations per image, including gray failures, then compute equal-source means and direct paired 95\% intervals using 10\,000 source resamples. Controls use a fixed 100-image subset. Calibrated token systems and matched controls share noise; external systems retain their original noise.
+@@ -6 +6 @@
+-Latent JSCC maps tokenizer latents to symbols and shares $\Dc$ (MSE, LPIPS and latent-consistency losses, 100k updates). SwinJSCC~\cite{swinjscc} uses RGB MSE (200k updates, calibration-MSE selection). Both train on 20\,000 images at $N=1024$. BPG~\cite{bpg} uses LDPC/QAM. Ada-TokenCom~\cite{adatokencom} is a predicted-class, fixed-frame adaptation: LlamaGen-L/VQ16, prefix arithmetic coding, CFG=4, $T=1$, top-$k=2000$, top-$p=1$, and a paid 10-bit ConvNeXt class. Long-term control and ARQ are excluded. Supplement~S1 specifies training, numerical routes and our ARPC digital adaptation.
++Latent JSCC maps tokenizer latents to symbols and shares $\Dc$ (MSE, LPIPS and latent-consistency losses, 100k updates). SwinJSCC~\cite{swinjscc} uses RGB MSE (200k updates, calibration-MSE selection). Both train on 20\,000 images at $N=1024$. BPG~\cite{bpg} uses LDPC/QAM. Ada-TokenCom~\cite{adatokencom} is a predicted-class, fixed-frame adaptation: LlamaGen-L/VQ16, prefix arithmetic coding, CFG=4, $T=1$, top-$k=2000$, top-$p=1$, and a paid 10-bit ConvNeXt class. Long-term control and ARQ are excluded.
+@@ -8 +8 @@
+-DISTS~\cite{dists}, DreamSim~\cite{dreamsim}, PSNR, LPIPS-Alex~\cite{lpips} and CLIP-I~\cite{clip} use native float RGB and fixed preprocessing (S1). Timing uses 32 sources, two warmups, three measurements, batch one, one RTX PRO 6000 and two physical CPU cores. Synchronized RGB-to-symbols and symbols-to-RGB spans include coding, link processing and generation, excluding loading, I/O and scoring (S7).
++DISTS~\cite{dists}, DreamSim~\cite{dreamsim}, PSNR, LPIPS-Alex~\cite{lpips} and CLIP-I~\cite{clip} use native float RGB with fixed preprocessing. Timing uses 32 images, two warmups, three measurements, batch one, one RTX PRO 6000 and two physical CPU cores. Synchronized RGB-to-symbols-to-RGB spans include coding, link processing and generation, excluding loading, I/O and scoring. Supplement~S2--S8 gives complete results, controls, examples, timing and transfer details, including ARPC's specified digital-link adaptation.
+@@ -13 +13 @@
+-Table~\ref{tab:internal}(A) compares NeST and WHOLE with shared model, coder and receiver under frozen family policies. All five paired metrics favor NeST across seven budget/SNR settings. At $N=1024$, 10 dB, source-bit capacity utilization rises from 77.70\% to 99.79\%, DISTS falls from 0.1621 to 0.1481, and DreamSim from 0.1317 to 0.1048. PSNR gains span 0.49--0.88 dB across the four $N=1024$ points.
++Table~\ref{tab:internal}(A) compares NeST and WHOLE sharing model, coder and receiver under frozen family policies. All five paired metrics favor NeST at seven budget/SNR settings. At $N=1024$, 10 dB, utilization rises from 77.70\% to 99.79\%, DISTS falls from 0.1621 to 0.1481, and DreamSim from 0.1317 to 0.1048. PSNR gains span 0.49--0.88 dB across the four $N=1024$ points.
+@@ -15 +15 @@
+-To isolate endpoint granularity, Block B fixes model, 16-QAM rate 2/3, ceiling $(8,126)$, fitting rule and noise. Within-scale grids convert unused capacity into better reconstruction. Eighth retains approximately 92\% of the Whole-to-Token gain in PSNR, DISTS and DreamSim. Token raises utilization from 97.44\% to 99.85\% and adds $0.066\,[0.034,0.101]$ dB PSNR, with DISTS/DreamSim differences $-0.0011\,[-0.0020,-0.0002]$/$-0.0022\,[-0.0042,-0.0001]$, at 30.7 ms (14.1\%) additional TX processing. Eighth offers a lower-cost operating point; Token prioritizes fuller capacity use and the additional measured reconstruction gain.
++Block B isolates granularity by fixing model, 16-QAM rate 2/3, ceiling $(8,126)$, fitting rule and noise. Eighth retains approximately 92\% of the Whole-to-Token gain in PSNR, DISTS and DreamSim. Token raises utilization from 97.44\% to 99.85\%, adding $0.066\,[0.034,0.101]$ dB PSNR, with DISTS/DreamSim differences $-0.0011\,[-0.0020,-0.0002]$/$-0.0022\,[-0.0042,-0.0001]$, at 30.7 ms (14.1\%) additional TX cost. Eighth offers lower cost; Token prioritizes fuller capacity use and the additional measured quality gain.
+@@ -17 +17 @@
+-The $N=512$/10-dB control fixes 100 sources, three noise realizations, model, receiver, 16-QAM rate 2/3 and ceiling $(7,0)$. Token--Whole improves PSNR by $0.534\,[0.446,0.625]$ dB; Eighth--Whole gives $0.464\,[0.383,0.547]$ dB, retaining about 87\% of the mean gain. Token--Eighth adds $0.070\,[0.029,0.115]$ dB and improves LPIPS/DreamSim, while DISTS/CLIP-I intervals cross zero (S3).
++At $N=512$/10 dB, the matched control fixes 100 images, three shared noise realizations, 16-QAM rate 2/3, ceiling $(7,0)$, model and receiver. Eighth retains 87\% of the Whole-to-Token PSNR gain. Token further improves PSNR, LPIPS and DreamSim; DISTS/CLIP-I difference intervals cross zero.
+@@ -19 +19 @@
+-Block C explains how received boundary information improves reconstruction through ordered interventions on the same actual NeST prefixes. A0 completes boundary and finer maps without received boundary tokens. B0 adds their residual correction while retaining A0's finer-scale conditioning; C0 also updates that conditioning. At 10 dB, B0--A0 improves PSNR by 0.287 dB and reduces DreamSim by 0.0113; C0--B0 adds 0.537 dB and a 0.0159 reduction. Paired intervals favor both stages for these metrics and DISTS. Supplement~S3 includes 7 dB and the final-scale case, where no finer-scale propagation remains.
++Block C intervenes on the same received NeST prefixes. A0 completes boundary and finer maps without received boundary tokens. B0 adds their residual correction with A0's finer-scale conditioning; C0 also updates that conditioning. At 10 dB, B0--A0 and C0--B0 add 0.287 and 0.537 dB PSNR. Paired intervals favor both stages in PSNR, DISTS and DreamSim. At the final scale, no finer-scale propagation remains.
+@@ -24 +24 @@
+-Fig.~\ref{fig:performance}(a,b) compares six methods at equal symbol budgets, with WHOLE as the shared-model reference. External comparisons include representation, coding and receiver differences. NeST has lower DISTS/DreamSim than SwinJSCC, Latent JSCC and BPG at all four $N=1024$ SNRs (24 paired intervals excluding zero). SwinJSCC and BPG have higher PSNR, showing a pixel-fidelity/perceptual-similarity tradeoff.
++Fig.~\ref{fig:performance}(a,b) compares six methods at equal symbol budgets. WHOLE shares NeST's model; external systems differ in representation, coding and receiver. NeST has lower DISTS/DreamSim than SwinJSCC, Latent JSCC and BPG at all four $N=1024$ SNRs (24 paired intervals excluding zero). SwinJSCC and BPG have higher PSNR.
+@@ -26 +26 @@
+-Against Ada, NeST improves both distances at 4 dB and DISTS at 7 dB; at 7 dB, the DreamSim difference interval crosses zero. Ada yields lower distances at 10 dB and lower DISTS at 19 dB, where the DreamSim difference interval again crosses zero. NeST has higher PSNR throughout. At 7 dB, WHOLE/NeST/Ada reject 11/7/10 of 1500 receptions each; NeST rejects one at 4 dB, with zero rejections at the other token-system points and no NULL outputs. Table~\ref{tab:external} and S2 give auxiliary metrics. NeST also has lower DISTS/DreamSim than our specified ARPC digital-link adaptation at all four SNRs (S2).
++Against Ada, NeST improves both distances at 4 dB and DISTS at 7 dB; at 7 dB, the DreamSim difference interval crosses zero. Ada yields lower distances at 10 dB and lower DISTS at 19 dB, where the DreamSim difference interval again crosses zero. NeST has higher PSNR throughout. At 7 dB, WHOLE/NeST/Ada reject 11/7/10 of 1500 receptions each; NeST rejects one at 4 dB, with zero rejections at the other token-system points and no NULL outputs. Table~\ref{tab:external} gives auxiliary metrics at 10 dB.
+@@ -28,3 +28 @@
+-Fig.~\ref{fig:performance}(c,d) compares error-free reconstruction at six equal information budgets (620--2577 bits), including 57 shared protocol bits plus Ada's 10-bit class. WHOLE/NeST share ceiling $(10,0)$; Ada permits up to 256 tokens, with three generation repeats averaged per source. NeST improves all five metrics over WHOLE throughout. Against Ada, DISTS favors NeST at the four smallest budgets and DreamSim at the first three; the 1940-bit DreamSim interval crosses zero. Ada has lower distances at 2248/2577 bits.
+-
+-On 100 fixed sources under the earlier policies, changing only Ada's tail sampling to argmax increases DreamSim by $0.0450\,[0.0282,0.0621]$, $0.0345\,[0.0232,0.0461]$ and $0.00358\,[0.00101,0.00601]$ at $N$/SNR=512/4, 512/10 and 1024/10 (S3).
++Fig.~\ref{fig:performance}(c,d) uses six equal information budgets (620--2577 bits), including 57 shared protocol bits plus Ada's 10-bit class. Error-free reconstruction uses ceiling $(10,0)$ for WHOLE/NeST and 256 tokens for Ada, averaging three generation repeats per source. NeST improves all five metrics over WHOLE. Against Ada, DISTS favors NeST at the four smallest budgets and DreamSim at the first three; the 1940-bit DreamSim interval crosses zero. Ada has lower distances at 2248/2577 bits.
+@@ -33 +31 @@
+-Fig.~\ref{fig:qualitative} illustrates NeST preserving truck markings and foreground contours. These selected cases favor NeST in DISTS/DreamSim and SwinJSCC in PSNR; S6 gives identities, selection and broader examples.
++On 100 fixed images, Ada's argmax tail worsens DreamSim at $N=512$, 4/10 dB and $N=1024$, 10 dB relative to sampling.
+@@ -37 +35,6 @@
+-In the measured H10 configuration, NeST's TX/RX costs are 248.44/403.99 ms, versus 215.29/366.42 ms for WHOLE; totals are 652.43 ms for NeST and 39.17 ms for SwinJSCC (S7). H10 shares U10's MCS and ceilings but uses earlier directories (S1.3). Compiled Ada's 3.064-s total is paired with its own 32-source quality (S7.4--S7.5).
++\ifCLASSOPTIONonecolumn\else\begin{samepage}\fi
++Fig.~\ref{fig:qualitative} illustrates NeST preserving truck markings and foreground contours. These selected cases favor NeST in DISTS/DreamSim and SwinJSCC in PSNR.
++\par
++\ifCLASSOPTIONonecolumn\else\end{samepage}\fi
++
++Timing uses earlier profile directories with the current $N=1024$/10-dB MCS and source-prefix ceilings. Measured TX/RX is 248.44/403.99 ms for NeST and 215.29/366.42 ms for WHOLE. Totals are 652.43 ms for NeST and 39.17 ms for SwinJSCC. Compiled Ada's 3.064 s is paired with its own 32-image quality; main quality uses the original implementation.
+@@ -42 +45 @@
+-At $N=512$, all five NeST--WHOLE intervals favor NeST at each SNR, with PSNR gains of 0.50--0.99 dB. At 10 dB both use target $(7,0)$ and 16-QAM rate 2/3; utilization rises from 79.30\% to 99.54\%. Against Ada, NeST has higher PSNR and lower LPIPS throughout, and lower DISTS/DreamSim at 4/10 dB. Ada is better on both distances at 19 dB: NeST--Ada differences are $0.0058\,[0.0036,0.0079]$ and $0.0072\,[0.0037,0.0106]$. Supplement~S2 gives CLIP-I and rejection counts.
++At $N=512$, all five NeST--WHOLE intervals favor NeST at each SNR, with PSNR gains of 0.50--0.99 dB. At 10 dB both use target $(7,0)$ and 16-QAM rate 2/3; utilization rises from 79.30\% to 99.54\%. Against Ada, NeST has higher PSNR and lower LPIPS throughout, and lower DISTS/DreamSim at 4/10 dB. Ada has lower distances at 19 dB, with both paired intervals excluding zero.
+@@ -44 +47 @@
+-With the earlier ImageNet-calibrated policies, Kodak24 center crops give Token--WHOLE PSNR gains of 0.567/0.794/0.405 dB at 4/10/19 dB and favorable DISTS/DreamSim intervals throughout. Against Ada, Token has lower distances at 4 dB; Ada has lower DISTS at 10/19 dB, where DreamSim intervals cross zero. All 864 events succeed (S8). Historical Ada at 19 dB uses 64-QAM rate 5/6; its current policy uses 16-QAM rate 5/6 (Table~\ref{tab:policies}).
++Kodak's 24 center crops reuse the original ImageNet-calibrated policies without retuning. NeST improves PSNR, DISTS and DreamSim over WHOLE at all three SNRs; all 864 receptions succeed. Against Ada, NeST has lower distances at 4 dB; Ada has lower DISTS at 10/19 dB, with DreamSim intervals crossing zero. Ada uses 64-QAM rate 5/6 at 19 dB here, versus 16-QAM rate 5/6 in the current main policy.
+--- baseline/sections/conclusion.tex
++++ current/sections/conclusion.tex
+@@ -2 +2 @@
+-NeST-Com organizes next-scale source coding, channel protection and prefix-constrained reconstruction within a fixed-budget digital communication framework. Its actual-length within-scale fitting retains scale-wise probability evaluation and converts otherwise unused frame capacity into additional source information. Matched controls and receiver interventions explain the reconstruction gains; complete-system results characterize performance across budgets and the associated quality--cost tradeoffs.
++NeST-Com fits within-scale prefixes by actual source-code length to carry more source information in fixed protected frames. Shared-model comparisons and matched controls link fuller capacity use to better reconstruction. Eighth and Token offer quality--computation choices, with finer termination yielding additional measured gains at higher TX cost. Complete-system comparisons show Ada's perceptual advantages at some operating points and SwinJSCC's substantially faster processing.
+--- baseline/sections/threshold.tex
++++ current/sections/threshold.tex
+@@ -2 +2 @@
+-With H10 policies fixed, 100 sources and 20 noise realizations yield 30\,000 receptions over 8--10 dB. All methods reject every frame at 8 dB. WHOLE/NeST/Ada rejection rates are 15.75/14.95/13.50\% at 9 dB, 0.10--0.20\% at 9.5 dB and zero observed at 10 dB. Quality metrics include gray outputs from rejected frames (S5).
++With the 10-dB transmit policies used for timing held fixed and RX using the actual noise variance, 100 images and 20 noise realizations yield 30\,000 receptions over 8--10 dB. All methods reject every frame at 8 dB. WHOLE/NeST/Ada rejection rates are 15.75/14.95/13.50\% at 9 dB, 0.10--0.20\% at 9.5 dB and zero observed at 10 dB. Quality metrics include gray outputs from rejected frames.
+--- baseline/sections/figure3_float.tex
++++ current/sections/figure3_float.tex
+@@ -3 +3 @@
+-\caption{Selected reconstructions at $N=1024$ and 10 dB. WHOLE, NeST and the predicted-class fixed-frame Ada-TokenCom adaptation use the policies in Table~\ref{tab:policies}. Values are full-image DISTS$\downarrow$ / DreamSim$\downarrow$ for each method's first prescribed realization. Supplement~S6 gives the fixed source identities, selection details and additional examples.}
++\caption{Selected reconstructions at $N=1024$ and 10 dB. WHOLE, NeST and the predicted-class fixed-frame Ada-TokenCom adaptation use the policies in Table~\ref{tab:policies}. Values are full-image DISTS$\downarrow$ / DreamSim$\downarrow$ for each method's first prescribed realization. The sources were selected for favorable perceptual examples before recalibration.}
+--- baseline/tables/table_ii.tex
++++ current/tables/table_ii.tex
+@@ -2 +2 @@
+-\caption{Auxiliary quality on common500 at $N=1024$, 10 dB. Means include three realizations per source and gray failures. Policy-specific timing is reported separately in S7.}
++\caption{Auxiliary quality on 500 test images at $N=1024$, 10 dB. Means include three realizations per source and gray failures.}
+--- baseline/tables/table_iii.tex
++++ current/tables/table_iii.tex
+@@ -2 +2 @@
+-\caption{Reduced-budget reconstruction on 500 sources at $N=512$. Means include all failures; PSNR differences use direct source-paired 95\% intervals. All five metrics and paired comparisons are in Supplement~S2.}
++\caption{Reduced-budget reconstruction on 500 sources at $N=512$. Means include all failures; PSNR differences use direct source-paired 95\% intervals.}
+--- baseline/supplementary.tex
++++ current/supplementary.tex
+@@ -14 +14,11 @@
+-\section{Reproduction configuration}
++% Reading-flow navigation 20261103
++\textbf{Contents}\par
++\begin{tabular}{@{}p{0.47\linewidth}p{0.47\linewidth}@{}}
++S1 Algorithms, proofs and implementation (p.~\pageref{sup:1}) & S5 Fixed-policy channel threshold (p.~\pageref{sup:5})\\
++S2 Complete quality results (p.~\pageref{sup:2}) & S6 Qualitative examples and selection (p.~\pageref{sup:6})\\
++S3 Matched controls and generation (p.~\pageref{sup:3}) & S7 Processing costs and paired quality (p.~\pageref{sup:7})\\
++S4 Equal information budgets (p.~\pageref{sup:4}) & S8 Transfer to Kodak24 (p.~\pageref{sup:8})
++\end{tabular}
++
++
++\section{Reproduction configuration}\label{sup:1}
+@@ -28 +38 @@
+-\subsection{Integer probabilities and independently terminated streams}
++\subsection{Integer CDFs and independently terminated prefixes}
+@@ -175 +185 @@
+-\item Traverse source tokens once, sharing probability evaluation and incremental coding. At each allowed endpoint copy its independently terminated bits without changing encoder state.
++\item Traverse source tokens once, sharing scale-wise probability evaluation and incremental coding. At each allowed endpoint obtain an independently terminated prefix without changing encoder state.
+@@ -205 +215 @@
+-\section{Complete quality results}
++\section{Complete quality results}\label{sup:2}
+@@ -690 +700 @@
+-\section{Matched controls and generation sensitivity}
++\section{Matched controls and generation sensitivity}\label{sup:3}
+@@ -827 +837 @@
+-\section{Equal information budgets}
++\section{Equal information budgets}\label{sup:4}
+@@ -1028 +1038 @@
+-\subsection{Actual source lengths and endpoint saturation}
++\subsection{Actual source-code lengths and endpoint saturation}
+@@ -1053 +1063 @@
+-\section{Fixed-policy channel threshold}
++\section{Fixed-policy channel threshold}\label{sup:5}
+@@ -1132 +1142 @@
+-\section{Qualitative examples}
++\section{Qualitative examples}\label{sup:6}
+@@ -1152,2 +1162,2 @@
+-\section{Unified processing costs}
+-The timings below use the H10, H7, L10 and C1024 configurations indexed in S1.3. They measure complete implementations, including candidate generation and scanning. Current N1024 quality uses the separately frozen U policies. Implementation and execution records are archived in the repository reproduction log.
++\section{Unified processing costs}\label{sup:7}
++At $N=1024$ and 10 dB, the token-system timing runs use 16-QAM rate 2/3 and target ceilings $(9,0)$, $(8,126)$ and 256 tokens for WHOLE, NeST and Ada, respectively. These MCSs and ceilings match the current main quality experiment; the profile directories are the earlier versions indexed in S1.3. Compiled Ada's latency is paired with its own 32-image quality evaluation in S7.5. Additional timings cover 7 dB, $N=512$ and matched granularity. The H10/H7/L10/C1024 identifiers in S1.3 link these measurements to exact directory versions. All timings measure complete implementations, including candidate generation and scanning; execution records remain in the repository reproduction log.
+@@ -1324 +1334 @@
+-\section{Transfer to Kodak24}
++\section{Transfer to Kodak24}\label{sup:8}

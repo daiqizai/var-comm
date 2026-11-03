@@ -1,4 +1,4 @@
-# Current captions and exact LaTeX sources — prose polish 2026-11-03
+# Current captions and exact LaTeX sources — reading flow 2026-11-03
 
 ## sections/method.tex
 
@@ -26,7 +26,7 @@
 ```latex
 \begin{figure*}[t]
 \centering\includegraphics[width=6.0in]{figure3.pdf}
-\caption{Selected reconstructions at $N=1024$ and 10 dB. WHOLE, NeST and the predicted-class fixed-frame Ada-TokenCom adaptation use the policies in Table~\ref{tab:policies}. Values are full-image DISTS$\downarrow$ / DreamSim$\downarrow$ for each method's first prescribed realization. Supplement~S6 gives the fixed source identities, selection details and additional examples.}
+\caption{Selected reconstructions at $N=1024$ and 10 dB. WHOLE, NeST and the predicted-class fixed-frame Ada-TokenCom adaptation use the policies in Table~\ref{tab:policies}. Values are full-image DISTS$\downarrow$ / DreamSim$\downarrow$ for each method's first prescribed realization. The sources were selected for favorable perceptual examples before recalibration.}
 \label{fig:qualitative}\end{figure*}
 ```
 
@@ -74,7 +74,7 @@ A0: prior completion without received boundary tokens. B0: A0 plus boundary resi
 
 ```latex
 \begin{table}[t]
-\caption{Auxiliary quality on common500 at $N=1024$, 10 dB. Means include three realizations per source and gray failures. Policy-specific timing is reported separately in S7.}
+\caption{Auxiliary quality on 500 test images at $N=1024$, 10 dB. Means include three realizations per source and gray failures.}
 \label{tab:external}\centering\footnotesize\setlength{\tabcolsep}{5pt}
 \begin{tabular}{@{}lrrr@{}}\toprule
 Method & PSNR (dB)$\uparrow$ & LPIPS$\downarrow$ & CLIP-I$\uparrow$\\\midrule
@@ -91,7 +91,7 @@ BPG + LDPC & 22.54 & 0.589 & 0.635\\
 
 ```latex
 \begin{table}[t]
-\caption{Reduced-budget reconstruction on 500 sources at $N=512$. Means include all failures; PSNR differences use direct source-paired 95\% intervals. All five metrics and paired comparisons are in Supplement~S2.}
+\caption{Reduced-budget reconstruction on 500 sources at $N=512$. Means include all failures; PSNR differences use direct source-paired 95\% intervals.}
 \label{tab:reduced}\centering\footnotesize\setlength{\tabcolsep}{3pt}
 \begin{tabular}{@{}lrrr@{}}\toprule
 SNR / method & PSNR$\uparrow$ & DISTS$\downarrow$ & DreamSim$\downarrow$\\

@@ -1,3 +1,13 @@
+# 当前交付：阅读连贯性与集中补充入口（2026-11-03）
+
+最终引言采用用户确认的四段论证；四个关键术语在引言、方法和补充对应说明中统一。英文与中文对照及术语定义见 `READING_FLOW_20261103.md`。
+
+正文采用两处主要补充指引；时延配置直接说明，保留表 I(A–C)，压缩次要数字，结论呈现容量收益与计算代价。ARPC 作为相关工作，其适配结果留在补充。
+
+[双栏 PDF](manuscript_doublecolumn.pdf) · [单栏 PDF](manuscript_singlecolumn.pdf) · [可编辑 Word](manuscript_review.docx) · [补充材料](supplementary.pdf) · [改动及引言中文](READING_FLOW_20261103.md) · [当前验收](validation/current_revision.json)。页数 5/15/15/36、摘要 88 词；71 页本轮实际检查。未增加实验。
+
+--- Historical record / 历史记录 ---
+
 # 当前交付：固定帧问题与相关工作论证（2026-11-03）
 
 引言按“表示基础→先行工作→固定帧内协同设计问题→NeST-Com框架与机制”重写，保留系统贡献并准确交代VAR、ARPC、Ada和ResARC。全部实验与图表不变。

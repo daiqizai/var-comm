@@ -1,3 +1,18 @@
+# 当前阅读连贯性修订（2026-11-03）
+
+| Item | Status | Evidence |
+|---|---|---|
+| Two main supplementary entry points and self-contained timing | done | claim_audit.json; sections/method.tex; sections/results.tex |
+| Core Table I and all scientific values retained | done | data_checks.json |
+| Introduction causal chain and benefits/cost conclusion | done | editorial.diff; READING_FLOW_20261103.md |
+| Supplement contents and complete valid timing scope | done | supplementary.tex; artifact_review.json |
+| Double/single/Word/supplement built and visually inspected | done | 5/15/15/36 pages, 71 actually opened |
+| New science or timing | not-run-optional | Editorial scope |
+
+Required repository checks and normal publication are recorded in repository_checks.json and Git history.
+
+--- Historical record / 历史记录 ---
+
 # 当前相关工作与问题论证修订（2026-11-03）
 
 | Item | Status | Evidence |
