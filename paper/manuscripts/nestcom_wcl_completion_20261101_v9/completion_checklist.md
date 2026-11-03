@@ -1,3 +1,19 @@
+# 当前用词修订验收（2026-11-03）
+
+| Item | Status | Evidence |
+|---|---|---|
+| Profile/MCS wording and historical distinction | done | II-A, Fig.1 caption, S1.3 |
+| Experiment/MCS/ceiling/directory index | done | 13 policy sets; 12 experiment groups; directory hash audit |
+| Main NeST/WHOLE TX/RX costs, Ada summary | done | III, S7; historical H10 clearly labeled |
+| Operational history separated from paper | done | reproduction_logs/timing_execution_history_20261103.md |
+| Figures, tables and prior scientific inputs preserved | done | validation/wording_policy_20261103/data_checks.json |
+| PDF/Word rebuild and all-page review | done | 5/15/16/36 pages; 72 actual page checks |
+| New experiments or re-timing | not-run-optional | Not requested or needed for this editorial change |
+
+Repository checks and publication are tracked by the current validation directory and outer delivery receipt, independently of prior releases.
+
+--- Historical record / 历史记录 ---
+
 # Completion checklist — 2026-11-03
 
 | Item | Status | Evidence |

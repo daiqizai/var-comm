@@ -31,7 +31,7 @@ Ada's completion rule also affects quality. Under the earlier frozen policies, o
 
 In the two selected cases in Fig.~\ref{fig:qualitative}, NeST better preserves the truck markings and foreground contours than WHOLE. Its DISTS/DreamSim are lower than all displayed comparators, while SwinJSCC has higher PSNR. S6 provides source identities, the selection rule and broader examples.
 
-Under its measured policy (S7), compiled Ada takes 3.064 s TX+RX. The same 32 timed outputs give PSNR 19.361 dB and DreamSim 0.0964; all five quality-difference intervals against the original implementation cross zero. Fixing the original generation seed makes all 32 native images identical. This diagnostic pairs quality with timing; the original common500 implementation is retained.
+With the earlier $N=1024$/10-dB policies (S7), NeST's mean TX/RX costs are 248.44/403.99 ms, versus 215.29/366.42 ms for WHOLE (32 sources, one RTX PRO 6000, two physical CPU cores). These spans include complete RGB-to-symbol and symbol-to-RGB processing. Compiled Ada's 3.064-s total and corresponding 32-source quality are reported separately in S7.4--S7.5.
 
 \subsection{Reduced Budget and Transfer to Kodak}
 \input{tables/table_iii}

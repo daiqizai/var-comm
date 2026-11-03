@@ -146,6 +146,8 @@ from timing_revision_supplement import apply_timing_revision
 s=apply_timing_revision(s,P)
 from unified_revision_supplement import apply_unified_revision
 s=apply_unified_revision(s,P)
+from wording_policy_revision import apply_wording_policy_revision
+s=apply_wording_policy_revision(s,P)
 
 (P/'supplementary.tex').write_text('\n'.join(line.rstrip() for line in s.splitlines()).rstrip()+'\n')
 print('Built supplement with S1--S8, 165 descriptive rows, 12 Ada-control rows, 60 Kodak means and 90 paired intervals')

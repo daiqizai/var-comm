@@ -1,3 +1,12 @@
+## 2026-11-03 — Wording and policy-context clarification
+
+- Unify the preconfigured MCS/directory and endpoint-profile semantics in the body, Fig.1 caption and S1.3.
+- Index current and historical MCS/ceilings/directory identities; correct receiver-intervention lineage to Token prefixes at 7/10 dB and the final-scale structural check at 19 dB.
+- Restore NeST/WHOLE complete TX/RX costs to the body and shorten Ada diagnostics; archive execution history without deleting evidence.
+- Rebuild and review 5/15/16/36 pages; no new experiments or changed scientific data/figure assets.
+
+--- Historical record / 历史记录 ---
+
 # 2026-11-03 — unified calibration and bounded evidence
 
 Replaced the three N1024 token-system policies/results after common12-MCS two-stage calibration; updated24Fig.2 rows,6Fig.3 display images and TableI(A)/II. Added TableIV, explicit fitting pseudocode/rounding/scan costs, N512matched-grid five-metric evidence, compiled32quality paired to its own timing, and encoder termination/monotonicity audit. Preserved Fig.1 bytes, selected source identities, historical N512/equal-bit/Kodak/mechanism/threshold/timing evidence and all failed variants. Final artifacts5/15/16/35pages;71pages actually inspected. No training, optional search optimization or new timing.

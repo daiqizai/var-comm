@@ -1,4 +1,14 @@
-# Current captions and exact LaTeX sources — 2026-11-03
+# Current captions and exact LaTeX sources — wording revision 2026-11-03
+
+## sections/method.tex
+
+```latex
+\begin{figure*}[t]
+\centering\includegraphics[width=\textwidth]{figure1_final.pdf}
+\caption{NeST-Com. (a) The shared policy fixes the MCS and profile directory; the protected profile selects the endpoint. VAR and known coarse tokens provide coding probabilities. (b) Independently terminated prefixes fit the actual capacity below the target; bars are schematic. (c) Received tokens overwrite boundary predictions. Recursive state updates accumulate residuals and condition each finer scale before decoding. Unreceived boundary positions retain their coarse-conditioned predictions.}
+\label{fig:system}
+\end{figure*}
+```
 
 ## sections/figure2_float.tex
 

@@ -1,3 +1,9 @@
+## V9 protocol wording and policy index clarified — 2026-11-03
+
+The current data-frame profile selects an endpoint within a preconfigured method/MCS directory; the manuscript and S1.3 now use this definition consistently. A compact index distinguishes current main policies from earlier Kodak, threshold, receiver and timing configurations. The body reports the measured complete NeST/WHOLE TX/RX costs; compilation failures and execution history are retained in reproduction logs. No new scientific or timing calls were made, and scientific inputs, three figures and four main tables are unchanged.
+
+The active V9 artifacts are **5/15/16/36 pages** (double/single/Word/supplement), with all **72 pages** visually checked. [Revision and validation](paper/manuscripts/nestcom_wcl_completion_20261101_v9/WORDING_POLICY_REVISION_20261103.md). Older entries below describe their own historical revisions.
+
 ## Unified calibration and bounded evidence completed — 2026-11-03
 
 The three token systems now share the same12-MCS, four-SNR, pilot100/full1000 calibration protocol; all18,000formal frames and five-metric paired results are closed. NeST−WHOLE PSNR is0.49–0.88dB; N1024/10source-bit utilization is77.70→99.79%. Ada's perceptual advantages, rejects and mixed intervals remain reported. The N512/10strict grid control, compiled32quality matched to its own3.0643s cost, and arithmetic termination/scan audit are complete. Scientific GPU/CPU use is9.227965/4.873888hours; no training or stopped-branch restart.

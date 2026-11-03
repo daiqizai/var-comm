@@ -1,3 +1,11 @@
+# 当前交付：协议用词、策略索引与处理成本修订（2026-11-03）
+
+当前 MCS/目录预配置和 12-bit endpoint profile 的含义已统一。补充 S1.3 集中索引新旧策略；正文补回 NeST/WHOLE 完整 TX/RX 耗时；运行历史移至复现日志。未新增实验，三图、四主表与既有科学输入不变。
+
+[双栏 PDF](manuscript_doublecolumn.pdf) · [单栏 PDF](manuscript_singlecolumn.pdf) · [可编辑 Word](manuscript_review.docx) · [补充材料](supplementary.pdf) · [修订说明](WORDING_POLICY_REVISION_20261103.md) · [当前验收](validation/current_revision.json)。页数 **5/15/16/36**，摘要 **91 词**，全部 **72 页**已实际检查。下方均为历史修订快照。
+
+--- Historical record / 历史记录 ---
+
 # 当前交付：统一校准与补证据（2026-11-03）
 
 统一N1024校准与18,000正式帧、N512严格匹配粒度、快速Ada32源质量、算术码长检查均实际闭合。新主结果、全部不利发现、完整候选表及紧凑策略表已接入。当前双栏/单栏/Word/补充为 **5/15/16/35页**，摘要91词；71页已逐页渲染并打开检查。

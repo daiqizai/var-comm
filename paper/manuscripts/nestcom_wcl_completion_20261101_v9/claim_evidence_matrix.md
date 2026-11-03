@@ -20,3 +20,12 @@ All paths below are relative to this manuscript. Historical policy evidence reta
 | Compiled Ada quality paired with its own3.0643s cost | same32timing sources, actual saved events and generation seeds | All5 timed-vs-original CIs cross0; fixed old seed32/32 pixel equal. Diagnostic only; no common500 substitution or population equivalence | U/compiled32/quality_latency.csv; paired_deltas.csv; pixel_identity_audit.json |
 | Exact termination length b=E+P+2 and nondecreasing lengths | 512 integer-prefix checks plus976500 saved streams/975000 adjacencies | Nonmutating finish; currently all-candidate scan. No optimized-timing claim | U/encoder_audit/integer_codec_checks.json; implementation_identity.json; REPORT_zh.md |
 | Selected Fig.3 perceptual advantage examples | fixed user choices135/201, N1024/10, original first repeat identity | No reselection; not representative/all-metric superiority. SwinPSNR and Ada individual advantages retained | inputs/fig3_unified_20261103/selection.json; native_mapping.json; display_metrics.csv |
+
+## Wording and policy-context audit — 2026-11-03
+
+| Clarification | Evidence and scope |
+|---|---|
+| MCS and current profile directory are preconfigured; the paid profile identifies the endpoint | sections/method.tex; Supplement S1.3; inputs/policy_index_20261103/directory_audit.json; no current per-frame directory/MCS switch claimed |
+| Current U, earlier H, N512 L and matched C policy families are distinct | S1.3 policy/experiment index; 13 policy sets, 12 experiment groups, full directory hash pins |
+| Main-method processing costs are explicit | Earlier H10, 32 sources, same RTX PRO 6000 and two physical CPU cores; inputs/timing_fairness_20261102/timing_summary.csv; complete TX/RX spans, no new timings |
+| Operational history is retained outside the paper | reproduction_logs/timing_execution_history_20261103.md; final valid configurations and negative evidence remain in S7 |
