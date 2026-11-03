@@ -1,3 +1,13 @@
+# 2026-11-03 贡献论证
+
+- 统一摘要、引言、方法和结论，正面解释尺度级概率与尺度内独立终止的配合。
+- 正文增加有条件的终止码长非递减性质，明确当前实测仍全扫描。
+- 说明 Eighth/Token 的质量成本取舍、当前与历史策略对应及已有 ARPC 适配结果。
+- 精简补充过程文字，保留复现记录和全部数值；Fig.3 选择说明改为客观规则。
+- 重建双栏5页、单栏15页、Word16页、补充36页；摘要88词，72页实际验收。
+
+--- Historical record / 历史记录 ---
+
 ## 2026-11-03 — Wording and policy-context clarification
 
 - Unify the preconfigured MCS/directory and endpoint-profile semantics in the body, Fig.1 caption and S1.3.

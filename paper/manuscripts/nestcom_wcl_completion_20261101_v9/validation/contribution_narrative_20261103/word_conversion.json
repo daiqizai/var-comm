@@ -1,0 +1,508 @@
+{
+  "source_tex_sha256": "5d9edffae2a101b403ae824f618c47c3f9007b9e0a5ccde4e0d387527b6a1883",
+  "word_sha256": "85be73d20b15c7f0ec27e43127e35576a7251b0018b894e2b128b8aa7a7f94f6",
+  "reference_keys": [
+    "var",
+    "arpc",
+    "adatokencom",
+    "resarc",
+    "chande",
+    "arithmetic",
+    "nr",
+    "dinov2",
+    "imagenet",
+    "swinjscc",
+    "bpg",
+    "dists",
+    "dreamsim",
+    "lpips",
+    "clip"
+  ],
+  "display_equation_count": 6,
+  "expected_display_equations": 6,
+  "editable_omml_count": 69,
+  "numeric_ci_text_count": 11,
+  "delimiter_properties_reordered": 0,
+  "inline_punctuation_attached": 30,
+  "native_tables": 4,
+  "native_table_sources": [
+    {
+      "number": 1,
+      "source_csv": "tables\\table_i.csv",
+      "source_sha256": "d805e64ec99caad4e79967f28d0e02c293a9df2f91a0bcfa741fb8a884d79f91",
+      "source_records": 10,
+      "word_rows": 16,
+      "word_columns": 5,
+      "width_inches": 6.5,
+      "caption": "Table I. Within-scale transmission. (A) Shared-model NeST–WHOLE differences. (B) Matched endpoint granularity. (C) Ordered receiver interventions. Brackets are source-paired 95% intervals; sample sizes are specified for each block.",
+      "note": "A0: prior completion without received boundary tokens. B0: A0 plus boundary residual correction. C0: B0 plus updated finer-scale conditioning.",
+      "cells": [
+        {
+          "kind": "group",
+          "text": [
+            "(A) 500 sources, N = 1024, uniformly calibrated policies"
+          ]
+        },
+        {
+          "kind": "header",
+          "text": [
+            "SNR",
+            "Util. W→N (%)",
+            "ΔDISTS [95% CI]",
+            "ΔDreamSim [95% CI]",
+            ""
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "4",
+            "73.81 → 99.56",
+            "-0.0142\n[-0.0155, -0.0127]",
+            "-0.0297\n[-0.0330, -0.0264]",
+            ""
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "7",
+            "83.19 → 99.71",
+            "-0.0103\n[-0.0139, -0.0068]",
+            "-0.0159\n[-0.0207, -0.0112]",
+            ""
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "10",
+            "77.70 → 99.79",
+            "-0.0141\n[-0.0153, -0.0128]",
+            "-0.0270\n[-0.0299, -0.0241]",
+            ""
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "19",
+            "85.24 → 99.83",
+            "-0.0048\n[-0.0053, -0.0043]",
+            "-0.0043\n[-0.0051, -0.0036]",
+            ""
+          ]
+        },
+        {
+          "kind": "group",
+          "text": [
+            "(B) 100 quality sources; 32 timing sources; ceiling (8,126)"
+          ]
+        },
+        {
+          "kind": "header",
+          "text": [
+            "Grid",
+            "Utilization (%)",
+            "DISTS",
+            "DreamSim",
+            "TX (ms)"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "Whole",
+            "78.13",
+            "0.1650",
+            "0.1387",
+            "185.2"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "Quarter",
+            "95.19",
+            "0.1535",
+            "0.1143",
+            "215.8"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "Eighth",
+            "97.44",
+            "0.1516",
+            "0.1137",
+            "217.8"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "Token",
+            "99.85",
+            "0.1505",
+            "0.1115",
+            "248.4"
+          ]
+        },
+        {
+          "kind": "group",
+          "text": [
+            "(C) 100 sources, 10 dB, same received prefixes"
+          ]
+        },
+        {
+          "kind": "header",
+          "text": [
+            "Intervention",
+            "ΔPSNR (dB)",
+            "ΔDISTS",
+            "ΔDreamSim",
+            ""
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "B0−A0",
+            "+0.287\n[0.240, 0.335]",
+            "-0.0062\n[-0.0077, -0.0048]",
+            "-0.0113\n[-0.0147, -0.0083]",
+            ""
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "C0−B0",
+            "+0.537\n[0.404, 0.682]",
+            "-0.0083\n[-0.0102, -0.0065]",
+            "-0.0159\n[-0.0205, -0.0116]",
+            ""
+          ]
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "source_csv": "tables\\table_ii.csv",
+      "source_sha256": "24be72e6801b3b6a18fced1a4b09687ec4dd61810a6c1c7900fbe083a1a73124",
+      "source_records": 7,
+      "word_rows": 7,
+      "word_columns": 4,
+      "width_inches": 6.5,
+      "caption": "Table II. Auxiliary quality on common500 at N=1024, 10 dB. Means include three realizations per source and gray failures. Policy-specific timing is reported separately in S7.",
+      "note": "",
+      "cells": [
+        {
+          "kind": "header",
+          "text": [
+            "Method",
+            "PSNR↑ (dB)",
+            "LPIPS↓",
+            "CLIP-I↑"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "WHOLE",
+            "19.31",
+            "0.199",
+            "0.858"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "NeST-Com",
+            "20.19",
+            "0.166",
+            "0.877"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "Ada-TokenCom",
+            "19.56",
+            "0.167",
+            "0.884"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "Latent JSCC",
+            "20.80",
+            "0.173",
+            "0.789"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "SwinJSCC",
+            "23.03",
+            "0.469",
+            "0.669"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "BPG + LDPC",
+            "22.54",
+            "0.589",
+            "0.635"
+          ]
+        }
+      ]
+    },
+    {
+      "number": 3,
+      "source_csv": "tables\\table_iii.csv",
+      "source_sha256": "c7edbe69f8298e8fc3e43bfe2687546510e84603736741e569c0c36a3ff4f7c8",
+      "source_records": 9,
+      "word_rows": 13,
+      "word_columns": 4,
+      "width_inches": 6.5,
+      "caption": "Table III. Reduced-budget reconstruction on 500 sources at N=512. Means include all failures; PSNR differences use direct source-paired 95% intervals. All five metrics and paired comparisons are in Supplement S2.",
+      "note": "",
+      "cells": [
+        {
+          "kind": "header",
+          "text": [
+            "SNR / method",
+            "PSNR↑ (dB)",
+            "DISTS↓",
+            "DreamSim↓"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "4 / WHOLE",
+            "15.11",
+            "0.2580",
+            "0.3247"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "4 / NeST-Com",
+            "15.61",
+            "0.2363",
+            "0.2740"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "4 / Ada-TokenCom",
+            "11.32",
+            "0.2996",
+            "0.3847"
+          ]
+        },
+        {
+          "kind": "group",
+          "text": [
+            "NeST−WHOLE ΔPSNR: +0.504 [0.440, 0.573] dB"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "10 / WHOLE",
+            "16.82",
+            "0.2030",
+            "0.2049"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "10 / NeST-Com",
+            "17.41",
+            "0.1922",
+            "0.1837"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "10 / Ada-TokenCom",
+            "13.16",
+            "0.2367",
+            "0.2582"
+          ]
+        },
+        {
+          "kind": "group",
+          "text": [
+            "NeST−WHOLE ΔPSNR: +0.592 [0.544, 0.643] dB"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "19 / WHOLE",
+            "18.64",
+            "0.1718",
+            "0.1458"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "19 / NeST-Com",
+            "19.63",
+            "0.1554",
+            "0.1150"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "19 / Ada-TokenCom",
+            "17.69",
+            "0.1496",
+            "0.1078"
+          ]
+        },
+        {
+          "kind": "group",
+          "text": [
+            "NeST−WHOLE ΔPSNR: +0.994 [0.940, 1.048] dB"
+          ]
+        }
+      ]
+    },
+    {
+      "number": 4,
+      "source_csv": "tables\\table_iv.csv",
+      "source_sha256": "c0c20e1786477f3e186988ae8df221bedc7c1d7f8969a019b1330598584e9674",
+      "source_records": 7,
+      "word_rows": 8,
+      "word_columns": 6,
+      "width_inches": 6.5,
+      "caption": "Table IV. Frozen policies: MCS (q,r) (bits/symbol, code rate) and target ceiling e, with feasible fallback. Ada's ceiling is 256 tokens. Budgets are calibrated independently.",
+      "note": "",
+      "cells": [
+        {
+          "kind": "header",
+          "text": [
+            "N / SNR",
+            "WHOLE MCS",
+            "WHOLE ceiling",
+            "NeST MCS",
+            "NeST ceiling",
+            "Ada MCS"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "1024/4",
+            "2,2/3",
+            "(7,0)",
+            "2,2/3",
+            "(7,25)",
+            "2,2/3"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "1024/7",
+            "4,1/2",
+            "(8,0)",
+            "4,1/2",
+            "(8,0)",
+            "4,1/2"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "1024/10",
+            "4,2/3",
+            "(9,0)",
+            "4,2/3",
+            "(8,126)",
+            "4,2/3"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "1024/19",
+            "6,5/6",
+            "(10,0)",
+            "6,5/6",
+            "(10,0)",
+            "4,5/6"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "512/4",
+            "2,2/3",
+            "(6,0)",
+            "2,2/3",
+            "(5,27)",
+            "2,2/3"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "512/10",
+            "4,2/3",
+            "(7,0)",
+            "4,2/3",
+            "(7,0)",
+            "4,2/3"
+          ]
+        },
+        {
+          "kind": "data",
+          "text": [
+            "512/19",
+            "6,5/6",
+            "(8,0)",
+            "6,5/6",
+            "(8,84)",
+            "6,5/6"
+          ]
+        }
+      ]
+    }
+  ],
+  "figures": 3,
+  "body_double_line_spacing": true,
+  "figures_unchanged": true,
+  "unchanged_figures": [
+    1,
+    2,
+    3
+  ],
+  "revised_figures": [],
+  "revision_base_commit": "62f3e21edddd320efac25dc348398a1402bf1959",
+  "figure_pdf_hashes": {
+    "1": "bcc8e9c4881ea3865379c8af48767986970bef585283472c74ca295d8515c8bf",
+    "2": "0df40deaa6158855415288ab7a1467e6bd47e192892dbe53de8492739e9b706f",
+    "3": "ae5536e79573106cc9dfcf276dbb0efac1d4be70b0f011307bd6eed64aef2539"
+  },
+  "render_review_pending": false,
+  "render_pages": 16,
+  "actual_render_review": "PASS",
+  "review_directory": "validation/contribution_narrative_20261103"
+}

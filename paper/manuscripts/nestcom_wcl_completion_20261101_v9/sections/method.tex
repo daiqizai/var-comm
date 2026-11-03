@@ -18,7 +18,7 @@ The frozen VAR tokenizer produces ten residual token maps $q_s$, with side lengt
 p_\theta(q_s\mid q_{<s})=\prod_{i=1}^{L_s}p_\theta(q_{s,i}\mid q_{<s}).
 \label{eq:prior}
 \end{equation}
-Both terminals reconstruct identical integer CDFs, with total frequency $2^{24}$, for arithmetic coding~\cite{arithmetic}; no unreceived same-scale token is needed. Transmission can therefore end within a scale while probability evaluation remains scale-wise.
+Under the specified numerical route (S1), both terminals reconstruct identical integer CDFs, with total frequency $2^{24}$, for arithmetic coding~\cite{arithmetic}; no unreceived same-scale token is needed. Transmission can therefore end within a scale while probability evaluation remains scale-wise.
 
 
 
@@ -28,18 +28,20 @@ An endpoint $e=(m,K)$ retains complete coarse maps and a raster-ordered boundary
 \pi_e=(q_1,\ldots,q_m,q_{m+1,1:K}).
 \label{eq:prefix}
 \end{equation}
-The boundary prefix is empty for $K=0$, including $e=(10,0)$. The fixed raster order specifies received positions without a mask. WHOLE permits $(m,0)$ for $m=4,\ldots,10$. NeST permits every integer $K=0,\ldots,L_{m+1}-1$ for $m=4,\ldots,9$, together with $(10,0)$: 651 endpoints from 30 through 680 retained tokens. Quarter/Eighth retain $K=\lfloor jL_{m+1}/d\rfloor$, $j=1,\ldots,d-1$, for $d=4/8$, plus complete-scale boundaries, with duplicates removed. Token is the main configuration.
+For $K=0$, including $e=(10,0)$, the boundary prefix is empty. Raster order specifies positions without a mask. WHOLE permits $(m,0)$ for $m=4,\ldots,10$. NeST permits every integer $K=0,\ldots,L_{m+1}-1$ for $m=4,\ldots,9$, together with $(10,0)$: 651 endpoints from 30 through 680 retained tokens. Quarter/Eighth retain $K=\lfloor jL_{m+1}/d\rfloor$, $j=1,\ldots,d-1$, for $d=4/8$, plus complete-scale boundaries, with duplicates removed. Token is the main configuration.
 
 For MCS $a=(M,r)$, the coded body has $n_a=(N-68)\log_2M$ bits and information length $k_a=\lfloor rn_a\rfloor$. Its independently terminated arithmetic length $b(x,e)$ must satisfy
 \begin{equation}
 b(x,e)+29\leq k_a,\qquad \eta(x,e)=\frac{b(x,e)}{k_a-29}.
 \label{eq:budget}
 \end{equation}
-The 29 bits comprise a 13-bit length and CRC16. Unused information positions are zero-padded before 5G NR LDPC coding, rate matching~\cite{nr}, and QAM. Thus $\eta$ measures source-bit capacity utilization after the length/CRC overhead.
+The 29 bits comprise a 13-bit length and CRC16. Remaining positions are zero-padded before 5G NR LDPC coding, rate matching~\cite{nr}, and QAM; $\eta$ measures source-bit capacity utilization after these 29 overhead bits.
 
-For $N=1024$, WHOLE, NeST and Ada use the same 12 MCSs: QPSK/16-QAM/64-QAM with rates $1/2,2/3,3/4,5/6$. WHOLE has seven target ceilings; NeST searches 25 Quarter ceilings while allowing all Token endpoints below each; Ada allows all prefixes up to 256. The 396 candidates undergo a common 100-image, one-realization pilot. Per method/SNR, the top three and a preset QPSK rate-1/2 anchor advance to all 1000 calibration sources with three realizations. Maximum equal-source DINOv2 cosine~\cite{dinov2}, including gray failures, selects the frozen policy. $N=512$ retains its independently calibrated policies (Table~\ref{tab:policies}).
+For $N=1024$, WHOLE, NeST and Ada use the same 12 MCSs: QPSK/16-QAM/64-QAM with rates $1/2,2/3,3/4,5/6$. WHOLE has seven ceilings; NeST uses 25 Quarter ceilings with Token fallback; Ada allows prefixes through 256. All 396 candidates enter a 100-image, one-realization pilot. Per method/SNR, the top three plus a preset QPSK rate-1/2 anchor advance to 1000 sources with three realizations. Maximum equal-source DINOv2 cosine~\cite{dinov2}, including gray failures, selects the policy. $N=512$ retains its independently calibrated policies (Table~\ref{tab:policies}).
 
-A public method/MCS directory is frozen before calibration and shared across target ceilings and images. The paid profile selects an endpoint within it. A shared scale-wise probability and incremental coding traversal supplies independently terminated candidate streams, rather than slices of a longer stream. With MCS fixed, TX scans their actual lengths and selects the most-token feasible endpoint below the target. If none fits, it sends a paid NULL profile with a two-bit zero payload, yielding gray. Supplement~S1 gives the exact scan algorithm, directory entries and the coder-specific nondecreasing-length proof; the measured implementation still generates and scans all allowed candidates.
+A public method/MCS directory, frozen before calibration and shared across images, maps each profile to an endpoint. One scale-wise probability and incremental coding traversal supplies the candidates. Non-mutating termination makes each stream independently decodable; streams are not slices of a longer codeword.
+
+For this coder's fixed token/CDF traversal and non-mutating finish, $b_t=E_t+P_t+2$ after $t$ tokens, where $E_t$ and $P_t$ count emitted and pending bits. Renormalization increments $E_t+P_t$; other interval updates preserve it. Thus $b_t$ is nondecreasing, and feasible endpoints form an initial segment for fixed MCS and ceiling. TX selects its longest prefix, or sends a paid NULL profile with a two-bit zero payload if none fits. The measured code scans all candidates; S1 gives algorithm and proof details.
 
 \ifCLASSOPTIONonecolumn\else\input{sections/figure2_float}\fi
 \subsection{Prefix-Constrained Reconstruction}

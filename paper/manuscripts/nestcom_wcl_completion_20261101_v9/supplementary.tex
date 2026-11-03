@@ -105,7 +105,7 @@ Matched-grid timing (S7) & C1024 & Whole: HW; other grids: HT\\
 Historical timing (S7) & H7/H10/L10 & Earlier resource protocol, labeled in S7\\
 Kodak24 (S8) & H4/H10/H19 & WHOLE/Quarter: HW; Token: KT; Ada: HA\\
 \bottomrule\end{longtable}
-For Kodak, Quarter and Token share the NeST ceiling but use their respective endpoint grids. Receiver-only interventions reuse their original decoded prefixes and do not transmit new frames. Historical and current 10-dB ceilings/MCSs coincide, but their directory versions must still be tracked separately. The unchanged external-system configurations are documented in their original source manifests; they do not use the new U directories.
+For Kodak, Quarter and Token share the NeST ceiling but use their respective endpoint grids. Receiver-only interventions reuse their original decoded prefixes. U10 and H10 have identical MCSs and target ceilings, so the H10 timing and threshold studies probe the same modulation/coding and source-limit choices; their distinct directory versions identify the actual frames used. At 19 dB, historical Ada H19 uses 64-QAM rate 5/6, while current U19 uses 16-QAM rate 5/6. Kodak therefore evaluates the historical frozen configurations. External-system manifests identify their unchanged configurations.
 
 \subsection{Candidate pools and calibration}
 At N1024, all three token families use the same 12 MCSs, $q\in\{2,4,6\}$ and $r\in\{1/2,2/3,3/4,5/6\}$. WHOLE has seven complete-scale target ceilings. NeST searches the 25 Quarter target ceilings and permits every integer endpoint up to each target. Ada has the maximum target of 256 and permits every shorter positive prefix. This gives 84/300/12 candidates for WHOLE/NeST/Ada, respectively. Equal MCS and selection rules do not mean identical endpoint grammars. NeST's search is finite over 25 ceilings, not an exhaustive search over all 651 possible ceilings.
@@ -1130,7 +1130,7 @@ WHOLE & 10 & 2000 & 0.16500 & 0.13874\\
 
 
 \section{Qualitative examples}
-Fig.3 retains the two source IDs selected by the user from the prior complete gallery: source135 (C10-016, truck) and source201 (C10-017). WHOLE/NeST/Ada now use the current frozen N1024/10 policies and the first registered channel repetition, seed6201; SwinJSCC retains its original first repetition, seed2001. Sources were not reselected after the new calibration. Images retain the full 256-by-256 field. The displayed DISTS/DreamSim values are computed from the corresponding native float output, not a PNG or a three-repeat mean. These remain selected illustrative cases, not random or representative samples.
+Fig.3 uses source135 (C10-016, truck) and source201 (C10-017), chosen from the prior gallery to illustrate favorable NeST perceptual reconstruction. These identities were fixed before unified recalibration and retained afterward. WHOLE/NeST/Ada use the current U10 policies and first registered channel repetition, seed6201; SwinJSCC retains its original first repetition, seed2001. Images show the full 256-by-256 field, with DISTS/DreamSim computed from each displayed native float output. The examples illustrate selected visual gains; common500 means and paired intervals establish population-level comparisons.
 
 \begin{longtable}{@{}rlrrrrr@{}}\toprule
 Index & Method & PSNR & LPIPS & DreamSim & CLIP-I & DISTS\\\midrule\endhead
@@ -1180,7 +1180,7 @@ Token & 248.44 & [246.78, 251.06]\\
 These grid timings include shared scale-wise probability evaluation, independent termination and complete candidate scanning. Earlier serial-Ada and two-source instrumentation diagnostics are retained in \path{reproduction_logs/timing_execution_history_20261103.md}; they are not used to adjust the 32-source measurements.
 
 \subsection{Prefill compatibility diagnostic}
-Two fixed sources from the preceding diagnostic are reused for four full-prefix probability calls: conditional-only and the original two-branch calculation for each source. We preserve FP32, math attention, weights and the exact integer-CDF conversion. Existing source tokens, predicted classes, 256 CDF hashes and 256 independently terminated streams per source provide the reference; no classifier, tokenizer, image decoder, PHY or quality evaluation is rerun. The table counts exact matches to the frozen incremental route.
+On two fixed sources, conditional-only and original two-branch full-prefix evaluation are compared with the frozen incremental route. Both use identical weights, FP32, math attention and integer-CDF conversion. The reference contains 256 CDFs and independently terminated streams per source. The table reports exact matches.
 
 \begin{longtable}{@{}rrrr@{}}\toprule
 Source index & Branches & CDF matches & Stream matches\\\midrule\endhead
@@ -1189,14 +1189,14 @@ Source index & Branches & CDF matches & Stream matches\\\midrule\endhead
 1 & 1 & 0/256 & 2/256\\
 1 & 2 & 0/256 & 2/256\\
 \bottomrule\end{longtable}
-The full-prefix route is not an exact replacement for the frozen incremental probability path on these inputs. It requires a separately validated transmitter/receiver numerical route rather than substituting new probabilities into old bitstreams. The following study validates such a paired route; the preceding diagnostic and original streams remain unchanged.
+Full-prefix evaluation changes the CDFs on these inputs. The following study therefore validates a matched prefill transmitter/receiver, including independent recovery of its new bitstreams.
 
 \subsection{Separately qualified compiled Ada implementation}
 We replace the serial encoder with a single conditional causal prefill and compile the forward operation with \texttt{torch.compile}. At RX, the conditional CDF is reconstructed from the received prefix alone using the same tensor shape and strict causal mask; unknown future inputs are public zeros. The generated tail follows the actual recovered context, using the original CFG=4, temperature, filtering and sampling rules. Entropy CDFs use only the conditional branch. We retain FP32, math attention, disabled TF32, the same weights, classifier, tokenizer, image decoder, fixed MCS and candidate set. The compiler may change floating-point execution, so this is a new numerical implementation, not a bit-exact substitution for the original quality-evaluation route.
 
-Two fixed sources first pass exact recovery of all 512 tokens and 512 integer CDFs, plus two fixed-prefix tail checks. That successful qualification is reused, without repeating its model calls. The formal study then performs fresh RGB-to-symbol TX and independent symbol-to-RGB RX on the same 32 sources, with two warmups and three measurements per direction. RX has no access to source pixels or TX witness files. All 160 received prefixes, decoded classes and endpoints match the external TX witness after RX has exited; all 96 measured receptions succeed. Repeated outputs are deterministic within the new implementation.
+Qualification recovers all 512 tokens and integer CDFs on two fixed sources and checks both generated tails. The 32-source study uses two warmups and three measurements per direction, with independent RX receiving only its waveform and public configuration. All 160 prefixes, classes and endpoints match the TX reference after independent decoding, and all 96 measured receptions succeed. Repeated outputs are deterministic within this implementation.
 
-The following timings include class prediction and actual digital-link processing at the same synchronized boundaries as the preceding resource audit. Model loading and cold compilation are excluded from latency, but remain charged to the resource ledger. Compilation uses eight CPU cores; each timed span returns to the same two distinct cores and 2/2 thread pools. That timing study did not evaluate image quality; the subsequent same-source quality diagnostic below supplies it. The 10\,000-by-32 bootstrap index bank and source order are reused exactly.
+Timings include class prediction and digital-link processing at the same synchronized boundaries as S7.1. Model loading and cold compilation are outside these spans. Compilation uses eight CPU cores; timed spans use the same two distinct cores and 2/2 thread pools. S7.5 supplies quality for the corresponding outputs. Intervals use the fixed 10\,000-by-32 source-bootstrap bank.
 
 \begin{longtable}{@{}lrl@{}}\toprule
 Implementation span & Mean (ms) & 95\% source interval\\\midrule\endhead
@@ -1204,13 +1204,13 @@ TX & 114.55 & [114.15, 114.93]\\
 RX & 2949.76 & [2945.89, 2953.91]\\
 TOTAL & 3064.30 & [3060.46, 3068.37]\\
 \bottomrule\end{longtable}
-The new route matches 0/160 historical emitted waveforms and 10/160 historical reconstructed images exactly. Its latency is therefore reported separately from the original-quality Ada row; it does not replace those quality arrays or establish a NeST/Ada algorithmic speedup. The serial audit cost is not an intrinsic Ada requirement. The authors' published timing also uses different hardware and a different processing boundary, so its 19/1012 ms values are not substituted into the local comparison.
+The compiled route matches 0/160 historical waveforms and 10/160 reconstructed images exactly; S7.5 pairs its latency with its own output quality and explains the seed dependence. These are implementation-specific processing measurements. Ada's published 19/1012-ms TX/RX values use different hardware and processing boundaries.
 
 
 \subsection{Quality paired with compiled Ada timing}
 We restore the 32 saved timed received waveforms and compare native outputs on the exact same sources, received prefixes/classes and channel events. The restored compiled outputs match all 32 timed output hashes. No TX, new channel event or new timing run is performed. The original and compiled coders recover identical source tokens, but their bitstreams differ; the existing seed derivation from received payload bytes can therefore change the tail-generation seed.
 
-A preregistered fixed-original-seed arm isolates the effect of payload-derived generation seeds, using 30 additional tail renders and two exact reuses. Holding that seed fixed makes all 32 native reconstructed images byte-identical to the original timed route, and all five paired quality differences are exactly zero. The actual timed outputs differ on 30 images. Their paired mean differences below all have intervals crossing zero; this 32-source diagnostic does not establish population equivalence or replace common500. Each source has one distinct timed event; five timing repetitions are not five quality samples. The original common500 quality route remains fixed.
+A fixed-original-seed control isolates payload-derived seed changes. It produces byte-identical native images on all 32 sources and zero differences on all five metrics. The actual timed outputs differ on 30 sources; their paired mean differences below all have intervals crossing zero. Each source contributes one distinct quality event. This diagnostic pairs quality with the compiled implementation's measured cost; the common500 results retain the original implementation.
 
 \begin{longtable}{@{}lll@{}}\toprule
 Arm difference & Metric & Mean [paired 95\% CI]\\\midrule\endhead

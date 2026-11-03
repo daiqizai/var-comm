@@ -1,3 +1,11 @@
+# 最新：NeST-Com 贡献论证修订（2026-11-03）
+
+当前 V9 正面突出尺度级概率计算与尺度内传输端点的分离，正文补充独立终止码长非递减条件和 Token/Eighth 的质量成本取舍；ARPC/Ada 各自设计及 VAR 接收机制归属准确保留。新旧策略对应和全部不利结果保持，未新增科学计算。
+
+交付路径 `paper/manuscripts/nestcom_wcl_completion_20261101_v9/`：双栏/单栏/Word/补充5/15/16/36页，摘要88词，72页本轮实际审阅。三图、四主表与科学输入未变。详见 `CONTRIBUTION_NARRATIVE_20261103.md` 和 `validation/current_revision.json`；必要仓库检查及正常 main 发布由本次记录确认。既有暂停任务不恢复。
+
+--- 以下为历史记录 ---
+
 ## V9 protocol wording and policy index clarified — 2026-11-03
 
 The current data-frame profile selects an endpoint within a preconfigured method/MCS directory; the manuscript and S1.3 now use this definition consistently. A compact index distinguishes current main policies from earlier Kodak, threshold, receiver and timing configurations. The body reports the measured complete NeST/WHOLE TX/RX costs; compilation failures and execution history are retained in reproduction logs. No new scientific or timing calls were made, and scientific inputs, three figures and four main tables are unchanged.

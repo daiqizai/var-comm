@@ -1,3 +1,11 @@
+# 当前交付：贡献论证修订（2026-11-03）
+
+主线改为“保持尺度级概率计算，按独立终止的实际码长细化固定帧传输端点”。正文加入码长性质、粒度与成本取舍；已有接收机制准确归属，相关工作以各自解决的问题组织。
+
+[双栏 PDF](manuscript_doublecolumn.pdf) · [单栏 PDF](manuscript_singlecolumn.pdf) · [可编辑 Word](manuscript_review.docx) · [补充材料](supplementary.pdf) · [修订说明](CONTRIBUTION_NARRATIVE_20261103.md) · [当前验收](validation/current_revision.json)。页数 **5/15/16/36**，摘要 **88 词**，本轮72页实际审阅。三图、四主表与科学输入保持；无新实验。下方为历史快照。
+
+--- Historical record / 历史记录 ---
+
 # 当前交付：协议用词、策略索引与处理成本修订（2026-11-03）
 
 当前 MCS/目录预配置和 12-bit endpoint profile 的含义已统一。补充 S1.3 集中索引新旧策略；正文补回 NeST/WHOLE 完整 TX/RX 耗时；运行历史移至复现日志。未新增实验，三图、四主表与既有科学输入不变。

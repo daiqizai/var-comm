@@ -1,3 +1,18 @@
+# 当前贡献论证修订验收（2026-11-03）
+
+| Item | Status | Evidence |
+|---|---|---|
+| Primary-source related-work positioning | done | ARPC official contribution overview; Ada full introduction/method; revision report |
+| Affirmative technical argument and coder-specific property | done | Abstract, I, II-B, IV |
+| Quality/cost and policy-lineage statements | done | III, S1.3, S7 |
+| Unchanged figures, tables and scientific inputs | done | current data_checks.json |
+| Actual PDF/Word build and visual review | done | 5/15/16/36 pages; current artifact_review.json |
+| New experiments, re-timing or search optimization | not-run-optional | Editorial revision only |
+
+The current repository_checks.json and normal Git history record required verification and publication. Previous revision receipts remain historical.
+
+--- Historical record / 历史记录 ---
+
 # 当前用词修订验收（2026-11-03）
 
 | Item | Status | Evidence |
