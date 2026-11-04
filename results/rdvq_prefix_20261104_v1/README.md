@@ -1,3 +1,7 @@
+# Current status: P2 PAUSED_BY_USER_INCOMPLETE
+
+Four arms safely checkpointed and exited. Six arms never started. No automatic resume. See [pause verification](pause_20261105_v1/README_zh.md). P0/P1 remain closed; previous milestone status below is historical.
+
 # RDVQ actual-bit prefix study — first-batch evidence
 
 **P0 and P1 are closed. P2 matched training is active. The first batch is not
