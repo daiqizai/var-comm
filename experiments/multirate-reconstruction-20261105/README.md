@@ -120,3 +120,12 @@ agreement across all ranks and exact global sample/augmentation-record checks.
 `measure_world8_throughput.py` observes retained updates without model calls.
 The existing segment's wall deadlines stay fixed; its remaining resource ledger
 now counts eight GPUs. See the `world8_v1` result directory for the explicit proof.
+
+## Automatic final-checkpoint test handoff
+
+The finite `posttrain_chain_v1.py` waits for the existing eight-GPU run, preserves
+normal completed segment checkpoints, and resumes unchanged training in fresh
+bounded allocations until the scheduled 150000 updates. It then tests actual
+packets and independent RX at both resolutions against the original codec.
+Old P2 arms remain paused. See [protocol and current scope](POSTTRAIN_zh.md).
+Final-checkpoint test results are not available yet.
