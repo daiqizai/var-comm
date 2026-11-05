@@ -1,7 +1,7 @@
 # Multirate representation and reconstruction: running implementation
 
 Branch `codex/multirate-reconstruction-20261105` contains the actual 639,592,611-parameter
-main model and a four-GPU training run. This is research in progress, not a measured
+main model and an eight-GPU training run, migrated from the saved four-GPU run. This is research in progress, not a measured
 rate–quality improvement. The previous four P2 arms remain safely paused and their
 six pending arms are not launched. The old NeST manuscript is unchanged.
 
@@ -27,8 +27,8 @@ new radio protection/frame evaluation is pending and is not inferred from this c
 
 ## Training and data
 
-`train_v2.py` continues the same DDP model from `train.py` on available devices 1/2/4/5. Global batch is 32,
-with microbatches 4 at 256 and 2 at 512. Other users' four occupied GPUs are untouched.
+`train_world8_v1.py` currently runs on GPUs 0..7 after the authorized safe migration. Its four-GPU predecessor `train_v2.py` is complete at step 36,092. Global batch is 32,
+with microbatches 4 at 256 and 2 at 512. All eight GPUs were verified free of foreign work at migration admission.
 BF16 is used for E/D operations, with FP32 parameters, optimizer and entropy/CDF
 arithmetic and TF32 disabled. Loss is MSE + LPIPS-VGG + soft bpp + 4 times excess
 budget bpp + VQ/commitment. One in four updates trains the complete representation;
@@ -105,3 +105,18 @@ data cursor and schedule remain unchanged. This is a new recorded allocation,
 not a reset of the first deadline. See `results/multirate_reconstruction_20261105_v1/segment02_v1/`.
 The resumed checkpoint's corpus hash is the effective runtime data identity;
 the unused inherited bootstrap request-hash field is explained in its manifest note.
+
+## Eight-GPU migration
+
+`resume_world8_v1.py` is a one-time entry, not a generic retry command. The original
+four-GPU process exited normally at step 36,092. Global batch, model, optimizer,
+schedule and data cursor are preserved. Logical ranks 0..3 retain saved RNG state;
+new ranks 4..7 have explicit checkpoint-derived seeds. Each rank has two distinct
+NUMA-local physical CPU cores. Floating-point reduction order changes, so later
+four-card and eight-card trajectories are not claimed bitwise identical.
+
+The first retained eight-GPU update passed complete parameter/optimizer hash
+agreement across all ranks and exact global sample/augmentation-record checks.
+`measure_world8_throughput.py` observes retained updates without model calls.
+The existing segment's wall deadlines stay fixed; its remaining resource ledger
+now counts eight GPUs. See the `world8_v1` result directory for the explicit proof.

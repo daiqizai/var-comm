@@ -1,0 +1,59 @@
+--- train_v2.py
++++ train_world8_v1.py
+@@ -15,6 +15,7 @@
+ from torchvision.transforms import functional as TF
+ from model import MultiRateCodec
+ from training_core import load_training_lpips
++from world_migration_v1 import restore_rank, audit_first_update
+ STOP=False
+ def request_stop(*args):
+     global STOP;STOP=True
+@@ -71,7 +72,7 @@
+     dist.barrier();return ident
+ def main():
+     p=argparse.ArgumentParser();p.add_argument('--request',required=True);a=p.parse_args();reqpath=Path(a.request);r=json.loads(reqpath.read_text())
+-    rank=int(os.environ['RANK']);world=int(os.environ['WORLD_SIZE']);local=int(os.environ['LOCAL_RANK']);torch.cuda.set_device(local)
++    rank=int(os.environ['RANK']);world=int(os.environ['WORLD_SIZE']);local=int(os.environ['LOCAL_RANK']);os.sched_setaffinity(0,set(r['rank_cpus'][str(rank)]));torch.cuda.set_device(local)
+     torch.set_num_threads(2);dist.init_process_group('nccl')
+     for name,h in r['bindings'].items():assert sha(name)==h,name
+     assert (OLD/'STOP_P2').exists();out=Path(r['output'])
+@@ -82,16 +83,17 @@
+     lp=load_training_lpips(json.loads((OLD/'metric_assets.json').read_text()))
+     optimizer=torch.optim.AdamW(model.parameters(),lr=r['learning_rate'],betas=(.9,.95),weight_decay=.01)
+     random.seed(r['seed']+rank);np.random.seed(r['seed']+rank);torch.manual_seed(r['seed']+rank);torch.cuda.manual_seed(r['seed']+rank)
+-    corpus=Corpus(r['training_manifest'],r['seed']);step=cursor=0
++    corpus=Corpus(r['training_manifest'],r['seed']);step=cursor=0;migration_record=None
+     if r.get('resume'):
+         prior=r['resume'];assert sha(prior['path'])==prior['sha256'];st=torch.load(prior['path'],map_location='cpu',weights_only=False)
+         assert st['global_batch']==r['global_batch'] and st['schedule']==r['schedule'] and st['seed']==r['seed']
+-        assert st['world_size']==world,'World-size change requires a separately recorded RNG/data migration; no silent restart'
+-        model.load_state_dict(st['model'],strict=True);optimizer.load_state_dict(st['optimizer']);restore(st['rng_by_rank'][rank])
++        model.load_state_dict(st['model'],strict=True);optimizer.load_state_dict(st['optimizer'])
++        migration_record=restore_rank(st,r,rank,world,restore,rng)
+         step=st['step'];cursor=st['cursor'];corpus=Corpus(st['corpus_path'],r['seed']);assert corpus.identity==st['corpus_sha256'];del st
+     ddp=DDP(model,device_ids=[local],broadcast_buffers=False,find_unused_parameters=True)
+     assert r['global_batch']%world==0
+-    start=time.monotonic();end_step=sum(v['updates'] for v in r['schedule']);last_save=step
++    start=time.monotonic();end_step=sum(v['updates'] for v in r['schedule']);last_save=step;initial_step=step
++    write(out/f'rank{rank}_restore.json',dict(migration_record,restored_step=step,restored_cursor=cursor,corpus_sha256=corpus.identity,cpu_affinity=sorted(os.sched_getaffinity(0))))
+     if rank==0:write(out/'training_started.json',dict(time=time.time(),parameters=model.parameter_counts(),world_size=world,global_batch=r['global_batch'],corpus=corpus.path,corpus_images=len(corpus.rows),request_sha256=sha(reqpath)))
+     log=(out/f'updates_rank{rank}.jsonl').open('x')
+     while step<end_step:
+@@ -113,13 +115,15 @@
+                 with torch.autocast('cuda',dtype=torch.bfloat16):loss,rec,reconstruction=ddp(x,modes,full=full,perceptual=lp)
+                 assert torch.isfinite(loss),f'nonfinite loss at step {step}'
+                 (loss/accum).backward()
+-            records.append({k:(v.cpu().tolist() if torch.is_tensor(v) else v) for k,v in rec.items()});examples.extend(dict(it[1],mode=m) for it,m in zip(items,mode))
++            records.append({k:(v.cpu().tolist() if torch.is_tensor(v) else v) for k,v in rec.items()});examples.extend(dict(it[1],mode=m,position=position) for it,m,position in zip(items,mode,positions))
+             del loss,reconstruction,x
+         grad=torch.nn.utils.clip_grad_norm_(model.parameters(),1.,error_if_nonfinite=True);optimizer.step();step+=1;cursor+=r['global_batch'];torch.cuda.synchronize()
+         log.write(json.dumps(dict(step=step,size=size,seconds=time.monotonic()-tick,lr=lr,grad_norm=float(grad),records=records,examples=examples,corpus_sha256=corpus.identity))+'\n');log.flush()
+         if rank==0:write(out/'progress.json',dict(step=step,schedule_target=end_step,resolution=size,step_seconds=time.monotonic()-tick,
+             mse=sum(v['mse'] for v in records)/len(records),soft_bpp=sum(v['soft_bpp'] for v in records)/len(records),image_exposures=step*r['global_batch'],corpus_images=len(corpus.rows),elapsed_seconds=time.monotonic()-start))
+-        if step==1 or step%r['checkpoint_steps']==0:
++        if step==initial_step+1 and migration_record['migrated']:
++            audit_first_update(model,optimizer,examples,r,step,cursor,out,rank,world)
++        if step==initial_step+1 or step%r['checkpoint_steps']==0:
+             path=[available_corpus(out,corpus) if rank==0 else None];dist.broadcast_object_list(path,src=0)
+             if path[0]!=corpus.path:
+                 corpus=Corpus(path[0],r['seed']);cursor=0
