@@ -1,3 +1,9 @@
+# Current: early-stopped checkpoint, 256-only test
+
+Training stopped safely at step82,858 under the latest user request. The full schedule and 512 training are incomplete. STOP_MAIN and the old P2 pause remain. The evaluation-only v2 uses the exact saved checkpoint and fixed 500-source test protocol; no training continuation is authorized. See [evidence and scope](EARLY_STOP_256_zh.md).
+
+--- Historical implementation and registrations ---
+
 # Multirate representation and reconstruction: running implementation
 
 Branch `codex/multirate-reconstruction-20261105` contains the actual 639,592,611-parameter
