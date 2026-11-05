@@ -1,0 +1,65 @@
+{
+  "output": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/multirate_reconstruction_20261105_v1/training_segment02",
+  "seed": 20261105,
+  "training_manifest": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/multirate_reconstruction_20261105_v1/training_v2/corpus_0116238.json",
+  "training_manifest_sha256": "d8e6a7d5e79c894070ab95f7b291b99149d8f771106890bddf77c420ca951c71",
+  "schedule": [
+    {
+      "resolution": 256,
+      "updates": 100000
+    },
+    {
+      "resolution": 512,
+      "updates": 50000
+    }
+  ],
+  "global_batch": 32,
+  "microbatch_256": 4,
+  "microbatch_512": 2,
+  "learning_rate": 1e-05,
+  "warmup_steps": 500,
+  "checkpoint_steps": 100,
+  "wall_seconds": 39600,
+  "owner_max_seconds": 43200,
+  "initial_allocation_max_gpu_device_hours": 48,
+  "gpus": [
+    1,
+    2,
+    4,
+    5
+  ],
+  "devices": [
+    "1, GPU-f5047136-08e5-9416-3c86-87786d0b355e, 00000000:62:00.0, 1, 0",
+    "2, GPU-922807e5-02b4-9634-5684-0523008bec0f, 00000000:63:00.0, 1, 0",
+    "4, GPU-e16f543b-5804-21a1-e168-c10009279926, 00000000:A1:00.0, 1, 0",
+    "5, GPU-f7c11391-0939-fe88-e407-bea4db46cb93, 00000000:A2:00.0, 1, 0"
+  ],
+  "bindings": {
+    "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/multirate-reconstruction-20261105/runtime.py": "19a83fbe879e687e285b0379e717c01a40fe7f97bc28b87e193ec0506fdf9739",
+    "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/multirate-reconstruction-20261105/model.py": "7c7a92bdb5c39d4cbb6a8a278ff81e6dc01484d99928f34e0c7872a6666e0903",
+    "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/multirate-reconstruction-20261105/codec.py": "62a662d98325dacf33ef1c6a50175bd68bf98b680c0eb753238ec6ad4e0a0ff0",
+    "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/multirate-reconstruction-20261105/train_v2.py": "3e8f39392e480073d55369700b32d4690145179c6d96cdcbccc3ff28e7091f59",
+    "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM/experiments/multirate-reconstruction-20261105/resume_segment02.py": "6a0ace87ea73d14259d4643872f7502ca8afe640c736c86be93cf174ab808693"
+  },
+  "bootstrap_scope": "actual growing verified training corpus; no claim of completed large-scale training",
+  "actual_packet_protocol": "17 bytes paid mode, prefix endpoint, stream lengths and CRC; top-k rANS; source packet, not a new radio frame",
+  "precision": "BF16 E/D matrix operations, FP32 parameter/optimizer/entropy/CDF; TF32 off",
+  "reconstruction": "one deterministic conditional transformer route",
+  "losses": "MSE + LPIPS-VGG + 1.0 soft bpp + 4.0 budget excess bpp + VQ/commitment",
+  "full_representation_frequency": "one of four optimizer updates",
+  "data_transition": "only at checkpoints, >=1000 new verified unique training images; exclude heldout hashes",
+  "old_P2": "PAUSED_BY_USER_INCOMPLETE; never resumed",
+  "resume": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-checkpoint/liulu/var_comm/multirate_reconstruction_20261105_v1/main_v1/segment01_step034027.pt",
+    "sha256": "7c558221a20deee4769295766c18c4713528a16ec9df6b88ce0debde71d14a4c",
+    "bytes": 7676681980,
+    "step": 34027,
+    "cursor": 247264,
+    "corpus": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/multirate_reconstruction_20261105_v1/training_v2/corpus_0116238.json"
+  },
+  "continuation": "separate finite allocation 02 after normal predecessor exit; optimizer/RNG/data/schedule unchanged",
+  "predecessor": "training_v2",
+  "predecessor_original_owner_deadline": 1793855085.243571,
+  "predecessor_original_training_deadline": 1793851507.0814486,
+  "allocation_gpu_device_hours_max": 48
+}

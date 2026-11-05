@@ -95,3 +95,13 @@ Original codec baselines and the plateau audit remain valid historical evidence.
 New small-model control, conventional-training control, convergence, formal 512
 training completion and actual rate–quality/PHY evaluation are pending. There is
 no new quality claim from the training loss or these engineering checks.
+
+## Second finite allocation
+
+The first allocation ended normally at step 34,027. `resume_segment02.py`
+preserves that checkpoint and resumes unchanged `train_v2.py` for another
+bounded 12-hour, four-GPU allocation. Global batch, optimizer, per-rank RNG,
+data cursor and schedule remain unchanged. This is a new recorded allocation,
+not a reset of the first deadline. See `results/multirate_reconstruction_20261105_v1/segment02_v1/`.
+The resumed checkpoint's corpus hash is the effective runtime data identity;
+the unused inherited bootstrap request-hash field is explained in its manifest note.

@@ -19,7 +19,8 @@ def collect():
     data={}
     for name in ['corpus_coco116k_v2','corpus_openimages100k_v1']:
         out=L/name;data[name]={n:read(out/n) for n in ['progress.json','complete.json','index_identity.json']}
-    active='training_v2' if (L/'training_v2/training_started.json').exists() else 'training_v1'
+    started=list(L.glob('training*/training_started.json'))
+    active=max(started,key=lambda p:read(p)['time']).parent.name if started else 'training_v1'
     o=dict(time=now,active_training_role=active,branch=subprocess.check_output(['git','branch','--show-current'],cwd=R,text=True).strip(),
         head=subprocess.check_output(['git','rev-parse','HEAD'],cwd=R,text=True).strip(),
         old_P2_stop=(OLD/'STOP_P2').exists(),old_pause=read(OLD/'user_pause_verification_v1/complete.json')['P2_status'],
