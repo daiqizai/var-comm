@@ -1,34 +1,90 @@
 {
   "schema": "multirate-reconstruction-scope-v1",
-  "status": "BRANCH_ESTABLISHED_DESIGN_AND_EXISTING_EVIDENCE_ONLY",
+  "status": "MAIN_TRAINING_RUNNING",
   "branch": "codex/multirate-reconstruction-20261105",
   "base_commit": "eda2b7156d0102cb59656a568803df3dcf31c9d4",
   "user_direction": "Train a stronger multirate digital image communication codec; improve representation and reconstruction rather than only move endpoints.",
   "previous_P2": "PAUSED_BY_USER_INCOMPLETE",
   "previous_P2_resume_authorized": false,
-  "model_parameter_design_range": [600000000, 1000000000],
-  "parameter_count_measured": false,
-  "trainable_modules": ["encoder", "quantizer/codebook", "entropy_model", "reconstructor"],
+  "model_parameter_design_range": [
+    600000000,
+    1000000000
+  ],
+  "parameter_count_measured": true,
+  "trainable_modules": [
+    "encoder",
+    "quantizer/codebook",
+    "entropy_model",
+    "reconstructor"
+  ],
   "budget_conditioned_encoder_allowed": true,
   "nested_bitstream_required": false,
-  "charge_required_fields": ["budget_or_mode", "resolution", "termination", "payload_lengths", "integrity_and_channel_protection"],
+  "charge_required_fields": [
+    "budget_or_mode",
+    "resolution",
+    "termination",
+    "payload_lengths",
+    "integrity_and_channel_protection"
+  ],
   "representation_capacity_may_change": true,
   "initialization": "Reuse verified pretrained components where compatible; no requirement to initialize all parameters randomly.",
   "main_reconstruction_routes_to_train": 1,
-  "main_reconstruction_route_selected": false,
-  "training_resolutions": [256, 512],
+  "main_reconstruction_route_selected": "deterministic conditional latent transformer plus pretrained convolutional decoder",
+  "training_resolutions": [
+    256,
+    512
+  ],
   "formal_512_training_required": true,
-  "expanded_training_data_target_unique_images": [200000, 1000000],
-  "expanded_data_verified": false,
+  "expanded_training_data_target_unique_images": [
+    200000,
+    1000000
+  ],
+  "expanded_data_verified": "COCO usable and active manifest 116238 unique images; 34 transport failures retained",
   "intended_primary_training_gpus": 8,
   "all_eight_gpus_available_at_handoff": false,
   "old_336_GPU_hours_is_new_project_ceiling": false,
-  "new_training_allocation": null,
+  "new_training_allocation": {
+    "gpus": [
+      1,
+      2,
+      4,
+      5
+    ],
+    "owner_max_hours": 12,
+    "max_GPU_device_hours": 48,
+    "training_soft_wall_hours": 11
+  },
   "allocation_rule": "Bind finite checkpointable segments from measured throughput, image exposures and actual device availability; maintain actual resource ledger.",
-  "readiness_checks": ["finite_loss_and_correct_gradients", "independent_actual_codec", "sustained_data_supply", "optimizer_RNG_sampler_restore", "measured_memory_and_throughput"],
+  "readiness_checks": [
+    "finite_loss_and_correct_gradients",
+    "independent_actual_codec",
+    "sustained_data_supply",
+    "optimizer_RNG_sampler_restore",
+    "measured_memory_and_throughput"
+  ],
   "preliminary_quality_gain_required_before_training": false,
-  "early_controls": ["original_codec", "small_model_same_objective"],
+  "early_controls": [
+    "original_codec",
+    "small_model_same_objective"
+  ],
   "later_control": "large_model_conventional_training",
   "old_manuscript_changed": false,
-  "new_training_started": false
+  "new_training_started": true,
+  "actual_parameters": 639592611,
+  "model_implementation": "model.py",
+  "main_request": "results/multirate_reconstruction_20261105_v1/implementation_v1/training_request.json",
+  "expanded_data_target_complete": false,
+  "openimages100k": "preparation in progress, not yet admitted",
+  "training_schedule": [
+    {
+      "resolution": 256,
+      "optimizer_updates": 100000
+    },
+    {
+      "resolution": 512,
+      "optimizer_updates": 50000
+    }
+  ],
+  "schedule_completed": false,
+  "active_training_implementation": "train_v2.py"
 }

@@ -1,0 +1,59 @@
+{
+  "passed": true,
+  "parameters": {
+    "total": 639592611,
+    "trainable": 639592611,
+    "components": {
+      "vq": 163718883,
+      "ar": 88125792,
+      "encoder_refiner": 85123616,
+      "decoder_refiner": 302402592,
+      "fine_encoder": 73760,
+      "fine_decoder": 147968
+    }
+  },
+  "gradient_checks": [
+    {
+      "size": 256,
+      "loss": 1.0193370580673218,
+      "gradient_norms": {
+        "vq": 1.3510594463133094,
+        "ar": 0.49105703201009604,
+        "encoder_refiner": 0.08365197112746413,
+        "decoder_refiner": 10.116144485178515,
+        "fine_encoder": 2.020336878082848,
+        "fine_decoder": 0.0017333591811530989
+      },
+      "seconds": 3.9596633911132812,
+      "peak_allocated_bytes": 12930257920,
+      "tokens": 1360
+    },
+    {
+      "size": 512,
+      "loss": 1.086897611618042,
+      "gradient_norms": {
+        "vq": 2.5128646027879427,
+        "ar": 1.0396296996400698,
+        "encoder_refiner": 0.09294312671790335,
+        "decoder_refiner": 16.362677705981383,
+        "fine_encoder": 1.870321645130824,
+        "fine_decoder": 0.0011421752524229138
+      },
+      "seconds": 0.9763712882995605,
+      "peak_allocated_bytes": 18511830528,
+      "tokens": 5440
+    }
+  ],
+  "checkpoint": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-checkpoint/liulu/var_comm/multirate_reconstruction_20261105_v1/qualification_v1.pt",
+    "sha256": "80a6131eef9dd052ea773499fea301832660610972a7b661604271720bf60011",
+    "bytes": 7676660557
+  },
+  "packet_bits": 7904,
+  "endpoint": 43,
+  "inprocess_rx_exact": true,
+  "crc_rejected": true,
+  "independent_process_rx": "pending separate process",
+  "seconds": 34.73059868812561,
+  "old_P2_stop": true
+}
