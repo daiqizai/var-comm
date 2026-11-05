@@ -1,3 +1,17 @@
+# Current: 256 evaluation complete; training remains paused
+
+The step82,858 checkpoint improves all four metrics at 512–1024-bit packet limits,
+but is worse on all four at 3072 bits and above. Full representation is already
+received for all500 sources at2048 bits; the high-budget quality plateau has not
+improved. All4000 new source packets have independent RX;4000 original positions
+are verified cache reuse. The complete positive and adverse results, source-paired
+CIs and resource ledger are in
+[the delivery](../../results/multirate_reconstruction_20261105_v1/eval256_delivery_v2/REPORT_zh.md).
+Main and old P2 remain paused. The150k schedule and512 phase are incomplete;
+this delivery does not authorize any further training or test expansion.
+
+--- Historical implementation and registrations ---
+
 # Current: early-stopped checkpoint, 256-only test
 
 Training stopped safely at step82,858 under the latest user request. The full schedule and 512 training are incomplete. STOP_MAIN and the old P2 pause remain. The evaluation-only v2 uses the exact saved checkpoint and fixed 500-source test protocol; no training continuation is authorized. See [evidence and scope](EARLY_STOP_256_zh.md).
