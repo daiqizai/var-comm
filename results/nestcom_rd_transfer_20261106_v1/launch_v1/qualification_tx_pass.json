@@ -1,0 +1,93 @@
+{
+  "passed": true,
+  "hard_token_parity": true,
+  "hard_latent_and_pixel_parity": true,
+  "initial_model_hashes": {
+    "vae": "6830fc533a34d52c8f765a7b212782a5b5ef6138992099e8a817ce920fe6fe2b",
+    "var": "b82cb0855b24e1d0d8d0aacebbb2d2d6728c2dcc6509b667dfa697c9330347d5",
+    "decoder": "bf1d64bf8ff7eeda416032daa2ada1654fb37de2553235e85d364211ddfefad1"
+  },
+  "gradients": {
+    "rate_encoder_norm": 0.01097287517040968,
+    "rate_prior_norm": 0.003055943176150322,
+    "detached_rate_encoder_zero": true
+  },
+  "updates": [
+    {
+      "loss": 0.1736719012260437,
+      "gradients": {
+        "encoder": 1.2672432661056519,
+        "prior": 0.07625991851091385,
+        "decoder": 0.23567453026771545
+      },
+      "seconds": 2.0612499713897705,
+      "full_mse": 0.0055099595338106155,
+      "partial_mse": 0.019449520856142044,
+      "full_lpips_vgg": 0.2526176869869232,
+      "partial_lpips_vgg": 0.4793558418750763,
+      "soft_bpp": 0.010575112886726856,
+      "hard_ce": 6.290757179260254,
+      "commitment": 0.04831496998667717,
+      "tokens": 62,
+      "arithmetic_bits": 586,
+      "full_arithmetic_bits": 6172,
+      "source_capacity": 591,
+      "body_information_bits": 615,
+      "null": false,
+      "tx_cdf_sha256": "5482979854b99bbe1b5ce1e57967d95e4230d9921de042b9f3d1bf30c7404ef4"
+    },
+    {
+      "loss": 0.24112989008426666,
+      "gradients": {
+        "encoder": 0.9304429888725281,
+        "prior": 0.07546968013048172,
+        "decoder": 0.1710989773273468
+      },
+      "seconds": 1.0400993824005127,
+      "full_mse": 0.013896582648158073,
+      "partial_mse": 0.043216995894908905,
+      "full_lpips_vgg": 0.3036205768585205,
+      "partial_lpips_vgg": 0.524997353553772,
+      "soft_bpp": 0.020243626087903976,
+      "hard_ce": 6.512403964996338,
+      "commitment": 0.14007322490215302,
+      "tokens": 118,
+      "arithmetic_bits": 1270,
+      "full_arithmetic_bits": 6390,
+      "source_capacity": 1273,
+      "body_information_bits": 1299,
+      "null": false,
+      "tx_cdf_sha256": "b7ffc6bde7f27db9553aeee3ef7a8f91869761607d64b743fdb9b53191384953"
+    }
+  ],
+  "frozen_quantizer_sha256": "902e2d17a8a8d1d96cde263484a47f89326126866b053c2ac14dab3f9335693e",
+  "expected": [
+    {
+      "name": "partial",
+      "tokens": 129,
+      "token_sha256": "997fa340894e3dca8c8a729c7e8f4d6289d8dd49251e38e7bb437c9cdd3a346b",
+      "image_sha256": "acf91e5fcc824f6ef6aba7a3513a503872683052ac3d57e6d360f5c89208e0cd"
+    },
+    {
+      "name": "full",
+      "tokens": 680,
+      "token_sha256": "9905fdb13ff4664fef74527cd39fe908ac7618f7b82519301246579244a7bc94",
+      "image_sha256": "8d5a432c56871f0b88b6951b1fdd7123f475579c5ac4d3ceebce6154e2fa64c9"
+    },
+    {
+      "name": "null",
+      "tokens": 0,
+      "token_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "image_sha256": "d32cdef02f647c4d405a2361f33b3ce7e74ec09e5ef54641ce0191cfa55e2941"
+    }
+  ],
+  "parameters": {
+    "encoder": 44117120,
+    "prior": 310283520,
+    "decoder": 64663171
+  },
+  "numeric_route": "FP32, TF32 off, math SDPA, deterministic, batch1",
+  "cuda_name": "NVIDIA RPBZZZ6",
+  "torch": "2.11.0+cu128",
+  "max_memory_bytes": 12434655744
+}
