@@ -1,3 +1,13 @@
+# 当前：用户授权200步接续，延长观察
+
+最新用户“多训点试试”已执行。活动入口train_continue_v1.py/owner_continue_v1.py，
+continuation_v1.json绑定代码、数据、恢复源。原八卡完整状态已恢复并实际执行201步；
+目标累计5000，最多3小时，截止2026-11-06T13:24:30.035577+08:00。质量阈值改为监测，不因早期下降停训。
+旧STOP和旧协议不覆盖；本段STOP_CONTINUATION_V1单独控制。模型/目标/数据不变。
+详情：../../results/nestcom_rd_transfer_20261106_v1/continuation_v1/REPORT_zh.md。
+
+--- 以下为原段历史说明 ---
+
 # Original NeST rate-distortion transfer — 2026-11-06
 
 User authorizes implementation, necessary checks and training of RDVQ-style
