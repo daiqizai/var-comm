@@ -1,3 +1,13 @@
+# 当前：5000步训练和固定500图测试已闭合
+
+固定检查点对原始NeST进行了同预算真实终止码流/独立接收比较。源码容量591、1273、1911、2548bit，另收41bit信令与CRC；完整680tokens单独作为无预算重建上限。没有新增无线PHY或恢复旧研究臂。
+正式入口：formal_chain_metrics_v4.py、formal_owner_v3.py、formal_worker_v1.py（TX/RX）、formal_worker_v2.py（score_v2）；不应重新执行已有角色。
+注册、全部指标与正负解释在../../results/nestcom_rd_transfer_20261106_v1/formal500_v1/。
+resource_v1/v2仅启动前资源检查，resource_v3在资格指标导入前失败；真实编码/接收成功结果原样保留复用，指标定义隔离导入后从缺口接续。
+训练全记录在training5000；历史启动/200步保护停止/继续训练证据继续保留。旧四臂和640M仍暂停。
+
+--- 以下为原始阶段记录 ---
+
 # 当前：用户授权200步接续，延长观察
 
 最新用户“多训点试试”已执行。活动入口train_continue_v1.py/owner_continue_v1.py，

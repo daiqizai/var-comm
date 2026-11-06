@@ -1,0 +1,15 @@
+{
+  "note": "Exact raw unified diffs retained as JSON strings; original bytes remain at the PFS paths.",
+  "diffs": {
+    "formal_worker_v2.py.diff": {
+      "original_pfs_path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_rd_transfer_20261106_v1/formal500_v1/formal_worker_v2.py.diff",
+      "sha256": "c3359daee9b78de42a923d458dea5f67ed62a19ede5170d699270e4e510299e9",
+      "raw_unified_diff": "--- formal_worker_v1.py\n+++ formal_worker_v2.py\n@@ -6,10 +6,11 @@\n import numpy as np\n import torch\n from formal_codec_v1 import *\n+from formal_metrics_v2 import FiveMetrics\n \n def main():\n     p=argparse.ArgumentParser();p.add_argument('--request',required=True);p.add_argument('--stage',choices=['tx','rx','score'],required=True);a=p.parse_args()\n-    r=json.loads(Path(a.request).read_text());base=Path(r['output']);out=base/a.stage;out.mkdir(exist_ok=False)\n+    r=json.loads(Path(a.request).read_text());base=Path(r['output']);out=base/('score_v2' if a.stage=='score' else a.stage);out.mkdir(exist_ok=False)\n     for path,h in r['bindings'].items():assert sha(path)==h,path\n     old_paused();numerical();torch.manual_seed(20261106);torch.cuda.manual_seed_all(20261106)\n     start=time.time();counts=dict(encoder=0,entropy_passes=0,qualification_reference_encodes=0,rx=0,rx_logical_reused=0,\n"
+    },
+    "formal_owner_v3.py.diff": {
+      "original_pfs_path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_rd_transfer_20261106_v1/formal500_v1/formal_owner_v3.py.diff",
+      "sha256": "8fd7092f6d9a61709f0e78886d5123a1299e7070fab35923803e98616a04fc31",
+      "raw_unified_diff": "--- formal_owner_v2.py\n+++ formal_owner_v3.py\n@@ -10,9 +10,9 @@\n     r=json.loads(Path(a.request).read_text());old_paused();stop=min(r['deadline'],time.time()+r['max_worker_seconds'])\n     bindings=dict(r['bindings']);bindings[a.request]=sha(a.request)\n     e=env();e['CUDA_VISIBLE_DEVICES']=str(r['gpu']);base=Path(r['output']);base.mkdir(exist_ok=False);(base/'roles').mkdir()\n-    for stage in ['tx','rx','score']:\n+    for stage in ['tx','rx','score_v2']:\n         assert time.time()<stop-10\n-        run_role(base/'roles',stage,[PY,str(S/'formal_worker_v1.py'),'--request',a.request,'--stage',stage],\n+        run_role(base/'roles',stage,[PY,str(S/('formal_worker_v2.py' if stage=='score_v2' else 'formal_worker_v1.py')),'--request',a.request,'--stage','score' if stage=='score_v2' else stage],\n                  e,r['cpus'],[r['gpu']],stop-time.time(),bindings)\n     write(base/'complete.json',dict(passed=True,time=time.time(),qualification=r['qualification']))\n \n"
+    }
+  }
+}

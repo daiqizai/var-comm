@@ -1,0 +1,48 @@
+{
+  "reason": "metrics_v2 imports training_core, whose RDVQ packet import conflicts with NeST packet; failure before any metric model/score call",
+  "original_outer_actual": {
+    "returncode": 1,
+    "started": 1793942208.9612274,
+    "finished": 1793942312.2679389,
+    "elapsed_seconds": 103.30671048164368,
+    "charged_gpu_device_hours": 0.0,
+    "cpu_process_seconds": 65.766534,
+    "child_gone": true
+  },
+  "original_score_actual": {
+    "returncode": 1,
+    "started": 1793942309.46096,
+    "finished": 1793942312.1893342,
+    "elapsed_seconds": 2.728372573852539,
+    "charged_gpu_device_hours": 0.0007578812705145942,
+    "cpu_process_seconds": 2.43216799999999,
+    "child_gone": true
+  },
+  "scientific_metric_calls": 0,
+  "preserved_success": {
+    "tx": {
+      "returncode": 0,
+      "started": 1793942209.6039495,
+      "finished": 1793942275.554794,
+      "elapsed_seconds": 65.95084285736084,
+      "charged_gpu_device_hours": 0.018319678571489122,
+      "cpu_process_seconds": 31.494317,
+      "child_gone": true
+    },
+    "rx": {
+      "returncode": 0,
+      "started": 1793942275.5699847,
+      "finished": 1793942309.4450636,
+      "elapsed_seconds": 33.875078439712524,
+      "charged_gpu_device_hours": 0.009409744011031257,
+      "cpu_process_seconds": 31.428637000000005,
+      "child_gone": true
+    },
+    "logical_rx": 20
+  },
+  "fix": "AST-project exact original verified/module/MetricSuite definitions without unrelated codec imports",
+  "scientific_metric_definitions_changed": false,
+  "model_weights_changed": false,
+  "successful_science_repeated": false,
+  "deadline_not_reset": true
+}
