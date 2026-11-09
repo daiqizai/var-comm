@@ -1,5 +1,5 @@
-\section{Proposed NeST-Com Framework}
-\subsection{Next-Scale Representation and Digital Frame}
+\section{NeST-Com Framework}
+\subsection{System Model and Next-Scale Representation}
 \begin{figure*}[t]
 \centering\includegraphics[width=\textwidth]{figure1_final.pdf}
 \caption{NeST-Com. (a) The shared policy fixes the MCS and profile directory; the protected Profile ID selects the endpoint. VAR and known coarse tokens provide coding probabilities. (b) Independently terminated prefix bitstreams up to the target endpoint fit the body capacity; bars are schematic. (c) Received tokens overwrite boundary predictions. Recursive state updates accumulate residuals and condition each finer scale before decoding. Unreceived boundary positions retain their coarse-conditioned predictions.}
@@ -11,18 +11,11 @@ y=s+n,\quad n\sim\mathcal{CN}(0,\sigma^2 I_N),\quad
 \mathrm{SNR}=10\log_{10}(E_s/\sigma^2),
 \label{eq:channel}
 \end{equation}
-with nominal $E_s=2$. TX uses the frozen policy for its design SNR; RX uses the actual noise variance for LLRs. Digital constellations have average energy two without per-frame renormalization. A 12-bit profile ID, CRC16, and terminated rate-1/2 convolutional code occupy 68 rotated-BPSK symbols $\{\pm(1+j)\}$. Under a preconfigured policy, both terminals know the MCS and profile directory; the 12-bit profile identifies the endpoint within that directory. The remaining $N-68$ symbols carry the LDPC-coded body, with public frame-dependent scrambling after rate matching and inverse scrambling before decoding. Continuous JSCC data are normalized per image to energy two; required side information is paid within $N$.
+with nominal $E_s=2$. TX uses the frozen policy for its design SNR. RX uses the actual noise variance for LLRs. Digital constellations have average energy two without per-frame renormalization. A terminated rate-$1/2$ convolutional code protects the 12-bit profile ID and CRC16 in a fixed 68-symbol header. The remaining $N-68$ symbols carry the LDPC-coded body with public frame-dependent scrambling.
 
-The frozen VAR tokenizer produces ten residual token maps $q_s$, with side lengths $(1,2,3,4,5,6,8,10,13,16)$ and a 4096-entry codebook~\cite{var}. Write $L_s$ for the number of positions and $C_s$ for codebook lookup, resizing to the full latent grid, and the scale-dependent residual transform. The latent sum $\sum_s C_s(q_s)$ progressively refines a full-field description. Decoder $\Dc$ is adapted on 20\,000 ImageNet training images using MSE plus $0.1$ LPIPS, then frozen. Training mixes continuous, fully quantized and interpolated prefix-completed latents. The null-class VAR-d16 prior factorizes as
-\begin{equation}
-p_\theta(q_s\mid q_{<s})=\prod_{i=1}^{L_s}p_\theta(q_{s,i}\mid q_{<s}).
-\label{eq:prior}
-\end{equation}
-Under the shared numerical configuration, both terminals reconstruct identical integer CDFs, with total frequency $2^{24}$, for arithmetic coding~\cite{arithmetic}; no unreceived same-scale token is needed. Transmission can therefore end within a scale while retaining scale-wise probability evaluation.
+The frozen VAR tokenizer produces ten residual token maps $q_s$, with side lengths $(1,2,3,4,5,6,8,10,13,16)$ and a 4096-entry codebook~\cite{var}. Let $L_s$ denote the number of positions at scale $s$, and let $C_s$ denote codebook lookup followed by upsampling to the full latent grid and the scale-dependent residual transform. The latent sum $\sum_s C_s(q_s)$ progressively refines a full-field description. The decoder $\Dc$ is fine-tuned once and then frozen. Because the token probabilities at each scale depend only on complete coarser maps, RX can reproduce the transmitter's integer cumulative distribution functions (CDFs, total frequency $2^{24}$) and decode any independently terminated prefix.
 
-
-
-\subsection{Within-Scale Endpoints and Actual-Length Fitting}
+\subsection{Within-Scale Endpoints and the Nondecreasing-Length Rule}
 An endpoint $e=(m,K)$ retains complete coarse maps and a raster-ordered boundary prefix:
 \begin{equation}
 \pi_e=(q_1,\ldots,q_m,q_{m+1,1:K}).
@@ -37,22 +30,20 @@ b(x,e)+29\leq k_a.
 \end{equation}
 The source-bit capacity utilization is $\eta(x,e)=b(x,e)/(k_a-29)$, where $k_a-29$ is the capacity available to the source payload. The 29 bits comprise a 13-bit length and CRC16. Remaining positions are zero-padded before 5G NR LDPC coding, rate matching~\cite{nr}, and QAM.
 
-For $N=1024$, WHOLE, NeST and Ada use the same 12 MCSs: QPSK/16-QAM/64-QAM with rates $1/2,2/3,3/4,5/6$. WHOLE has seven ceilings; NeST uses 25 Quarter ceilings with Token fallback; Ada allows prefixes through 256. All 396 candidates enter a 100-image, one-realization pilot. Per method/SNR, the top three plus a preset QPSK rate-1/2 anchor advance to 1000 sources with three realizations. Maximum equal-source DINOv2 cosine~\cite{dinov2}, including gray failures, selects the policy. $N=512$ retains its independently calibrated policies (Table~\ref{tab:policies}).
-
 A public method/MCS directory, frozen before calibration and shared across images, maps source profiles to endpoints and includes a NULL profile. One traversal shares scale-wise probability evaluation and incremental coding. Non-mutating termination produces independent prefix bitstreams, not slices of a longer codeword.
 
-For this coder's fixed token/CDF traversal and non-mutating finish, $b_t=E_t+P_t+2$ after $t$ tokens, where $E_t$ and $P_t$ count emitted and pending bits. Renormalization increments $E_t+P_t$; other interval updates preserve it. Thus $b_t$ is nondecreasing, and feasible endpoints form an initial segment for fixed MCS and ceiling. TX selects the longest feasible token prefix. If no source prefix fits, TX sends a NULL frame with a two-bit zero payload, using the full $N$-symbol budget. The measured code scans all candidates.
+The fitting rule rests on a coder-specific property. For the fixed token/CDF traversal and non-mutating finish used here, the actual length after $t$ tokens is $b_t=E_t+P_t+2$, where $E_t$ and $P_t$ count emitted and pending bits. Renormalization increments $E_t+P_t$. Other interval updates preserve it. Thus $b_t$ is nondecreasing, and for a fixed MCS and ceiling the feasible endpoints form an initial segment. TX selects the longest feasible prefix in a single scan of the candidate lengths. If no source prefix fits, it sends a NULL frame with a two-bit zero payload over the full $N$-symbol budget.
 
 \ifCLASSOPTIONonecolumn\else\input{sections/figure2_float}\fi
 \subsection{Prefix-Constrained Reconstruction}
-Invalid profile CRC/catalogue, body CRC, declared length, known padding, or arithmetic parsing yields fixed gray. Valid~NULL frames also produce gray; both remain in all metric denominators. Otherwise, RX decodes the actual prefix using the shared CDFs. At $e=(10,0)$, all maps are received and directly decoded. For an incomplete prefix, RX applies VAR's known-token overwrite and recursive state update~\cite{var}. It predicts the boundary map by argmax conditioned on complete received maps, then overwrites received positions:
+RX returns a fixed gray image if a profile or body CRC fails, the profile is absent from the directory, or the declared length, padding or arithmetic stream is invalid. Valid NULL frames also produce gray, and both outcomes remain in all metric denominators. Otherwise, RX decodes the received prefix using the shared CDFs. At $e=(10,0)$, all maps are received and directly decoded. For an incomplete prefix, RX predicts the boundary map by argmax conditioned on the complete received maps and overwrites the received positions according to
 \begin{equation}
 \tilde q_{m+1,i}=\begin{cases}\hat q_{m+1,i},&i\leq K,\\q^{\mathrm{pred}}_{m+1,i},&i>K.\end{cases}
 \label{eq:overwrite}
 \end{equation}
-Received boundary tokens serve two roles: they correct the residual representation and, through the merged boundary map, condition finer-scale prediction. Unreceived boundary positions retain their original coarse-conditioned prediction; there is no same-scale prediction loop. Complete received maps remain unchanged. After generating the finer maps,
+RX then generates the finer maps from the merged boundary map and decodes the accumulated residuals as
 \begin{equation}
 \hat x=\Dc\!\left(\sum_{s=1}^{10}C_s(\tilde q_s)\right).
 \label{eq:reconstruction}
 \end{equation}
-At the last scale, overwrite only changes the residual contribution. Supplement~S1 gives the full algorithm, coder-specific proof, model configurations and numerical implementation details.
+Received boundary tokens correct the residual representation and, through the merged boundary map, condition finer-scale prediction. Unreceived boundary positions retain their original coarse-conditioned predictions without a same-scale prediction loop. At the last scale, overwrite changes only the residual contribution. Supplement~S1 gives the full algorithm, coder-specific proof, decoder training and implementation details.
