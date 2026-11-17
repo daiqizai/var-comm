@@ -1,3 +1,7 @@
+## WCL submitted manuscript (16 November 2026)
+
+The final submitted NeST-Com manuscript, original LaTeX sources, and supplementary material are archived in [nestcom_wcl_submitted_20261116](paper/manuscripts/nestcom_wcl_submitted_20261116/). The submitted files are preserved byte for byte; see the archive manifest for hashes and provenance.
+
 # 当前状态：P2 已安全暂停（2026-11-05）
 
 用户要求四臂安全保存后全部暂停。R1/R2/R3/估计率对照分别保存于第 1489/499/495/499 步；完整检查点哈希和状态核验通过，训练进程及续行器均已退出。其余六臂未启动，不自动恢复。P2 未完成，不能宣称训练有效。P0/P1 已发布结果保留。
