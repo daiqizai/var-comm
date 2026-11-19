@@ -1,0 +1,657 @@
+{
+  "source": {
+    "launch": {
+      "worker": {
+        "pid": 1822567,
+        "start_ticks": 304774333
+      },
+      "owner": {
+        "pid": 1822566,
+        "start_ticks": 304774330
+      },
+      "started": 1795096359.1372027,
+      "argv": [
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_visual_py310/bin/python",
+        "-u",
+        "-B",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/a800_pilot_v1/code/a800_clean_pilot.py",
+        "--repo",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM",
+        "--pilot",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/pfs_asset_audit_v1/pilot50.json",
+        "--audit",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/pfs_asset_audit_v1/audit.json",
+        "--routes",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/a800_pilot_v1/code/model_routes.json",
+        "--previous",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/pfs_asset_audit_v1/native_a800_slot0_v1",
+        "--out",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/a800_pilot_v1/source"
+      ]
+    },
+    "actual_wait": {
+      "returncode": 0,
+      "timed_out": false,
+      "started": 1795096359.1372027,
+      "ended": 1795096840.1341443,
+      "pid": 1822567
+    },
+    "registration": {
+      "gpu": {
+        "index": 1,
+        "uuid": "GPU-b33f01e2-8d11-8393-7e38-b36500853e26",
+        "name": "NVIDIA A800-SXM4-80GB",
+        "free_MiB": 71142,
+        "util_pct": 0
+      },
+      "cap_GiB": 6,
+      "pilot_sha256": "b89a964f24127d9fcd2bddd6b7a88d8b366f53764632a71d93dfcf3ffcd94853",
+      "route_sha256": "7a4419e8299f5a9d9329da3572fb8d6a7642f18b3ed9d308a5638ddd6ea8ec05",
+      "script_sha256": "ebd0f5074b79ccd0491b9ed02715ec8b5a30c896bc22a0798f93f36b1c44f668",
+      "planned": {
+        "sources": 50,
+        "split_edges": 3600,
+        "single_token_lengths": 32550,
+        "renders": 1250
+      },
+      "planned_order": "first certify the independently received stream of fixed source 0, then all 50 in roster order",
+      "training_steps": 0,
+      "wireless_frames": 0,
+      "old_H800_streams_used": 0
+    }
+  },
+  "quality": {
+    "launch": {
+      "worker": {
+        "pid": 1823420,
+        "start_ticks": 304809356
+      },
+      "owner": {
+        "pid": 1823419,
+        "start_ticks": 304809353
+      },
+      "started": 1795096709.3668916,
+      "argv": [
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_visual_py310/bin/python",
+        "-B",
+        "-u",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/a800_pilot_v1/code/a800_pilot_quality.py",
+        "--repo",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM",
+        "--pilot",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/pfs_asset_audit_v1/pilot50.json",
+        "--routes",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/a800_pilot_v1/code/model_routes.json",
+        "--policies",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/pfs_asset_audit_v1/single_codeword_300.csv",
+        "--metrics",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_rd_transfer_20261106_v1/formal500_v1/metric_assets.json",
+        "--source",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/a800_pilot_v1/source",
+        "--source-control",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/a800_pilot_v1/source_control",
+        "--out",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/a800_pilot_v1/quality"
+      ]
+    },
+    "actual_wait": {
+      "returncode": 0,
+      "timed_out": false,
+      "started": 1795096709.3668916,
+      "ended": 1795097165.7752829,
+      "pid": 1823420
+    },
+    "registration": {
+      "inputs": "only independently recovered A800 arrays, all 50 in fixed order",
+      "metrics": [
+        "PSNR",
+        "DINOv2 ViT-L/14 cosine",
+        "DISTS",
+        "DreamSim"
+      ],
+      "calibration": "DINOv2",
+      "scientific_calls_while_waiting": 0,
+      "training_steps": 0,
+      "start": 1795096709.5537615,
+      "code_sha256": "06877a1156338c98e247a8c1ebf7a4f1bb1688c7b89a87c7e10d59cc9b4df530",
+      "prior_source_sha256": "ebd0f5074b79ccd0491b9ed02715ec8b5a30c896bc22a0798f93f36b1c44f668",
+      "policies_sha256": "92199ce8fab34a66d4fa3de6c0ddaea5092ca0e68975cd37b6500056cbd2a313",
+      "metrics_sha256": "13dd56073f73b2886e9d0efb1a66e815951108da9ef94161b02f444545ca6e23",
+      "expected_clean": 1250,
+      "gray": 50,
+      "extra_single": "all unique non-quarter endpoints selected by original token-level fitting for 12 MCS x 25 ceilings"
+    }
+  },
+  "rx_catalog": {
+    "launch": {
+      "worker": {
+        "pid": 1825129,
+        "start_ticks": 304889616
+      },
+      "owner": {
+        "pid": 1825128,
+        "start_ticks": 304889614
+      },
+      "started": 1795097511.968839,
+      "argv": [
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_visual_py310/bin/python",
+        "-B",
+        "-u",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/a800_pilot_v1/code/sp1_rx_catalog.py",
+        "--repo",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM",
+        "--source",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/a800_pilot_v1/source",
+        "--quality",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/a800_pilot_v1/quality",
+        "--out",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/a800_pilot_v1/rx_catalog"
+      ]
+    },
+    "actual_wait": {
+      "returncode": 0,
+      "timed_out": false,
+      "started": 1795097511.968839,
+      "ended": 1795097545.5285354,
+      "pid": 1825129
+    }
+  },
+  "sp1_sp": {
+    "launch": {
+      "worker": {
+        "pid": 1825917,
+        "start_ticks": 304932384
+      },
+      "owner": {
+        "pid": 1825916,
+        "start_ticks": 304932377
+      },
+      "started": 1795097939.6077278,
+      "argv": [
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_ldpc_py311/bin/python",
+        "-u",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/a800_pilot_v1/code/a800_broadcast_phy.py",
+        "--repo",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM",
+        "--pilot",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/pfs_asset_audit_v1/pilot50.json",
+        "--plan",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/a800_pilot_v1/sp1_plan",
+        "--source",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/a800_pilot_v1/source",
+        "--rx",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/a800_pilot_v1/rx_catalog",
+        "--legacy",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_unified_calibration_20261103_v1/calibration_assets_v2",
+        "--out",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/a800_pilot_v1/sp1_sp",
+        "--family",
+        "sp",
+        "--batch",
+        "48"
+      ]
+    },
+    "actual_wait": {
+      "returncode": 0,
+      "timed_out": false,
+      "started": 1795097939.6077278,
+      "ended": 1795098308.4055152,
+      "pid": 1825917
+    },
+    "registration": {
+      "family": "sp",
+      "device": "NVIDIA A800-SXM4-80GB",
+      "uuid": "b33f01e2-8d11-8393-7e38-b36500853e26",
+      "batch": 48,
+      "plan_sha256": "1b1a0e605d9d1dbdbe768eadf69cada6360a0c915f0f2f7705eae06795256969",
+      "code_sha256": "86c958c7cccb83baa4f6e3e97ffa111c6a6fcaf2ce8d5a688e73b5aa72d0009f",
+      "backend": {
+        "implementation": "Sionna_5G_LDPC",
+        "version": "2.2.0",
+        "encoder_source_sha256": "34d8db6660b2e84708a8fb534f63c194f6f2b964e3693fcffc9dcaf21532ccfd",
+        "decoder_source_sha256": "44d84b92b749e2970f94d92cd348a11648e2286b4d851faa0af8b21d08f0da23",
+        "decoder": {
+          "cn_update": "boxplus-phi",
+          "vn_update": "sum",
+          "cn_schedule": "flooding",
+          "num_iter": 20,
+          "llr_max": 20.0,
+          "hard_out": true,
+          "return_infobits": true,
+          "prune_pcm": true,
+          "harq_mode": false,
+          "precision": "single",
+          "early_stop": false
+        },
+        "bit_mapping": "component_Gray_00_-3_01_-1_10_3_11_1_over_sqrt5;QPSK_0_plus1_1_minus1",
+        "scrambling": "public_PCG64_SHA256_protocol_session_frame_group_counter_after_rate_matching_v1",
+        "power_protocol": "fixed_constellation_average_Es2",
+        "precision": "float32",
+        "rate_matching": "Sionna RV0; filler removal, first2Z and tail puncturing; supported n only",
+        "cuda": "12.8",
+        "torch": "2.11.0+cu128"
+      },
+      "catalogue_hashes": {
+        "sp_profiles.json": "7fb2d2d31ae98763fcfd50ae14bdc16b255314c196430d00dccac58da3ef601c"
+      },
+      "seed_bank": {
+        "Es": 2,
+        "N": 1024,
+        "body": 956,
+        "bootstrap": {
+          "replicates": 10000,
+          "seed": 20261119,
+          "unit": "fixed ordered Pilot50 source, mean its three repetitions first"
+        },
+        "common500_requires_observed_SP1_GO": true,
+        "counter": "3*pilot_slot+repeat_index",
+        "decoding": "Actual RX header controls decoding, with only verified actual-received B enabling E. All gray/base-only outcomes count.",
+        "header": 68,
+        "inference": "Pilot selection and evaluation use the same 50 sources. CIs are conditional on the selected policies.",
+        "noise": "Original ep_phy.standard_noise(source_id,seed), per real standard deviation 10**(-SNR/20). Common waves, counters and noise across policies. Weak 4 dB is shared by both pairs. Both strong SNRs scale the same standardized strong-receiver draw. Weak and strong banks are independent.",
+        "oma": "Original B/E content and source fitting; public fixed directory of 4048 including NULL, carries split, both MCS, actual endpoints",
+        "pairs": [
+          [
+            4,
+            19
+          ],
+          [
+            4,
+            13
+          ]
+        ],
+        "pilot_sources": 50,
+        "primary_gate": {
+          "DISTS_drop_min": 0.025,
+          "DISTS_drop_relative_strict": 0.12,
+          "DreamSim_drop_min": 0.035,
+          "both_pairs": true,
+          "lambda_weak": 0.5,
+          "outer_envelope": "For lambda extremes include single-user policies as selectable operating modes. For an interior outward support, require higher support of the actual SP-only point than every single at lambda=0.5. Also report coordinate dominance and independent weak/strong scores.",
+          "paired_intervals_favorable": true,
+          "vs_OMA": "DINO >0 and DISTS <0, intervals exclude 0"
+        },
+        "repeats": 3,
+        "selected_by": "highest source mean of lambda*DINO_weak+(1-lambda)*DINO_strong. Exact ties use lexical policy ID.",
+        "single": "Original 300 NeST policies, all 651 fallback lengths, actual original method/MCS directory and scrambler",
+        "strong_seeds": [
+          73201,
+          73202,
+          73203
+        ],
+        "superposition": "3805 public profiles incl NULL; unconditional public lookup; both users can attempt verified CRC-SIC",
+        "training_steps": 0,
+        "version": "SP_NEST_A800_PILOT50_V1",
+        "weak_seeds": [
+          73101,
+          73102,
+          73103
+        ],
+        "weights": [
+          0,
+          0.25,
+          0.5,
+          0.75,
+          1
+        ]
+      },
+      "receiver_no_tx_truth": true,
+      "neural_training_steps": 0,
+      "source_manifest_sha256": "b89a964f24127d9fcd2bddd6b7a88d8b366f53764632a71d93dfcf3ffcd94853"
+    }
+  },
+  "sp1_single": {
+    "launch": {
+      "worker": {
+        "pid": 1826882,
+        "start_ticks": 304969271
+      },
+      "owner": {
+        "pid": 1826881,
+        "start_ticks": 304969268
+      },
+      "started": 1795098308.5152392,
+      "argv": [
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_ldpc_py311/bin/python",
+        "-u",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/a800_pilot_v1/code/a800_broadcast_phy.py",
+        "--repo",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM",
+        "--pilot",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/pfs_asset_audit_v1/pilot50.json",
+        "--plan",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/a800_pilot_v1/sp1_plan",
+        "--source",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/a800_pilot_v1/source",
+        "--rx",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/a800_pilot_v1/rx_catalog",
+        "--legacy",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_unified_calibration_20261103_v1/calibration_assets_v2",
+        "--out",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/a800_pilot_v1/sp1_single",
+        "--family",
+        "single",
+        "--batch",
+        "48"
+      ]
+    },
+    "actual_wait": {
+      "returncode": 0,
+      "timed_out": false,
+      "started": 1795098308.5152392,
+      "ended": 1795098367.8100035,
+      "pid": 1826882
+    },
+    "registration": {
+      "family": "single",
+      "device": "NVIDIA A800-SXM4-80GB",
+      "uuid": "b33f01e2-8d11-8393-7e38-b36500853e26",
+      "batch": 48,
+      "plan_sha256": "1b1a0e605d9d1dbdbe768eadf69cada6360a0c915f0f2f7705eae06795256969",
+      "code_sha256": "86c958c7cccb83baa4f6e3e97ffa111c6a6fcaf2ce8d5a688e73b5aa72d0009f",
+      "backend": {
+        "implementation": "Sionna_5G_LDPC",
+        "version": "2.2.0",
+        "encoder_source_sha256": "34d8db6660b2e84708a8fb534f63c194f6f2b964e3693fcffc9dcaf21532ccfd",
+        "decoder_source_sha256": "44d84b92b749e2970f94d92cd348a11648e2286b4d851faa0af8b21d08f0da23",
+        "decoder": {
+          "cn_update": "boxplus-phi",
+          "vn_update": "sum",
+          "cn_schedule": "flooding",
+          "num_iter": 20,
+          "llr_max": 20.0,
+          "hard_out": true,
+          "return_infobits": true,
+          "prune_pcm": true,
+          "harq_mode": false,
+          "precision": "single",
+          "early_stop": false
+        },
+        "bit_mapping": "component_Gray_00_-3_01_-1_10_3_11_1_over_sqrt5;QPSK_0_plus1_1_minus1",
+        "scrambling": "public_PCG64_SHA256_protocol_session_frame_group_counter_after_rate_matching_v1",
+        "power_protocol": "fixed_constellation_average_Es2",
+        "precision": "float32",
+        "rate_matching": "Sionna RV0; filler removal, first2Z and tail puncturing; supported n only",
+        "cuda": "12.8",
+        "torch": "2.11.0+cu128"
+      },
+      "catalogue_hashes": {
+        "NeST_q2_r1-2.json": "f43cc147a4e343eb0d1eaafbfc769ec3335b84b7b912cccc09b70ea481ae18e8",
+        "NeST_q2_r2-3.json": "befa8b4705b2a504033fdf0a19a55f53dd7c59a136625e2887b902f573b4cdbb",
+        "NeST_q2_r3-4.json": "baf5b83884faf48d4a1e00f5fac83cb6ab4e55808737502af83c21b97f7eb780",
+        "NeST_q2_r5-6.json": "891b2de75d205606718ad3ddf2e4d4b4e7f773fbb03093a2dd27d8e67d7d58d8",
+        "NeST_q4_r1-2.json": "31528317b4b31d51e0697642c5f49453a7483f5c4d347269f374d45454a5926d",
+        "NeST_q4_r2-3.json": "835e042b98c3dea1b76dfe4e4f765216d7aca56bb346b1ad997e04a095fb0fb1",
+        "NeST_q4_r3-4.json": "a72decb88746f5f130526cfc3203858df685ac91f103eedb5435be7f5824fc66",
+        "NeST_q4_r5-6.json": "f96282a1d77fa648d866551aa11a40bd4a8bc42407c29cec4de277b5fe6da5a3",
+        "NeST_q6_r1-2.json": "0429046e0f3f9a133bcb2ce92366237413d46bccb035a19f34dbb093806c09c7",
+        "NeST_q6_r2-3.json": "9cb1e0944116136efd1a5b3263651d71b203f79e862893a279295890cbebfeac",
+        "NeST_q6_r3-4.json": "1817fb0624d67c0d7751005d3ddb293b33a8c98766b35a00aa0f7d15bad631c6",
+        "NeST_q6_r5-6.json": "42352dd8df30ad88a81ab39c09aaeecdee90fd827d432ef76cfd93f6591f3ea9"
+      },
+      "seed_bank": {
+        "Es": 2,
+        "N": 1024,
+        "body": 956,
+        "bootstrap": {
+          "replicates": 10000,
+          "seed": 20261119,
+          "unit": "fixed ordered Pilot50 source, mean its three repetitions first"
+        },
+        "common500_requires_observed_SP1_GO": true,
+        "counter": "3*pilot_slot+repeat_index",
+        "decoding": "Actual RX header controls decoding, with only verified actual-received B enabling E. All gray/base-only outcomes count.",
+        "header": 68,
+        "inference": "Pilot selection and evaluation use the same 50 sources. CIs are conditional on the selected policies.",
+        "noise": "Original ep_phy.standard_noise(source_id,seed), per real standard deviation 10**(-SNR/20). Common waves, counters and noise across policies. Weak 4 dB is shared by both pairs. Both strong SNRs scale the same standardized strong-receiver draw. Weak and strong banks are independent.",
+        "oma": "Original B/E content and source fitting; public fixed directory of 4048 including NULL, carries split, both MCS, actual endpoints",
+        "pairs": [
+          [
+            4,
+            19
+          ],
+          [
+            4,
+            13
+          ]
+        ],
+        "pilot_sources": 50,
+        "primary_gate": {
+          "DISTS_drop_min": 0.025,
+          "DISTS_drop_relative_strict": 0.12,
+          "DreamSim_drop_min": 0.035,
+          "both_pairs": true,
+          "lambda_weak": 0.5,
+          "outer_envelope": "For lambda extremes include single-user policies as selectable operating modes. For an interior outward support, require higher support of the actual SP-only point than every single at lambda=0.5. Also report coordinate dominance and independent weak/strong scores.",
+          "paired_intervals_favorable": true,
+          "vs_OMA": "DINO >0 and DISTS <0, intervals exclude 0"
+        },
+        "repeats": 3,
+        "selected_by": "highest source mean of lambda*DINO_weak+(1-lambda)*DINO_strong. Exact ties use lexical policy ID.",
+        "single": "Original 300 NeST policies, all 651 fallback lengths, actual original method/MCS directory and scrambler",
+        "strong_seeds": [
+          73201,
+          73202,
+          73203
+        ],
+        "superposition": "3805 public profiles incl NULL; unconditional public lookup; both users can attempt verified CRC-SIC",
+        "training_steps": 0,
+        "version": "SP_NEST_A800_PILOT50_V1",
+        "weak_seeds": [
+          73101,
+          73102,
+          73103
+        ],
+        "weights": [
+          0,
+          0.25,
+          0.5,
+          0.75,
+          1
+        ]
+      },
+      "receiver_no_tx_truth": true,
+      "neural_training_steps": 0,
+      "source_manifest_sha256": "b89a964f24127d9fcd2bddd6b7a88d8b366f53764632a71d93dfcf3ffcd94853"
+    }
+  },
+  "sp1_oma": {
+    "launch": {
+      "worker": {
+        "pid": 1827022,
+        "start_ticks": 304975204
+      },
+      "owner": {
+        "pid": 1827021,
+        "start_ticks": 304975201
+      },
+      "started": 1795098367.8462775,
+      "argv": [
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_ldpc_py311/bin/python",
+        "-u",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/a800_pilot_v1/code/a800_broadcast_phy.py",
+        "--repo",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/code/VAR_COMM",
+        "--pilot",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/pfs_asset_audit_v1/pilot50.json",
+        "--plan",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/a800_pilot_v1/sp1_plan",
+        "--source",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/a800_pilot_v1/source",
+        "--rx",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/a800_pilot_v1/rx_catalog",
+        "--legacy",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/nestcom_unified_calibration_20261103_v1/calibration_assets_v2",
+        "--out",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/a800_pilot_v1/sp1_oma",
+        "--family",
+        "oma",
+        "--batch",
+        "48"
+      ]
+    },
+    "actual_wait": {
+      "returncode": 0,
+      "timed_out": false,
+      "started": 1795098367.8462775,
+      "ended": 1795098446.4162147,
+      "pid": 1827022
+    },
+    "registration": {
+      "family": "oma",
+      "device": "NVIDIA A800-SXM4-80GB",
+      "uuid": "b33f01e2-8d11-8393-7e38-b36500853e26",
+      "batch": 48,
+      "plan_sha256": "1b1a0e605d9d1dbdbe768eadf69cada6360a0c915f0f2f7705eae06795256969",
+      "code_sha256": "86c958c7cccb83baa4f6e3e97ffa111c6a6fcaf2ce8d5a688e73b5aa72d0009f",
+      "backend": {
+        "implementation": "Sionna_5G_LDPC",
+        "version": "2.2.0",
+        "encoder_source_sha256": "34d8db6660b2e84708a8fb534f63c194f6f2b964e3693fcffc9dcaf21532ccfd",
+        "decoder_source_sha256": "44d84b92b749e2970f94d92cd348a11648e2286b4d851faa0af8b21d08f0da23",
+        "decoder": {
+          "cn_update": "boxplus-phi",
+          "vn_update": "sum",
+          "cn_schedule": "flooding",
+          "num_iter": 20,
+          "llr_max": 20.0,
+          "hard_out": true,
+          "return_infobits": true,
+          "prune_pcm": true,
+          "harq_mode": false,
+          "precision": "single",
+          "early_stop": false
+        },
+        "bit_mapping": "component_Gray_00_-3_01_-1_10_3_11_1_over_sqrt5;QPSK_0_plus1_1_minus1",
+        "scrambling": "public_PCG64_SHA256_protocol_session_frame_group_counter_after_rate_matching_v1",
+        "power_protocol": "fixed_constellation_average_Es2",
+        "precision": "float32",
+        "rate_matching": "Sionna RV0; filler removal, first2Z and tail puncturing; supported n only",
+        "cuda": "12.8",
+        "torch": "2.11.0+cu128"
+      },
+      "catalogue_hashes": {
+        "oma_profiles.json": "da804dbcd292e2c59b98c64292cf70b6fbc6d1b9f29347ae10ab960dde4b3254"
+      },
+      "seed_bank": {
+        "Es": 2,
+        "N": 1024,
+        "body": 956,
+        "bootstrap": {
+          "replicates": 10000,
+          "seed": 20261119,
+          "unit": "fixed ordered Pilot50 source, mean its three repetitions first"
+        },
+        "common500_requires_observed_SP1_GO": true,
+        "counter": "3*pilot_slot+repeat_index",
+        "decoding": "Actual RX header controls decoding, with only verified actual-received B enabling E. All gray/base-only outcomes count.",
+        "header": 68,
+        "inference": "Pilot selection and evaluation use the same 50 sources. CIs are conditional on the selected policies.",
+        "noise": "Original ep_phy.standard_noise(source_id,seed), per real standard deviation 10**(-SNR/20). Common waves, counters and noise across policies. Weak 4 dB is shared by both pairs. Both strong SNRs scale the same standardized strong-receiver draw. Weak and strong banks are independent.",
+        "oma": "Original B/E content and source fitting; public fixed directory of 4048 including NULL, carries split, both MCS, actual endpoints",
+        "pairs": [
+          [
+            4,
+            19
+          ],
+          [
+            4,
+            13
+          ]
+        ],
+        "pilot_sources": 50,
+        "primary_gate": {
+          "DISTS_drop_min": 0.025,
+          "DISTS_drop_relative_strict": 0.12,
+          "DreamSim_drop_min": 0.035,
+          "both_pairs": true,
+          "lambda_weak": 0.5,
+          "outer_envelope": "For lambda extremes include single-user policies as selectable operating modes. For an interior outward support, require higher support of the actual SP-only point than every single at lambda=0.5. Also report coordinate dominance and independent weak/strong scores.",
+          "paired_intervals_favorable": true,
+          "vs_OMA": "DINO >0 and DISTS <0, intervals exclude 0"
+        },
+        "repeats": 3,
+        "selected_by": "highest source mean of lambda*DINO_weak+(1-lambda)*DINO_strong. Exact ties use lexical policy ID.",
+        "single": "Original 300 NeST policies, all 651 fallback lengths, actual original method/MCS directory and scrambler",
+        "strong_seeds": [
+          73201,
+          73202,
+          73203
+        ],
+        "superposition": "3805 public profiles incl NULL; unconditional public lookup; both users can attempt verified CRC-SIC",
+        "training_steps": 0,
+        "version": "SP_NEST_A800_PILOT50_V1",
+        "weak_seeds": [
+          73101,
+          73102,
+          73103
+        ],
+        "weights": [
+          0,
+          0.25,
+          0.5,
+          0.75,
+          1
+        ]
+      },
+      "receiver_no_tx_truth": true,
+      "neural_training_steps": 0,
+      "source_manifest_sha256": "b89a964f24127d9fcd2bddd6b7a88d8b366f53764632a71d93dfcf3ffcd94853"
+    }
+  },
+  "sp1_controls": {
+    "launch": {
+      "worker": {
+        "pid": 1826372,
+        "start_ticks": 304945863
+      },
+      "owner": {
+        "pid": 1826371,
+        "start_ticks": 304945861
+      },
+      "started": 1795098074.4401686,
+      "argv": [
+        "/root/miniforge/bin/python3",
+        "-u",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/a800_pilot_v1/code/continue_pilot_phy.py",
+        "--pilot",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/a800_pilot_v1"
+      ]
+    },
+    "actual_wait": {
+      "returncode": 0,
+      "timed_out": false,
+      "started": 1795098074.4401686,
+      "ended": 1795098446.448444,
+      "pid": 1826372
+    }
+  },
+  "decision": {
+    "launch": {
+      "worker": {
+        "pid": 1826747,
+        "start_ticks": 304963731
+      },
+      "owner": {
+        "pid": 1826746,
+        "start_ticks": 304963728
+      },
+      "started": 1795098253.1136017,
+      "argv": [
+        "/root/miniforge/bin/python3",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/a800_pilot_v1/decision_control/after_controls.py",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-tmp/liulu/liulu-var-comm/sp_nest_probe_v1/a800_pilot_v1",
+        "435c1c44a11d5764d72767fb9772c46ab8759e84a9c08f405d133096f2430242",
+        "1795182759.1372027",
+        "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_visual_py310/bin/python"
+      ]
+    },
+    "actual_wait": {
+      "returncode": 0,
+      "timed_out": false,
+      "started": 1795098253.1136017,
+      "ended": 1795098457.0578296,
+      "pid": 1826747
+    }
+  }
+}

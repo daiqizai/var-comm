@@ -1,0 +1,92 @@
+{
+  "baseline": "564c18059dbe6c80ada4c111df01bdd8320fc52b",
+  "scope": "This run only, no training or formal wireless quality measurements. Compute totals below cover the three instrumented engineering scripts only.",
+  "stage_status": {
+    "SP0_engineering": "pass",
+    "SP0_frozen_model_Pilot50": "incomplete: PFS assets not readable",
+    "SP1": "not run; no GO or NO-GO verdict",
+    "SP2": "not run"
+  },
+  "instrumented_runs": [
+    {
+      "stage": "SP0 PHY fixture",
+      "receipt": "sp0_radio.json",
+      "parent_cpu_seconds": 6.546875,
+      "wall_seconds": 7.839113235473633,
+      "GPU_hours": 0
+    },
+    {
+      "stage": "SP0 independent split coding fixture",
+      "receipt": "sp0_split_compatibility.json",
+      "parent_cpu_seconds": 0.90625,
+      "wall_seconds": 0.9614053000041167,
+      "GPU_hours": 0
+    },
+    {
+      "stage": "SP0 integrated source+PHY fixture",
+      "receipt": "sp0_source_frame.json",
+      "parent_cpu_seconds": 4.078125,
+      "wall_seconds": 5.204991500002507,
+      "GPU_hours": 0
+    }
+  ],
+  "instrumented_parent_cpu_seconds_sum": 11.53125,
+  "instrumented_wall_seconds_sum": 14.005510035,
+  "accounting_exclusions": [
+    "CPU of subprocesses including protected header receiver",
+    "environment preparation, source inventory, archival lookup, file hashing and packaging",
+    "work already performed in earlier experiments"
+  ],
+  "training_steps": 0,
+  "GPU_device_hours": 0,
+  "new_neural_inference": {
+    "VAR": 0,
+    "image_render": 0,
+    "DINO": 0,
+    "DISTS": 0,
+    "DreamSim": 0
+  },
+  "scientific_wireless_frames": {
+    "Pilot50_SP1": 0,
+    "common500_SP2": 0
+  },
+  "new_paired_confidence_intervals": 0,
+  "engineering_only": {
+    "random_noiseless_frames": 24,
+    "additional_semantic_cases_not_a_separate_unique_frame_count": 7,
+    "integrated_noiseless_waveforms": 2,
+    "unchanged_stream_bitwise_checks": 96,
+    "new_full_endpoint_edges_using_fixture_CDF": 4,
+    "exact_fallback_combinations_tested": 3420
+  },
+  "reuse": {
+    "verified_source_identities": 50,
+    "verified_native_source_arrays": 49,
+    "verified_source_metadata_JSON": 50,
+    "verified_source_token_vectors": 50,
+    "archived_double_stream_lengths": 3400,
+    "archived_clean_DINO_PSNR_records": 1200,
+    "archived_fixed_gray_DINO_pairs": 50,
+    "archive_gray_source": {
+      "git_blob_gray_quality": "9d75f240ca284013a08818e3838e63908104e784",
+      "git_blob_gray_registration": "506282a5e3db5cb9e8addbde7fa4ebe5dfe9f75c"
+    },
+    "T6_whole_payloads_seen": 296,
+    "T6_whole_payloads_substituted_for_enhancement": 0
+  },
+  "missing": {
+    "real_m10_enhancement_lengths_primary": 150,
+    "real_m10_enhancement_lengths_including_fallback": 200,
+    "clean_source_endpoint_rows_without_DISTS_or_DreamSim": 1250,
+    "fixed_gray_rows_without_DISTS_or_DreamSim": 50
+  },
+  "git": {
+    "branch": "codex/sp-nest-probe-v1",
+    "result_commit": null,
+    "main_modified": false,
+    "PFS_repository_checks": "not run; SSH authentication denied",
+    "last_PRO_attempt": "2026-11-19T20:18:26+08:00",
+    "last_PRO_ssh_exit": 255
+  },
+  "prior_four_arms": "no operation; remote live state not attested"
+}

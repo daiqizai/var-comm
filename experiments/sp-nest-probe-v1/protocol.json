@@ -1,0 +1,18 @@
+{
+  "work_order": "Superposition NeST-Com SP0-SP2",
+  "work_order_sha256": "7b0ee0fe46f8a0456c4bfcf26f8ccc71ac2cc79b75714c87b7e18333f7fdbad2",
+  "branch": "codex/sp-nest-probe-v1",
+  "wcl_base": "564c18059dbe6c80ada4c111df01bdd8320fc52b",
+  "training": false,
+  "old_four_training_arms": "do_not_resume",
+  "population": {"id": "NESTCOM_LAYERED_EC_PILOT50_V1", "n": 50, "pilot_manifest_sha256": "b89a964f24127d9fcd2bddd6b7a88d8b366f53764632a71d93dfcf3ffcd94853"},
+  "frame": {"complex_symbols": 1024, "header": 68, "body": 956, "nominal_Es": 2, "normalize_per_frame": false, "arq": false, "header_profile_bits": 12, "header_crc_bits": 16, "directory_entries_including_null": 3805, "max_entries": 4096, "per_layer_overhead_bits": 29, "public_scrambling": "PCG64 keyed by domain/layer and public frame counter", "strong_sic": "decode and canonically check B, re-encode recovered information bits; no TX bits or labels"},
+  "source": {"base_target_j": [5,6,7], "fallback_min_j": 4, "enhancement_targets": "Quarter endpoints for m=6..9 plus (10,0), strictly beyond base target; longest feasible allowed endpoint after base-first fallback", "null": "full-length ID 0, paid two-bit zero B payload, empty E; output RGB 0.5", "int_cdf_total": 16777216},
+  "search": {"alpha": [0.75,0.80,0.85,0.90], "q_B": 2, "rates_B": ["1/3","1/2","2/3"], "enhancement_q_and_rate": [[2,"2/3"],[4,"1/2"],[4,"2/3"],[4,"3/4"],[6,"2/3"]], "snr_pairs_db": [[4,19],[4,13]], "noise_repeats": 3, "lambda_weak": [0,0.25,0.5,0.75,1], "oma_base_symbols": [256,384,512,640], "oma_enhancement_symbols": "956 minus base symbols", "baselines": ["Single-Weak","Single-Strong","Single-Pareto","OMA-TDM","SP-WHOLE"]},
+  "selection": "maximize the source-averaged lambda-weighted DINOv2 cosine, retaining gray outcomes; freeze before formal testing",
+  "single_catalog_discrepancy": {"requested_NeST_candidates": 396, "documented_per_historical_SNR": {"NeST": 300,"WHOLE": 84,"Ada": 12}, "historical_13dB_frozen_anchor": null, "handling": "Require original intended candidate identities or resolution before selection. Never relabel WHOLE/Ada as NeST or use 10 dB as 13 dB. No score-dependent choice."},
+  "sp0_gate": ["alpha to 1 base LLR matches reference within 1e-6", "24 random independent noiseless two-layer packet/token round trips", "complete real pilot double-stream lengths through (10,0) and matched clean quality entries incl DISTS and DreamSim"],
+  "sp1_gate": {"lambda": 0.5, "must_hold_for_each_snr_pair": true, "single_pareto": {"mean_DISTS_drop_min": 0.025,"relative_DISTS_drop_strictly_above": 0.12,"mean_DreamSim_drop_min": 0.035,"paired_95pct_source_bootstrap_excludes_zero_in_favorable_direction": true},"against_best_same_source_stream_OMA": {"delta_DINO": "positive, 95% paired CI strictly above zero", "delta_DISTS": "negative, 95% paired CI strictly below zero"},"extreme_weights": "single-user strategies included losslessly; demonstrate outward frontier against single-codeword segment using observed results", "NO_GO": "stop this branch, do not start SP2"},
+  "sp2_gate": "only after observed SP1 GO: freeze winning policies, evaluate common500 and same-transmission three-user broadcast (4,10,19 dB)",
+  "snapshot_status": "engineering protocol and evidence only; no pilot wireless quality outcomes observed; no policies selected"
+}
