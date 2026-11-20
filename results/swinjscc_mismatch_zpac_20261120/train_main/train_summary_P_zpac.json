@@ -1,0 +1,86 @@
+{
+  "schema": "DIR2_CALIBRATOR_TRAINING_V1",
+  "method": "P_zpac",
+  "elapsed_seconds": 1231.2071905136108,
+  "gpu": {
+    "index": 0,
+    "uuid": "GPU-70b41626-0758-43a8-b87d-b0d9795a2921",
+    "name": "NVIDIA A800-SXM4-80GB",
+    "temperature_c": 38,
+    "utilization_pct": 0,
+    "memory_used_mib": 19058,
+    "memory_free_mib": 62170
+  },
+  "backbone_ckpt": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-checkpoint/liulu/var_comm/dir2_swinjscc_mismatch_v1/pretrained/SwinJSCC_w_SA_AWGN_HRimage_snr_psnr_C96.model",
+    "sha256": "53fad7c13546b3e60c582da37e7f7bf5d687c3dc4722691ae5880af31cf7bec2"
+  },
+  "hyperparameters": {
+    "hidden_ch": 160,
+    "open_decoder_bm": false,
+    "phase1_frozen_steps": 0,
+    "latent_align_weight": 0.0,
+    "total_steps": 4000,
+    "batch_size": 16,
+    "lr": 0.0003,
+    "bm_lr_scale": 0.25,
+    "seed": 20261120,
+    "train_split": "train20k",
+    "val_split": "val256",
+    "holdout_touched": false
+  },
+  "parameter_counts": {
+    "total": 28663002,
+    "trainable": 459978,
+    "overhead_pct": 1.6048
+  },
+  "step0_validation": {
+    "composite_psnr_db": 29.58023,
+    "matched_psnr_db": 30.06217,
+    "mismatch_psnr_db": 29.25893,
+    "over_psnr_db": 27.92366,
+    "under_psnr_db": 30.59421,
+    "cells": {
+      "matched_1": 27.40064,
+      "matched_4": 29.05656,
+      "matched_7": 30.38901,
+      "matched_10": 31.38664,
+      "matched_13": 32.07802,
+      "over_4_1_1": 26.90395,
+      "over_7_1_1": 25.80225,
+      "over_10_4_4": 28.67468,
+      "over_13_7_7": 30.31374,
+      "under_1_4_4": 28.97506,
+      "under_1_7_7": 30.07766,
+      "under_4_10_10": 31.2724,
+      "under_7_13_13": 32.05172
+    }
+  },
+  "best_step": 3500,
+  "best_validation": {
+    "composite_psnr_db": 29.62905,
+    "matched_psnr_db": 30.06217,
+    "mismatch_psnr_db": 29.34031,
+    "over_psnr_db": 28.04698,
+    "under_psnr_db": 30.63363,
+    "cells": {
+      "matched_1": 27.40064,
+      "matched_4": 29.05656,
+      "matched_7": 30.38901,
+      "matched_10": 31.38664,
+      "matched_13": 32.07802,
+      "over_4_1_1": 26.98564,
+      "over_7_1_1": 26.12809,
+      "over_10_4_4": 28.74958,
+      "over_13_7_7": 30.32462,
+      "under_1_4_4": 28.99755,
+      "under_1_7_7": 30.13609,
+      "under_4_10_10": 31.31621,
+      "under_7_13_13": 32.08467
+    }
+  },
+  "best_checkpoint": {
+    "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-checkpoint/liulu/var_comm/dir2_swinjscc_mismatch_v1/stage2_main/P_zpac/best_calibrator.pt",
+    "sha256": "79f97cff11c7f3a5fcd59544d98ccbd61cb0f8490a0fe18e9a7ff66ca8baa7fd"
+  }
+}
