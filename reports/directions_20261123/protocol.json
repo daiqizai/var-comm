@@ -1,0 +1,65 @@
+{
+  "backbone_sha256": "53fad7c13546b3e60c582da37e7f7bf5d687c3dc4722691ae5880af31cf7bec2",
+  "evaluation": "Test once per selected model; use all common500 and Kodak24 sources and three registered noise seeds, matching original seeds and tensors, plus historical stage1/raster as reference. Export per-source PSNR & DISTS and all pairs, 5000 paired source bootstrap draws. NOMA fixed source tuple shifts are inherited, not new independent combinations.",
+  "formal_input": "Preexisting test sets observed in prior research; new mechanism controls are preregistered, not a fresh blinded holdout.",
+  "holo": "Both arms keep triplet packing, fixed sign dither, original reference projections and per-group reliability; only the spatial Hadamard and its inverse differ.",
+  "limits": {
+    "max_wall_hours_per_train": 3,
+    "new_training_runs": 4,
+    "sweeps": 0,
+    "total_gpu_device_hours": 12
+  },
+  "noma": "Both arms have two rounds, same prior and same active gate, same .35 latent MSE. The control gates local denoising without writing another user's waveform or lowering interference variance.",
+  "schema": 1,
+  "source_commit": "ec608c7d89d78704b4efa7d32004fafec85f6766",
+  "tracks": {
+    "holo": {
+      "arms": [
+        "identity",
+        "full"
+      ],
+      "conditions": [
+        "first8",
+        "first16",
+        "full",
+        "contiguous16"
+      ],
+      "gpu": 0,
+      "method": "holorate_blind",
+      "primary": "first 8/32 resource blocks, 10 dB PSNR",
+      "project": "dir3-mimo-holorate-20261121",
+      "seed": 2026112302,
+      "seeds": [
+        2001,
+        2002,
+        2003
+      ],
+      "steps": 5000,
+      "train": "train_dir3_mimo_holorate.py"
+    },
+    "noma": {
+      "arms": [
+        "own_denoise",
+        "full"
+      ],
+      "conditions": [
+        "over3x2_13_8_4",
+        "balanced_10_10",
+        "nearfar_12_3"
+      ],
+      "gpu": 1,
+      "method": "semsic_noma",
+      "primary": "weak-user PSNR 3 users / 2 RX antennas, 13/8/4 dB",
+      "project": "dir4-rf1bit-noma-20261122",
+      "seed": 2026112301,
+      "seeds": [
+        3001,
+        3002,
+        3003
+      ],
+      "steps": 4500,
+      "train": "train_dir4_rf1bit_noma.py"
+    }
+  },
+  "training": "Common fresh seed per mechanism; identical init, sampling, AdamW 0.0003, batch 16, cosine, clipping and original val256 selector. Historical control run arguments are not fully archived. Old successful runs are retained."
+}

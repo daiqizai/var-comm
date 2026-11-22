@@ -1,0 +1,23 @@
+{
+  "analysis": "paired direct differences, native minus no codebook; no codebook minus continuous; native minus continuous. Conditional intervention on the selected receiver.",
+  "arms": [
+    "native",
+    "gates_off_same_polisher",
+    "continuous_only"
+  ],
+  "bootstrap_draws": 5000,
+  "bootstrap_source_seed": 2026112305,
+  "checkpoints": 1,
+  "data": "existing development val256, CBR 1/256, 10 dB, all 8 RBs, original fixed validation noise",
+  "max_gpu_seconds": 900,
+  "maximum_decoder_outputs": 768,
+  "metrics": [
+    "psnr_db",
+    "dists",
+    "lpips_alex"
+  ],
+  "no_training": true,
+  "purpose": "Separate the two codebook correction paths from the post-refiner at fixed v2 weights.",
+  "repeats": 1,
+  "unique_source_transmissions": 256
+}

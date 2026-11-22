@@ -1,0 +1,42 @@
+{
+  "arms": [
+    "projection_on",
+    "projection_off"
+  ],
+  "cache_sha256": "c3e65ebc8009a28b5dcb95f35f7c7f79ddfb75185f78ae69bd8f3e02075a674b",
+  "comparisons": [
+    "trained_on/test_on minus trained_off/test_off",
+    "trained_on/test_off minus trained_off/test_off",
+    "trained_on/test_on minus trained_on/test_off"
+  ],
+  "physical_gpu": 3,
+  "registered_before_new_training": true,
+  "seed": 2026112305,
+  "source_sha256": {
+    "scripts/train_dir5_otfs_genvar.py": {
+      "run": "7abba67044221f88d54af5812dc363d26487d6b107176bbd2bd63b4d36de98f9",
+      "snapshot": "3598196b28ddf270186e706f6da243aced68bf0059112d20acf0815188051171"
+    },
+    "src/dir5_og/__init__.py": {
+      "run": "e00b78491a8a738274516588529c6abcc5fdc9dc2a55ef2fbfb13b3d394e4f53",
+      "snapshot": "e00b78491a8a738274516588529c6abcc5fdc9dc2a55ef2fbfb13b3d394e4f53"
+    },
+    "src/dir5_og/genvar_ultralow_blind.py": {
+      "run": "002538c1e0053e3e4869b9e21b588f7196e287bd93150792ec8376fe4c4361c6",
+      "snapshot": "1549be571aeb9e30213ce7556a84f0559290547d7885a22df5d974b88acae876"
+    },
+    "src/dir5_og/otfs_blind.py": {
+      "run": "329c902279cfde07a5b45229ff1d6723bd02707c0a60f444afc71653f31f010f",
+      "snapshot": "329c902279cfde07a5b45229ff1d6723bd02707c0a60f444afc71653f31f010f"
+    }
+  },
+  "split_inference": "One new matched training seed. Test sources already used by the producer. Image intervals are conditional on these models.",
+  "test": "CBR 1/256, 768 complex symbols, all 8 blocks, 10 dB, common500 and Kodak24; source means over original draws 5001,5002,5003. Three cells: trained-on tested on/off, and trained-off tested off. PSNR, DISTS (primary), LPIPS-Alex. 5000 pointwise bootstrap draws per split; no tuning on the new results.",
+  "time_limit_seconds_all_stages": 6000,
+  "train": "Same 8x8 base, frozen VAE, latent targets, initialization, AdamW schedules, corruption, polisher and original val256 composite. 6000 latent steps + 1500 image/LPIPS steps; only both projection contributions are forced to zero in projection_off. Nominal parameter set equal; projection-specific gradients vanish in that arm.",
+  "trigger": "The published-v2 1/256 receiver intervention on val256 favored disabling projections; both training roles are now compared prospectively on known test sets.",
+  "workers": {
+    "dir5_training_evaluation.py": "de6136ffedb12c4dc2ae50f2b538b5f3e89ef427f167a6c5f82cf3bb5be4cf6b",
+    "dir5_training_pair.py": "ce158f0809951a5186a081ecf1e2525fc725b22e19a50a6e06174127dd82ff50"
+  }
+}
