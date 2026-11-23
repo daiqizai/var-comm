@@ -1,0 +1,24 @@
+{
+  "arms": {
+    "full": "Learned denoised latent used for interferer waveform and published learned gate.",
+    "plain": "Use raw per-user linear estimates for interfering waveforms. No learned denoiser or learned gate in the cancellation loop. Damping is clip(c*sqrt(alpha),0,0.96), two rounds with the same residual-covariance rule.",
+    "raw_gate": "Use the per-user linear estimate for the interfering waveform. Preserve the trained gate and its learned prior disagreement input, recomputed along this arm's trajectory."
+  },
+  "common": "Same frozen image transmitter/decoder, blind channel estimates, RF observation, power, three LMMSE solves. The plain arm is a model-based cancellation stage inside the shared learned image system.",
+  "factorial_source": "b9cd5f46dc6553e921c7311d3887e76df6c31d49ad2c5042baea68493e11364d",
+  "selection": {
+    "coefficient_grid": [
+      0.0,
+      0.25,
+      0.5,
+      0.75,
+      1.0
+    ],
+    "image_weights": "Previously frozen full 4B checkpoint in parent protocol. No retraining.",
+    "validation": "val256, one new common draw 6112312, 13/8/4 dB, 3x2; maximize weak-user mean PSNR, smaller coefficient on an exact tie. Freeze before test."
+  },
+  "test": "Original common500 and Kodak24 tuples, draws 3001/3002/3003, each source scored for PSNR and DISTS. Reuse native scores only after image and noise hashes and first-batch replay at each split. Fully report both new arms, all users, interactions conditional on this same trained receiver.",
+  "trigger": "Follow-up after the matched-solve factorial showed a weak-user benefit from waveform subtraction.",
+  "uncertainty": "5000 paired bootstrap draws over original tuple anchors; also report structurally disjoint triples for the weak user, 166 and 8 triples. No new source selection on performance.",
+  "variant_source": "d4fd8ae119b8a2a6919cd1112a3297d893e3ca4a95b53d3e4424acd6dbd97e45"
+}

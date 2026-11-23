@@ -1,0 +1,36 @@
+{
+  "batch": 50,
+  "bound_sources": {
+    "experiments/swinjscc-mismatch-zpac-20261120/scripts/evaluate_blind_v3.py": "489edf5ddff48f82614ced9f221d809a0ac34fe591d7cf14b5a1f78b59b00c32",
+    "experiments/swinjscc-mismatch-zpac-20261120/scripts/evaluate_universal_blind_v4.py": "3310db3ef1d44cc27d13ef4e2eea767aa3c788da4f13acb25890e18c6afcd9ba",
+    "experiments/swinjscc-mismatch-zpac-20261120/src/dir2_zpac/universal_blind_v4.py": "22cc8480b7860c76580bf4e06962e6dfa34a7f459423a82be3241434702d0b05"
+  },
+  "calibration": "For each frozen transmitter average energy over all transmitted symbols on the same 256 validation images, including the explicit pilots when present. Freeze a single public analog gain g=1/sqrt(E_val) per method. No decoder runs or held-out examples to fit gains.",
+  "condition": "64-QAM, correlated OFDM (rho_f=0.85), 10 dB, 32 resource blocks. Both blind methods send 12288 symbols. The reference has 128 additional unit-energy pilots in native units and source RMS available to its decoder.",
+  "draws": 5000,
+  "fixed": "Multiply the native constellation and pilots by method gain g and use common physical complex noise variance 0.1. The receiver can undo the public gain. This preserves constellation cardinality and charges pilot energy and duration. All models apply their own original channel estimation and decoder.",
+  "methods": [
+    "dd",
+    "blind",
+    "pilot"
+  ],
+  "native": "Unchanged frame-relative noise using each frame's native mean data-symbol energy, from producer. Same source, fading and standard noise across arms. No per-image gain in the fixed arm.",
+  "primary": "Fixed-floor DD minus explicit 4-pilot and DD minus the local trained blind QAM reference on common500. Also report native contrasts, change in contrasts, Kodak24, both metrics and actual test-power distribution.",
+  "producer": "65a5a8e14b92eb7fad92eb6e6444418e52d9a073",
+  "resampling": "Source mean over three draws, then direct source-paired pointwise 95% percentile intervals with seed 2026112308.",
+  "seeds": [
+    2001,
+    2002,
+    2003
+  ],
+  "weights": {
+    "blind": {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-checkpoint/liulu/var_comm/dir2_universal_blind_v4/tcom25_qam64/best_v4.pt",
+      "sha256": "8e84e03a48608b21a7dec1b8ddc835b9c8662dfccb362afd4b0586b97b015f4b"
+    },
+    "dd": {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-checkpoint/liulu/var_comm/dir2_universal_blind_v4/dd_qam64_sph/best_v4.pt",
+      "sha256": "3403b632bb98e2e9a41dc9d291c430a1763ff74e34529a33ffe919adddbc6043"
+    }
+  }
+}

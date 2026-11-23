@@ -1,0 +1,91 @@
+{
+  "gpu": "Shared A800 under existing memory/thermal admission. Additional prelaunch observations of load and reserved memory. No exclusive-device or standardized runtime comparison. At most 90 min per training arm and 30 min per evaluation.",
+  "inference": "5000 percentile bootstrap draws, seed 2026112308 per split; average channel draws before resampling sources (fixed tuple anchors in 4B). Pointwise intervals conditional on these frozen weights, no distribution over training seeds.",
+  "noma": {
+    "arms": [
+      "neither",
+      "cancel",
+      "covariance",
+      "both"
+    ],
+    "constant": "Frozen full weights, common first solve, two complete latent-prior/gate rounds and two new LMMSE solves per arm. Each round receives its own preceding state.",
+    "factors": [
+      "subtract the other estimated waveforms",
+      "shrink other-user residual-interference power"
+    ],
+    "native": "Reuse native per-event scores only after checking hashes and replaying first batch for each split/seed; max allowed 0.003 dB PSNR and 0.00005 DISTS per replay position; otherwise recompute the native arm and retain diagnostics.",
+    "pairing": "Previously published cyclic tuple construction and image/channel hash checks. Equal airtime. Each user is scored.",
+    "positive_check": "With neither factor, repeated solves match stage one of this frozen checkpoint.",
+    "primary": "Weak user PSNR: both minus covariance-only. DISTS, other users, both minus cancel-only, marginal contrasts and factorial interaction reported.",
+    "rx_antennas": 2,
+    "seeds": [
+      3001,
+      3002,
+      3003
+    ],
+    "snr_db": [
+      13,
+      8,
+      4
+    ],
+    "splits": [
+      "common500",
+      "kodak24"
+    ],
+    "train": 0
+  },
+  "references": {
+    "backbone_sha256": "53fad7c13546b3e60c582da37e7f7bf5d687c3dc4722691ae5880af31cf7bec2",
+    "frozen_4b": {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-checkpoint/liulu/var_comm/direction_controls_20261123_v1/noma/full/best_dir4.pt",
+      "sha256": "a4f63214283f6b79ce836c65c8108541327b4cc4b9257dcfc8258d503255bf5d"
+    },
+    "prior_main": "34b790be5d401f82fda57e1e14182798933c7555",
+    "producer5_git": "316d82b035b7af8acf3ce2ec95c34c0a0a4df544",
+    "source_files": {
+      "source/dir4-rf1bit-noma-20261122/src/dir4_rn/__init__.py": {
+        "after": "9ab79501d82f95bbcac8eb2d001c1ba8bc5b4c0f840ea68cc2745144f67d38cf",
+        "before": "9ab79501d82f95bbcac8eb2d001c1ba8bc5b4c0f840ea68cc2745144f67d38cf"
+      },
+      "source/dir4-rf1bit-noma-20261122/src/dir4_rn/noma_semsic_blind.py": {
+        "after": "b9cd5f46dc6553e921c7311d3887e76df6c31d49ad2c5042baea68493e11364d",
+        "before": "b3da369d23df35b95e57f14cb39a4b5521beadae37efcd3cc5952bae026314b3"
+      },
+      "source/dir4-rf1bit-noma-20261122/src/dir4_rn/rf_1bit_blind.py": {
+        "after": "83b4863a0fa206a35d7e7604347e70f1a32e0b85f09076e932cd7622aba67a2d",
+        "before": "83b4863a0fa206a35d7e7604347e70f1a32e0b85f09076e932cd7622aba67a2d"
+      },
+      "source/dir5-otfs-genvar-20261122/scripts/train_dir5_otfs_genvar.py": {
+        "after": "18ef2e3489d46998a0ee613e46788850511c515197d034a63bbde8fbe60d7606",
+        "before": "3598196b28ddf270186e706f6da243aced68bf0059112d20acf0815188051171"
+      },
+      "source/dir5-otfs-genvar-20261122/src/dir5_og/__init__.py": {
+        "after": "e00b78491a8a738274516588529c6abcc5fdc9dc2a55ef2fbfb13b3d394e4f53",
+        "before": "e00b78491a8a738274516588529c6abcc5fdc9dc2a55ef2fbfb13b3d394e4f53"
+      },
+      "source/dir5-otfs-genvar-20261122/src/dir5_og/genvar_ultralow_blind.py": {
+        "after": "1549be571aeb9e30213ce7556a84f0559290547d7885a22df5d974b88acae876",
+        "before": "1549be571aeb9e30213ce7556a84f0559290547d7885a22df5d974b88acae876"
+      },
+      "source/dir5-otfs-genvar-20261122/src/dir5_og/otfs_blind.py": {
+        "after": "27d5ed4442741751439406062eae2fc7dad2562680335cae7454719cf150fd02",
+        "before": "329c902279cfde07a5b45229ff1d6723bd02707c0a60f444afc71653f31f010f"
+      }
+    },
+    "stem_cache_sha256": "ad8c27115bf89e3298a6e7abbb2d864c51aa17adeb928dd046eb84b8e3928b3e"
+  },
+  "wave": {
+    "arms": [
+      "spread",
+      "no_spread"
+    ],
+    "batch": 28,
+    "budget": "12288 complex resource elements, 13056 time samples including cyclic prefix per image. 1/16 per RGB component before cyclic prefix. No extra channel uses or receiver side information.",
+    "optimizer": "original AdamW, lr=0.0008, cosine schedule",
+    "seed": 2026112307,
+    "selection": "Final step 7000 in both arms, independent of validation ranking.",
+    "steps_per_arm": 7000,
+    "test": "common500 and Kodak24 separately, 10 dB, kd_max=0.10 and 0.18. Three producer channel draws 5001/5002/5003 per source. Primary comparison spread minus no_spread at 0.10, both PSNR and DISTS, report the full table.",
+    "train": "Both arms train from identical adapter values on train20k; same recorded per-step draws. Frozen Swin encoder/backbone, 2D estimator, refiner and downstream frame-uniform reliability in both arms. Only payload ISFFT and inverse SFFT differ. Features of the 2D refiner remain local and identical in design."
+  }
+}

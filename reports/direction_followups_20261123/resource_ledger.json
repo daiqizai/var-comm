@@ -1,0 +1,122 @@
+{
+  "accounting": "GPU device occupancy summed over workers, CPU process time for the separately metered CPU science workers. Git validation, file packaging, statistics, short engineering checks and idle reservations excluded.",
+  "cpu_worker_process_hours": 4.939266015,
+  "cpu_workers": {
+    "feedback_channel_calibration": {
+      "actual_wait": 0,
+      "cpu_process_s": 3.121633,
+      "wall_s": 4.8163063526153564
+    },
+    "rf_calibrate": {
+      "actual_wait": 1,
+      "cpu_process_s": 6.423391,
+      "pid": 132978,
+      "wall_s": 4.372180700302124
+    },
+    "rf_calibrate_cpu": {
+      "actual_wait": 0,
+      "cpu_process_s": 216.843316,
+      "pid": 133241,
+      "wall_s": 40.22878670692444
+    },
+    "rf_test": {
+      "actual_wait": 0,
+      "cpu_process_s": 17554.969314,
+      "pid": 133300,
+      "wall_s": 2942.0959911346436
+    }
+  },
+  "failed_attempts": [
+    {
+      "result": "exit 1 during attention-mask placement, before any image, channel or decode; separate CPU-port retry succeeded.",
+      "stage": "initial CPU 4A calibration"
+    },
+    {
+      "result": "gate observed the preceding 4B worker's final utilization sample; no training command launched. The subsequent admitted run trained once.",
+      "stage": "first 5A spread training admission"
+    },
+    {
+      "result": "Vendor attention mask requested CUDA in a CPU-only check. Reused the qualified CPU placement to verify both complete parameter sets before GPU inference. No images or channels in either preflight.",
+      "stage": "V4 CPU weight-load preflight"
+    },
+    {
+      "result": "The sparse Git checkout lacked a promised historical CSV blob. A TLS read failed after 9000 scored common500 outputs but before they were saved. Retained calibration and the failed wait. Recovered all six inputs from objects verified against the pinned tree. Rescored the 9000 lost events and added the pending 432 Kodak events with durable batches. Both attempts are charged.",
+      "stage": "V4 historical-table lookup"
+    }
+  ],
+  "gpu_workers": [
+    {
+      "actual_wait": 0,
+      "gpu_seconds": 49.387181758880615,
+      "physical_gpu": 2,
+      "pid": 132442,
+      "stage": "qualify_cache",
+      "start_ticks": "335182267"
+    },
+    {
+      "actual_wait": 0,
+      "gpu_seconds": 3159.8025889396667,
+      "physical_gpu": 2,
+      "pid": 132523,
+      "stage": "no_spread",
+      "start_ticks": "335187638"
+    },
+    {
+      "actual_wait": 0,
+      "gpu_seconds": 3169.271854162216,
+      "physical_gpu": 1,
+      "pid": 133103,
+      "stage": "spread",
+      "start_ticks": "335213022"
+    },
+    {
+      "actual_wait": 0,
+      "gpu_seconds": 152.48333096504211,
+      "physical_gpu": 1,
+      "pid": 132590,
+      "stage": "noma",
+      "start_ticks": "335188663"
+    },
+    {
+      "actual_wait": 0,
+      "gpu_seconds": 128.51263618469238,
+      "physical_gpu": 1,
+      "pid": 253978,
+      "stage": "wave_test",
+      "start_ticks": "335532704"
+    },
+    {
+      "actual_wait": 0,
+      "gpu_seconds": 189.31890892982483,
+      "physical_gpu": 2,
+      "pid": 227918,
+      "stage": "feedback",
+      "start_ticks": "335506245"
+    },
+    {
+      "actual_wait": 0,
+      "gpu_seconds": 112.8318362236023,
+      "physical_gpu": 2,
+      "pid": 249333,
+      "stage": "pic",
+      "start_ticks": "335527249"
+    },
+    {
+      "actual_wait": 1,
+      "gpu_seconds": 181.50504994392395,
+      "physical_gpu": 1,
+      "pid": 267087,
+      "stage": "qam",
+      "start_ticks": "335547566"
+    },
+    {
+      "actual_wait": 0,
+      "gpu_seconds": 94.09606528282166,
+      "physical_gpu": 1,
+      "pid": 296988,
+      "stage": "qam_recovery",
+      "start_ticks": "335575913"
+    }
+  ],
+  "total_gpu_device_hours": 2.0103359589974086
+}

@@ -1,0 +1,37 @@
+{
+  "draws": 5000,
+  "kd": [
+    0.1,
+    0.18
+  ],
+  "metrics": [
+    "psnr_db",
+    "dists"
+  ],
+  "primary": "Diagonal spread/spread minus no_spread/no_spread, 10 dB at kd=0.10. Both trained on uniform reliability.",
+  "reliability": "Frame-uniform rule in all four cells; the common 2-D refiner still sees its local maps.",
+  "sampling": "Original producer channel formula: raw noise first, then multipath from the same CPU generator.",
+  "secondary": [
+    "diagonal at kd=0.18",
+    "waveform effect within either set of weights",
+    "training-waveform by deployment-waveform interaction"
+  ],
+  "seeds": [
+    5001,
+    5002,
+    5003
+  ],
+  "source_bootstrap_seed": 2026112308,
+  "splits": [
+    "common500",
+    "kodak24"
+  ],
+  "test": [
+    "spread",
+    "no_spread"
+  ],
+  "train": [
+    "spread",
+    "no_spread"
+  ]
+}

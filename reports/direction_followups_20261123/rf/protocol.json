@@ -1,0 +1,32 @@
+{
+  "adc": "2 bits per real or imaginary component; identical four output levels and 0.9957 multiplier",
+  "backbone_sha256": "53fad7c13546b3e60c582da37e7f7bf5d687c3dc4722691ae5880af31cf7bec2",
+  "calibration": "val256, new draw 6112309, each frozen method once for each source. A common delta0 is 0.9957 times sqrt of the pooled per-I/Q second moment. No reconstruction/quality loss in calibration.",
+  "interval": "5000 source-paired bootstraps after averaging 3 draws, seed 2026112308, datasets separate",
+  "nominal": "10 dB, PA input backoff 1 dB, oscillator 3.5 degrees/symbol, 32 RBs, same 48x256 complex observations. No extra pilot, sample or signalling.",
+  "primary": "RF minus BlackBox under fixed threshold on common500, 10 dB; report same pair under causal and original, changes per model and gain, both PSNR and DISTS.",
+  "producer_git": "ec608c7d89d78704b4efa7d32004fafec85f6766",
+  "receiver_controls": [
+    "Original analog RMS of the entire current frame",
+    "Fixed delta0 for every symbol",
+    "Causal RMS of all strictly earlier symbols of the same frame; delta0 for the first symbol"
+  ],
+  "seeds": [
+    3001,
+    3002,
+    3003
+  ],
+  "source_sha256": "83b4863a0fa206a35d7e7604347e70f1a32e0b85f09076e932cd7622aba67a2d",
+  "test": "common500 and Kodak24 at nominal gain. Additional Kodak24 sensitivities at -6 and +6 dB analog gain applied to signal and noise before the ADC. No oracle gain correction after the ADC.",
+  "train": 0,
+  "weights": {
+    "blackbox_rf": {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-checkpoint/liulu/var_comm/dir4_rf1bit_noma_v1/blackbox_rf_2bit/best_dir4.pt",
+      "sha256": "94dcc1032322f196c0c0901a35a7b9625382a6e31631f0aef98327c60b80d348"
+    },
+    "rf_bussgang": {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-checkpoint/liulu/var_comm/dir4_rf1bit_noma_v1/rf_bussgang_2bit/best_dir4.pt",
+      "sha256": "e7ed5186e9be9276c9158fa02de08c49543447090869bfa860f1ee190f2f784c"
+    }
+  }
+}

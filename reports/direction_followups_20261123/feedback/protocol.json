@@ -1,0 +1,37 @@
+{
+  "constant": "Long-term 7 dB, nominal correlation 0.85, known delay 2. Same encoded delayed 5-bit CQI in every arm.",
+  "delay": 2,
+  "fit": "Image-free ridge regression on 4 independent, 192-block Rayleigh trajectories per grid cell; SNR 1/4/7/10/13 dB and rho 0.60/0.75/0.90/0.97, standardized features, unpenalized intercept, 0.01 mean-square penalty. Clip SNR to 1..13 and innovation to 0..1. No holdout images or evaluation channels in fitting.",
+  "history": "Predict long-term SNR and innovation fraction using three statistics of the 24 previously delivered, delayed 5-bit CQIs: mean, variance, and lag-one normalized covariance. The current report remains the original TX input. RX can reproduce the estimate from its feedback records under the original reliable feedback assumption.",
+  "history_width": 24,
+  "intervals": "PSNR and DISTS on source means after averaging three channel draws, 5000 direct paired draws. Source bootstrap and sensitivity to length-eight circular moving-block bootstrap reported separately. Conditional on stationary model and the three trajectories, not a field trial.",
+  "models": "Frozen RX-only and joint TX/RX calibrators, AWGN-pretrained Swin backbone.",
+  "modes": [
+    "known",
+    "constant",
+    "history"
+  ],
+  "primary": "At 10 dB compare JOINT minus RX-only with history-derived parameters; also report this difference with known or fixed statistics, each model's change and paired differences of differences.",
+  "producer": "7a2d1dec5cc19b958c9ccc68d4894cb8d82595b9",
+  "scenarios": {
+    "snr10_rho090": [
+      10,
+      0.9
+    ],
+    "snr4_rho085": [
+      4,
+      0.85
+    ]
+  },
+  "test": "common500 and Kodak24 separately, prior channel seeds 2001,2002,2003; same four pilot-symbol estimator and complex noise. Only gamma_avg_db and tau_unc supplied to the calibrators change. The original PHY, pilot CSI, raw CQI and RX current effective SNR remain in each event.",
+  "weights": {
+    "joint": {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-checkpoint/liulu/var_comm/dir2_swinjscc_mismatch_v2/awgn/tr_zpac/best_calibrator_v2.pt",
+      "sha256": "d6567c00e65fc9ec14bdda1bb6cfc36b4192bf2f2c7a5f76dd67eb20f2d3631f"
+    },
+    "rx": {
+      "path": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-checkpoint/liulu/var_comm/dir2_swinjscc_mismatch_v2/awgn/ms_zpac/best_calibrator_v2.pt",
+      "sha256": "c9b570fe3672f271ac513ad64ba3e9470831075c5121a21993bd9a74caaa616d"
+    }
+  }
+}
