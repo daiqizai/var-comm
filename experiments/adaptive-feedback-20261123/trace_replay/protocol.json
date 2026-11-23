@@ -1,0 +1,12 @@
+{
+  "purpose": "External validation of the six frozen feedback formats on handset-reported SNR, at a different timescale and with zero field tuning.",
+  "source": "Raca, Leahy, Sreenan & Quinlan, MMSys 2020, Beyond Throughput. https://github.com/uccmisl/5Gdataset",
+  "commit": "306d92eba81cb4f1195d8b8eba625666a02a10ec",
+  "archive": "5G-production-dataset.zip",
+  "git_blob_sha1": "0eb79f8507753a5fd512096221f5e87d098abcbd",
+  "archive_sha256": "abc729d696b5e0ba34a9c6ed35a851f2868d2b5071be5efb8a49691c23bb1a9b",
+  "selection": "All 83 regular non-hidden CSV sessions in the release. Classify Static/Driving from directory only. Use Timestamp and SNR columns. Retain the first finite value in [-30,50] dB in each run of duplicate timestamps. Missing, invalid, out-of-order, or nonconsecutive seconds interrupt a segment. Reset differential feedback at every new segment. Score all complete consecutive groups of four measured seconds following 40 startup seconds. Sessions with no qualifying segment are listed.",
+  "models": "Keep the synthetic frozen codebooks, predictor, differential step and constant baseline. Also show a simple hold of the last decoded report and an ideal-valued two-second-late hold as a timing reference. All schemes use the same valid times. No image codec is invoked and no parameters are estimated on field logs.",
+  "primary": "Report trace-equal RMSE for each scheme, with direct 5000-session-bootstrap intervals for RMSE(absolute1)-RMSE(absolute4). Show all comparisons for each method, pooled and split by mobility. Retain raw SNR as the target, even outside the simulator CQI range. Intervals describe variation across available recording sessions, which may belong to the same networks/routes.",
+  "seed": 2026112327
+}
