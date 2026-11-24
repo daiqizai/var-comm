@@ -1,0 +1,22 @@
+{
+  "study": "4B+6C / four-user replica-path intervention",
+  "version": 1,
+  "registered_before_new_outcomes": true,
+  "upstream": "faaa2799f67593f1fe7846a4b421701a19d81f4d",
+  "checkpoints": "Released SemSIC 4x2 best_indist for each original seed, frozen",
+  "seeds": [1001, 2002, 3003],
+  "splits": {"common500": 500, "kodak24": 24},
+  "conditions": {"nearfar_14db": [18, 13, 8, 4], "nearfar_18db_ood": [20, 14, 8, 2]},
+  "groups": "Original consecutive nonoverlapping quadruples. Channel and noise match the upstream seed mapping. All four users active. Slot 3 is the weakest.",
+  "arms": ["latent", "linear_fixed_gate", "rgb_reencode"],
+  "latent": "Unchanged three-round denoised latent waveform replica. Record its actual gates.",
+  "linear_fixed_gate": "Remodulate each round's linear restored latent. Replay the corresponding original per-user, per-block gate exactly, hence also preserve the residual variances. Diagnostic receiver.",
+  "rgb_reencode": "Decode each round's denoised latent to clamped continuous RGB, re-encode with the same frozen source encoder/TX adapter, and remodulate. Run the receiver's own gate rule. No source pixels, external feedback, RGB rounding, extra channel uses or training. This is a local image-domain reference.",
+  "qualification": "First dev64 quadruple, first seed, first condition. Native traced and untraced images must be identical. The paired linear arm uses all 12 native gates; compare detection across arms; receiver inputs contain no scoring truth.",
+  "outcomes": ["weak-user PSNR (primary)", "weak-user DISTS", "mean PSNR and DISTS across four users", "residual interference normalized MSE in dB for the weakest stream after each round (lower is better)"],
+  "scoring_boundary": "Known simulator gains and transmitted waveforms are consumed only by an offline scorer after each receiver has returned. Compare its predicted subtracted aggregate of the three interfering data waveforms with their noiseless received sum projected onto the shared data subspace. No thermal noise or desired user in target.",
+  "comparisons": ["latent minus linear_fixed_gate", "latent minus rgb_reencode"],
+  "statistics": "Equal mean across three paired original seed realizations per quadruple, then equally weighted quadruples. Pointwise 95% percentile paired bootstrap, 10000 draws per split with fixed seeds 2026112401 and 2026112402. Kodak contains six groups. Inference conditional on these trained checkpoints. Report across all cells.",
+  "computation": "Single shared A800, upstream admission with at least 25000 MiB free, max 82 C. No optimizer, checkpoint change, other direction, or external dissemination. Wall time cap 2h for this inference.",
+  "published_native_anchor_tolerance": {"psnr_db": 0.003, "dists": 0.00015}
+}

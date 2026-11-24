@@ -1,0 +1,14 @@
+{
+  "question": "Does the RGB re-encoding quality advantage persist if all cancellation gates and variance updates follow the original latent receiver?",
+  "status_at_registration": "The initial three-arm experiment had closed. RGB exceeded the native latent arm in weakest-user PSNR. This is a follow-up on the same observations.",
+  "parent_protocol_sha256": "0b80ba9dacb8fae63ac83ce7f12d839b9d2ae0470989ac98420df7acb7a3a547",
+  "split": "common500",
+  "seeds": [1001, 2002, 3003],
+  "snr_db": [[18, 13, 8, 4], [20, 14, 8, 2]],
+  "new_arm": "RGB re-encoding with all twelve native user/round gate tensors replayed. It also inherits the native residual variance schedule. Scoring truth remains outside the receiver.",
+  "reference": "Unchanged formal native and free-gate RGB scores from the parent. Rerun only native demixing needed to expose unstored gate tensors. Check its final physical NMSE against the archived value for every quadruple.",
+  "estimands": ["fixed-gate RGB minus latent", "own-gate RGB minus fixed-gate RGB"],
+  "outcomes": ["weakest-user PSNR", "weakest-user DISTS", "round-three interference NMSE in dB"],
+  "statistics": "Same 125 groups and original pairing. Average seeds within each quadruple. Reuse the 10000-draw common500 index bank of the parent. Pointwise 95% intervals.",
+  "budget": "One shared A800, 30 minute wall limit. One new receiver arm on 750 existing four-user observations. No new images, channel draws, model fitting, hyperparameter selection or hardware latency estimate."
+}
