@@ -1,0 +1,61 @@
+{
+  "study": "Blind overloaded uplink / interference geometry and bounded RGB cancellation",
+  "parent_main": "fa2a021a290b871a0da610dabceb009833228fae",
+  "parent_snapshot_sha256": "8311bf85a44db8fb6d1d85bc740293698bb4505747ab9c9133b529055a4a86fb",
+  "parent_evaluator_sha256": "26534b82b3a29e8d7b20e1ac105e91b94aa89118a647365c60d5758050f54725",
+  "conditions": {
+    "nearfar_14db": [
+      18,
+      13,
+      8,
+      4
+    ],
+    "nearfar_18db_ood": [
+      20,
+      14,
+      8,
+      2
+    ]
+  },
+  "seeds": [
+    1001,
+    2002,
+    3003
+  ],
+  "population": "Four simultaneously active different source images, two receive antennas. Ordered quartets as registered in val256/common500. Previous common500 results motivated follow-up; tests reuse sources. No fitting of model weights.",
+  "mechanism": "On 125 common500 groups x 3 checkpoints x 2 conditions use original observations, three alternatives for the reconstructed interfering waveform and the exact same 12 native gate tensors. For the weakest slot after each of three rounds measure raw projected interference error, error after actual weak-user W, post-W error including channel noise relative to desired signal, demixed latent versus actual transmitted source latent, frontend latent versus frontend(clean latent, same metadata), final PSNR and DISTS. TX/gain/noise only in isolated offline scorer. Original final-interference/PSNR/DISTS anchors reconciled. Raw NMSE and representation NMSE use their own denominators.",
+  "routing": "Budget three local RGB decode/re-encode pairs total for a four-user frame; zero and twelve as anchors. All arms recompute gates on their own current latent trajectory. Scores and schedules see receiver observations only; no true SNR, source pixels, labels, tx latents or gains. Frozen shared image encoder/backbone and transmit adapter. All users active. Estimate weakest by minimum active estimated channel power. Choose among other estimated active users, ties deterministic. Full arm processes all four.",
+  "schedules": {
+    "even": [
+      1,
+      1,
+      1
+    ],
+    "late": [
+      0,
+      1,
+      2
+    ],
+    "final": [
+      0,
+      0,
+      3
+    ]
+  },
+  "fixed_rules": [
+    "power",
+    "second",
+    "rotate"
+  ],
+  "adaptive_rules": [
+    "coupling",
+    "coupling_innovation"
+  ],
+  "fixed_def": "Sort three candidate users by estimated received channel power descending; power=rank 0 first, second=rank 1 first, rotate=round mod 3 first; round-robin within each round's allocation.",
+  "causal_def": "Rank interferers by their estimated leakage through the estimated weakest user's current LMMSE weights, averaged over RBs. Second variant multiplies by normalized denoiser innovation energy. For both exclude estimated weakest, then take top K; all panels use the same receiver-side activity mask.",
+  "selection": "val256 (64 disjoint groups), seed1001, both spreads, rotating power-to-slot assignment balanced modulo four, independent noise offset 1911013. Select one rule/schedule per class by unweighted mean nominal-weak PSNR across both conditions; tie by listed enumeration. Also freeze best fixed rank at exact chosen adaptive schedule. No common500 outcome for selection. Every final schedule is a single shared rule.",
+  "formal": "common500 (125 ordered groups) x 2 spreads x 3 original checkpoints: original slot/SNR & original noise; separately, cycled slots by (group+seed_index)%4 and independently drawn noise/channel at offset 91000003. Arms latent, best fixed, matched-schedule fixed, adaptive and full RGB. Score nominal weakest and all-user PSNR, weak DISTS; aggregate seeds within quartet. Original and rotated layouts separate; they share sources.",
+  "timing": "Frozen policies, batch-one 4-user waveform to four GPU-resident clamped RGB outputs, synchronized before/after, no scoring/source TX/file IO. First 32 rotated groups per condition, seed1001, 3 warm-ups/arm/condition, 2 interleaved counterbalanced repetitions, four distinct physical CPU cores, one A800, report shared environment. Exact identical configurations deduplicated with labels mapped. Compare latency means and paired ratios on same quartets.",
+  "inference": "10000 bootstrap draws resampling image quartets, same draw for paired arms, mean over checkpoints first, pointwise percentile 95%, fixed seed 271127. Primary efficacy: adaptive minus strongest validation-selected fixed for rotated weak PSNR per spread. Secondary matched-schedule fixed, zero/full anchors, all-user PSNR, DISTS and original slots. Latency compatibility: upper 95% ratio <=1.05 (one-sided engineering tolerance using upper endpoint of two-sided CI); strict +/-5% equivalence requires both endpoints inside. Disclose negatives.",
+  "limits": "Four frozen users, no training, no new directions, no hyperparameter search on common500. Each GPU role <=3600 s; no extra claims of radio deployment or source independence across repeated layouts."
+}

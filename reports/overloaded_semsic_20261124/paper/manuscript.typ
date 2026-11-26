@@ -10,11 +10,11 @@
 #let data = json("table_cells.json")
 #let rule = 0.55pt + rgb("#8a94a0")
 #let cells(rows) = rows.flatten().map(v => [#v])
-#text(size: 9pt, fill: rgb("#485663"))[Research draft · 24 November 2026]
+#text(size: 9pt, fill: rgb("#485663"))[Research draft · revised 27 November 2026]
 #v(4pt)
 #text(size: 25pt, weight: "bold")[Image Latents as Interference Replicas in Overloaded Multiuser Uplinks]
 #v(6pt)
-*Abstract.* More image transmitters than receive antennas can share the same uplink symbols. A receiver can exploit image structure when estimating the waveforms it subtracts before recovering the weakest stream. We compare linear, denoised-latent and image-domain replicas on identical simulated mixtures. At four users and two antennas, latent replicas improve weak-user PSNR over linear replicas by 2.46 and 2.06 dB at two near–far spreads. Decoding the latent to RGB and re-encoding improves PSNR further, even with the same cancellation gates. The linear replica produces the smallest interference error. Waveform error and end-to-end image quality therefore favor different receivers in this setting.
+*Abstract.* More image transmitters than receive antennas can share the same uplink symbols. A receiver can exploit image structure when estimating the waveforms it subtracts before recovering the weakest stream. We compare linear, denoised-latent and image-domain replicas on identical simulated mixtures. At four users and two antennas, latent replicas improve weak-user PSNR over linear replicas by 2.46 and 2.06 dB at two near–far spreads. Decoding the latent to RGB and re-encoding improves PSNR further, even with the same cancellation gates. The linear replica has the lowest antenna-domain interference error. After weak-user combining, the latent replica reduces interference error relative to linear by 0.19 and 0.11 dB.
 
 = 1. What should the receiver subtract?
 In an overloaded uplink, multiple combinations of user streams can explain the same received samples. With three or four simultaneous users and two receive antennas, an image prior provides information beyond a linear spatial estimate. We study where that prior enters reception. A prior can refine a user's own reconstruction. Alternatively, it can estimate what another transmitter put on the air, allowing the receiver to subtract that contribution before reconstructing the target image.
@@ -30,7 +30,7 @@ Against conventional parallel interference cancellation (PIC) with damping selec
 
 #pagebreak()
 = 2. Four users sharing two receive antennas
-Each user transmits a 256 × 256 RGB image using a frozen SwinJSCC backbone and a user-specific adapter. The four users occupy the same 12,288 complex time–frequency elements. Each of 32 blocks reserves 12 of 384 dimensions for the reference and null subspace, leaving 11,904 nonorthogonal data dimensions per user. The receiver estimates channels and activity from these in-band observations. The new experiment activates all four registered users. Each receiver performs an initial LMMSE solve plus three parallel cancellation and re-separation rounds.
+The four users share a frozen SwinJSCC backbone and transmit adapter. Each sends a 256 × 256 RGB image with its own Walsh signature. The four users occupy the same 12,288 complex time–frequency elements. Each of 32 blocks reserves 12 of 384 dimensions for the reference and null subspace, leaving 11,904 nonorthogonal data dimensions per user. The receiver estimates channels and activity from these in-band observations. The new experiment activates all four registered users. Each receiver performs an initial LMMSE solve plus three parallel cancellation and re-separation rounds.
 
 We reuse the three released checkpoints and their original channel draws. The 500 images form 125 disjoint groups of four. Slot four carries the weakest user. Nominal per-user SNRs are (18, 13, 8, 4) and (20, 14, 8, 2) dB, giving 14 and 18 dB power spreads. Within each group and draw, all receivers see the exact same complex samples. We average the three paired draws within each group, then resample groups 10,000 times for pointwise 95% intervals.
 
@@ -66,9 +66,9 @@ The fixed-gate RGB replica retains 0.704 and 0.398 dB of weak-user PSNR improvem
 On the 24 Kodak images, the original three arms use six disjoint groups. The latent replica gains 2.626 dB [1.872, 3.442] and 2.642 dB [1.802, 3.519] over linear in weak-user PSNR. Free-gate RGB gains another 0.669 dB [0.345, 1.005] and 0.362 dB [0.032, 0.714] over latent. The small number of Kodak groups limits the precision of these estimates.
 
 == Interpretation and relation to earlier work
-Learned iterative multiuser detection has precedents in DeepSIC [1]. Xie et al. studied multiuser image transmission with CSI-conditioned coding and cooperative successive cancellation [2]. SwinJSCC supplies the image representation used here [3]. Our local RGB receiver brings image decode–re-encode into the same four-user parallel front end. A separately trained implementation of [2] would answer a different system-level comparison.
+Learned iterative multiuser detection has precedents in DeepSIC [1]. Xie et al. decode and re-encode the strong user's image for cooperative cancellation in a two-user CSI-conditioned uplink [2, Eq. (2)]. SwinJSCC supplies the image representation used here [3]. Our local RGB receiver brings image decode–re-encode into the same four-user parallel front end. A separately trained implementation of [2] would answer a different system-level comparison.
 
-The three-user interventions identify the value of subtracting source-informed replicas before recovering the weak image. At four users, changing the replica also changes reconstructed image quality when the gates are fixed. The best PSNR in our comparison involves repeated RGB reconstruction. Direct latent remodulation saves twelve local decode–encode pairs per reception. The receiver rankings for PSNR, perceptual distance and waveform error expose a design choice. The measurements cover registered users, simulated fading, and the specified frozen checkpoints. Hardware latency and over-the-air operation remain open questions.
+The three-user interventions identify the value of subtracting source-informed replicas before recovering the weak image. At four users, changing the replica also changes reconstructed image quality when the gates are fixed. The best PSNR in our comparison involves repeated RGB reconstruction. Direct latent remodulation saves twelve local decode–encode pairs per reception. The receiver rankings for PSNR, perceptual distance and waveform error expose a design choice. The measurements cover registered users, simulated fading, and the specified frozen checkpoints. The #link("https://github.com/daiqizai/var-comm/tree/main/reports/replica_routing_20261127")[companion study] reports single-frame A800 receiver latency. Over-the-air operation remains open.
 
 #v(2pt)
 #text(size:9pt)[
