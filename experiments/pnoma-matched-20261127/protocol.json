@@ -1,0 +1,58 @@
+{
+  "study": "DeepJSCC-PNOMA independent 4x2 matched-channel adaptation, first trained comparison",
+  "parent": "3a597ac15e7477195a7674c0c4924e9ce548b8bf",
+  "pnoma_commit": "f2b7777130cf7242ecbb773c168b6080a89e630e",
+  "compressai_commit": "79e51871e972c517bc528b689ccf15137fcc7785",
+  "snapshot_sha256": "cb9508cf5f0f09f4239ac47476ff71f01677cda7dc6b0fad502679ddf83ca97a",
+  "adaptation": "Author Q2 shared encoder/decoder at original N=256, native AF and complex QR progressive doubling with separately learned transmit/receive projections. An invertible 4x4 pixel packing retains all 256x256 RGB pixels and gives 16x16 latent sites. Q2 C=48 and M=24 real channels per user (bw_factor=4); four user projections expand 12 complex channels to 48. One/two/four users, no external trained Q2 checkpoint identified. Power normalization per user; open-loop TX uses the same public 7-dB tag for every image; RX uses only the received burst. Two-antenna noise-regularized maximum-ratio combining followed by learned inverse projection and the Q2 decoder. Four-user formal footprint 32x384 shared complex RE, same 12 charged pilot/null dimensions per block and same channel/scale energy fractions as paired native checkpoint. No true H, activity, SNR assignment, or clean transmitted feature at inference.",
+  "training": {
+    "seed": 271126,
+    "updates_per_stage": [
+      1000,
+      600,
+      1800
+    ],
+    "samples_per_update": 8,
+    "training_split": "all original train20k; fresh fixed-seed groupings and balanced symmetric 10 dB or 14-dB spread with randomized user assignment; never train at the 18-dB test spread",
+    "crop": "128x128 training crops, with every fourth step of four-user stage full 256x256. Validation and common500 full 256x256.",
+    "one_two_stages": "Expand at last update of each stage. Equal-reference overhead per 384 dimensions; useful channel dimensions double at each stage, as in the PNOMA curriculum. New optimizer per stage.",
+    "objective": "Mean image MSE. Adam lr 0.0001, last third of four-user stage 0.00005, global clip 5. Training uses autocast bfloat16 for convolution only, FP32 parameter updates and complex PHY. Test and timing full FP32/TF32 off.",
+    "checkpoint_selection": "Each 300 updates in stage four incl final; highest average of mean all-user PSNR at symmetric 10 dB and weakest-user PSNR at 14 dB, fixed 64 validation quartets. Ties -> earliest. No test-set model selection.",
+    "gpu_hours_training_guard": 3,
+    "primary_seed_count": 1
+  },
+  "evaluation": {
+    "datasets": "val256 and common500 by original native source order and pixel SHA",
+    "users": 4,
+    "receivers": 2,
+    "formal_layout": "rotated",
+    "conditions": {
+      "nearfar_14db": [
+        18,
+        13,
+        8,
+        4
+      ],
+      "nearfar_18db_ood": [
+        20,
+        14,
+        8,
+        2
+      ]
+    },
+    "channel_seeds": [
+      1001,
+      2002,
+      3003
+    ],
+    "formal": "125 disjoint groups x two spreads x three frozen channel/noise draws. Compare first-trained external receiver with the frozen local three-RGB receiver, additionally report latent-only and twelve-RGB. Reuse exact per-group local results. Different TX codewords share the *channel and noise*, not the received signal. Local 3 existing model seeds vary with draw; PNOMA uses one fixed weight set. 18 dB held out from this baseline's train and validation.",
+    "metrics": [
+      "weak PSNR",
+      "weak DISTS",
+      "four-user mean PSNR"
+    ],
+    "inference": "average the three draws within quartet, 10000 paired quartet resamples, percentile pointwise 95%, seed 271127",
+    "timing": "Same-device A800, same independent 4-core affinity, interleave the two methods on first 32 groups per spread seed1001, 3 warmups each, 2 timed passes; batch-one GPU RX waveform to four clamped RGB outputs, including reference estimation. Exclude TX, scoring and host IO."
+  },
+  "scope": "This is an independently trained finite-budget two-antenna deployment adaptation. Native PNOMA uses scalar receiver and CSI at TX/RX; historical native published checkpoint numbers are not a paired baseline. Qualify physical budgets, progressive maps, receiver interface and gradients before training. Preserve all loss/metric directions including unfavorable results."
+}

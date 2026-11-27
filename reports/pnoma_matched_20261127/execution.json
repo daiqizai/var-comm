@@ -1,0 +1,179 @@
+{
+  "parent": "3a597ac15e7477195a7674c0c4924e9ce548b8bf",
+  "roles": {
+    "train": {
+      "registration": {
+        "role": "train",
+        "started": 1795746538.2683187,
+        "gpu": 3,
+        "seconds_limit": 10800,
+        "argv": [
+          "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_visual_py310/bin/python",
+          "-B",
+          "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/analysis/var_comm_pnoma_matched_20261127/train.py"
+        ],
+        "source": {
+          "train.py": "3f96342f66c33fe73a7f781791583b2f7da5ee797dabd76eecaf25c0ec89e1fc",
+          "common.py": "17bd2bd9cbc03ee263e918314c9e244b4a258e4bd701713d64438ccf61c7933f",
+          "adapter.py": "98b225d33486dcbe73077a4639dceadd6aedaea02886c3ac9c09df47a1044140",
+          "protocol.json": "1131cc04c2301f48b3e707efe910bf96d7d3f1a79ae0526900a2bd0b3e8afc81"
+        }
+      },
+      "process": {
+        "owner": 2341334,
+        "child": 2341335,
+        "start_ticks": "369792247"
+      },
+      "wait": {
+        "actual_wait": 0,
+        "ended": 1795746852.7543666,
+        "elapsed_s": 314.4860484600067
+      },
+      "done": {
+        "actual_updates": 3400,
+        "final_indices": [
+          1000,
+          600,
+          1800
+        ],
+        "peak_reserved_mib": 4750.0,
+        "seconds": 310.77397060394287,
+        "source_visits": 27200
+      }
+    },
+    "evaluate": {
+      "registration": {
+        "role": "evaluate",
+        "started": 1795746952.6251667,
+        "gpu": 3,
+        "seconds_limit": 3600,
+        "argv": [
+          "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/var_comm_runtime_20261010/envs/frozen_visual_py310/bin/python",
+          "-B",
+          "/mnt/pfs/pfs-yc2F4O/modelTeam/code/liulu/analysis/var_comm_pnoma_matched_20261127/evaluate.py"
+        ],
+        "source": {
+          "evaluate.py": "2e8e185690f111ff34f11c96cf184d4a6eaa0ac0fa1e61089411aa4e0590b0e8",
+          "common.py": "17bd2bd9cbc03ee263e918314c9e244b4a258e4bd701713d64438ccf61c7933f",
+          "adapter.py": "98b225d33486dcbe73077a4639dceadd6aedaea02886c3ac9c09df47a1044140",
+          "protocol.json": "1131cc04c2301f48b3e707efe910bf96d7d3f1a79ae0526900a2bd0b3e8afc81"
+        }
+      },
+      "process": {
+        "owner": 2341754,
+        "child": 2341755,
+        "start_ticks": "369833682"
+      },
+      "wait": {
+        "actual_wait": 0,
+        "ended": 1795747014.7276325,
+        "elapsed_s": 62.102466344833374
+      },
+      "done": {
+        "external_frames": 750,
+        "external_images": 3000,
+        "peak_reserved_mib": 3584.0,
+        "quality_rows": 3000,
+        "registered_weight": "98c6eaeb6eee127c24a745780783a2b4697cd213f7d9e47fd44b81e30787d57b",
+        "reused_local_rows": 2250,
+        "seconds": 58.29221320152283,
+        "timed_rx_calls": 256,
+        "unique_quartets": 125,
+        "warmup_rx_calls": 12
+      }
+    },
+    "solo": {
+      "registration": {
+        "started": 1795747083.0693543,
+        "gpu": 3,
+        "seconds_limit": 3600,
+        "source": {
+          "solo.py": "62893bdd785504efc3e5453ca175da32a83bdf13bbc11aca42a86c98beee3ea4",
+          "run_solo.py": "55a9310f467c0198b1a8545824055e2e97ce62a5ef288afda1dac0d70d977c9b",
+          "solo_protocol.json": "f96776c7489602baf991d53b230eb9ef457adab624286e7aa19f0012be63918c",
+          "protocol.json": "1131cc04c2301f48b3e707efe910bf96d7d3f1a79ae0526900a2bd0b3e8afc81",
+          "adapter.py": "98b225d33486dcbe73077a4639dceadd6aedaea02886c3ac9c09df47a1044140",
+          "common.py": "17bd2bd9cbc03ee263e918314c9e244b4a258e4bd701713d64438ccf61c7933f",
+          "analyze.py": "23df9d0fd50b8ada235b99889b52b40c8b302b6d649910db2f95ec8c8920d17c"
+        }
+      },
+      "process": {
+        "owner": 2341945,
+        "child": 2341947,
+        "start_ticks": "369846726"
+      },
+      "wait": {
+        "actual_wait": 0,
+        "ended": 1795747119.4818265,
+        "elapsed_s": 36.41247248649597
+      },
+      "done": {
+        "new_frames": 500,
+        "peak_reserved_mib": 2888.0,
+        "reused_all_active": 500,
+        "solo_protocol_sha256": "f96776c7489602baf991d53b230eb9ef457adab624286e7aa19f0012be63918c",
+        "wall_s": 33.991402408108115,
+        "weights_sha256": "98c6eaeb6eee127c24a745780783a2b4697cd213f7d9e47fd44b81e30787d57b"
+      }
+    }
+  },
+  "gpu_device_hours": 0.11472249646981557,
+  "resource_definition": "One assigned A800 times each GPU worker wall time, including startup and I/O. No claim of exclusive node time.",
+  "counts": {
+    "train_sources": 20000,
+    "validation_sources": 256,
+    "test_sources": 500,
+    "unique_train_pixels": 19999,
+    "unique_validation_pixels": 256,
+    "registered_logical_external_frames": 750,
+    "new_primary_external_source_reconstructions": 3000,
+    "local_collision_score_rows_reused": 2250,
+    "primary_timed_receiver_calls": 256,
+    "timing_warmups": 12,
+    "supplemental_single_active_frames": 500,
+    "supplemental_all_active_rows_reused": 500
+  },
+  "training_source_manifest_sha256": "f5ddc50895a6ce1d9dce395fc75fe477f8515ea0d3209cc1ba9d1723b4bd5c13",
+  "test_source_manifest_sha256": "83aedb3a5acdababd6a47d83b142ab92c39ae26967924bd9665ed50f364bdf20",
+  "vendor_manifest_sha256": "7989505c2dc9ed6403fff8cbbd081115153a814409700543f481b667bcdd4a39",
+  "training_data_shared_with_test": 0,
+  "val_data_shared_with_test": 0,
+  "weight_location": "/mnt/pfs/pfs-yc2F4O/modelTeam/liberai-checkpoint/liulu/var_comm/pnoma_matched_20261127_v1",
+  "weights": {
+    "frozen_four.pt": {
+      "bytes": 93069259,
+      "sha256": "98c6eaeb6eee127c24a745780783a2b4697cd213f7d9e47fd44b81e30787d57b"
+    },
+    "last_1.pt": {
+      "bytes": 93027627,
+      "sha256": "066ddf839c0c9005a59afd08b7ea084c0aeed8aa43995c19d4795420155f8090"
+    },
+    "last_2.pt": {
+      "bytes": 93034539,
+      "sha256": "f9a6de36b6505e0297b5f7822d841901db30ed2f385703a10cf0decdeef677d5"
+    },
+    "last_4.pt": {
+      "bytes": 93062187,
+      "sha256": "5e47ab0fad18c4b7d3c716f0b63bac7f05e1d0f461f5a74653d5735e9f49d434"
+    }
+  },
+  "diagnostic_protocol_mtime": 1795746813.0017316,
+  "formal_registration_unix": 1795746952.6251667,
+  "stats": {
+    "quality_rows": 3000,
+    "per_user_rows": 750,
+    "timing_rows": 256,
+    "weak_slot_match_all": true,
+    "distinct_groups": 125,
+    "source_id_count": 500,
+    "pixel_duplicates": 0,
+    "all_source_images_returned": true,
+    "train_test_overlap": 0,
+    "val_test_overlap": 0,
+    "selected_with_validation_only": 1800,
+    "bootstrap_draws": 10000,
+    "bootstrap_unit": "disjoint quartet",
+    "training_seeds_external": 1,
+    "rx_timing_anchors": 12
+  }
+}

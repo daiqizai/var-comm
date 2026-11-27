@@ -1,0 +1,18 @@
+{
+  "role": "paired weak-only counterfactual diagnostic",
+  "primary": "protocol.json remains frozen",
+  "rationale": "The independent external codec uses a different source representation. Split the observed end-to-end weak-image gap into the weak-only gap and the difference in degradation when the three other signals are added. This is an output-level identity, not an attribution to one neural block.",
+  "timing": "Written while training was in progress, after first validation measurements and before any new common500 evaluation; no model or ranking selected by these contrasts.",
+  "population": "All 125 disjoint common500 quartets, original rotated layout seed/checkpoint 1001 only, both registered power spreads. Use the same weak-slot assignment, its transmitted samples, fade, reference overhead, and absolute noise. The physical active mask mutes only the other three transmitters. Both frozen receivers see waveform only. No retraining, tuning or re-selection.",
+  "metrics": [
+    "weak PSNR",
+    "weak DISTS"
+  ],
+  "arms": [
+    "pnoma_q2",
+    "semsic_three"
+  ],
+  "endpoints": "report weak-only mean, simultaneous minus weak-only within each method, and the paired interaction. For quality gaps use SemSIC minus PNOMA. Sequential data-dependent receiver behavior including CFAR is part of this system effect. Reuse existing all-active scores for these 250 observations.",
+  "bootstrap": "10000 common quartet draws seed 271128, pointwise 95% percentile; estimates conditional on the one paired draw and trained weights.",
+  "maximum_new": "250 single-active frames for each system, 500 frames scored."
+}
