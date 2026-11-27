@@ -1,0 +1,11 @@
+{
+  "date": "2026-11-28",
+  "stage": "Follow-up after reviewing the six registered first-round results. This is a secondary comparison on the same common500.",
+  "parent_protocol": "958f2e93b0f8ecc5211065b3c77a8d40ef20d27c16d3ef845c423715a55c3e03",
+  "question": "Can the receiver infer a variable source scale from the normalized data instead of supplying a population constant? Does an explicit image-scale observation still help?",
+  "training": "Same fixed 256 validation sources and validation seed 281099 at both 4 and 10 dB. One closed-form ridge per arm with mean-squared validation objective, regularization .1 (features standardized), no search. Frozen transmission and neural receivers.",
+  "features": "96 per-channel received normalized latent means and 96 RMS, mean and standard deviation of estimated channel magnitude, estimated receiver SNR, and one scalar column. Last column is always zero for fixed-phase arm; for varying-phase arm it is the native phase-derived scale. No original image or true power available to test estimator.",
+  "evaluation": "Retain common500, seeds 281101/281102, matching complete frontend source pixels, fading, noise and frozen model. Reuse native and constant controls from first round. Compare native vs inferred-only, signaled+inferred vs inferred-only, and each against its own control, 5000 direct image bootstrap as first round. Fixed clipping [.4,7]. All source, quality and power checks retained.",
+  "budget": "One A800, 4 physical CPU cores, at most 1800 elapsed GPU seconds. Record actual exit. No neural weight updates."
+}
+

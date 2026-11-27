@@ -1,0 +1,62 @@
+{
+  "study": "In-band image communications, first mechanism round, 2026-11-28",
+  "parent": "5a38bdf76b8d3771fb944c99b633c66f2f37d196",
+  "snapshot": "cb9508cf5f0f09f4239ac47476ff71f01677cda7dc6b0fad502679ddf83ca97a",
+  "prior_pnoma_freeze": "b859b4789976697242e67e8af9a8ab82f7dd02315fed2597de549b70b27dd466",
+  "swin": "53fad7c13546b3e60c582da37e7f7bf5d687c3dc4722691ae5880af31cf7bec2",
+  "continuous": "f893e465db78b1b603b24abb5df5d3223ca0773f4b74a2c98466a1e4e586d1fe",
+  "seeds": [
+    281101,
+    281102
+  ],
+  "bootstrap": {
+    "draws": 5000,
+    "seed": 281128,
+    "unit": "image or disjoint quartet, average draws first, pointwise percentile 95% CI"
+  },
+  "splits": "Original RGB 256x256 source IDs and pixel SHA from val256 for calibration and common500 for a fixed evaluation on the previously used benchmark; verify disjointness. Use first 64 val images where explicitly stated. No test-dependent choice.",
+  "budget": "First round frozen neural weights, at most four simultaneous shared-device roles, 90 minutes per GPU worker. Shared A800 admission rechecked, 4 physical CPU cores per worker. Source predictors never receive a realized channel, activity mask, true source amplitude or hidden noise. Stage failures preserved.",
+  "siso": {
+    "frame": 12288,
+    "blocks": 32,
+    "dims": 384,
+    "rho": 0.85,
+    "snr_db": [
+      4,
+      10
+    ],
+    "noise": "complex variance 10^(-SNR/10); unit mean per-frame energy for all continuous arms, common proper complex innovations and receiver-coordinate noise",
+    "receiver": "same frozen Swin and continuous native reference demodulator for all layouts; also common affine amplitude calibration rule fitted separately by layout on val256; adaptation only, not ShiftRx reproduction",
+    "routes": {
+      "layout": "native orthogonal spread; isometric 3 dedicated coordinates in the SAME frame obtained by three Householder transforms; nonorthogonal superposition with the same null and source-scale signature, same integrated energy, superposition holds on both active reference directions. Report mean PAPR, channel NMSE, source amplitude MAE, PSNR, DISTS. Compare native minus dedicated, native minus superposed for the validation-calibrated arms. Qualify conjugate-noise equivalence separately.",
+      "scale": "native phase, constant phase with constant prior mean decoder at the same reference power, native phase with posterior-mean grid estimator using only reference projections and quiet noise. Global mean and variance estimated from val256. Evaluate native minus constant and posterior minus native.",
+      "energy": "Keep total active reference power fixed. Scale-signal shares native or 0.20 or 0.40. Rest goes to channel reference. One shared choice by highest mean simulated validation PSNR pooled equally over 4/10 dB and first 64 validation images, stable grid order breaks ties. Report all three on common500 and selected-minus-native.",
+      "drift": "Known public coordinate order; per-frame signed linear phase sweep across each 384-vector with random equiprobable sign and peak-to-peak 0 or 1.2 radians. Same underlying physical channel/noise for each receiver. On continuous and 64-QAM compare uncorrected, reference-energy-only search and reference-minus-null score, grid -1.5 through +1.5 by 0.15. Fit a separate 95th percentile improvement threshold on stationary val256 at both SNRs per modem and score. In test use only received waveform. Unit QAM average power calibrated once on val256, unchanged public gain at RX. This is a phase-variation stress test, not an RF CFO/ICI experiment."
+    }
+  },
+  "multi": {
+    "seeds": [
+      1001,
+      2002
+    ],
+    "conditions": {
+      "spread14": [
+        18,
+        13,
+        8,
+        4
+      ],
+      "spread18": [
+        20,
+        14,
+        8,
+        2
+      ]
+    },
+    "routes": {
+      "activity": "Four registered signatures and two receive antennas. Score all sixteen masks including empty, all 125 disjoint common500 quartets, both draws. Scenarios: spread14 and edge [-6,-9,-12,-15] dB, rotating user indices. Common waveforms and noise per group seed/scenario/mask. Test stock 2.8 forcing strongest, 2.8 allowing empty, and F(128,256) null/probe ratio threshold at family-wise alpha=.01 Bonferroni allowing empty. Primary empty-frame false alarm and nonempty missed-active, false-active, exact subset, by load/power. Calibrate analytic threshold only from number of variables. Include independent 20,000 pure-noise trials for false-alarm precision.",
+      "separation": "Frozen PNOMA 4-user weights on the native two-antenna in-band reference. Cross unchanged learned spaces, dense mutually orthogonal spaces and deliberately coincident spaces (preconfigured right unitary per user, inverted before the same frozen decoder) with spatial matched filter, full-interference LMMSE and transmitter-subspace-overlap-weighted LMMSE. Use RX estimated complex channels/noise, identical original confidence input. Freeze one design on val256 by highest average weak PSNR at spread14; tie order native/orthogonal/coincident then matched/full/overlap. Report all nine on both spreads, all 125 groups, 2 draws, weak PSNR/DISTS, mean PSNR. Solo-weak controls for all geometries on first draw of both spreads. Verify native/matched qualification against public adaptation and single-active spatial-filter equivalence. Projection swap within one codec, not exchange of different image backbones."
+    }
+  },
+  "primary": "Predeclared pointwise paired comparisons. No journal-priority or broad best-method claim from this parameter-free first round. Record combinations and independent estimates with no source-paired bootstrap misuse; release all unfavorable results."
+}
